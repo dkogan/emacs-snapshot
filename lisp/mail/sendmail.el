@@ -55,7 +55,7 @@
   :type 'file)
 
 ;;;###autoload
-(defcustom mail-from-style 'default
+(defcustom mail-from-style 'system-default
   "Specifies how \"From:\" fields look.
 
 If `nil', they contain just the return address like:
