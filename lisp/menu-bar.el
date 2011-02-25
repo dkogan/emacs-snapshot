@@ -1575,6 +1575,28 @@ key, a click, or a menu-item"))
   (info "elisp")
   (Info-index topic))
 
+(defun debian-emacs-changelog ()
+  "Display the Debian changelog file for this package."
+  (interactive)
+  (view-file "/usr/share/doc/emacs-snapshot-common/changelog.Debian.gz")
+  (goto-address))
+
+(defun debian-emacs-news ()
+  "Display the Debian NEWS file for this package."
+  (interactive)
+  (view-file "/usr/share/doc/emacs-snapshot-common/NEWS.Debian.gz")
+  (goto-address))
+
+(defun debian-emacs-readme ()
+  "Display the Debian README file for this package."
+  (interactive)
+  ;; Force opening of this file in outline mode, even if the other mode
+  ;; is present.
+  (let ((auto-mode-alist (cons '("debian/README.Debian$" . outline-mode)
+			       auto-mode-alist)))
+    (view-file "/usr/share/doc/emacs-snapshot-common/README.Debian")
+    (goto-address)))
+
 (defvar menu-bar-search-documentation-menu
   (let ((menu (make-sparse-keymap "Search Documentation")))
 
@@ -1679,6 +1701,17 @@ key, a click, or a menu-item"))
       `(menu-item "Describe" ,menu-bar-describe-menu))
     (bindings--define-key menu [search-documentation]
       `(menu-item "Search Documentation" ,menu-bar-search-documentation-menu))
+    (bindings--define-key menu [sep2]
+      menu-bar-separator)
+    (bindings--define-key menu [debian-emacs-changelog]
+      `(menu-item ,(purecopy "Debian ChangeLog") debian-emacs-changelog
+                  :help ,(purecopy "Display the Debian changelog")))
+    (bindings--define-key menu [debian-emacs-news]
+      `(menu-item ,(purecopy "Debian News") debian-emacs-news
+                  :help ,(purecopy "Display the NEWS.Debian file")))
+    (bindings--define-key menu [debian-emacs-readme]
+      `(menu-item ,(purecopy "Debian README") debian-emacs-readme
+                  :help ,(purecopy "Display the README.Debian file")))
     (bindings--define-key menu [sep1]
       menu-bar-separator)
     (bindings--define-key menu [emacs-psychotherapist]
