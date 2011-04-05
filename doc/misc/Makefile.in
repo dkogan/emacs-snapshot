@@ -61,18 +61,14 @@ INSTALL_DATA = @INSTALL_DATA@
 MAKEINFO = @MAKEINFO@
 MAKEINFO_OPTS = --force -I$(emacsdir)
 
+# Debian: moved DFSG incompatible files to emacs*-common-non-dfsg
+# package (see /usr/share/doc/emacs*-common/copyright).
+
 ## On MS Windows, efaq-w32; otherwise blank.
 DOCMISC_W32 = @DOCMISC_W32@
 
 ## Info files to build and install on all platforms.
-INFO_COMMON = ada-mode auth autotype bovine calc ccmode cl \
-	dbus dired-x ebrowse ede ediff edt eieio \
-	emacs-mime epa erc ert eshell eudc efaq eww \
-	flymake forms gnus emacs-gnutls htmlfontify idlwave ido info.info \
-	mairix-el message mh-e newsticker nxml-mode octave-mode \
-	org pcl-cvs pgg rcirc remember reftex sasl \
-	sc semantic ses sieve smtpmail speedbar srecode todo-mode tramp \
-	url vhdl-mode vip viper widget wisent woman
+INFO_COMMON = efaq
 
 ## Info files to install on current platform.
 INFO_INSTALL = $(INFO_COMMON) $(DOCMISC_W32)

@@ -292,6 +292,14 @@ If that doesn't give a function, return nil."
   (goto-address-mode 1)
   (goto-char (point-min)))
 
+(defun debian-expand-file-name-dfsg (filename)
+  "Apply expand-file-name to FILENAME.
+If expand-file-name does not find a file, append `.dfsg' and try again."
+  (let ((file (expand-file-name filename data-directory)))
+    (if (file-exists-p file)
+        file
+      (expand-file-name (concat file ".dfsg") data-directory))))
+
 (defun describe-distribution ()
   "Display info on how to obtain the latest version of GNU Emacs."
   (interactive)

@@ -5341,11 +5341,11 @@ dnl This will work, but you get a config.status that is not quite right
 dnl (see http://lists.gnu.org/archive/html/bug-autoconf/2008-08/msg00028.html).
 dnl That doesn't have any obvious consequences for Emacs, but on the whole
 dnl it seems better to just live with the duplication.
-SUBDIR_MAKEFILES="lib/Makefile lib-src/Makefile oldXMenu/Makefile doc/emacs/Makefile doc/misc/Makefile doc/lispintro/Makefile doc/lispref/Makefile src/Makefile lwlib/Makefile lisp/Makefile leim/Makefile nextstep/Makefile nt/Makefile"
+SUBDIR_MAKEFILES="lib/Makefile lib-src/Makefile oldXMenu/Makefile doc/misc/Makefile src/Makefile lwlib/Makefile lisp/Makefile leim/Makefile nextstep/Makefile nt/Makefile"
 
 AC_CONFIG_FILES([Makefile lib/Makefile lib-src/Makefile oldXMenu/Makefile \
-       doc/emacs/Makefile doc/misc/Makefile doc/lispintro/Makefile \
-       doc/lispref/Makefile src/Makefile lwlib/Makefile lisp/Makefile \
+       doc/misc/Makefile \
+       src/Makefile lwlib/Makefile lisp/Makefile \
        leim/Makefile nextstep/Makefile nt/Makefile])
 
 dnl test/ is not present in release tarfiles.
@@ -5395,15 +5395,6 @@ AC_CONFIG_COMMANDS([src/.gdbinit], [
 if test ! -f src/.gdbinit && test -f "$srcdir/src/.gdbinit"; then
   AS_ECHO(["source $ac_abs_top_srcdir/src/.gdbinit"]) > src/.gdbinit
 fi
-])
-
-dnl Perhaps this would be better named doc-emacs-emacsver.texi?
-dnl See comments for etc-refcards-emacsver.tex.
-dnl Since we get a doc/emacs directory generated anyway, for the Makefile,
-dnl it is not quite the same.  But we are generating in $srcdir.
-AC_CONFIG_COMMANDS([doc/emacs/emacsver.texi], [
-${MAKE-make} -s --no-print-directory -C doc/emacs doc-emacsver || \
-AC_MSG_ERROR(['doc/emacs/emacsver.texi' could not be made.])
 ])
 
 dnl If we give this the more natural name, etc/refcards/emacsver.texi,

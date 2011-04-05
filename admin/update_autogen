@@ -269,8 +269,7 @@ info_dir ()
 $topic
 EOF
         ## Bit faster than doc/*/*.texi.
-        for file in doc/emacs/emacs.texi doc/lispintro/*.texi \
-            doc/lispref/elisp.texi doc/misc/*.texi; do
+        for file in doc/misc/*.texi; do
 
             ## FIXME do not ignore w32 if OS is w32.
             case $file in
