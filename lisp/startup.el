@@ -427,6 +427,10 @@ Warning Warning!!!  Pure space overflow    !!!Warning Warning
   :type 'directory
   :initialize #'custom-initialize-delay)
 
+(defconst debian-emacs-flavor 'emacs-snapshot
+  "A symbol representing the particular debian flavor of emacs running.
+Something like 'emacs20, 'xemacs20, etc.")
+
 (defun normal-top-level-add-subdirs-to-load-path ()
   "Add all subdirectories of `default-directory' to `load-path'.
 More precisely, this uses only the subdirectories whose names
@@ -1109,8 +1113,21 @@ please check its value")
     ;; be loaded from site-run-file and wants to test if -q was given
     ;; should check init-file-user instead, since that is already set.
     ;; See cus-edit.el for an example.
-    (if site-run-file
-	(load site-run-file t t))
+
+    ;; Original upstream startup
+    ;; (if site-run-file
+    ;;     (load site-run-file t t))
+    ;;
+
+    ;; Debian startup
+     (if site-run-file
+        (progn
+          ;; Load all the debian package snippets.
+          ;; It's in here because we want -q to kill it too.
+          (if (load "debian-startup" t t nil)
+              (debian-startup debian-emacs-flavor))
+          ;; Now the normal site file...
+          (load site-run-file t t)))
 
     ;; Sites should not disable this.  Only individuals should disable
     ;; the startup screen.
