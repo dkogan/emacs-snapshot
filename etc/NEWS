@@ -22,6 +22,11 @@ Temporary note:
 When you add a new item, use the appropriate mark if you are sure it applies,
 otherwise leave it unmarked.
 
+ 
+* Debian specific changes to Emacs
+
+Please see /usr/share/doc/emacs-snapshot-common/README.Debian.gz.
+
 
 * Installation Changes in Emacs 25.1
 
