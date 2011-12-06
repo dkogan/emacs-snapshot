@@ -45,15 +45,7 @@
     (:java . "-Dfile.encoding=UTF-8"))
   "Default arguments for evaluating a ditaa source block.")
 
-(defcustom org-ditaa-jar-path (expand-file-name
-			       "ditaa.jar"
-			       (file-name-as-directory
-				(expand-file-name
-				 "scripts"
-				 (file-name-as-directory
-				  (expand-file-name
-				   "../contrib"
-				   (file-name-directory (org-find-library-dir "org")))))))
+(defcustom org-ditaa-jar-path "/usr/share/ditaa/ditaa.jar"
   "Path to the ditaa jar executable."
   :group 'org-babel
   :type 'string)
