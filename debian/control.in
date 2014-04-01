@@ -1,7 +1,7 @@
 Source: @SRC_NAME@
 Section: editors
 Priority: optional
-Maintainer: Julien Danjou <acid@debian.org>
+Maintainer: Dima Kogan <dima@secretsauce.net>
 Build-Depends: libncurses5-dev,
                texinfo,
                liblockfile-dev,
@@ -30,9 +30,7 @@ Build-Depends: libncurses5-dev,
                autoconf (>= 2.65), automake (>= 1.11)
 Standards-Version: 3.9.3
 Homepage: http://www.gnu.org/software/emacs/
-Vcs-Browser: http://git.debian.org/?p=users/acid/emacs-snapshot.git
-Vcs-Git: git://git.debian.org/git/users/acid/emacs-snapshot.git
-Bugs: mailto:acid@debian.org
+Bugs: dima@secretsauce.net
 
 Package: @BIN_NAME@-common
 Architecture: all
