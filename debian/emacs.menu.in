@@ -1,0 +1,7 @@
+?package(@PKG_NAME@):\
+  needs="X11"\
+  section="Applications/Editors"\
+  title="@MENU_TITLE@ (@SUB_FLAVOR@)"\
+  command="/usr/bin/@BIN_NAME@-@X_SUPPORT@"\
+  icon="/usr/share/emacs/@FULL_VERSION@/etc/emacs.xpm"\
+  hints="Text"

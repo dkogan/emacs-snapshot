@@ -1,0 +1,32 @@
+#!/bin/sh
+
+exec >&3
+
+echo "-- Emacs odds and ends:"
+TMP=`mktemp`
+cat >$TMP <<EOF
+(message "Version is: %s" (emacs-version))
+(message "System load-path: %s" load-path)
+EOF
+@BIN_NAME@ -batch -l $TMP 2>&1
+rm -f $TMP
+echo
+
+echo "-- /usr/share/@BIN_NAME@/:"
+ls --format=long --almost-all --recursive /usr/share/@BIN_NAME@
+echo
+
+echo "-- /usr/share/emacs/site-lisp/:"
+ls --format=long --almost-all --recursive /usr/share/emacs/site-lisp
+echo
+
+echo "-- /var/lib/emacs-snapshot/:"
+ls --format=long --almost-all --recursive /var/lib/emacs-snapshot
+echo
+
+# If grep-dctrl is installed, get more info
+if test -x /usr/bin/grep-status; then
+    echo "-- Packages related to Emacs:"
+    grep-status -FDepends emacs -sPackage,Version,Status
+    echo
+fi

@@ -1,0 +1,22 @@
+#!/bin/sh
+
+set -e
+
+BIN_NAME=@BIN_NAME@
+MAJOR=@MAJOR_VERSION@
+MINOR=@MINOR_VERSION@
+FULL=@FULL_VERSION@
+ALTERNATIVES="@ALTERNATIVES@"
+
+# update-alternatives on things that collide with xemacs, other editors
+if [ "$1" != "upgrade" ]
+then
+  for i in ${ALTERNATIVES}
+  do
+    update-alternatives --remove $i /usr/bin/$i.${BIN_NAME}
+  done
+fi
+
+#DEBHELPER#
+
+exit 0

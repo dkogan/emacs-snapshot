@@ -1,0 +1,6 @@
+Please use "@BIN_NAME@ -q" to verify that the bug you want to report
+isn't caused by a configuration error.
+
+If you still see the bug, please try again with "@BIN_NAME@ -Q"
+(capital q), this switch disables the various add-on Emacs packages
+you have installed (which could be causing the bug).

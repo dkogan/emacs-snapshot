@@ -1,0 +1,26 @@
+From 89b3c46afff4e5d102f0f2be83386cb4ab05a175 Mon Sep 17 00:00:00 2001
+From: Romain Francoise <rfrancoise@debian.org>
+Date: Thu, 24 Feb 2011 23:22:49 +0100
+Subject: [PATCH 2/7] `mail-from-style' is set to 'system-default by default
+
+Signed-off-by: Julien Danjou <julien@danjou.info>
+---
+ lisp/mail/sendmail.el | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/lisp/mail/sendmail.el b/lisp/mail/sendmail.el
+index 0d6cc1f..844b118 100644
+--- a/lisp/mail/sendmail.el
++++ b/lisp/mail/sendmail.el
+@@ -55,7 +55,7 @@
+   :type 'file)
+ 
+ ;;;###autoload
+-(defcustom mail-from-style 'default
++(defcustom mail-from-style 'system-default
+   "Specifies how \"From:\" fields look.
+ 
+ If `nil', they contain just the return address like:
+-- 
+1.8.5.2
+
