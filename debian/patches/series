@@ -5,3 +5,4 @@
 0005-describe-copying-uses-usr-share-common-licenses-GPL.patch
 0006-emacs-version-has-been-modified-to-indicate-Debian-m.patch
 0007-Some-documentation-references-to-usr-local-have-been.patch
+0008-Set-org-ditaa-jar-path-correctly.patch

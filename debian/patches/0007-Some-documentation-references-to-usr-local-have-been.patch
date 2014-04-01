@@ -1,19 +1,17 @@
-From 4524c22913217d70df3ff00f52ceea7df8fe1ab7 Mon Sep 17 00:00:00 2001
 From: Romain Francoise <rfrancoise@debian.org>
 Date: Thu, 24 Feb 2011 23:27:40 +0100
-Subject: [PATCH 7/7] Some documentation references to /usr/local have been
- changed to /usr
+Subject: Some documentation references to /usr/local have been changed to /usr
 
 Signed-off-by: Julien Danjou <julien@danjou.info>
 ---
- doc/man/emacs.1 | 14 +++++++-------
- 1 file changed, 7 insertions(+), 7 deletions(-)
+ doc/man/emacs.1 | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
 
 diff --git a/doc/man/emacs.1 b/doc/man/emacs.1
-index 3078c29..f65901a 100644
+index 45bdb64..35a9f97 100644
 --- a/doc/man/emacs.1
 +++ b/doc/man/emacs.1
-@@ -554,29 +554,29 @@ distribution.
+@@ -554,24 +554,24 @@ distribution.
  .
  .
  .SH FILES
@@ -32,7 +30,7 @@ index 3078c29..f65901a 100644
  used.
  
 -/usr/local/libexec/emacs/$VERSION/$ARCH \(em various programs that are
-+/usr/lib/emacs/$VERSION/$ARCH \(em various programs that are
++/usr/libexec/emacs/$VERSION/$ARCH \(em various programs that are
  used with GNU Emacs.
  
 -/usr/local/share/emacs/$VERSION/etc \(em various files of information.
@@ -43,21 +41,3 @@ index 3078c29..f65901a 100644
  strings for the Lisp primitives and preloaded Lisp functions
  of GNU Emacs.
  They are stored here to reduce the size of Emacs proper.
- 
--/usr/local/share/emacs/$VERSION/etc/SERVICE lists people offering
-+/usr/share/emacs/$VERSION/etc/SERVICE lists people offering
- various services to assist users of GNU Emacs, including education,
- troubleshooting, porting and customization.
- .
-@@ -602,7 +602,7 @@ a list of people who offer it.
- 
- Please do not send anything but bug reports to this mailing list.
- For more information about Emacs mailing lists, see the
--file /usr/local/share/emacs/$VERSION/etc/MAILINGLISTS.
-+file /usr/share/emacs/$VERSION/etc/MAILINGLISTS.
- .
- .
- .SH UNRESTRICTIONS
--- 
-1.8.5.2
-

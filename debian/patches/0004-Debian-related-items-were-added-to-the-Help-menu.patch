@@ -1,7 +1,6 @@
-From a00d7f59d3957dff950eec25b5f83b6d817e77fe Mon Sep 17 00:00:00 2001
 From: Julien Danjou <julien@danjou.info>
 Date: Fri, 25 Feb 2011 12:54:05 +0100
-Subject: [PATCH 4/7] Debian-related items were added to the Help menu
+Subject: Debian-related items were added to the Help menu
 
 Signed-off-by: Julien Danjou <julien@danjou.info>
 ---
@@ -9,7 +8,7 @@ Signed-off-by: Julien Danjou <julien@danjou.info>
  1 file changed, 33 insertions(+)
 
 diff --git a/lisp/menu-bar.el b/lisp/menu-bar.el
-index e64a671..f2ff941 100644
+index 0e12c97..300700a 100644
 --- a/lisp/menu-bar.el
 +++ b/lisp/menu-bar.el
 @@ -1572,6 +1572,28 @@ key, a click, or a menu-item"))
@@ -41,7 +40,7 @@ index e64a671..f2ff941 100644
  (defvar menu-bar-search-documentation-menu
    (let ((menu (make-sparse-keymap "Search Documentation")))
  
-@@ -1684,6 +1706,17 @@ key, a click, or a menu-item"))
+@@ -1676,6 +1698,17 @@ key, a click, or a menu-item"))
        `(menu-item "Describe" ,menu-bar-describe-menu))
      (bindings--define-key menu [search-documentation]
        `(menu-item "Search Documentation" ,menu-bar-search-documentation-menu))
@@ -59,6 +58,3 @@ index e64a671..f2ff941 100644
      (bindings--define-key menu [sep1]
        menu-bar-separator)
      (bindings--define-key menu [emacs-psychotherapist]
--- 
-1.8.5.2
-
