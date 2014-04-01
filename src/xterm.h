@@ -198,6 +198,10 @@ struct x_display_info
      mouse-face.  */
   Mouse_HLInfo mouse_highlight;
 
+  /* Logical identifier of this display.  */
+  unsigned x_id;
+
+  /* Default name for all frames on this display.  */
   char *x_id_name;
 
   /* The number of fonts opened for this display.  */
@@ -1048,6 +1052,10 @@ extern void x_session_close (void);
 /* Defined in xterm.c */
 
 extern Lisp_Object Qx_gtk_map_stock;
+
+#if !defined USE_X_TOOLKIT && !defined USE_GTK
+extern void x_clear_under_internal_border (struct frame *f);
+#endif
 
 /* Is the frame embedded into another application? */
 

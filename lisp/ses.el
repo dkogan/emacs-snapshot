@@ -67,6 +67,7 @@
   "Simple Emacs Spreadsheet."
   :tag "SES"
   :group  'applications
+  :link '(custom-manual "(ses) Top")
   :prefix "ses-"
   :version "21.1")
 
@@ -3025,7 +3026,7 @@ spot, or error signal if user requests cancel."
 			    (if rowbool (format "%d rows" needrows) "")
 			    (if (and rowbool colbool) " and " "")
 			    (if colbool (format "%d columns" needcols) "")))
-	  (error "Cancelled"))
+	  (error "Canceled"))
       (when rowbool
 	(let (ses--curcell)
 	  (save-excursion

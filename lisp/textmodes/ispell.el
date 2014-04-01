@@ -3025,7 +3025,7 @@ Keeps argument list for future Ispell invocations for no async support."
 	(setq ispell-filter nil ispell-filter-continue nil)
       ;; may need to restart to select new personal dictionary.
       (ispell-kill-ispell t)
-      (message "Starting new Ispell process [%s::%s] ..."
+      (message "Starting new Ispell process %s with %s dictionary..."
 	       ispell-program-name
 	       (or ispell-local-dictionary ispell-dictionary "default"))
       (sit-for 0)
@@ -3305,7 +3305,8 @@ ispell-region: Search for first region to skip after (ispell-begin-skip-region-r
                    ispell-start ispell-end (point-at-eol) in-comment add-comment string)
 		  (if add-comment		; account for comment chars added
 		      (setq ispell-start (- ispell-start (length add-comment))
-			    add-comment nil))
+			    ;; Reset `in-comment' (and indirectly `add-comment') for new line
+			    in-comment nil))
 		  (setq ispell-end (point)) ; "end" tracks region retrieved.
 		  (if string		; there is something to spell check!
 		      ;; (special start end)

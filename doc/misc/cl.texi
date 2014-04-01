@@ -1,6 +1,7 @@
 \input texinfo    @c -*-texinfo-*-
 @setfilename ../../info/cl
 @settitle Common Lisp Extensions
+@documentencoding UTF-8
 @include emacsver.texi
 
 @copying
@@ -1281,13 +1282,8 @@ cells of symbols rather than on the value cells.  Each @var{binding}
 must be a list of the form @samp{(@var{name} @var{arglist}
 @var{forms}@dots{})}, which defines a function exactly as if
 it were a @code{cl-defun} form.  The function @var{name} is defined
-accordingly for the duration of the body of the @code{cl-flet}; then
-the old function definition, or lack thereof, is restored.
-
-You can use @code{cl-flet} to disable or modify the behavior of
-functions (including Emacs primitives) in a temporary, localized fashion.
-(Compare this with the idea of advising functions.
-@xref{Advising Functions,,,elisp,GNU Emacs Lisp Reference Manual}.)
+accordingly but only within the body of the @code{cl-flet}, hiding any external
+definition if applicable.
 
 The bindings are lexical in scope.  This means that all references to
 the named functions must appear physically within the body of the
@@ -1559,6 +1555,19 @@ This macro is exactly like @code{(cl-return-from nil @var{result})}.
 Common Lisp loops like @code{cl-do} and @code{cl-dolist} implicitly enclose
 themselves in @code{nil} blocks.
 @end defmac
+
+@c FIXME?  Maybe this should be in a separate section?
+@defmac cl-tagbody &rest labels-or-statements
+This macro executes statements while allowing for control transfer to
+user-defined labels.  Each element of @var{labels-or-statements} can
+be either a label (an integer or a symbol), or a cons-cell
+(a statement).  This distinction is made before macroexpansion.
+Statements are executed in sequence, discarding any return value.
+Any statement can transfer control at any time to the statements that follow
+one of the labels with the special form @code{(go @var{label})}.
+Labels have lexical scope and dynamic extent.
+@end defmac
+
 
 @node Iteration
 @section Iteration

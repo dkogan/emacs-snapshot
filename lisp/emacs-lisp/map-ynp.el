@@ -3,7 +3,7 @@
 ;; Copyright (C) 1991-1995, 2000-2014 Free Software Foundation, Inc.
 
 ;; Author: Roland McGrath <roland@gnu.org>
-;; Maintainer: FSF
+;; Maintainer: emacs-devel@gnu.org
 ;; Keywords: lisp, extensions
 ;; Package: emacs
 
@@ -34,7 +34,7 @@
 
 ;;; Code:
 
-(declare-function x-popup-dialog "xmenu.c" (position contents &optional header))
+(declare-function x-popup-dialog "menu.c" (position contents &optional header))
 
 (defun map-y-or-n-p (prompter actor list &optional help action-alist
 			      no-cursor-in-echo-area)

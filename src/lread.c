@@ -3868,7 +3868,8 @@ DEFUN ("unintern", Funintern, Sunintern, 1, 2, 0,
 The value is t if a symbol was found and deleted, nil otherwise.
 NAME may be a string or a symbol.  If it is a symbol, that symbol
 is deleted, if it belongs to OBARRAY--no other symbol is deleted.
-OBARRAY defaults to the value of the variable `obarray'.  */)
+OBARRAY, if nil, defaults to the value of the variable `obarray'.
+usage: (unintern NAME OBARRAY)  */)
   (Lisp_Object name, Lisp_Object obarray)
 {
   register Lisp_Object string, tem;
@@ -3938,7 +3939,8 @@ OBARRAY defaults to the value of the variable `obarray'.  */)
 
 /* Return the symbol in OBARRAY whose names matches the string
    of SIZE characters (SIZE_BYTE bytes) at PTR.
-   If there is no such symbol in OBARRAY, return nil.
+   If there is no such symbol, return the integer bucket number of
+   where the symbol would be if it were present.
 
    Also store the bucket number in oblookup_last_bucket_number.  */
 
@@ -4345,7 +4347,7 @@ init_lread (void)
 #ifdef CANNOT_DUMP
   bool use_loadpath = true;
 #else
-  bool use_loadpath = !NILP (Vpurify_flag);
+  bool use_loadpath = NILP (Vpurify_flag);
 #endif
 
   if (use_loadpath && egetenv ("EMACSLOADPATH"))
@@ -4388,7 +4390,7 @@ init_lread (void)
             }
         }                       /* Fmemq (Qnil, Vload_path) */
     }
-  else                          /* Vpurify_flag || !EMACSLOADPATH */
+  else
     {
       Vload_path = load_path_default ();
 
@@ -4405,7 +4407,7 @@ init_lread (void)
           sitelisp = decode_env_path (0, PATH_SITELOADSEARCH, 0);
           if (! NILP (sitelisp)) Vload_path = nconc2 (sitelisp, Vload_path);
         }
-    }                           /* !Vpurify_flag && EMACSLOADPATH */
+    }
 
   Vvalues = Qnil;
 

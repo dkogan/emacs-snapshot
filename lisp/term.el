@@ -975,8 +975,8 @@ is buffer-local."
 	   (display-graphic-p)
 	   overflow-newline-into-fringe
 	   (/= (frame-parameter nil 'right-fringe) 0))
-      (window-width)
-    (1- (window-width))))
+      (window-body-width)
+    (1- (window-body-width))))
 
 
 (put 'term-mode 'mode-class 'special)

@@ -146,6 +146,8 @@ main-content <=MAIN_CONTENT;\\n\" rtfm-section file style rtfm-section file))
   "Convert buffers and files to HTML."
   :group  'applications
   :link '(variable-link htmlfontify-manual)
+  :link '(custom-manual "(htmlfontify) Top")
+  :link '(info-link "(htmlfontify) Customization")
   :prefix "hfy-")
 
 (defcustom hfy-page-header 'hfy-default-header
@@ -1707,7 +1709,7 @@ FILE, if set, is the file name."
     ;; think we only need to relocate the hfy-endl property, as the hfy-linkp
     ;; property has already served its main purpose by this point.
     ;;(message "mapcar over the CSS-MAP")
-    (message "invis-ranges:\n%S" invis-ranges)
+    ;; (message "invis-ranges:\n%S" invis-ranges)
     (dolist (point-face css-map)
       (let ((pt (car point-face))
             (fn (cdr point-face))
@@ -2110,7 +2112,7 @@ FILE is the specific file we are rendering."
 ;; functionality easier to implement.
 ;; ( tar file functionality not merged here because it requires a
 ;;   hacked copy of etags capable of tagging stdin: if Francesco
-;;   Potorti accepts a patch, or otherwise implements stdin tagging,
+;;   Potortì accepts a patch, or otherwise implements stdin tagging,
 ;;   then I will provide a `htmlfontify-tar-file' defun )
 (defun hfy-parse-tags-buffer (srcdir buffer)
   "Parse a BUFFER containing etags formatted output, loading the

@@ -738,6 +738,10 @@ Associates the function with the current load file, if any.
 The optional third argument DOCSTRING specifies the documentation string
 for SYMBOL; if it is omitted or nil, SYMBOL uses the documentation string
 determined by DEFINITION.
+
+Internally, this normally uses `fset', but if SYMBOL has a
+`defalias-fset-function' property, the associated value is used instead.
+
 The return value is undefined.  */)
   (register Lisp_Object symbol, Lisp_Object definition, Lisp_Object docstring)
 {
@@ -2365,7 +2369,7 @@ usage: (<= NUMBER-OR-MARKER &rest NUMBERS-OR-MARKERS)  */)
 DEFUN (">=", Fgeq, Sgeq, 1, MANY, 0,
        doc: /* Return t if each arg is greater than or equal to the next arg.
 All must be numbers or markers.
-usage: (= NUMBER-OR-MARKER &rest NUMBERS-OR-MARKERS)  */)
+usage: (>= NUMBER-OR-MARKER &rest NUMBERS-OR-MARKERS)  */)
   (ptrdiff_t nargs, Lisp_Object *args)
 {
   return arithcompare_driver (nargs, args, ARITH_GRTR_OR_EQUAL);
@@ -2523,12 +2527,12 @@ NUMBER may be an integer or a floating point number.  */)
 
 DEFUN ("string-to-number", Fstring_to_number, Sstring_to_number, 1, 2, 0,
        doc: /* Parse STRING as a decimal number and return the number.
-This parses both integers and floating point numbers.
-It ignores leading spaces and tabs, and all trailing chars.
+Ignore leading spaces and tabs, and all trailing chars.  Return 0 if
+STRING cannot be parsed as an integer or floating point number.
 
 If BASE, interpret STRING as a number in that base.  If BASE isn't
 present, base 10 is used.  BASE must be between 2 and 16 (inclusive).
-If the base used is not 10, STRING is always parsed as integer.  */)
+If the base used is not 10, STRING is always parsed as an integer.  */)
   (register Lisp_Object string, Lisp_Object base)
 {
   register char *p;
@@ -3012,7 +3016,7 @@ count_one_bits_word (bits_word w)
     {
       int i = 0, count = 0;
       while (count += count_one_bits_ll (w),
-	     BITS_PER_BITS_WORD <= (i += BITS_PER_ULL))
+	     (i += BITS_PER_ULL) < BITS_PER_BITS_WORD)
 	w = shift_right_ull (w);
       return count;
     }

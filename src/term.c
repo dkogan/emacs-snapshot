@@ -2052,17 +2052,9 @@ tty_default_color_capabilities (struct tty_display_info *tty, bool save)
 
   if (save)
     {
-      xfree (default_orig_pair);
-      default_orig_pair = tty->TS_orig_pair ? xstrdup (tty->TS_orig_pair) : NULL;
-
-      xfree (default_set_foreground);
-      default_set_foreground = tty->TS_set_foreground ? xstrdup (tty->TS_set_foreground)
-			       : NULL;
-
-      xfree (default_set_background);
-      default_set_background = tty->TS_set_background ? xstrdup (tty->TS_set_background)
-			       : NULL;
-
+      dupstring (&default_orig_pair, tty->TS_orig_pair);
+      dupstring (&default_set_foreground, tty->TS_set_foreground);
+      dupstring (&default_set_background, tty->TS_set_background);
       default_max_colors = tty->TN_max_colors;
       default_max_pairs = tty->TN_max_pairs;
       default_no_color_video = tty->TN_no_color_video;
@@ -3062,7 +3054,7 @@ free_saved_screen (struct glyph_matrix *saved)
   int i;
 
   if (!saved)
-    return;	/* already freed */
+    return;	/* Already freed!  */
 
   for (i = 0; i < saved->nrows; ++i)
     {
@@ -3124,7 +3116,11 @@ read_menu_input (struct frame *sf, int *x, int *y, int min_y, int max_y,
       tty->showing_menu = 0;
       do_mouse_tracking = saved_mouse_tracking;
 
-      if (EQ (cmd, Qt) || EQ (cmd, Qtty_menu_exit))
+      if (EQ (cmd, Qt) || EQ (cmd, Qtty_menu_exit)
+	  /* If some input switched frames under our feet, exit the
+	     menu, since the menu faces are no longer valid, and the
+	     menu is no longer relevant anyway.  */
+	  || sf != SELECTED_FRAME ())
 	return MI_QUIT_MENU;
       if (EQ (cmd, Qtty_menu_mouse_movement))
 	mouse_get_xy (x, y);
@@ -3174,7 +3170,7 @@ tty_menu_activate (tty_menu *menu, int *pane, int *selidx,
   int statecount, x, y, i;
   bool leave, onepane;
   int result IF_LINT (= 0);
-  int title_faces[4];		/* face to display the menu title */
+  int title_faces[4];		/* Face to display the menu title.  */
   int faces[4], buffers_num_deleted = 0;
   struct frame *sf = SELECTED_FRAME ();
   struct tty_display_info *tty = FRAME_TTY (sf);
@@ -3336,7 +3332,7 @@ tty_menu_activate (tty_menu *menu, int *pane, int *selidx,
 		       have been opened.  That does not include an open and
 		       active submenu.  */
 		    if (i != statecount - 2
-			|| state[i].menu->submenu[dy] != state[i+1].menu)
+			|| state[i].menu->submenu[dy] != state[i + 1].menu)
 		      while (i != statecount - 1)
 			{
 			  statecount--;
@@ -3387,7 +3383,7 @@ tty_menu_activate (tty_menu *menu, int *pane, int *selidx,
   screen_update (sf, state[0].screen_behind);
   while (statecount--)
     free_saved_screen (state[statecount].screen_behind);
-  tty_show_cursor (tty);	/* turn cursor back on */
+  tty_show_cursor (tty);	/* Turn cursor back on.  */
   fflush (tty->output);
 
 /* Clean up any mouse events that are waiting inside Emacs event queue.
@@ -3478,7 +3474,7 @@ tty_menu_last_menubar_item (struct frame *f)
 	    break;
 	  i += 4;
 	}
-      i -= 4;	/* went one too far */
+      i -= 4;	/* Went one too far!  */
     }
   return i;
 }
@@ -3523,7 +3519,7 @@ tty_menu_new_item_coords (struct frame *f, int which, int *x, int *y)
 		  if (i < last_i)
 		    *x = XINT (AREF (items, i + 4 + 3));
 		  else
-		    *x = 0;	/* wrap around to the first item */
+		    *x = 0;	/* Wrap around to the first item.  */
 		}
 	      else if (prev_x < 0)
 		{
@@ -3651,7 +3647,7 @@ tty_menu_show (struct frame *f, int x, int y, bool for_click, bool keymaps,
 
 	  if (!NILP (descrip))
 	    {
-	      /* if alloca is fast, use that to make the space,
+	      /* If alloca is fast, use that to make the space,
 		 to reduce gc needs.  */
 	      item_data = (char *) alloca (maxwidth + SBYTES (descrip) + 1);
 	      memcpy (item_data, SSDATA (item_name), SBYTES (item_name));
@@ -3698,7 +3694,7 @@ tty_menu_show (struct frame *f, int x, int y, bool for_click, bool keymaps,
       uly = dispheight - height;
     }
 
-  if (FRAME_HAS_MINIBUF_P (f) && uly+height > dispheight - 2)
+  if (FRAME_HAS_MINIBUF_P (f) && uly + height > dispheight - 2)
     {
       /* Move the menu away of the echo area, to avoid overwriting the
 	 menu with help echo messages or vice versa.  */
@@ -3727,8 +3723,8 @@ tty_menu_show (struct frame *f, int x, int y, bool for_click, bool keymaps,
       /* If position was not given by a mouse click, adjust so upper left
          corner of the menu as a whole ends up at given coordinates.  This
          is what x-popup-menu says in its documentation.  */
-      x += width/2;
-      y += 1.5*height/(maxlines+2);
+      x += width / 2;
+      y += 1.5 * height / (maxlines + 2);
     }
 #endif
 
@@ -3791,6 +3787,11 @@ tty_menu_show (struct frame *f, int x, int y, bool for_click, bool keymaps,
     case TTYM_IA_SELECT:
       break;
     case TTYM_NO_SELECT:
+      /* If the selected frame was changed while we displayed a menu,
+	 throw to top level in order to undo any temporary settings
+	 made by TTY menu code.  */
+      if (f != SELECTED_FRAME ())
+	Ftop_level ();
       /* Make "Cancel" equivalent to C-g unless FOR_CLICK (which means
 	 the menu was invoked with a mouse event as POSITION).  */
       if (! for_click)
@@ -3943,9 +3944,10 @@ dissociate_if_controlling_tty (int fd)
       /* setsid failed, presumably because Emacs is already a process
 	 group leader.  Fall back on the obsolescent way to dissociate
 	 a controlling tty.  */
-      block_tty_out_signal ();
+      sigset_t oldset;
+      block_tty_out_signal (&oldset);
       ioctl (fd, TIOCNOTTY, 0);
-      unblock_tty_out_signal ();
+      unblock_tty_out_signal (&oldset);
 #endif
     }
 }
@@ -3969,6 +3971,7 @@ init_tty (const char *name, const char *terminal_type, bool must_succeed)
   int status;
   struct tty_display_info *tty = NULL;
   struct terminal *terminal = NULL;
+  sigset_t oldset;
   bool ctty = false;  /* True if asked to open controlling tty.  */
 
   if (!terminal_type)
@@ -4030,12 +4033,15 @@ init_tty (const char *name, const char *terminal_type, bool must_succeed)
        open a frame on the same terminal.  */
     int flags = O_RDWR | O_NOCTTY | (ctty ? 0 : O_IGNORE_CTTY);
     int fd = emacs_open (name, flags, 0);
-    tty->input = tty->output = fd < 0 || ! isatty (fd) ? 0 : fdopen (fd, "w+");
+    tty->input = tty->output =
+      ((fd < 0 || ! isatty (fd))
+       ? NULL
+       : fdopen (fd, "w+"));
 
     if (! tty->input)
       {
 	char const *diagnostic
-	  = tty->input ? "Not a tty device: %s" : "Could not open file: %s";
+	  = (fd < 0) ? "Could not open file: %s" : "Not a tty device: %s";
 	emacs_close (fd);
 	maybe_fatal (must_succeed, terminal, diagnostic, diagnostic, name);
       }
@@ -4055,11 +4061,11 @@ init_tty (const char *name, const char *terminal_type, bool must_succeed)
 
   /* On some systems, tgetent tries to access the controlling
      terminal.  */
-  block_tty_out_signal ();
+  block_tty_out_signal (&oldset);
   status = tgetent (tty->termcap_term_buffer, terminal_type);
   if (tty->termcap_term_buffer[TERMCAP_BUFFER_SIZE - 1])
     emacs_abort ();
-  unblock_tty_out_signal ();
+  unblock_tty_out_signal (&oldset);
 
   if (status < 0)
     {

@@ -6121,7 +6121,7 @@ to the equivalent Latin-1 characters.")
     (goto-char from)
 
     ;; ...break the region up into chunks separated by tabs, linefeeds,
-    ;; pagefeeds, control characters, and plot each chunk.
+    ;; formfeeds, control characters, and plot each chunk.
     (while (< from to)
       ;; skip lines between cut markers
       (and ps-begin-cut-regexp ps-end-cut-regexp
@@ -6429,6 +6429,7 @@ If FACE is not a valid face name, use default face."
   (save-restriction
     (narrow-to-region from to)
     (ps-print-ensure-fontified from to)
+    (deactivate-mark)                   ;bug#16866.
     (ps-generate-postscript-with-faces1 from to)))
 
 (defun ps-generate-postscript (from to)

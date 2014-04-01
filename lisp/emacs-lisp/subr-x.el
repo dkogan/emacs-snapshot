@@ -2,7 +2,7 @@
 
 ;; Copyright (C) 2013-2014 Free Software Foundation, Inc.
 
-;; Maintainer: FSF
+;; Maintainer: emacs-devel@gnu.org
 ;; Keywords: convenience
 ;; Package: emacs
 
@@ -26,6 +26,9 @@
 ;; Less commonly used functions that complement basic APIs, often implemented in
 ;; C code (like hash-tables and strings), and are not eligible for inclusion
 ;; in subr.el.
+
+;; Do not document these functions in the lispref.
+;; http://lists.gnu.org/archive/html/emacs-devel/2014-01/msg01006.html
 
 ;;; Code:
 

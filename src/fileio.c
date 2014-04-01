@@ -1047,10 +1047,9 @@ filesystem tree, not (expand-file-name ".."  dirname).  */)
     nm++;
 
   /* Discard any previous drive specifier if nm is now in UNC format.  */
-  if (IS_DIRECTORY_SEP (nm[0]) && IS_DIRECTORY_SEP (nm[1]))
-    {
-      drive = 0;
-    }
+  if (IS_DIRECTORY_SEP (nm[0]) && IS_DIRECTORY_SEP (nm[1])
+      && !IS_DIRECTORY_SEP (nm[2]))
+    drive = 0;
 #endif /* WINDOWSNT */
 #endif /* DOS_NT */
 
@@ -1261,7 +1260,8 @@ filesystem tree, not (expand-file-name ".."  dirname).  */)
       && !IS_DIRECTORY_SEP (nm[0])
 #endif
 #ifdef WINDOWSNT
-      && !(IS_DIRECTORY_SEP (nm[0]) && IS_DIRECTORY_SEP (nm[1]))
+      && !(IS_DIRECTORY_SEP (nm[0]) && IS_DIRECTORY_SEP (nm[1])
+	   && !IS_DIRECTORY_SEP (nm[2]))
 #endif
       && !newdir)
     {
@@ -1286,7 +1286,8 @@ filesystem tree, not (expand-file-name ".."  dirname).  */)
 	     && IS_DEVICE_SEP (newdir[1]) && IS_DIRECTORY_SEP (newdir[2]))
 #ifdef WINDOWSNT
 	  /* Detect Windows file names in UNC format.  */
-	  && ! (IS_DIRECTORY_SEP (newdir[0]) && IS_DIRECTORY_SEP (newdir[1]))
+	  && ! (IS_DIRECTORY_SEP (newdir[0]) && IS_DIRECTORY_SEP (newdir[1])
+		&& !IS_DIRECTORY_SEP (newdir[2]))
 #endif
 	  )
 	{
@@ -1346,7 +1347,8 @@ filesystem tree, not (expand-file-name ".."  dirname).  */)
       if (IS_DIRECTORY_SEP (nm[0]) && collapse_newdir)
 	{
 #ifdef WINDOWSNT
-	  if (IS_DIRECTORY_SEP (newdir[0]) && IS_DIRECTORY_SEP (newdir[1]))
+	  if (IS_DIRECTORY_SEP (newdir[0]) && IS_DIRECTORY_SEP (newdir[1])
+	      && !IS_DIRECTORY_SEP (newdir[2]))
 	    {
 	      char *adir = strcpy (alloca (strlen (newdir) + 1), newdir);
 	      char *p = adir + 2;
@@ -2680,8 +2682,7 @@ DEFUN ("file-symlink-p", Ffile_symlink_p, Sfile_symlink_p, 1, 1, 0,
 The value is the link target, as a string.
 Otherwise it returns nil.
 
-This function returns t when given the name of a symlink that
-points to a nonexistent file.  */)
+This function does not check whether the link target exists.  */)
   (Lisp_Object filename)
 {
   Lisp_Object handler;
@@ -4077,13 +4078,11 @@ by calling `format-decode', which see.  */)
 
   if (NILP (visit) && total > 0)
     {
-#ifdef CLASH_DETECTION
       if (!NILP (BVAR (current_buffer, file_truename))
 	  /* Make binding buffer-file-name to nil effective.  */
 	  && !NILP (BVAR (current_buffer, filename))
 	  && SAVE_MODIFF >= MODIFF)
 	we_locked_file = 1;
-#endif /* CLASH_DETECTION */
       prepare_to_modify_buffer (GPT, GPT, NULL);
     }
 
@@ -4183,10 +4182,8 @@ by calling `format-decode', which see.  */)
 
   if (inserted == 0)
     {
-#ifdef CLASH_DETECTION
       if (we_locked_file)
 	unlock_file (BVAR (current_buffer, file_truename));
-#endif
       Vdeactivate_mark = old_Vdeactivate_mark;
     }
   else
@@ -4335,14 +4332,12 @@ by calling `format-decode', which see.  */)
       SAVE_MODIFF = MODIFF;
       BUF_AUTOSAVE_MODIFF (current_buffer) = MODIFF;
       XSETFASTINT (BVAR (current_buffer, save_length), Z - BEG);
-#ifdef CLASH_DETECTION
       if (NILP (handler))
 	{
 	  if (!NILP (BVAR (current_buffer, file_truename)))
 	    unlock_file (BVAR (current_buffer, file_truename));
 	  unlock_file (filename);
 	}
-#endif /* CLASH_DETECTION */
       if (not_regular)
 	xsignal2 (Qfile_error,
 		  build_string ("not a regular file"), orig_filename);
@@ -4812,13 +4807,11 @@ write_region (Lisp_Object start, Lisp_Object end, Lisp_Object filename,
   if (!STRINGP (start) && !NILP (BVAR (current_buffer, selective_display)))
     coding.mode |= CODING_MODE_SELECTIVE_DISPLAY;
 
-#ifdef CLASH_DETECTION
   if (open_and_close_file && !auto_saving)
     {
       lock_file (lockname);
       file_locked = 1;
     }
-#endif /* CLASH_DETECTION */
 
   encoded_filename = ENCODE_FILE (filename);
   fn = SSDATA (encoded_filename);
@@ -4840,10 +4833,8 @@ write_region (Lisp_Object start, Lisp_Object end, Lisp_Object filename,
       if (desc < 0)
 	{
 	  int open_errno = errno;
-#ifdef CLASH_DETECTION
 	  if (file_locked)
 	    unlock_file (lockname);
-#endif /* CLASH_DETECTION */
 	  UNGCPRO;
 	  report_file_errno ("Opening output file", filename, open_errno);
 	}
@@ -4858,10 +4849,8 @@ write_region (Lisp_Object start, Lisp_Object end, Lisp_Object filename,
       if (ret < 0)
 	{
 	  int lseek_errno = errno;
-#ifdef CLASH_DETECTION
 	  if (file_locked)
 	    unlock_file (lockname);
-#endif /* CLASH_DETECTION */
 	  UNGCPRO;
 	  report_file_errno ("Lseek error", filename, lseek_errno);
 	}
@@ -5004,10 +4993,8 @@ write_region (Lisp_Object start, Lisp_Object end, Lisp_Object filename,
 
   unbind_to (count, Qnil);
 
-#ifdef CLASH_DETECTION
   if (file_locked)
     unlock_file (lockname);
-#endif /* CLASH_DETECTION */
 
   /* Do this before reporting IO error
      to avoid a "file has changed on disk" warning on

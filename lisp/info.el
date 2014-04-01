@@ -2,7 +2,7 @@
 
 ;; Copyright (C) 1985-1986, 1992-2014 Free Software Foundation, Inc.
 
-;; Maintainer: FSF
+;; Maintainer: emacs-devel@gnu.org
 ;; Keywords: help
 
 ;; This file is part of GNU Emacs.
@@ -917,7 +917,10 @@ just return nil (no error)."
 	  (setq filename found)
 	(if noerror
 	    (setq filename nil)
-	  (error "Info file %s does not exist" filename)))
+	  ;; If there is no previous Info file, go to the directory.
+	  (unless Info-current-file
+	    (Info-directory))
+	  (user-error "Info file %s does not exist" filename)))
       filename))))
 
 (defun Info-find-node (filename nodename &optional no-going-back strict-case)
@@ -1237,12 +1240,14 @@ is non-nil)."
 		   (Info-find-index-name Info-point-loc)
 		   (setq Info-point-loc nil))))))
     ;; If we did not finish finding the specified node,
-    ;; go back to the previous one.
-    (or Info-current-node no-going-back (null Info-history)
-        (let ((hist (car Info-history)))
-          (setq Info-history (cdr Info-history))
-          (Info-find-node (nth 0 hist) (nth 1 hist) t)
-          (goto-char (nth 2 hist))))))
+    ;; go back to the previous one or to the Top node.
+    (unless (or Info-current-node no-going-back)
+      (if Info-history
+	  (let ((hist (car Info-history)))
+	    (setq Info-history (cdr Info-history))
+	    (Info-find-node (nth 0 hist) (nth 1 hist) t)
+	    (goto-char (nth 2 hist)))
+	(Info-find-node Info-current-file "Top" t)))))
 
 ;; Cache the contents of the (virtual) dir file, once we have merged
 ;; it for the first time, so we can save time subsequently.
@@ -3628,6 +3633,18 @@ Build a menu of the possible matches."
 (defvar finder-keywords-hash)
 (defvar package--builtins)		; finder requires package
 
+(defun info--prettify-description (desc)
+  (if (stringp desc)
+      (with-temp-buffer
+	(insert desc)
+	(if (equal ?. (char-before))
+	    (delete-char -1))
+	(goto-char (point-min))
+	(or (let (case-fold-search) (looking-at-p "\\.\\|[[:upper:]]"))
+	    (capitalize-word 1))
+	(buffer-string))
+    desc))
+
 (defun Info-finder-find-node (_filename nodename &optional _no-going-back)
   "Finder-specific implementation of `Info-find-node-2'."
   (require 'finder)
@@ -3646,7 +3663,7 @@ Build a menu of the possible matches."
 	(insert (format "* %s %s.\n"
 			(concat (symbol-name keyword) ": "
 				"Keyword " (symbol-name keyword) ".")
-			(cdr assoc))))))
+			(info--prettify-description (cdr assoc)))))))
    ((equal nodename "Keyword unknown")
     ;; Display unknown keywords
     (insert (format "\n\^_\nFile: %s,  Node: %s,  Up: Top\n\n"
@@ -3674,7 +3691,7 @@ Build a menu of the possible matches."
 	(when (vectorp desc)
 	  (insert (format "* %-16s %s.\n"
 			  (concat (symbol-name (car package)) "::")
-			  (aref desc 2)))))))
+			  (info--prettify-description (aref desc 2))))))))
    ((string-match "\\`Keyword " nodename)
     (setq nodename (substring nodename (match-end 0)))
     ;; Display packages that match the keyword
@@ -3693,24 +3710,33 @@ Build a menu of the possible matches."
 	  hits desc)
       (dolist (keyword keywords)
 	(push (copy-tree (gethash keyword finder-keywords-hash)) hits))
-      (setq hits (delete-dups (apply 'append hits)))
+      (setq hits (delete-dups (apply 'append hits))
+	    ;; Not a meaningful package.
+	    hits (delete 'emacs hits)
+	    hits (sort hits (lambda (a b) (string< (symbol-name a)
+						   (symbol-name b)))))
       (dolist (package hits)
 	(setq desc (cdr-safe (assq package package--builtins)))
 	(when (vectorp desc)
 	  (insert (format "* %-16s %s.\n"
 			  (concat (symbol-name package) "::")
-			  (aref desc 2)))))))
+			  (info--prettify-description (aref desc 2))))))))
    (t
     ;; Display commentary section
     (insert (format "\n\^_\nFile: %s,  Node: %s,  Up: Top\n\n"
 		    Info-finder-file nodename))
-    (insert "Finder Commentary\n")
-    (insert "*****************\n\n")
+    (insert "Package Description\n")
+    (insert "*******************\n\n")
     (insert
-     "Commentary section of the package `" nodename "':\n\n")
-    (let ((str (lm-commentary (find-library-name nodename))))
+     "Description of the package `" nodename "':\n\n")
+    ;; This assumes that a file named package.el exists,
+    ;; which is not always true.  E.g. for the nxml package,
+    ;; there is no "nxml.el" (it's nxml-mode.el).
+    ;; But package.el makes the same assumption.
+    ;; I think nxml is the only exception - maybe it should be just be renamed.
+    (let ((str (ignore-errors (lm-commentary (find-library-name nodename)))))
       (if (null str)
-	  (insert "Can't find any Commentary section\n\n")
+	  (insert "Can't find package description.\n\n")
 	(insert
 	 (with-temp-buffer
 	   (insert str)
@@ -3957,6 +3983,10 @@ If FORK is non-nil, it is passed to `Info-goto-node'."
     (define-key map "f" 'Info-follow-reference)
     (define-key map "g" 'Info-goto-node)
     (define-key map "h" 'Info-help)
+    ;; This is for compatibility with standalone info (>~ version 5.2).
+    ;; Though for some time, standalone info had H and h reversed.
+    ;; See <http://debbugs.gnu.org/16455>.
+    (define-key map "H" 'describe-mode)
     (define-key map "i" 'Info-index)
     (define-key map "I" 'Info-virtual-index)
     (define-key map "l" 'Info-history-back)

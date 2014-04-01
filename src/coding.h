@@ -468,7 +468,9 @@ struct coding_system
      the eol format.  */
   ptrdiff_t head_ascii;
 
-  ptrdiff_t detected_utf8_chars;
+  /* How many bytes/chars at the source are detected as valid utf-8
+     sequence.  Set by detect_coding_utf_8.  */
+  ptrdiff_t detected_utf8_bytes, detected_utf8_chars;
 
   /* Used internally in coding.c.  See the comment of detect_ascii.  */
   int eol_seen;
@@ -477,7 +479,7 @@ struct coding_system
   ptrdiff_t produced, produced_char, consumed, consumed_char;
 
   /* Number of error source data found in a decoding routine.  */
-  int errors;
+  ptrdiff_t errors;
 
   /* Store the positions of error source data.  */
   ptrdiff_t *error_positions;

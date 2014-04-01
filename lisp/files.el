@@ -2,7 +2,7 @@
 
 ;; Copyright (C) 1985-1987, 1992-2014 Free Software Foundation, Inc.
 
-;; Maintainer: FSF
+;; Maintainer: emacs-devel@gnu.org
 ;; Package: emacs
 
 ;; This file is part of GNU Emacs.
@@ -96,9 +96,9 @@ The choice of renaming or copying is controlled by the variables
 ;; Do this so that local variables based on the file name
 ;; are not overridden by the major mode.
 (defvar backup-inhibited nil
-  "Non-nil means don't make a backup, regardless of the other parameters.
-This variable is intended for use by making it local to a buffer.
-But it is local only if you make it local.")
+  "If non-nil, backups will be inhibited.
+This variable is intended for use by making it local to a buffer,
+but it is not an automatically buffer-local variable.")
 (put 'backup-inhibited 'permanent-local t)
 
 (defcustom backup-by-copying nil
@@ -159,9 +159,11 @@ under another name, you get the existing buffer instead of a new buffer."
   :group 'find-file)
 
 (defcustom find-file-visit-truename nil
-  "Non-nil means visit a file under its truename.
-The truename of a file is found by chasing all links
-both at the file level and at the levels of the containing directories."
+  "Non-nil means visiting a file uses its truename as the visited-file name.
+That is, the buffer visiting the file has the truename as the
+value of `buffer-file-name'.  The truename of a file is found by
+chasing all links both at the file level and at the levels of the
+containing directories."
   :type 'boolean
   :group 'find-file)
 (put 'find-file-visit-truename 'safe-local-variable 'booleanp)
@@ -557,14 +559,6 @@ A value of nil means ignore them; anything else means query."
 		 (other :tag "Query" other))
   :group 'find-file)
 
-;; Avoid losing in versions where CLASH_DETECTION is disabled.
-(or (fboundp 'lock-buffer)
-    (defalias 'lock-buffer 'ignore))
-(or (fboundp 'unlock-buffer)
-    (defalias 'unlock-buffer 'ignore))
-(or (fboundp 'file-locked-p)
-    (defalias 'file-locked-p 'ignore))
-
 (defcustom view-read-only nil
   "Non-nil means buffers visiting files read-only do so in view mode.
 In fact, this means that all read-only buffers normally have
@@ -745,8 +739,8 @@ The path separator is colon in GNU and GNU-like systems."
 
 (defun locate-file (filename path &optional suffixes predicate)
   "Search for FILENAME through PATH.
-If found, return the absolute file name of FILENAME, with its suffixes;
-otherwise return nil.
+If found, return the absolute file name of FILENAME; otherwise
+return nil.
 PATH should be a list of directories to look in, like the lists in
 `exec-path' or `load-path'.
 If SUFFIXES is non-nil, it should be a list of suffixes to append to
@@ -1427,7 +1421,7 @@ You can visit files on remote machines by specifying something
 like /ssh:SOME_REMOTE_MACHINE:FILE for the file name.  You can
 also visit local files as a different user by specifying
 /sudo::FILE for the file name.
-See the Info node `(tramp)Filename Syntax' in the Tramp Info
+See the Info node `(tramp)File name Syntax' in the Tramp Info
 manual, for more about this.
 
 Interactively, or if WILDCARDS is non-nil in a call from Lisp,
@@ -1908,10 +1902,12 @@ the various files."
 			      (eq read-only buffer-file-read-only)
 			      (eq read-only buffer-read-only))
 		    (when (or nowarn
-			      (let ((question
-				     (format "File %s is %s on disk.  Change buffer mode? "
-					     buffer-file-name
-					     (if read-only "read-only" "writable"))))
+			      (let* ((new-status
+				      (if read-only "read-only" "writable"))
+				     (question
+				      (format "File %s is %s on disk.  Make buffer %s, too? "
+					      buffer-file-name
+					      new-status new-status)))
 				(y-or-n-p question)))
 		      (setq buffer-read-only read-only)))
 		  (setq buffer-file-read-only read-only))
@@ -2085,9 +2081,9 @@ This function ensures that none of these modifications will take place."
 This function is meant for the user to run interactively.
 Don't call it from programs!  Use `insert-file-contents-literally' instead.
 \(Its calling sequence is different; see its documentation)."
+  (declare (interactive-only insert-file-contents-literally))
   (interactive "*fInsert file literally: ")
   (insert-file-1 filename #'insert-file-contents-literally))
-(put 'insert-file-literally 'interactive-only 'insert-file-contents-literally)
 
 (defvar find-file-literally nil
   "Non-nil if this buffer was made by `find-file-literally' or equivalent.
@@ -2513,6 +2509,7 @@ and `magic-mode-alist', which determines modes based on file contents.")
      ("scm" . scheme-mode)
      ("[acjkwz]sh" . sh-mode)
      ("r?bash2?" . sh-mode)
+     ("dash" . sh-mode)
      ("\\(dt\\|pd\\|w\\)ksh" . sh-mode)
      ("es" . sh-mode)
      ("i?tcsh" . sh-mode)
@@ -3336,8 +3333,11 @@ local variables, but directory-local variables may still be applied."
 			      ((eq var 'lexical-binding)
 			       (unless hack-local-variables--warned-lexical
 				 (setq hack-local-variables--warned-lexical t)
-				 (display-warning :warning
-						  "Specify `lexical-binding' on the first line, not at the end")))
+				 (display-warning
+                                  :warning
+                                  (format "%s: `lexical-binding' at end of file unreliable"
+                                          (file-name-nondirectory
+                                           (or buffer-file-name ""))))))
 			      (t
 			       (ignore-errors
 				 (push (cons (if (eq var 'eval)
@@ -4469,6 +4469,8 @@ Uses `backup-directory-alist' in the same way as does
   "Convert FILENAME to be relative to DIRECTORY (default: `default-directory').
 This function returns a relative file name which is equivalent to FILENAME
 when used with that default directory as the default.
+If FILENAME is a relative file name, it will be interpreted as existing in
+`default-directory'.
 If FILENAME and DIRECTORY lie on different machines or on different drives
 on a DOS/Windows machine, it returns FILENAME in expanded form."
   (save-match-data
@@ -4533,7 +4535,7 @@ on a DOS/Windows machine, it returns FILENAME in expanded form."
             ;; We matched FILENAME's directory equivalent.
             ancestor))))))
 
-(defun save-buffer (&optional args)
+(defun save-buffer (&optional arg)
   "Save current buffer in visited file if modified.
 Variations are described below.
 
@@ -4547,7 +4549,7 @@ Prefixed with three \\[universal-argument]'s, marks this version
  to become a backup when the next save is done,
  and unconditionally makes the previous version into a backup file.
 
-With a numeric argument of 0, never make the previous version
+With a numeric prefix argument of 0, never make the previous version
 into a backup file.
 
 If a file's name is FOO, the names of its numbered backup versions are
@@ -4571,9 +4573,9 @@ If `vc-make-backup-files' is nil, which is the default,
 See the subroutine `basic-save-buffer' for more information."
   (interactive "p")
   (let ((modp (buffer-modified-p))
-	(make-backup-files (or (and make-backup-files (not (eq args 0)))
-			       (memq args '(16 64)))))
-    (and modp (memq args '(16 64)) (setq buffer-backed-up nil))
+	(make-backup-files (or (and make-backup-files (not (eq arg 0)))
+			       (memq arg '(16 64)))))
+    (and modp (memq arg '(16 64)) (setq buffer-backed-up nil))
     ;; We used to display the message below only for files > 50KB, but
     ;; then Rmail-mbox never displays it due to buffer swapping.  If
     ;; the test is ever re-introduced, be sure to handle saving of
@@ -4581,7 +4583,7 @@ See the subroutine `basic-save-buffer' for more information."
     (if (and modp (buffer-file-name))
 	(message "Saving file %s..." (buffer-file-name)))
     (basic-save-buffer)
-    (and modp (memq args '(4 64)) (setq buffer-backed-up nil))))
+    (and modp (memq arg '(4 64)) (setq buffer-backed-up nil))))
 
 (defun delete-auto-save-file-if-necessary (&optional force)
   "Delete auto-save file for current buffer if `delete-auto-save-files' is t.
@@ -4989,6 +4991,7 @@ With prefix ARG, mark buffer as modified, so \\[save-buffer] will save.
 
 It is not a good idea to use this function in Lisp programs, because it
 prints a message in the minibuffer.  Instead, use `set-buffer-modified-p'."
+  (declare (interactive-only set-buffer-modified-p))
   (interactive "P")
   (message (if arg "Modification-flag set"
 	       "Modification-flag cleared"))
@@ -5008,9 +5011,9 @@ Set mark after the inserted text.
 This function is meant for the user to run interactively.
 Don't call it from programs!  Use `insert-file-contents' instead.
 \(Its calling sequence is different; see its documentation)."
+  (declare (interactive-only insert-file-contents))
   (interactive "*fInsert file: ")
   (insert-file-1 filename #'insert-file-contents))
-(put 'insert-file 'interactive-only 'insert-file-contents)
 
 (defun append-to-file (start end filename)
   "Append the contents of the region to the end of file FILENAME.
@@ -5570,7 +5573,7 @@ non-nil, it is called instead of rereading visited file contents."
 	     (insert-file-contents file-name nil)
 	     (set-buffer-file-coding-system coding-system))
 	   (after-find-file nil nil t))
-	  (t (user-error "Recover-file cancelled")))))
+	  (t (user-error "Recover-file canceled")))))
 
 (defun recover-session ()
   "Recover auto save files from a previous Emacs session.
@@ -6492,10 +6495,11 @@ the low level primitive, does not.  See also `kill-emacs-hook'.")
 (defcustom confirm-kill-emacs nil
   "How to ask for confirmation when leaving Emacs.
 If nil, the default, don't ask at all.  If the value is non-nil, it should
-be a predicate function such as `yes-or-no-p'."
+be a predicate function; for example `yes-or-no-p'."
   :type '(choice (const :tag "Ask with yes-or-no-p" yes-or-no-p)
 		 (const :tag "Ask with y-or-n-p" y-or-n-p)
-		 (const :tag "Don't confirm" nil))
+		 (const :tag "Don't confirm" nil)
+		 (function :tag "Predicate function"))
   :group 'convenience
   :version "21.1")
 
@@ -6523,7 +6527,7 @@ if any returns nil.  If `confirm-kill-emacs' is non-nil, calls it."
 		    (setq active t))
 	       (setq processes (cdr processes)))
 	     (or (not active)
-		 (with-temp-buffer-window
+		 (with-current-buffer-window
 		  (get-buffer-create "*Process List*") nil
 		  #'(lambda (window _value)
 		      (with-selected-window window

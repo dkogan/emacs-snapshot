@@ -4,6 +4,7 @@
 ## Copyright (C) 2011-2014 Free Software Foundation, Inc.
 
 ## Author: Glenn Morris <rgm@gnu.org>
+## Maintainer: emacs-devel@gnu.org
 
 ## This file is part of GNU Emacs.
 
@@ -25,7 +26,7 @@
 ## The Emacs bzr repository does not include the configure script
 ## (and associated helpers).  The first time you fetch Emacs from bzr,
 ## run this script to generate the necessary files.
-## For more details, see the file INSTALL.BZR.
+## For more details, see the file INSTALL.REPO.
 
 ### Code:
 
@@ -105,7 +106,7 @@ check_version ()
 
 cat <<EOF
 Checking whether you have the necessary tools...
-(Read INSTALL.BZR for more details on building Emacs)
+(Read INSTALL.REPO for more details on building Emacs)
 
 EOF
 

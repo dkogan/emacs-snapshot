@@ -54,6 +54,7 @@ static Lisp_Object Qwindow_resize_root_window, Qwindow_resize_root_window_vertic
 static Lisp_Object Qwindow_pixel_to_total;
 static Lisp_Object Qscroll_up, Qscroll_down, Qscroll_command;
 static Lisp_Object Qsafe, Qabove, Qbelow, Qwindow_size, Qclone_of;
+static Lisp_Object Qfloor, Qceiling;
 
 static int displayed_window_lines (struct window *);
 static int count_windows (struct window *);
@@ -558,7 +559,7 @@ select_window_1 (Lisp_Object window, bool inhibit_point_swap)
 DEFUN ("select-window", Fselect_window, Sselect_window, 1, 2, 0,
        doc: /* Select WINDOW which must be a live window.
 Also make WINDOW's frame the selected frame and WINDOW that frame's
-selected window.  In addition, make WINDOW's buffer current and set that
+selected window.  In addition, make WINDOW's buffer current and set its
 buffer's value of `point' to the value of WINDOW's `window-point'.
 Return WINDOW.
 
@@ -566,8 +567,17 @@ Optional second arg NORECORD non-nil means do not put this buffer at the
 front of the buffer list and do not make this window the most recently
 selected one.
 
-Note that the main editor command loop sets the current buffer to the
-buffer of the selected window before each command.  */)
+Run `buffer-list-update-hook' unless NORECORD is non-nil.  Note that
+applications and internal routines often select a window temporarily for
+various purposes; mostly, to simplify coding.  As a rule, such
+selections should be not recorded and therefore will not pollute
+`buffer-list-update-hook'.  Selections that "really count" are those
+causing a visible change in the next redisplay of WINDOW's frame and
+should be always recorded.  So if you think of running a function each
+time a window gets selected put it on `buffer-list-update-hook'.
+
+Also note that the main editor command loop sets the current buffer to
+the buffer of the selected window before each command.  */)
   (register Lisp_Object window, Lisp_Object norecord)
 {
   return select_window (window, norecord, 0);
@@ -682,7 +692,7 @@ selected one.  */)
 }
 
 DEFUN ("window-pixel-width", Fwindow_pixel_width, Swindow_pixel_width, 0, 1, 0,
-       doc: /* Return the pixel width of window WINDOW.
+       doc: /* Return the width of window WINDOW in pixels.
 WINDOW must be a valid window and defaults to the selected one.
 
 The return value includes the fringes and margins of WINDOW as well as
@@ -695,45 +705,88 @@ spanned by its children.  */)
 }
 
 DEFUN ("window-pixel-height", Fwindow_pixel_height, Swindow_pixel_height, 0, 1, 0,
-       doc: /* Return the pixel height of window WINDOW.
+       doc: /* Return the height of window WINDOW in pixels.
 WINDOW must be a valid window and defaults to the selected one.
 
-The return value includes the mode line and header line, if any.  If
-WINDOW is an internal window, its pixel height is the height of the
-screen areas spanned by its children.  */)
+The return value includes the mode line and header line and the bottom
+divider, if any.  If WINDOW is an internal window, its pixel height is
+the height of the screen areas spanned by its children.  */)
   (Lisp_Object window)
 {
   return make_number (decode_valid_window (window)->pixel_height);
 }
 
-DEFUN ("window-total-height", Fwindow_total_height, Swindow_total_height, 0, 1, 0,
-       doc: /* Return the total height, in lines, of window WINDOW.
+DEFUN ("window-total-height", Fwindow_total_height, Swindow_total_height, 0, 2, 0,
+       doc: /* Return the height of window WINDOW in lines.
 WINDOW must be a valid window and defaults to the selected one.
 
-The return value includes the mode line and header line, if any.
-If WINDOW is an internal window, the total height is the height
-of the screen areas spanned by its children.
+The return value includes the heights of WINDOW's mode and header line
+and its bottom divider, if any.  If WINDOW is an internal window, the
+total height is the height of the screen areas spanned by its children.
 
-On a graphical display, this total height is reported as an
-integer multiple of the default character height.  */)
-  (Lisp_Object window)
+If WINDOW's pixel height is not an integral multiple of its frame's
+character height, the number of lines occupied by WINDOW is rounded
+internally.  This is done in a way such that, if WINDOW is a parent
+window, the sum of the total heights of all its children internally
+equals the total height of WINDOW.
+
+If the optional argument ROUND is `ceiling', return the smallest integer
+larger than WINDOW's pixel height divided by the character height of
+WINDOW's frame.  ROUND `floor' means to return the largest integer
+smaller than WINDOW's pixel height divided by the character height of
+WINDOW's frame.  Any other value of ROUND means to return the internal
+total height of WINDOW.  */)
+  (Lisp_Object window, Lisp_Object round)
 {
-  return make_number (decode_valid_window (window)->total_lines);
+  struct window *w = decode_valid_window (window);
+
+  if (! EQ (round, Qfloor) && ! EQ (round, Qceiling))
+    return make_number (w->total_lines);
+  else
+    {
+      int unit = FRAME_LINE_HEIGHT (WINDOW_XFRAME (w));
+
+      return make_number (EQ (round, Qceiling)
+			  ? ((w->pixel_height + unit - 1) /unit)
+			  : (w->pixel_height / unit));
+    }
 }
 
-DEFUN ("window-total-width", Fwindow_total_width, Swindow_total_width, 0, 1, 0,
-       doc: /* Return the total width, in columns, of window WINDOW.
+DEFUN ("window-total-width", Fwindow_total_width, Swindow_total_width, 0, 2, 0,
+       doc: /* Return the total width of window WINDOW in columns.
 WINDOW must be a valid window and defaults to the selected one.
 
-The return value includes any vertical dividers or scroll bars
-belonging to WINDOW.  If WINDOW is an internal window, the total width
-is the width of the screen areas spanned by its children.
+The return value includes the widths of WINDOW's fringes, margins,
+scroll bars and its right divider, if any.  If WINDOW is an internal
+window, the total width is the width of the screen areas spanned by its
+children.
 
-On a graphical display, this total width is reported as an
-integer multiple of the default character width.  */)
-  (Lisp_Object window)
+If WINDOW's pixel width is not an integral multiple of its frame's
+character width, the number of lines occupied by WINDOW is rounded
+internally.  This is done in a way such that, if WINDOW is a parent
+window, the sum of the total widths of all its children internally
+equals the total width of WINDOW.
+
+If the optional argument ROUND is `ceiling', return the smallest integer
+larger than WINDOW's pixel width divided by the character width of
+WINDOW's frame.  ROUND `floor' means to return the largest integer
+smaller than WINDOW's pixel width divided by the character width of
+WINDOW's frame.  Any other value of ROUND means to return the internal
+total width of WINDOW.  */)
+  (Lisp_Object window, Lisp_Object round)
 {
-  return make_number (decode_valid_window (window)->total_cols);
+  struct window *w = decode_valid_window (window);
+
+  if (! EQ (round, Qfloor) && ! EQ (round, Qceiling))
+    return make_number (w->total_cols);
+  else
+    {
+      int unit = FRAME_COLUMN_WIDTH (WINDOW_XFRAME (w));
+
+      return make_number (EQ (round, Qceiling)
+			  ? ((w->pixel_width + unit - 1) /unit)
+			  : (w->pixel_width / unit));
+    }
 }
 
 DEFUN ("window-new-total", Fwindow_new_total, Swindow_new_total, 0, 1, 0,
@@ -811,62 +864,66 @@ WINDOW must be a valid window and defaults to the selected one.  */)
   return make_number (decode_valid_window (window)->top_line);
 }
 
-/* Return the number of lines of W's body.  Don't count any mode or
-   header line of W.  */
-
+/* Return the number of lines/pixels of W's body.  Don't count any mode
+   or header line or horizontal divider of W.  Rounds down to nearest
+   integer when not working pixelwise. */
 static int
 window_body_height (struct window *w, bool pixelwise)
 {
-  int pixels = (w->pixel_height
-		- WINDOW_BOTTOM_DIVIDER_WIDTH (w)
+  int height = (w->pixel_height
 		- WINDOW_HEADER_LINE_HEIGHT (w)
-		- WINDOW_MODE_LINE_HEIGHT (w));
-  int unit = FRAME_LINE_HEIGHT (WINDOW_XFRAME (w));
+		- WINDOW_MODE_LINE_HEIGHT (w)
+		- WINDOW_BOTTOM_DIVIDER_WIDTH (w));
 
-  return pixelwise ? pixels : ((pixels + unit - 1) / unit);
+  /* Don't return a negative value.  */
+  return max (pixelwise
+	      ? height
+	      : height / FRAME_LINE_HEIGHT (WINDOW_XFRAME (w)),
+	      0);
 }
 
-/* Return the number of columns of W's body.  Don't count columns
-   occupied by the scroll bar or the vertical bar separating W from its
-   right sibling.  On window-systems don't count fringes or display
-   margins either.  */
+/* Return the number of columns/pixels of W's body.  Don't count columns
+   occupied by the scroll bar or the divider/vertical bar separating W
+   from its right sibling or margins.  On window-systems don't count
+   fringes either.  Round down to nearest integer when not working
+   pixelwise.  */
 int
 window_body_width (struct window *w, bool pixelwise)
 {
   struct frame *f = XFRAME (WINDOW_FRAME (w));
 
-  int pixels = (w->pixel_width
-		- WINDOW_RIGHT_DIVIDER_WIDTH (w)
-		- (WINDOW_HAS_VERTICAL_SCROLL_BAR (w)
-		   ? WINDOW_SCROLL_BAR_AREA_WIDTH (w)
-		   : ((!FRAME_WINDOW_P (f)
-		       && !WINDOW_RIGHTMOST_P (w)
-		       && !WINDOW_RIGHT_DIVIDER_WIDTH (w)
-		       && !WINDOW_FULL_WIDTH_P (w))
-		      /* According to Eli this is either 1 or 0.  */
-		      ? 1 : 0))
+  int width = (w->pixel_width
+	       - WINDOW_RIGHT_DIVIDER_WIDTH (w)
+	       - (WINDOW_HAS_VERTICAL_SCROLL_BAR (w)
+		  ? WINDOW_SCROLL_BAR_AREA_WIDTH (w)
+		  : ((!FRAME_WINDOW_P (f)
+		      && !WINDOW_RIGHTMOST_P (w)
+		      && !WINDOW_RIGHT_DIVIDER_WIDTH (w))
+		     /* A vertical bar is either 1 or 0.  */
+		     ? 1 : 0))
 		- WINDOW_MARGINS_WIDTH (w)
 		- (FRAME_WINDOW_P (f)
 		   ? WINDOW_FRINGES_WIDTH (w)
 		   : 0));
-  int unit = FRAME_COLUMN_WIDTH (WINDOW_XFRAME (w));
 
-  return pixelwise ? pixels : ((pixels + unit - 1) / unit);
+  /* Don't return a negative value.  */
+  return max (pixelwise
+	      ? width
+	      : width / FRAME_COLUMN_WIDTH (WINDOW_XFRAME (w)),
+	      0);
 }
 
 DEFUN ("window-body-height", Fwindow_body_height, Swindow_body_height, 0, 2, 0,
-       doc: /* Return the height, in lines, of WINDOW's text area.
-WINDOW must be a live window and defaults to the selected one.
+       doc: /* Return the height of WINDOW's text area.
+WINDOW must be a live window and defaults to the selected one.  Optional
+argument PIXELWISE non-nil means return the height of WINDOW's text area
+in pixels.  The return value does not include the mode line or header
+line or any horizontal divider.
 
-Optional argument PIXELWISE non-nil means return the height in pixels.
-
-The returned height does not include the mode line or header line.  On a
-graphical display, the height is expressed as an integer multiple of the
-default character height if PIXELWISE is nil.
-
-If PIXELWISE is nil and a line at the bottom of the text area is only
-partially visible, that counts as a whole line; to exclude
-partially-visible lines, use `window-text-height'.  */)
+If PIXELWISE is nil, return the largest integer smaller than WINDOW's
+pixel height divided by the character height of WINDOW's frame.  This
+means that if a line at the bottom of the text area is only partially
+visible, that line is not counted.  */)
   (Lisp_Object window, Lisp_Object pixelwise)
 {
   return make_number (window_body_height (decode_live_window (window),
@@ -874,19 +931,16 @@ partially-visible lines, use `window-text-height'.  */)
 }
 
 DEFUN ("window-body-width", Fwindow_body_width, Swindow_body_width, 0, 2, 0,
-       doc: /* Return the width, in columns, of WINDOW's text area.
-WINDOW must be a live window and defaults to the selected one.
+       doc: /* Return the width of WINDOW's text area.
+WINDOW must be a live window and defaults to the selected one.  Optional
+argument PIXELWISE non-nil means return the width in pixels.  The return
+value does not include any vertical dividers, fringes or marginal areas,
+or scroll bars.
 
-Optional argument PIXELWISE non-nil means return the width in pixels.
-
-The return value does not include any vertical dividers, fringe or
-marginal areas, or scroll bars.  On a graphical display, the width is
-expressed as an integer multiple of the default character width if
-PIXELWISE is nil.
-
-If PIXELWISE is nil and a column at the right of the text area is only
-partially visible, that counts as a whole column; to exclude
-partially-visible columns, use `window-text-width'.  */)
+If PIXELWISE is nil, return the largest integer smaller than WINDOW's
+pixel width divided by the character width of WINDOW's frame.  This
+means that if a column at the right of the text area is only partially
+visible, that column is not counted.  */)
   (Lisp_Object window, Lisp_Object pixelwise)
 {
   return make_number (window_body_width (decode_live_window (window),
@@ -895,7 +949,7 @@ partially-visible columns, use `window-text-width'.  */)
 
 DEFUN ("window-mode-line-height", Fwindow_mode_line_height,
        Swindow_mode_line_height, 0, 1, 0,
-       doc: /* Return the height in pixel of WINDOW's mode-line.
+       doc: /* Return the height in pixels of WINDOW's mode-line.
 WINDOW must be a live window and defaults to the selected one.  */)
   (Lisp_Object window)
 {
@@ -904,7 +958,7 @@ WINDOW must be a live window and defaults to the selected one.  */)
 
 DEFUN ("window-header-line-height", Fwindow_header_line_height,
        Swindow_header_line_height, 0, 1, 0,
-       doc: /* Return the height in pixel of WINDOW's header-line.
+       doc: /* Return the height in pixels of WINDOW's header-line.
 WINDOW must be a live window and defaults to the selected one.  */)
   (Lisp_Object window)
 {
@@ -913,7 +967,7 @@ WINDOW must be a live window and defaults to the selected one.  */)
 
 DEFUN ("window-right-divider-width", Fwindow_right_divider_width,
        Swindow_right_divider_width, 0, 1, 0,
-       doc: /* Return the width of WINDOW's right divider.
+       doc: /* Return the width in pixels of WINDOW's right divider.
 WINDOW must be a live window and defaults to the selected one.  */)
   (Lisp_Object window)
 {
@@ -922,11 +976,20 @@ WINDOW must be a live window and defaults to the selected one.  */)
 
 DEFUN ("window-bottom-divider-width", Fwindow_bottom_divider_width,
        Swindow_bottom_divider_width, 0, 1, 0,
-       doc: /* Return the width of WINDOW's bottom divider.
+       doc: /* Return the width in pixels of WINDOW's bottom divider.
 WINDOW must be a live window and defaults to the selected one.  */)
   (Lisp_Object window)
 {
   return (make_number (WINDOW_BOTTOM_DIVIDER_WIDTH (decode_live_window (window))));
+}
+
+DEFUN ("window-scroll-bar-width", Fwindow_scroll_bar_width,
+       Swindow_scroll_bar_width, 0, 1, 0,
+       doc: /* Return the width in pixels of WINDOW's vertical scrollbar.
+WINDOW must be a live window and defaults to the selected one.  */)
+  (Lisp_Object window)
+{
+  return (make_number (WINDOW_SCROLL_BAR_AREA_WIDTH (decode_live_window (window))));
 }
 
 DEFUN ("window-hscroll", Fwindow_hscroll, Swindow_hscroll, 0, 1, 0,
@@ -1212,18 +1275,18 @@ coordinates_in_window (register struct window *w, int x, int y)
   if (y < top_y || y >= bottom_y || x < left_x || x >= right_x)
     return ON_NOTHING;
 
-  /* On vertical window divider (which prevails horizontal
-     dividers)?  */
-  if (!WINDOW_RIGHTMOST_P (w)
-      && WINDOW_RIGHT_DIVIDER_WIDTH (w)
-      && x >= right_x - WINDOW_RIGHT_DIVIDER_WIDTH (w)
-      && x <= right_x)
-    return ON_RIGHT_DIVIDER;
-  /* On the horizontal window divider?  */
-  else if (WINDOW_BOTTOM_DIVIDER_WIDTH (w)
-	   && y >= (bottom_y - WINDOW_BOTTOM_DIVIDER_WIDTH (w))
-	   && y <= bottom_y)
+  /* On the horizontal window divider (which prevails the vertical
+     divider)?  */
+  if (WINDOW_BOTTOM_DIVIDER_WIDTH (w) > 0
+      && y >= (bottom_y - WINDOW_BOTTOM_DIVIDER_WIDTH (w))
+      && y <= bottom_y)
     return ON_BOTTOM_DIVIDER;
+  /* On vertical window divider?  */
+  else if (!WINDOW_RIGHTMOST_P (w)
+	   && WINDOW_RIGHT_DIVIDER_WIDTH (w) > 0
+	   && x >= right_x - WINDOW_RIGHT_DIVIDER_WIDTH (w)
+	   && x <= right_x)
+    return ON_RIGHT_DIVIDER;
   /* On the mode or header line?   */
   else if ((WINDOW_WANTS_MODELINE_P (w)
 	    && y >= (bottom_y
@@ -1240,12 +1303,13 @@ coordinates_in_window (register struct window *w, int x, int y)
 	 resize windows horizontally in case we're using toolkit scroll
 	 bars.  Note: If scrollbars are on the left, the window that
 	 must be eventually resized is that on the left of WINDOW.  */
-      if ((WINDOW_HAS_VERTICAL_SCROLL_BAR_ON_LEFT (w)
-	   && !WINDOW_LEFTMOST_P (w)
-	   && eabs (x - left_x) < grabbable_width)
-	  || (!WINDOW_HAS_VERTICAL_SCROLL_BAR_ON_LEFT (w)
-	      && !WINDOW_RIGHTMOST_P (w)
-	      && eabs (x - right_x) < grabbable_width))
+      if ((WINDOW_RIGHT_DIVIDER_WIDTH (w) == 0)
+	  && ((WINDOW_HAS_VERTICAL_SCROLL_BAR_ON_LEFT (w)
+	       && !WINDOW_LEFTMOST_P (w)
+	       && eabs (x - left_x) < grabbable_width)
+	      || (!WINDOW_HAS_VERTICAL_SCROLL_BAR_ON_LEFT (w)
+		  && !WINDOW_RIGHTMOST_P (w)
+		  && eabs (x - right_x) < grabbable_width)))
 	return ON_VERTICAL_BORDER;
       else
 	return part;
@@ -1277,6 +1341,7 @@ coordinates_in_window (register struct window *w, int x, int y)
   if (FRAME_WINDOW_P (f))
     {
       if (!w->pseudo_window_p
+	  && WINDOW_RIGHT_DIVIDER_WIDTH (w) == 0
 	  && !WINDOW_HAS_VERTICAL_SCROLL_BAR (w)
 	  && !WINDOW_RIGHTMOST_P (w)
 	  && (eabs (x - right_x) < grabbable_width))
@@ -1285,6 +1350,7 @@ coordinates_in_window (register struct window *w, int x, int y)
   /* Need to say "x > right_x" rather than >=, since on character
      terminals, the vertical line's x coordinate is right_x.  */
   else if (!w->pseudo_window_p
+	   && WINDOW_RIGHT_DIVIDER_WIDTH (w) == 0
 	   && !WINDOW_RIGHTMOST_P (w)
 	   /* Why check ux if we are not the rightmost window?  Also
 	      shouldn't a pseudo window always be rightmost?  */
@@ -1298,8 +1364,8 @@ coordinates_in_window (register struct window *w, int x, int y)
 	      ? (x >= left_x + WINDOW_LEFT_FRINGE_WIDTH (w))
 	      : (x < left_x + lmargin_width)))
 	return ON_LEFT_MARGIN;
-
-      return ON_LEFT_FRINGE;
+      else
+	return ON_LEFT_FRINGE;
     }
 
   if (x >= text_right)
@@ -1309,8 +1375,8 @@ coordinates_in_window (register struct window *w, int x, int y)
 	      ? (x < right_x - WINDOW_RIGHT_FRINGE_WIDTH (w))
 	      : (x >= right_x - rmargin_width)))
 	return ON_RIGHT_MARGIN;
-
-      return ON_RIGHT_FRINGE;
+      else
+	return ON_RIGHT_FRINGE;
     }
 
   /* Everything special ruled out - must be on text area */
@@ -1329,6 +1395,8 @@ window_relative_x_coord (struct window *w, enum window_part part, int x)
     case ON_TEXT:
       return x - window_box_left (w, TEXT_AREA);
 
+    case ON_HEADER_LINE:
+    case ON_MODE_LINE:
     case ON_LEFT_FRINGE:
       return x - left_x;
 
@@ -1365,8 +1433,10 @@ measured in characters from the upper-left corner of the frame.
 frame.
 If COORDINATES are in the text portion of WINDOW,
    the coordinates relative to the window are returned.
+If they are in the bottom divider of WINDOW, `bottom-divider' is returned.
+If they are in the right divider of WINDOW, `right-divider' is returned.
 If they are in the mode line of WINDOW, `mode-line' is returned.
-If they are in the top mode line of WINDOW, `header-line' is returned.
+If they are in the header line of WINDOW, `header-line' is returned.
 If they are in the left fringe of WINDOW, `left-fringe' is returned.
 If they are in the right fringe of WINDOW, `right-fringe' is returned.
 If they are on the border between WINDOW and its right sibling,
@@ -3155,6 +3225,7 @@ check_frame_size (struct frame *frame, int *width, int *height, bool pixelwise)
 	min_height = 2 * min_height;
 
       min_height += FRAME_TOP_MARGIN_HEIGHT (frame);
+      min_height += FRAME_INTERNAL_BORDER_WIDTH (frame);
 
       if (*height < min_height)
 	*height = min_height;
@@ -3877,8 +3948,11 @@ window_resize_apply (struct window *w, bool horflag)
 	}
     }
   else
-    /* Bug#15957.  */
-    w->window_end_valid = 0;
+    {
+      adjust_window_margins (w);
+      /* Bug#15957.  */
+      w->window_end_valid = 0;
+    }
 }
 
 
@@ -4047,6 +4121,8 @@ resize_frame_windows (struct frame *f, int size, bool horflag, bool pixelwise)
      have implicitly given us a zero or negative height.  */
   if (pixelwise)
     {
+      /* Note: This does not include the size for internal borders
+	 since these are not part of the frame's text area.  */
       new_pixel_size = max (horflag
 			    ? size
 			    : (size
@@ -5362,8 +5438,10 @@ specifies the window.  This takes precedence over
   if (MINI_WINDOW_P (XWINDOW (selected_window))
       && !NILP (Vminibuf_scroll_window))
     window = Vminibuf_scroll_window;
-  /* If buffer is specified, scroll that buffer.  */
-  else if (!NILP (Vother_window_scroll_buffer))
+  /* If buffer is specified and live, scroll that buffer.  */
+  else if (!NILP (Vother_window_scroll_buffer)
+	   && BUFFERP (Vother_window_scroll_buffer)
+	   && BUFFER_LIVE_P (XBUFFER (Vother_window_scroll_buffer)))
     {
       window = Fget_buffer_window (Vother_window_scroll_buffer, Qnil);
       if (NILP (window))
@@ -7098,6 +7176,8 @@ syms_of_window (void)
   DEFSYM (Qabove, "above");
   DEFSYM (Qbelow, "below");
   DEFSYM (Qclone_of, "clone-of");
+  DEFSYM (Qfloor, "floor");
+  DEFSYM (Qceiling, "ceiling");
 
   staticpro (&Vwindow_list);
 
@@ -7128,7 +7208,7 @@ is displayed in the `mode-line' face.  */);
   mode_line_in_non_selected_windows = 1;
 
   DEFVAR_LISP ("other-window-scroll-buffer", Vother_window_scroll_buffer,
-	       doc: /* If non-nil, this is a buffer and \\[scroll-other-window] should scroll its window.  */);
+	       doc: /* If this is a live buffer, \\[scroll-other-window] should scroll its window.  */);
   Vother_window_scroll_buffer = Qnil;
 
   DEFVAR_BOOL ("auto-window-vscroll", auto_window_vscroll_p,
@@ -7247,11 +7327,10 @@ respectively are not installed by `window-state-put'.  */);
   Vwindow_persistent_parameters = list1 (Fcons (Qclone_of, Qt));
 
   DEFVAR_BOOL ("window-resize-pixelwise", window_resize_pixelwise,
-	       doc: /*  Non-nil means resizing windows works pixelwise.
-Functions currently affected by this option are `split-window',
-`maximize-window', `minimize-window', `fit-window-to-buffer' and
-`fit-frame-to-buffer' and all functions symmetrically resizing a
-parent window.
+	       doc: /*  Non-nil means resize windows pixelwise.
+This currently affects the functions: `split-window', `maximize-window',
+`minimize-window', `fit-window-to-buffer' and `fit-frame-to-buffer', and
+all functions that symmetrically resize a parent window.
 
 Note that when a frame's pixel size is not a multiple of the
 frame's character size, at least one window may get resized
@@ -7310,6 +7389,7 @@ pixelwise even if this option is nil.  */);
   defsubr (&Swindow_header_line_height);
   defsubr (&Swindow_right_divider_width);
   defsubr (&Swindow_bottom_divider_width);
+  defsubr (&Swindow_scroll_bar_width);
   defsubr (&Swindow_inside_edges);
   defsubr (&Swindow_inside_pixel_edges);
   defsubr (&Swindow_inside_absolute_pixel_edges);

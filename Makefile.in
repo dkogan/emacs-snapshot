@@ -60,8 +60,8 @@
 
 SHELL = @SHELL@
 
-# This may not work with certain non-GNU make's.  It only matters when
-# inheriting a CDPATH not starting with the current directory.
+# This only matters when inheriting a CDPATH not starting with the
+# current directory.
 CDPATH=
 
 # If Make doesn't predefine MAKE, set it here.
@@ -288,7 +288,7 @@ SUBDIR_MAKEFILES = `echo $(SUBDIR_MAKEFILES_IN:.in=) | sed 's|$(srcdir)/||g'`
 COPYDIR = ${srcdir}/etc ${srcdir}/lisp
 COPYDESTS = "$(DESTDIR)${etcdir}" "$(DESTDIR)${lispdir}"
 
-all: ${SUBDIR}
+all: ${SUBDIR} info
 
 .PHONY: all ${SUBDIR} blessmail epaths-force epaths-force-w32 FRC
 
@@ -373,6 +373,11 @@ lib lib-src lisp nt: Makefile FRC
 # file src/foo.c forces dumping a new bootstrap-emacs, then re-byte-compiling
 # all preloaded elisp files, and only then dump the actual src/emacs, which
 # is not wrong, but is overkill in 99.99% of the cases.
+#
+# Note the use of single quotes in the value of vcswitness.
+# This passes an unexpanded $srcdir to src's Makefile, which then
+# expands it using its own value of srcdir (which points to the
+# source directory of src/).
 src: Makefile FRC
 	dirstate='.bzr/checkout/dirstate';				\
 	vcswitness='$$(srcdir)/../'$$dirstate;				\
@@ -505,6 +510,7 @@ install-nt:
 	  $(MAKE) install $(MFLAGS) prefix="${prefix}" \
 	    exec_prefix="${exec_prefix}" bindir="${bindir}" \
 	    libexecdir="${libexecdir}" archlibdir="${archlibdir}" \
+	    datadir="${datadir}" \
 	    INSTALL_STRIP=${INSTALL_STRIP}
 
 ## In the share directory, we are deleting:
@@ -606,18 +612,12 @@ install-arch-indep: lisp install-info install-man ${INSTALL_ARCH_INDEP_EXTRA}
 	  ${write_subdir}
 	subdir="$(DESTDIR)${datadir}/emacs/site-lisp" ; \
 	  ${write_subdir} || true
-	[ -z "${GZIP_PROG}" ] || \
-	  ( echo "Compressing *.el ..." ; \
-	    unset CDPATH; \
-	    thisdir=`/bin/pwd`; \
-	    for dir in "$(DESTDIR)${lispdir}"; do \
-	      cd "$${thisdir}" ; \
-	      cd "$${dir}" || exit 1 ; \
-	      for f in `find . -name "*.elc" -print`; do \
-	        f_el=`echo "$$f" | sed 's/.elc$$/.el/'`; \
-	        ${GZIP_PROG} -9n "$$f_el" ; \
-	      done ; \
-	    done )
+	[ -z "${GZIP_PROG}" ] || { \
+	  echo "Compressing *.el ..." && \
+	  cd "$(DESTDIR)${lispdir}" && \
+	  find . -name '*.elc' -exec $(SHELL) -c \
+	    '${GZIP_PROG} -9n `expr "$$1" : "\\(.*\\)c"`' dummy '{}' ';'; \
+	}
 	-chmod -R a+r "$(DESTDIR)${datadir}/emacs/${version}" ${COPYDESTS}
 
 ## The above chmods are needed because "umask 022; tar ..." is not

@@ -43,15 +43,15 @@ variables}---variables that can have a different value in each buffer.
   A buffer's size cannot be larger than some maximum, which is defined
 by the largest buffer position representable by @dfn{Emacs integers}.
 This is because Emacs tracks buffer positions using that data type.
-For typical 64-bit machines, this maximum buffer size is @math{2^61 -
-2} bytes, or about 2 EiB@.  For typical 32-bit machines, the maximum is
-usually @math{2^29 - 2} bytes, or about 512 MiB@.  Buffer sizes are
+For typical 64-bit machines, this maximum buffer size is @math{2^{61} - 2}
+bytes, or about 2 EiB@.  For typical 32-bit machines, the maximum is
+usually @math{2^{29} - 2} bytes, or about 512 MiB@.  Buffer sizes are
 also limited by the amount of memory in the system.
 
 @menu
 * Select Buffer::       Creating a new buffer or reselecting an old one.
 * List Buffers::        Getting a list of buffers that exist.
-* Misc Buffer::         Renaming; changing read-onlyness; copying text.
+* Misc Buffer::         Renaming; changing read-only status; copying text.
 * Kill Buffer::         Killing buffers you no longer need.
 * Several Buffers::     How to go through the list of all buffers
                           and operate variously on several of them.
@@ -174,7 +174,7 @@ List the existing buffers (@code{list-buffers}).
 @kindex C-x C-b
 @findex list-buffers
   To display a list of existing buffers, type @kbd{C-x C-b}.  Each
-line in the list shows one buffer's name, major mode and visited file.
+line in the list shows one buffer's name, size, major mode and visited file.
 The buffers are listed in the order that they were current; the
 buffers that were current most recently come first.
 

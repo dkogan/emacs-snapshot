@@ -566,7 +566,7 @@ init_timers (void)
 static int
 start_timer_thread (int which)
 {
-  DWORD exit_code;
+  DWORD exit_code, tid;
   HANDLE th;
   struct itimer_data *itimer =
     (which == ITIMER_REAL) ? &real_itimer : &prof_itimer;
@@ -604,7 +604,7 @@ start_timer_thread (int which)
      the way of threads we start to wait for subprocesses.  See also
      new_child below.  */
   itimer->timer_thread = CreateThread (NULL, 64 * 1024, timer_loop,
-				       (void *)itimer, 0x00010000, NULL);
+				       (void *)itimer, 0x00010000, &tid);
 
   if (!itimer->timer_thread)
     {
@@ -1772,12 +1772,12 @@ sys_spawnve (int mode, char *cmdname, char **argv, char **envp)
       if (need_quotes)
 	{
 	  int escape_char_run = 0;
-	  char * first;
-	  char * last;
+	  /* char * first; */
+	  /* char * last; */
 
 	  p = *targ;
-	  first = p;
-	  last = p + strlen (p) - 1;
+	  /* first = p; */
+	  /* last = p + strlen (p) - 1; */
 	  *parg++ = '"';
 #if 0
 	  /* This version does not escape quotes if they occur at the
@@ -2249,10 +2249,9 @@ static BOOL CALLBACK
 find_child_console (HWND hwnd, LPARAM arg)
 {
   child_process * cp = (child_process *) arg;
-  DWORD thread_id;
   DWORD process_id;
 
-  thread_id = GetWindowThreadProcessId (hwnd, &process_id);
+  GetWindowThreadProcessId (hwnd, &process_id);
   if (process_id == cp->procinfo.dwProcessId)
     {
       char window_class[32];

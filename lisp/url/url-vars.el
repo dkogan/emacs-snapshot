@@ -1,7 +1,6 @@
 ;;; url-vars.el --- Variables for Uniform Resource Locator tool
 
-;; Copyright (C) 1996-1999, 2001, 2004-2014 Free Software Foundation,
-;; Inc.
+;; Copyright (C) 1996-1999, 2001, 2004-2014 Free Software Foundation, Inc.
 
 ;; Keywords: comm, data, processes, hypermedia
 
@@ -28,6 +27,8 @@
 (defgroup url nil
   "Uniform Resource Locator tool."
   :version "22.1"
+  :link '(custom-manual "(url) Top")
+  :link '(info-link "(url) Customization")
   :group 'comm)
 
 (defgroup url-file nil
@@ -80,8 +81,8 @@ If non-nil and not t, the user will be asked for each refresh request."
   :type 'boolean
   :group 'url-cache)
 
-(defconst url-bug-address "bug-gnu-emacs@gnu.org"
-  "Where to send bug reports.")
+(define-obsolete-variable-alias 'url-bug-address
+  'report-emacs-bug-address "24.5")
 
 (defcustom url-personal-mail-address nil
   "Your full email address.

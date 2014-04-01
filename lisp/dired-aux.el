@@ -1,10 +1,10 @@
 ;;; dired-aux.el --- less commonly used parts of dired
 
-;; Copyright (C) 1985-1986, 1992, 1994, 1998, 2000-2014 Free Software
-;; Foundation, Inc.
+;; Copyright (C) 1985-1986, 1992, 1994, 1998, 2000-2014
+;;   Free Software Foundation, Inc.
 
 ;; Author: Sebastian Kremer <sk@thp.uni-koeln.de>.
-;; Maintainer: FSF
+;; Maintainer: emacs-devel@gnu.org
 ;; Keywords: files
 ;; Package: emacs
 
@@ -1343,9 +1343,7 @@ Special value `always' suppresses confirmation."
 	     (eq t (car attrs))
 	     (or (eq recursive 'always)
 		 (yes-or-no-p (format "Recursive copies of %s? " from))))
-	;; This is a directory.
 	(copy-directory from to preserve-time)
-      ;; Not a directory.
       (or top (dired-handle-overwrite to))
       (condition-case err
 	  (if (stringp (car attrs))
@@ -1923,8 +1921,9 @@ Type SPC or `y' to %s one match, DEL or `n' to skip to next,
 	 (arg
 	  (if whole-name nil current-prefix-arg))
 	 (regexp
-	  (dired-read-regexp
-	   (concat (if whole-name "Abs. " "") operation " from (regexp): ")))
+	  (read-regexp
+	   (concat (if whole-name "Abs. " "") operation " from (regexp): ")
+	   nil 'dired-regexp-history))
 	 (newname
 	  (read-string
 	   (concat (if whole-name "Abs. " "") operation " " regexp " to: "))))

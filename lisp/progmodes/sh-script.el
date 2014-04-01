@@ -1,11 +1,10 @@
 ;;; sh-script.el --- shell-script editing commands for Emacs  -*- lexical-binding:t -*-
 
-;; Copyright (C) 1993-1997, 1999, 2001-2014 Free Software Foundation,
-;; Inc.
+;; Copyright (C) 1993-1997, 1999, 2001-2014 Free Software Foundation, Inc.
 
 ;; Author: Daniel Pfeiffer <occitan@esperanto.org>
 ;; Version: 2.0f
-;; Maintainer: FSF
+;; Maintainer: emacs-devel@gnu.org
 ;; Keywords: languages, unix
 
 ;; This file is part of GNU Emacs.
@@ -228,6 +227,7 @@
   '((ash . sh)
     (bash . jsh)
     (bash2 . jsh)
+    (dash . ash)
     (dtksh . ksh)
     (es . rc)
     (itcsh . tcsh)
@@ -255,6 +255,7 @@ rc		Plan 9 Shell
   es		Extensible Shell
 sh		Bourne Shell
   ash		Almquist Shell
+    dash	Debian Almquist Shell
   jsh		Bourne Shell with Job Control
     bash	GNU Bourne Again Shell
     ksh88	Korn Shell '88
@@ -267,6 +268,7 @@ sh		Bourne Shell
   posix		IEEE 1003.2 Shell Standard
   wsh		? Shell"
   :type '(repeat (cons symbol symbol))
+  :version "24.4"                       ; added dash
   :group 'sh-script)
 
 
@@ -975,11 +977,14 @@ See `sh-feature'.")
     (let ((ppss (syntax-ppss pos)))
       (when (nth 1 ppss)
         (goto-char (nth 1 ppss))
-        (pcase (char-after)
-          ;; $((...)) or $[...] or ${...}.
-          (`?\( (and (eq ?\( (char-before))
-                     (eq ?\$ (char-before (1- (point))))))
-          ((or `?\{ `?\[) (eq ?\$ (char-before))))))))
+        (or
+         (pcase (char-after)
+           ;; ((...)) or $((...)) or $[...] or ${...}. Nested
+           ;; parenthesis can occur inside the first of these forms, so
+           ;; parse backward recursively.
+           (`?\( (eq ?\( (char-before)))
+           ((or `?\{ `?\[) (eq ?\$ (char-before))))
+         (sh--inside-noncommand-expression (1- (point))))))))
 
 (defun sh-font-lock-open-heredoc (start string eol)
   "Determine the syntax of the \\n after a <<EOF.
@@ -3504,7 +3509,7 @@ so that `occur-next' and `occur-prev' will work."
 
 ;; Originally this was sh-learn-region-indent (beg end)
 ;; However, in practice this was awkward so I changed it to
-;; use the whole buffer.  Use narrowing if needbe.
+;; use the whole buffer.  Use narrowing if need be.
 (defun sh-learn-buffer-indent (&optional arg)
   "Learn how to indent the buffer the way it currently is.
 
@@ -4265,7 +4270,8 @@ The document is bounded by `sh-here-document-word'."
   (or (not (looking-back "[^<]<<"))
       (save-excursion
 	(backward-char 2)
-	(sh-quoted-p))
+        (or (sh-quoted-p)
+            (sh--inside-noncommand-expression (point))))
       (nth 8 (syntax-ppss))
       (let ((tabs (if (string-match "\\`-" sh-here-document-word)
                       (make-string (/ (current-indentation) tab-width) ?\t)

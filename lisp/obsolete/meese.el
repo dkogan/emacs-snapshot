@@ -5,8 +5,9 @@
 
 ;; This file is part of GNU Emacs.
 
-;; Maintainer: FSF
+;; Maintainer: emacs-devel@gnu.org
 ;; Keywords: games
+;; Obsolete-since: 24.4
 
 ;;; Commentary:
 
@@ -31,7 +32,7 @@
 	    (insert-file-contents buffer-file-name t))
 	  (rename-buffer (file-name-nondirectory buffer-file-name))))))
 
-(add-hook 'find-file-hook 'protect-innocence-hook)
+;;;(add-hook 'find-file-hook 'protect-innocence-hook)
 (provide 'meese)
 
 ;;; meese.el ends here

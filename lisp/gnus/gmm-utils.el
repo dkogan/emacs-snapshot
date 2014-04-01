@@ -99,7 +99,7 @@ ARGS are passed to `message'."
 
 ;; Copy of the `nnmail-lazy' code from `nnmail.el':
 (define-widget 'gmm-lazy 'default
-  "Base widget for recursive datastructures.
+  "Base widget for recursive data structures.
 
 This is a copy of the `lazy' widget in Emacs 22.1 provided for compatibility."
   :format "%{%t%}: %v"
@@ -441,6 +441,7 @@ rather than relying on `lexical-binding'.
   `(,(progn (require 'cl) (if (fboundp 'cl-labels) 'cl-labels 'labels))
     ,bindings ,@body))
 (put 'gmm-labels 'lisp-indent-function 1)
+(put 'gmm-labels 'edebug-form-spec '((&rest (sexp sexp &rest form)) &rest form))
 
 (provide 'gmm-utils)
 

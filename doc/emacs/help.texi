@@ -458,7 +458,9 @@ buffer (@pxref{Package Menu}).
 @kindex C-h P
   @kbd{C-h P} (@code{describe-package}) prompts for the name of a
 package, and displays a help buffer describing the attributes of the
-package and the features that it implements.
+package and the features that it implements.  The buffer lists the
+keywords that relate to the package in the form of buttons.  Click on
+a button to see other packages related to that keyword.
 
 @node Language Help
 @section Help for International Language Support
@@ -603,7 +605,8 @@ Display information about where to get external packages
 @item C-h C-f
 Display the Emacs frequently-answered-questions list (@code{view-emacs-FAQ}).
 @item C-h g
-Display information about the GNU Project (@code{describe-gnu-project}).
+Visit a @uref{http://www.gnu.org} page with information about the GNU
+Project (@code{describe-gnu-project}).
 @item C-h C-m
 Display information about ordering printed copies of Emacs manuals
 (@code{view-order-manuals}).

@@ -439,6 +439,18 @@ associated with the current buffer, type @kbd{K}
 (@code{doc-view-kill-proc-and-buffer}) kills the converter process and
 the DocView buffer.
 
+@node EWW
+@section Web Browsing with EWW
+
+@findex eww
+@findex eww-open-file
+  @dfn{EWW}, the Emacs Web Wowser, is a web browser package for Emacs.
+It allows browsing URLs within an Emacs buffer.  The command @kbd{M-x
+eww} will open a URL or search the web.  You can open a file
+using the command @kbd{M-x eww-open-file}.  You can use EWW as the
+web browser for @code{browse-url}, @pxref{Browse-URL}.  For full
+details, @pxref{Top, EWW,, eww, The Emacs Web Wowser Manual}.
+
 @node Shell
 @section Running Shell Commands from Emacs
 @cindex subshell
@@ -1982,6 +1994,7 @@ Like @kbd{M-x sort-fields} except that the text within each line
 used for comparison comes from a fixed range of columns.  See below
 for an explanation.
 
+@findex reverse-region
 @item M-x reverse-region
 Reverse the order of the lines in the region.  This is useful for
 sorting into descending order by fields or columns, since those sort
@@ -2119,10 +2132,15 @@ hexl-@key{RET}} for details.
 @cindex reload files
 @cindex desktop
 
+@vindex desktop-restore-frames
    Use the desktop library to save the state of Emacs from one session
 to another.  Once you save the Emacs @dfn{desktop}---the buffers,
 their file names, major modes, buffer positions, and so on---then
-subsequent Emacs sessions reload the saved desktop.
+subsequent Emacs sessions reload the saved desktop.  By default,
+the desktop also tries to save the frame and window configuration.
+To disable this, set @code{desktop-restore-frames} to @code{nil}.
+(See that variable's documentation for some related options
+that you can customize to fine-tune this behavior.)
 
 @findex desktop-save
 @vindex desktop-save-mode
@@ -2136,6 +2154,12 @@ sessions, or add this line in your init file (@pxref{Init File}):
 @example
 (desktop-save-mode 1)
 @end example
+
+@vindex desktop-auto-save-timeout
+@noindent
+When @code{desktop-save-mode} is active and the desktop file exists,
+Emacs auto-saves it every @code{desktop-auto-save-timeout}
+seconds, if that is non-@code{nil} and non-zero.
 
 @findex desktop-change-dir
 @findex desktop-revert

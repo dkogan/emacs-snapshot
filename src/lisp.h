@@ -800,6 +800,7 @@ extern _Noreturn Lisp_Object wrong_type_argument (Lisp_Object, Lisp_Object);
 
 /* Defined in emacs.c.  */
 extern bool initialized;
+extern bool might_dump;
 
 /* Defined in eval.c.  */
 extern Lisp_Object Qautoload;
@@ -4198,9 +4199,8 @@ extern void syms_of_macros (void);
 extern Lisp_Object Qapply;
 extern Lisp_Object Qinhibit_read_only;
 extern void truncate_undo_list (struct buffer *);
-extern void record_marker_adjustment (Lisp_Object, ptrdiff_t);
 extern void record_insert (ptrdiff_t, ptrdiff_t);
-extern void record_delete (ptrdiff_t, Lisp_Object);
+extern void record_delete (ptrdiff_t, Lisp_Object, bool);
 extern void record_first_change (void);
 extern void record_change (ptrdiff_t, ptrdiff_t);
 extern void record_property_change (ptrdiff_t, ptrdiff_t,
@@ -4237,8 +4237,6 @@ extern void init_sigio (int);
 extern void sys_subshell (void);
 extern void sys_suspend (void);
 extern void discard_tty_input (void);
-extern void block_tty_out_signal (void);
-extern void unblock_tty_out_signal (void);
 extern void init_sys_modes (struct tty_display_info *);
 extern void reset_sys_modes (struct tty_display_info *);
 extern void init_all_sys_modes (void);
@@ -4398,6 +4396,7 @@ extern void *xpalloc (void *, ptrdiff_t *, ptrdiff_t, ptrdiff_t, ptrdiff_t);
 
 extern char *xstrdup (const char *);
 extern char *xlispstrdup (Lisp_Object);
+extern void dupstring (char **, char const *);
 extern void xputenv (const char *);
 
 extern char *egetenv (const char *);

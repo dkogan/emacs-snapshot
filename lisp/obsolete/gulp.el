@@ -3,8 +3,9 @@
 ;; Copyright (C) 1996, 2001-2014 Free Software Foundation, Inc.
 
 ;; Author: Sam Shteingold <shteingd@math.ucla.edu>
-;; Maintainer: FSF
+;; Maintainer: emacs-devel@gnu.org
 ;; Keywords: maint
+;; Obsolete-since: 24.5
 
 ;; This file is part of GNU Emacs.
 
@@ -33,8 +34,9 @@
   :prefix "-"
   :group 'maint)
 
-(defcustom gulp-discard "^;+ *Maintainer: *FSF *$"
+(defcustom gulp-discard "^;+ *Maintainer: *\\(FSF\\|emacs-devel@gnu\\.org\\) *$"
   "The regexp matching the packages not requiring the request for updates."
+  :version "24.4"			; added emacs-devel
   :type 'regexp
   :group 'gulp)
 

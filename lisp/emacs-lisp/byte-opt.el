@@ -4,7 +4,7 @@
 
 ;; Author: Jamie Zawinski <jwz@lucid.com>
 ;;	Hallvard Furuseth <hbf@ulrik.uio.no>
-;; Maintainer: FSF
+;; Maintainer: emacs-devel@gnu.org
 ;; Keywords: internal
 ;; Package: emacs
 
@@ -248,10 +248,10 @@
 (defun byte-compile-inline-expand (form)
   (let* ((name (car form))
          (localfn (cdr (assq name byte-compile-function-environment)))
-	 (fn (or localfn (and (fboundp name) (symbol-function name)))))
+	 (fn (or localfn (symbol-function name))))
     (when (autoloadp fn)
       (autoload-do-load fn)
-      (setq fn (or (and (fboundp name) (symbol-function name))
+      (setq fn (or (symbol-function name)
                    (cdr (assq name byte-compile-function-environment)))))
     (pcase fn
       (`nil

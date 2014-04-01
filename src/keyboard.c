@@ -807,9 +807,13 @@ force_auto_save_soon (void)
 
 DEFUN ("recursive-edit", Frecursive_edit, Srecursive_edit, 0, 0, "",
        doc: /* Invoke the editor command loop recursively.
-To get out of the recursive edit, a command can do `(throw 'exit nil)';
-that tells this function to return.
-Alternatively, `(throw 'exit t)' makes this function signal an error.
+To get out of the recursive edit, a command can throw to `exit' -- for
+instance `(throw 'exit nil)'.
+If you throw a value other than t, `recursive-edit' returns normally
+to the function that called it.  Throwing a t value causes
+`recursive-edit' to quit, so that control returns to the command loop
+one level up.
+
 This function is called by the editor initialization to begin editing.  */)
   (void)
 {
@@ -1991,7 +1995,7 @@ start_polling (void)
 	 been turned off in process.c.  */
       turn_on_atimers (1);
 
-      /* If poll timer doesn't exist, are we need one with
+      /* If poll timer doesn't exist, or we need one with
 	 a different interval, start a new one.  */
       if (poll_timer == NULL
 	  || poll_timer->interval.tv_sec != polling_period)
@@ -2295,8 +2299,10 @@ read_decoded_event_from_main_queue (struct timespec *end_time,
                                     bool *used_mouse_menu)
 {
 #define MAX_ENCODED_BYTES 16
+#ifndef WINDOWSNT
   Lisp_Object events[MAX_ENCODED_BYTES];
   int n = 0;
+#endif
   while (true)
     {
       Lisp_Object nextevt
@@ -2887,8 +2893,12 @@ read_char (int commandflag, Lisp_Object map,
     {
       c = read_decoded_event_from_main_queue (end_time, local_getcjmp,
                                               prev_event, used_mouse_menu);
-      if (end_time && timespec_cmp (*end_time, current_timespec ()) <= 0)
-        goto exit;
+      if (NILP(c) && end_time &&
+          timespec_cmp (*end_time, current_timespec ()) <= 0)
+        {
+          goto exit;
+        }
+
       if (EQ (c, make_number (-2)))
         {
 	  /* This is going to exit from read_char
@@ -3820,7 +3830,7 @@ kbd_buffer_get_event (KBOARD **kbp,
     }
 #endif	/* subprocesses */
 
-#ifndef HAVE_DBUS  /* We want to read D-Bus events in batch mode.  */
+#if !defined HAVE_DBUS && !defined USE_FILE_NOTIFY
   if (noninteractive
       /* In case we are running as a daemon, only do this before
 	 detaching from the terminal.  */
@@ -3831,7 +3841,7 @@ kbd_buffer_get_event (KBOARD **kbp,
       *kbp = current_kboard;
       return obj;
     }
-#endif	/* ! HAVE_DBUS  */
+#endif	/* !defined HAVE_DBUS && !defined USE_FILE_NOTIFY  */
 
   /* Wait until there is input available.  */
   for (;;)
@@ -10287,6 +10297,9 @@ static void
 handle_interrupt (bool in_signal_handler)
 {
   char c;
+  sigset_t blocked;
+  sigemptyset (&blocked);
+  sigaddset (&blocked, SIGINT);
 
   cancel_echoing ();
 
@@ -10298,9 +10311,6 @@ handle_interrupt (bool in_signal_handler)
 	  /* If SIGINT isn't blocked, don't let us be interrupted by
 	     a SIGINT.  It might be harmful due to non-reentrancy
 	     in I/O functions.  */
-	  sigset_t blocked;
-	  sigemptyset (&blocked);
-	  sigaddset (&blocked, SIGINT);
 	  pthread_sigmask (SIG_BLOCK, &blocked, 0);
 	}
 
@@ -10385,7 +10395,7 @@ handle_interrupt (bool in_signal_handler)
 	  struct gcpro gcpro1, gcpro2, gcpro3, gcpro4;
 
 	  immediate_quit = 0;
-	  pthread_sigmask (SIG_SETMASK, &empty_mask, 0);
+	  pthread_sigmask (SIG_UNBLOCK, &blocked, 0);
 	  saved = gl_state;
 	  GCPRO4 (saved.object, saved.global_code,
 		  saved.current_syntax_table, saved.old_prop);
@@ -10406,7 +10416,7 @@ handle_interrupt (bool in_signal_handler)
         }
     }
 
-  pthread_sigmask (SIG_SETMASK, &empty_mask, 0);
+  pthread_sigmask (SIG_UNBLOCK, &blocked, 0);
 
 /* TODO: The longjmp in this call throws the NS event loop integration off,
          and it seems to do fine without this.  Probably some attention

@@ -22,9 +22,10 @@ dnl  You should have received a copy of the GNU General Public License
 dnl  along with GNU Emacs.  If not, see <http://www.gnu.org/licenses/>.
 
 AC_PREREQ(2.65)
-AC_INIT(emacs, 24.3.50)
+AC_INIT(GNU Emacs, 24.4.50, bug-gnu-emacs@gnu.org)
 
-if test "x$MSYSTEM" = "xMINGW32"
+dnl We get MINGW64 with MSYS2
+if test "x$MSYSTEM" = "xMINGW32" -o "x$MSYSTEM" = "xMINGW64"
 then
   . $srcdir/nt/mingw-cfg.site
 
@@ -440,8 +441,7 @@ AC_SUBST(PROFILING_CFLAGS)
 AC_ARG_ENABLE(autodepend,
 [AS_HELP_STRING([--enable-autodepend],
 		[automatically generate dependencies to .h-files.
- 		 Requires GNU Make and Gcc. Enabled if GNU Make and Gcc is
- 		 found])],
+ 		 Requires gcc, enabled if found.])],
 [ac_enable_autodepend="${enableval}"],[ac_enable_autodepend=yes])
 
 AC_ARG_ENABLE(gtk-deprecation-warnings,
@@ -467,14 +467,8 @@ dnl quotation begins
 
 ### If you add support for a new configuration, add code to this
 ### switch statement to recognize your configuration name and select
-### the appropriate operating system file.
+### the appropriate opsys.
 
-### You would hope that you could choose an s/*.h
-### file based on the operating system portion.  However, it turns out
-### that each s/*.h file is pretty manufacturer-specific.
-### So we basically have to have a special case for each
-### configuration name.
-###
 ### As far as handling version numbers on operating systems is
 ### concerned, make sure things will fail in a fixable way.  If
 ### /etc/MACHINES doesn't say anything about version numbers, be
@@ -580,16 +574,16 @@ case "${canonical}" in
       * )		unported=yes ;;
     esac
     case "${canonical}" in
+      *-sunos5.[1-9][0-9]* | *-solaris2.[1-9][0-9]* )
+		opsys=sol2-10
+		emacs_check_sunpro_c=yes
+		;;
       *-sunos5.6* | *-solaris2.6* )
 		opsys=sol2-6
 		RANLIB="ar -ts"
 		;;
       *-sunos5.[7-9]* | *-solaris2.[7-9]* )
 		opsys=sol2-6
-		emacs_check_sunpro_c=yes
-		;;
-      *-sunos5* | *-solaris* )
-		opsys=sol2-10
 		emacs_check_sunpro_c=yes
 		;;
     esac
@@ -658,8 +652,21 @@ fi
 dnl quotation ends
 
 if test $unported = yes; then
-  AC_MSG_ERROR([Emacs hasn't been ported to `${canonical}' systems.
+  AC_MSG_ERROR([Emacs does not support `${canonical}' systems.
+If you think it should, please send a report to ${PACKAGE_BUGREPORT}.
 Check `etc/MACHINES' for recognized configuration names.])
+fi
+
+
+AC_MSG_CHECKING([whether we are using GNU Make])
+testval=`${MAKE-make} --version 2>/dev/null | grep 'GNU Make'`
+if test "x$testval" != x; then
+  AC_MSG_RESULT([yes])
+else
+  AC_MSG_RESULT([no])
+  AC_MSG_ERROR([Building Emacs requires GNU make.
+If you have it installed under another name, configure with 'MAKE=...'.
+For example, run './configure MAKE=gmake'.])
 fi
 
 
@@ -1025,11 +1032,11 @@ fi
 ## pre-built, and not deleted by the normal clean rules.  makeinfo is
 ## therefore in the category of "special tools" not normally required, which
 ## configure does not have to check for (eg autoconf itself).
-## In a Bazaar checkout on the other hand, the manuals are not included.
-## So makeinfo is a requirement to build from Bazaar, and configure
+## In a repository checkout on the other hand, the manuals are not included.
+## So makeinfo is a requirement to build from the repository, and configure
 ## should test for it as it does for any other build requirement.
 ## We use the presence of $srcdir/info/emacs to distinguish a release,
-## with pre-built manuals, from a Bazaar checkout.
+## with pre-built manuals, from a repository checkout.
 HAVE_MAKEINFO=yes
 
 if test "$MAKEINFO" = "no"; then
@@ -1530,27 +1537,16 @@ dnl AC_PROG_MAKE_SET is done by Automake.
 DEPFLAGS=
 MKDEPDIR=":"
 deps_frag=deps.mk
-dnl check for GNU Make if we have GCC and autodepend is on.
+dnl check if we have GCC and autodepend is on.
 if test "$GCC" = yes && test "$ac_enable_autodepend" = yes; then
-   AC_MSG_CHECKING([whether we are using GNU Make])
-   HAVE_GNU_MAKE=no
-   testval=`${MAKE-make} --version 2>/dev/null | grep 'GNU Make'`
-   if test "x$testval" != x; then
-      HAVE_GNU_MAKE=yes
-   else
-      ac_enable_autodepend=no
-   fi
-   AC_MSG_RESULT([$HAVE_GNU_MAKE])
-   if test $HAVE_GNU_MAKE = yes; then
-      AC_MSG_CHECKING([whether gcc understands -MMD -MF])
-      SAVE_CFLAGS="$CFLAGS"
-      CFLAGS="$CFLAGS -MMD -MF deps.d -MP"
-      AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]], [[]])], , ac_enable_autodepend=no)
-      CFLAGS="$SAVE_CFLAGS"
-      test -f deps.d || ac_enable_autodepend=no
-      rm -rf deps.d
-      AC_MSG_RESULT([$ac_enable_autodepend])
-   fi
+   AC_MSG_CHECKING([whether gcc understands -MMD -MF])
+   SAVE_CFLAGS="$CFLAGS"
+   CFLAGS="$CFLAGS -MMD -MF deps.d -MP"
+   AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]], [[]])], , ac_enable_autodepend=no)
+   CFLAGS="$SAVE_CFLAGS"
+   test -f deps.d || ac_enable_autodepend=no
+   rm -rf deps.d
+   AC_MSG_RESULT([$ac_enable_autodepend])
    if test $ac_enable_autodepend = yes; then
       DEPFLAGS='-MMD -MF ${DEPDIR}/$*.d -MP'
       ## MKDIR_P is documented (see AC_PROG_MKDIR_P) to be parallel-safe.
@@ -1946,7 +1942,7 @@ if test "$window_system" = none && test "X$with_x" != "Xno"; then
       test "`echo /usr/lib/libX11.*`" != "/usr/lib/libX11.*"; then
         AC_MSG_ERROR([You seem to be running X, but no X development libraries
 were found.  You should install the relevant development files for X
-and for the toolkit you want, such as Gtk+, Lesstif or Motif.  Also make
+and for the toolkit you want, such as Gtk+ or Motif.  Also make
 sure you have development files for image handling, i.e.
 tiff, gif, jpeg, png and xpm.
 If you are sure you want Emacs compiled without X window support, pass
@@ -2235,7 +2231,7 @@ if test "${HAVE_X11}" = "yes" || test "${HAVE_NS}" = "yes" || test "${opsys}" = 
 fi
 
 HAVE_IMAGEMAGICK=no
-if test "${HAVE_X11}" = "yes" || test "${HAVE_NS}" = "yes"; then
+if test "${HAVE_X11}" = "yes" || test "${HAVE_NS}" = "yes" || test "${HAVE_W32}" = "yes"; then
   if test "${with_imagemagick}" != "no"; then
     ## 6.2.8 is the earliest version known to work, but earlier versions
     ## might work - let us know if you find one.
@@ -2436,9 +2432,32 @@ HAVE_GSETTINGS=no
 if test "${HAVE_X11}" = "yes" && test "${with_gsettings}" = "yes"; then
    PKG_CHECK_MODULES(GSETTINGS, gio-2.0 >= 2.26, HAVE_GSETTINGS=yes, HAVE_GSETTINGS=no)
    if test "$HAVE_GSETTINGS" = "yes"; then
-      AC_DEFINE(HAVE_GSETTINGS, 1, [Define to 1 if using GSettings.])
-      SETTINGS_CFLAGS="$GSETTINGS_CFLAGS"
-      SETTINGS_LIBS="$GSETTINGS_LIBS"
+      old_CFLAGS=$CFLAGS
+      CFLAGS="$CFLAGS $GSETTINGS_CFLAGS"
+      old_LIBS=$LIBS
+      LIBS="$LIBS $GSETTINGS_LIBS"
+      AC_MSG_CHECKING([whether GSettings is in gio])
+      GSETTINGS_COMPILES=no
+      AC_LINK_IFELSE(
+         [AC_LANG_PROGRAM(
+ 	     [[/* Check that gsettings really is present.  */
+             #include <glib-object.h>
+	     #include <gio/gio.h>
+ 	     ]],
+ 	     [[
+	       GSettings *settings;
+	       GVariant *val = g_settings_get_value (settings, "");
+ 	     ]])],
+ 	 [GSETTINGS_COMPILES=yes])
+      AC_MSG_RESULT([$GSETTINGS_COMPILES])
+
+      if test "$GSETTINGS_COMPILES" = "yes"; then
+        AC_DEFINE(HAVE_GSETTINGS, 1, [Define to 1 if using GSettings.])
+ 	SETTINGS_CFLAGS="$GSETTINGS_CFLAGS"
+ 	SETTINGS_LIBS="$GSETTINGS_LIBS"
+      fi
+      CFLAGS=$old_CFLAGS
+      LIBS=$old_LIBS
    fi
 fi
 
@@ -3467,7 +3486,6 @@ getrlimit setrlimit shutdown getaddrinfo \
 strsignal setitimer \
 sendto recvfrom getsockname getpeername getifaddrs freeifaddrs \
 gai_strerror getline getdelim sync \
-difftime \
 getpwent endpwent getgrent endgrent \
 touchlock \
 cfmakeraw cfsetspeed copysign __executable_start log2)
@@ -3839,6 +3857,10 @@ AC_CHECK_FUNCS(snprintf)
 dnl Check this late.  It depends on what other libraries (lrsvg, Gtk+ etc)
 dnl Emacs uses.
 XGSELOBJ=
+OLDCFLAGS="$CFLAGS"
+OLDLIBS="$LIBS"
+CFLAGS="$CFLAGS $GFILENOTIFY_CFLAGS"
+LIBS="$LIBS $GFILENOTIFY_LIBS"
 AC_MSG_CHECKING([whether GLib is linked in])
 AC_LINK_IFELSE([AC_LANG_PROGRAM(
 	[[#include <glib.h>
@@ -3853,6 +3875,8 @@ if test "${links_glib}" = "yes"; then
     XGSELOBJ=xgselect.o
   fi
 fi
+CFLAGS="$OLDCFLAGS"
+LIBS="$OLDLIBS"
 AC_SUBST(XGSELOBJ)
 
 dnl Adapted from Haible's version.
@@ -3895,14 +3919,6 @@ if test "${opsys}" != "mingw32"; then
    AC_DEFINE(AMPERSAND_FULL_NAME, 1, [Define to use the convention that &
      in the full name stands for the login id.])
 fi
-
-dnl Every platform that uses configure supports this.
-dnl There is a create-lockfiles option you can
-dnl customize if you do not want the lock files to be written.
-dnl So it is not clear that this #define still needs to exist.
-AC_DEFINE(CLASH_DETECTION, 1, [Define if you want lock files to be written,
-  so that Emacs can tell instantly when you try to modify a file that
-  someone else has modified in his/her Emacs.])
 
 dnl Everybody supports this, except MS.
 dnl Seems like the kind of thing we should be testing for, though.
@@ -4932,9 +4948,9 @@ if test "${HAVE_GTK}" = "yes"; then
 fi
 
 if test $USE_ACL -ne 0; then
-  acl_summary="yes $LIB_ACL"
+  ACL_SUMMARY="yes $LIB_ACL"
 else
-  acl_summary=no
+  ACL_SUMMARY=no
 fi
 
 echo "
@@ -4959,6 +4975,23 @@ else
 echo "  Where do we find X Windows libraries?                   Standard dirs"
 fi
 
+optsep=
+emacs_config_features=
+for opt in XAW3D XPM JPEG TIFF GIF PNG RSVG IMAGEMAGICK SOUND GPM DBUS \
+  GCONF GSETTINGS NOTIFY ACL LIBSELINUX GNUTLS LIBXML2 FREETYPE M17N_FLT \
+  LIBOTF XFT ZLIB; do
+
+    case $opt in
+      NOTIFY|ACL) eval val=\${${opt}_SUMMARY} ;;
+      *) eval val=\${HAVE_$opt} ;;
+    esac
+    test x"$val" = xno && continue
+    AS_VAR_APPEND([emacs_config_features], ["$optsep$opt"])
+    optsep=' '
+done
+AC_DEFINE_UNQUOTED(EMACS_CONFIG_FEATURES, "${emacs_config_features}",
+  [Summary of some of the main features enabled by configure.])
+
 echo "  Does Emacs use -lXaw3d?                                 ${HAVE_XAW3D}"
 echo "  Does Emacs use -lXpm?                                   ${HAVE_XPM}"
 echo "  Does Emacs use -ljpeg?                                  ${HAVE_JPEG}"
@@ -4975,7 +5008,7 @@ echo "  Does Emacs use -ldbus?                                  ${HAVE_DBUS}"
 echo "  Does Emacs use -lgconf?                                 ${HAVE_GCONF}"
 echo "  Does Emacs use GSettings?                               ${HAVE_GSETTINGS}"
 echo "  Does Emacs use a file notification library?             ${NOTIFY_SUMMARY}"
-echo "  Does Emacs use access control lists?                    ${acl_summary}"
+echo "  Does Emacs use access control lists?                    ${ACL_SUMMARY}"
 echo "  Does Emacs use -lselinux?                               ${HAVE_LIBSELINUX}"
 echo "  Does Emacs use -lgnutls?                                ${HAVE_GNUTLS}"
 echo "  Does Emacs use -lxml2?                                  ${HAVE_LIBXML2}"

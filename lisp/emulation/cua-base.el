@@ -1085,7 +1085,7 @@ If window cannot be scrolled further, move cursor to bottom line instead.
 A near full screen is `next-screen-context-lines' less than a full screen.
 Negative ARG means scroll downward.
 If ARG is the atom `-', scroll downward by nearly full screen."
-  (interactive "P")
+  (interactive "^P")
   (cond
    ((eq arg '-) (cua-scroll-down nil))
    ((< (prefix-numeric-value arg) 0)
@@ -1106,7 +1106,7 @@ If window cannot be scrolled further, move cursor to top line instead.
 A near full screen is `next-screen-context-lines' less than a full screen.
 Negative ARG means scroll upward.
 If ARG is the atom `-', scroll upward by nearly full screen."
-  (interactive "P")
+  (interactive "^P")
   (cond
    ((eq arg '-) (cua-scroll-up nil))
    ((< (prefix-numeric-value arg) 0)
@@ -1426,12 +1426,7 @@ options:
 
 You can customize `cua-enable-cua-keys' to completely disable the
 CUA bindings, or `cua-prefix-override-inhibit-delay' to change
-the prefix fallback behavior.
-
-CUA mode manages Transient Mark mode internally.  Trying to disable
-Transient Mark mode while CUA mode is enabled does not work; if you
-only want to highlight the region when it is selected using a
-shifted movement key, set `cua-highlight-region-shift-only'."
+the prefix fallback behavior."
   :global t
   :group 'cua
   :set-after '(cua-enable-modeline-indications

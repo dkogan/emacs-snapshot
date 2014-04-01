@@ -125,8 +125,7 @@ Lisp_Object selected_frame;
 
 static struct frame *last_nonminibuf_frame;
 
-/* Nonzero means there is at least one garbaged frame.  */
-
+/* False means there are no visible garbaged frames.  */
 bool frame_garbaged;
 
 #ifdef HAVE_WINDOW_SYSTEM
@@ -621,7 +620,7 @@ make_terminal_frame (struct terminal *terminal)
   FRAME_MENU_BAR_LINES (f) = NILP (Vmenu_bar_mode) ? 0 : 1;
   FRAME_MENU_BAR_HEIGHT (f) = FRAME_MENU_BAR_LINES (f) * FRAME_LINE_HEIGHT (f);
 
-  /* Set the top frame to the newly created frame. */
+  /* Set the top frame to the newly created frame.  */
   if (FRAMEP (FRAME_TTY (f)->top_frame)
       && FRAME_LIVE_P (XFRAME (FRAME_TTY (f)->top_frame)))
     SET_FRAME_VISIBLE (XFRAME (FRAME_TTY (f)->top_frame), 2); /* obscured */
@@ -2848,14 +2847,14 @@ x_set_frame_parameters (struct frame *f, Lisp_Object alist)
   /* Provide default values for HEIGHT and WIDTH.  */
   width = (f->new_width
 	   ? (f->new_pixelwise
-	      ? (f->new_width / FRAME_COLUMN_WIDTH (f))
-	      : f->new_width)
-	   : FRAME_COLS (f));
+	      ? f->new_width
+	      : (f->new_width * FRAME_COLUMN_WIDTH (f)))
+	   : FRAME_TEXT_WIDTH (f));
   height = (f->new_height
 	    ? (f->new_pixelwise
-	       ? (f->new_height / FRAME_LINE_HEIGHT (f))
-	       : f->new_height)
-	    : FRAME_LINES (f));
+	       ? f->new_height
+	       : (f->new_height * FRAME_LINE_HEIGHT (f)))
+	    : FRAME_TEXT_HEIGHT (f));
 
   /* Process foreground_color and background_color before anything else.
      They are independent of other properties, but other properties (e.g.,
@@ -2899,12 +2898,12 @@ x_set_frame_parameters (struct frame *f, Lisp_Object alist)
       if (EQ (prop, Qwidth) && RANGED_INTEGERP (0, val, INT_MAX))
         {
           size_changed = 1;
-          width = XFASTINT (val);
+          width = XFASTINT (val) * FRAME_COLUMN_WIDTH (f) ;
         }
       else if (EQ (prop, Qheight) && RANGED_INTEGERP (0, val, INT_MAX))
         {
           size_changed = 1;
-          height = XFASTINT (val);
+          height = XFASTINT (val) * FRAME_LINE_HEIGHT (f);
         }
       else if (EQ (prop, Qtop))
 	top = val;
@@ -2986,15 +2985,15 @@ x_set_frame_parameters (struct frame *f, Lisp_Object alist)
     Lisp_Object frame;
 
     /* Make this 1, eventually.  */
-    check_frame_size (f, &width, &height, 0);
+    check_frame_size (f, &width, &height, 1);
 
     XSETFRAME (frame, f);
 
     if (size_changed
-        && (width != FRAME_COLS (f)
-            || height != FRAME_LINES (f)
+        && (width != FRAME_TEXT_WIDTH (f)
+            || height != FRAME_TEXT_HEIGHT (f)
             || f->new_height || f->new_width))
-      Fset_frame_size (frame, make_number (width), make_number (height), Qnil);
+      Fset_frame_size (frame, make_number (width), make_number (height), Qt);
 
     if ((!NILP (left) || !NILP (top))
 	&& ! (left_no_change && top_no_change)
@@ -4597,8 +4596,7 @@ is a reasonable practice.  See also the variable `x-resource-name'.  */);
   DEFVAR_LISP ("frame-alpha-lower-limit", Vframe_alpha_lower_limit,
     doc: /* The lower limit of the frame opacity (alpha transparency).
 The value should range from 0 (invisible) to 100 (completely opaque).
-You can also use a floating number between 0.0 and 1.0.
-The default is 20.  */);
+You can also use a floating number between 0.0 and 1.0.  */);
   Vframe_alpha_lower_limit = make_number (20);
 #endif
 
@@ -4709,7 +4707,6 @@ or call the function `tool-bar-mode'.  */);
 
   DEFVAR_KBOARD ("default-minibuffer-frame", Vdefault_minibuffer_frame,
 		 doc: /* Minibufferless frames use this frame's minibuffer.
-
 Emacs cannot create minibufferless frames unless this is set to an
 appropriate surrogate.
 
@@ -4730,9 +4727,15 @@ automatically.  See also `mouse-autoselect-window'.  */);
   focus_follows_mouse = 0;
 
   DEFVAR_BOOL ("frame-resize-pixelwise", frame_resize_pixelwise,
-	       doc: /* Non-nil means frames are resized pixelwise.
-If this is nil, resizing a frame will round sizes to the frame's
-current values of `frame-char-height' and `frame-char-width'.  */);
+	       doc: /* Non-nil means resize frames pixelwise.
+If this option is nil, resizing a frame rounds its sizes to the frame's
+current values of `frame-char-height' and `frame-char-width'.  If this
+is non-nil, no rounding occurs, hence frame sizes can increase/decrease
+by one pixel.
+
+With some window managers you have to set this to non-nil in order to
+fully maximize frames.  To resize your initial frame pixelwise,
+set this option to a non-nil value in your init file.  */);
   frame_resize_pixelwise = 0;
 
   staticpro (&Vframe_list);

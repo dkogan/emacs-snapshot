@@ -79,8 +79,17 @@ See Info node `(elisp)Random Numbers' for more details.  */)
     seed_random (SSDATA (limit), SBYTES (limit));
 
   val = get_random ();
-  if (NATNUMP (limit) && XFASTINT (limit) != 0)
-    val %= XFASTINT (limit);
+  if (INTEGERP (limit) && 0 < XINT (limit))
+    while (true)
+      {
+	/* Return the remainder, except reject the rare case where
+	   get_random returns a number so close to INTMASK that the
+	   remainder isn't random.  */
+	EMACS_INT remainder = val % XINT (limit);
+	if (val - remainder <= INTMASK - XINT (limit) + 1)
+	  return make_number (remainder);
+	val = get_random ();
+      }
   return make_number (val);
 }
 
@@ -1118,7 +1127,39 @@ Elements of ALIST that are not conses are also shared.  */)
   return alist;
 }
 
-DEFUN ("substring", Fsubstring, Ssubstring, 2, 3, 0,
+/* True if [FROM..TO) specifies a valid substring of SIZE-characters string.
+   If FROM is nil, 0 assumed.  If TO is nil, SIZE assumed.  Negative
+   values are counted from the end.  *FROM_CHAR and *TO_CHAR are updated
+   with corresponding C values of TO and FROM.  */
+
+static bool
+validate_substring (Lisp_Object from, Lisp_Object to, ptrdiff_t size,
+		    EMACS_INT *from_char, EMACS_INT *to_char)
+{
+  if (NILP (from))
+    *from_char = 0;
+  else
+    {
+      CHECK_NUMBER (from);
+      *from_char = XINT (from);
+      if (*from_char < 0)
+	*from_char += size;
+    }
+
+  if (NILP (to))
+    *to_char = size;
+  else
+    {
+      CHECK_NUMBER (to);
+      *to_char = XINT (to);
+      if (*to_char < 0)
+	*to_char += size;
+    }
+
+  return (0 <= *from_char && *from_char <= *to_char && *to_char <= size);
+}
+
+DEFUN ("substring", Fsubstring, Ssubstring, 1, 3, 0,
        doc: /* Return a new string whose contents are a substring of STRING.
 The returned string consists of the characters between index FROM
 \(inclusive) and index TO (exclusive) of STRING.  FROM and TO are
@@ -1128,36 +1169,23 @@ to the end of STRING.
 
 The STRING argument may also be a vector.  In that case, the return
 value is a new vector that contains the elements between index FROM
-\(inclusive) and index TO (exclusive) of that vector argument.  */)
-  (Lisp_Object string, register Lisp_Object from, Lisp_Object to)
+\(inclusive) and index TO (exclusive) of that vector argument.
+
+With one argument, just copy STRING (with properties, if any).  */)
+  (Lisp_Object string, Lisp_Object from, Lisp_Object to)
 {
   Lisp_Object res;
   ptrdiff_t size;
   EMACS_INT from_char, to_char;
 
-  CHECK_VECTOR_OR_STRING (string);
-  CHECK_NUMBER (from);
-
   if (STRINGP (string))
     size = SCHARS (string);
-  else
+  else if (VECTORP (string))
     size = ASIZE (string);
-
-  if (NILP (to))
-    to_char = size;
   else
-    {
-      CHECK_NUMBER (to);
-
-      to_char = XINT (to);
-      if (to_char < 0)
-	to_char += size;
-    }
-
-  from_char = XINT (from);
-  if (from_char < 0)
-    from_char += size;
-  if (!(0 <= from_char && from_char <= to_char && to_char <= size))
+    wrong_type_argument (Qarrayp, string);
+  
+  if (!validate_substring (from, to, size, &from_char, &to_char))
     args_out_of_range_3 (string, make_number (from_char),
 			 make_number (to_char));
 
@@ -1197,27 +1225,7 @@ With one argument, just copy STRING without its properties.  */)
 
   size = SCHARS (string);
 
-  if (NILP (from))
-    from_char = 0;
-  else
-    {
-      CHECK_NUMBER (from);
-      from_char = XINT (from);
-      if (from_char < 0)
-	from_char += size;
-    }
-
-  if (NILP (to))
-    to_char = size;
-  else
-    {
-      CHECK_NUMBER (to);
-      to_char = XINT (to);
-      if (to_char < 0)
-	to_char += size;
-    }
-
-  if (!(0 <= from_char && from_char <= to_char && to_char <= size))
+  if (!validate_substring (from, to, size, &from_char, &to_char))
     args_out_of_range_3 (string, make_number (from_char),
 			 make_number (to_char));
 
@@ -2425,7 +2433,8 @@ do_yes_or_no_p (Lisp_Object prompt)
 /* Anything that calls this function must protect from GC!  */
 
 DEFUN ("yes-or-no-p", Fyes_or_no_p, Syes_or_no_p, 1, 1, 0,
-       doc: /* Ask user a yes-or-no question.  Return t if answer is yes.
+       doc: /* Ask user a yes-or-no question.
+Return t if answer is yes, and nil if the answer is no.
 PROMPT is the string to display to ask the question.  It should end in
 a space; `yes-or-no-p' adds \"(yes or no) \" to it.
 
@@ -4022,6 +4031,7 @@ sweep_weak_table (struct Lisp_Hash_Table *h, bool remove_entries_p)
    current garbage collection.  Remove weak tables that don't survive
    from Vweak_hash_tables.  Called from gc_sweep.  */
 
+NO_INLINE /* For better stack traces */
 void
 sweep_weak_hash_tables (void)
 {
@@ -4508,7 +4518,8 @@ DEFUN ("remhash", Fremhash, Sremhash, 2, 2, 0,
 
 DEFUN ("maphash", Fmaphash, Smaphash, 2, 2, 0,
        doc: /* Call FUNCTION for all entries in hash table TABLE.
-FUNCTION is called with two arguments, KEY and VALUE.  */)
+FUNCTION is called with two arguments, KEY and VALUE.
+`maphash' always returns nil.  */)
   (Lisp_Object function, Lisp_Object table)
 {
   struct Lisp_Hash_Table *h = check_hash_table (table);
@@ -4602,29 +4613,7 @@ secure_hash (Lisp_Object algorithm, Lisp_Object object, Lisp_Object start, Lisp_
 
       size = SCHARS (object);
 
-      if (!NILP (start))
-	{
-	  CHECK_NUMBER (start);
-
-	  start_char = XINT (start);
-
-	  if (start_char < 0)
-	    start_char += size;
-	}
-
-      if (NILP (end))
-	end_char = size;
-      else
-	{
-	  CHECK_NUMBER (end);
-
-	  end_char = XINT (end);
-
-	  if (end_char < 0)
-	    end_char += size;
-	}
-
-      if (!(0 <= start_char && start_char <= end_char && end_char <= size))
+      if (!validate_substring (start, end, size, &start_char, &end_char))
 	args_out_of_range_3 (object, make_number (start_char),
 			     make_number (end_char));
 

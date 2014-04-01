@@ -4,7 +4,7 @@
 
 ;; Author: Kurt Hornik <Kurt.Hornik@wu-wien.ac.at>
 ;;	   John Eaton <jwe@octave.org>
-;; Maintainer: FSF
+;; Maintainer: emacs-devel@gnu.org
 ;; Keywords: languages
 
 ;; This file is part of GNU Emacs.
@@ -154,11 +154,8 @@ parenthetical grouping.")
     ["Insert Function"              octave-insert-defun t]
     ["Update Function File Comment" octave-update-function-file-comment t]
     "---"
-    ["Function Syntax Hints" (call-interactively
-                              (if (fboundp 'eldoc-post-insert-mode)
-                                  'eldoc-post-insert-mode
-                                'eldoc-mode))
-     :style toggle :selected (or eldoc-post-insert-mode eldoc-mode)
+    ["Function Syntax Hints" (eldoc-mode 'toggle)
+     :style toggle :selected (bound-and-true-p eldoc-mode)
      :help "Display function signatures after typing `SPC' or `('"]
     ["Delimiter Matching"           show-paren-mode
      :style toggle :selected show-paren-mode
