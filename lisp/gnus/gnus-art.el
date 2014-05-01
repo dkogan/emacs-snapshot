@@ -5635,43 +5635,69 @@ all parts."
   "Display HANDLE and fix MIME button."
   (let ((id (get-text-property (point) 'gnus-part))
 	(point (point))
-	(inhibit-read-only t))
-    (forward-line 1)
-    (prog1
-	(let ((window (selected-window))
-	      (mail-parse-charset gnus-newsgroup-charset)
-	      (mail-parse-ignored-charsets
-	       (if (gnus-buffer-live-p gnus-summary-buffer)
-		   (with-current-buffer gnus-summary-buffer
-		     gnus-newsgroup-ignored-charsets)
-		 nil)))
-	  (save-excursion
-	    (unwind-protect
-		(let ((win (gnus-get-buffer-window (current-buffer) t))
-		      (beg (point)))
-		  (when win
-		    (select-window win))
-		  (goto-char point)
-		  (forward-line)
-		  (if (mm-handle-displayed-p handle)
-		      ;; This will remove the part.
-		      (mm-display-part handle)
-		    (save-window-excursion
-		      (save-restriction
-			(narrow-to-region (point)
-					  (if (eobp) (point) (1+ (point))))
-			(gnus-bind-safe-url-regexp (mm-display-part handle))
-			;; We narrow to the part itself and
-			;; then call the treatment functions.
-			(goto-char (point-min))
-			(forward-line 1)
-			(narrow-to-region (point) (point-max))
-			(gnus-treat-article
-			 nil id
-			 (gnus-article-mime-total-parts)
-			 (mm-handle-media-type handle))))))
-	      (if (window-live-p window)
-		  (select-window window))))))))
+	(inhibit-read-only t)
+	(window (selected-window))
+	(mail-parse-charset gnus-newsgroup-charset)
+	(mail-parse-ignored-charsets
+	 (if (gnus-buffer-live-p gnus-summary-buffer)
+	     (with-current-buffer gnus-summary-buffer
+	       gnus-newsgroup-ignored-charsets)
+	   nil))
+	retval)
+    (unwind-protect
+	(progn
+	  (let ((win (gnus-get-buffer-window (current-buffer) t)))
+	    (when win
+	      (select-window win)
+	      (goto-char point)))
+	  (forward-line)
+	  (if (mm-handle-displayed-p handle)
+	      ;; This will remove the part.
+	      (setq retval (mm-display-part handle))
+	    (save-window-excursion
+	      (save-restriction
+		;; FIXME: nothing is displayed in the article buffer
+		;; while prompting a user for a file name.
+		(narrow-to-region (point)
+				  (if (eobp) (point) (1+ (point))))
+		(gnus-bind-safe-url-regexp
+		 (setq retval (mm-display-part handle)))
+		;; We narrow to the part itself and
+		;; then call the treatment functions.
+		(goto-char (point-min))
+		(forward-line 1)
+		(narrow-to-region (point) (point-max))
+		(gnus-treat-article
+		 nil id
+		 (gnus-article-mime-total-parts)
+		 (mm-handle-media-type handle))))))
+      (goto-char point)
+      ;; Toggle the button appearance between `[button]...' and `[button]'.
+      (let ((end (next-single-property-change point 'gnus-data))
+	    start)
+	(delete-region
+	 (setq start (previous-single-property-change end 'gnus-data))
+	 end)
+	(gnus-insert-mime-button
+	 handle id (list (mm-handle-displayed-p handle)))
+	(setq end (point))
+	(if (search-backward "\n\n" nil t)
+	    (goto-char end)
+	  ;; We're in the article header.
+	  (delete-char -1)
+	  (dolist (ovl (gnus-overlays-in start (1- end)))
+	    (gnus-overlay-put ovl 'gnus-button-attachment-extra t)
+	    (gnus-overlay-put ovl 'face nil))
+	  (save-restriction
+	    (message-narrow-to-field)
+	    (let ((gnus-treatment-function-alist
+		   '((gnus-treat-highlight-headers
+		      gnus-article-highlight-headers))))
+	      (gnus-treat-article 'head)))))
+      (goto-char point)
+      (if (window-live-p window)
+	  (select-window window)))
+    retval))
 
 (defun gnus-article-goto-part (n)
   "Go to MIME part N."
@@ -5866,7 +5892,7 @@ overlook them if there is a huge body.  This option offers you a copy
 of all non-inlinable MIME parts as buttons shown in front of an article.
 If nil, don't show those extra buttons."
   :version "24.5"
-  :group 'gnus-article
+  :group 'gnus-article-mime
   :type 'boolean)
 
 (defun gnus-mime-display-part (handle)

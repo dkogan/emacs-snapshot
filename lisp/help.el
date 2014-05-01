@@ -446,7 +446,7 @@ is specified by the variable `message-log-max'."
 (defun view-lossage ()
   "Display last 300 input keystrokes.
 
-To record all your input on a file, use `open-dribble-file'."
+To record all your input, use `open-dribble-file'."
   (interactive)
   (help-setup-xref (list #'view-lossage)
 		   (called-interactively-p 'interactive))
@@ -482,8 +482,11 @@ or a buffer name."
   (or buffer (setq buffer (current-buffer)))
   (help-setup-xref (list #'describe-bindings prefix buffer)
 		   (called-interactively-p 'interactive))
-  (with-current-buffer buffer
-    (describe-bindings-internal nil prefix)))
+  (with-help-window (help-buffer)
+    ;; Be aware that `describe-buffer-bindings' puts its output into
+    ;; the current buffer.
+    (with-current-buffer (help-buffer)
+      (describe-buffer-bindings buffer prefix))))
 
 ;; This function used to be in keymap.c.
 (defun describe-bindings-internal (&optional menus prefix)
@@ -494,6 +497,7 @@ The optional argument MENUS, if non-nil, says to mention menu bindings.
 \(Ordinarily these are omitted from the output.)
 The optional argument PREFIX, if non-nil, should be a key sequence;
 then we display only bindings that start with that prefix."
+  (declare (obsolete describe-buffer-bindings "24.4"))
   (let ((buf (current-buffer)))
     (with-help-window (help-buffer)
       ;; Be aware that `describe-buffer-bindings' puts its output into

@@ -128,7 +128,7 @@ static const int baud_convert[] =
 /* Return the current working directory.  Returns NULL on errors.
    Any other returned value must be freed with free. This is used
    only when get_current_dir_name is not defined on the system.  */
-char*
+char *
 get_current_dir_name (void)
 {
   char *buf;
@@ -255,7 +255,7 @@ init_baud_rate (int fd)
 #endif /* not DOS_NT */
     }
 
-  baud_rate = (emacs_ospeed < sizeof baud_convert / sizeof baud_convert[0]
+  baud_rate = (emacs_ospeed < ARRAYELTS (baud_convert)
 	       ? baud_convert[emacs_ospeed] : 9600);
   if (baud_rate == 0)
     baud_rate = 1200;
@@ -1509,7 +1509,9 @@ emacs_sigaction_init (struct sigaction *action, signal_handler_t handler)
   /* When handling a signal, block nonfatal system signals that are caught
      by Emacs.  This makes race conditions less likely.  */
   sigaddset (&action->sa_mask, SIGALRM);
+#ifdef SIGCHLD
   sigaddset (&action->sa_mask, SIGCHLD);
+#endif
 #ifdef SIGDANGER
   sigaddset (&action->sa_mask, SIGDANGER);
 #endif
@@ -1714,7 +1716,9 @@ init_signals (bool dumping)
 # ifdef SIGBUS
       sys_siglist[SIGBUS] = "Bus error";
 # endif
+# ifdef SIGCHLD
       sys_siglist[SIGCHLD] = "Child status changed";
+# endif
 # ifdef SIGCONT
       sys_siglist[SIGCONT] = "Continued";
 # endif
@@ -2185,6 +2189,9 @@ emacs_fopen (char const *file, char const *mode)
 int
 emacs_pipe (int fd[2])
 {
+#ifdef MSDOS
+  return pipe (fd);
+#else  /* !MSDOS */
   int result = pipe2 (fd, O_CLOEXEC);
   if (! O_CLOEXEC && result == 0)
     {
@@ -2192,6 +2199,7 @@ emacs_pipe (int fd[2])
       fcntl (fd[1], F_SETFD, FD_CLOEXEC);
     }
   return result;
+#endif	/* !MSDOS */
 }
 
 /* Approximate posix_close and POSIX_CLOSE_RESTART well enough for Emacs.

@@ -1,3 +1,23 @@
+2014-04-20  Daniel Colascione  <dancol@dancol.org>
+
+	* NEWS: Mention new struct functions and changes to `cl-the'.
+
+2014-04-17  Daniel Colascione  <dancol@dancol.org>
+
+	* NEWS: Mention bracketed paste support.
+
+2014-04-11  Glenn Morris  <rgm@gnu.org>
+
+	* refcards/cs-dired-ref.tex, refcards/cs-refcard.tex:
+	* refcards/cs-survival.tex, refcards/sk-dired-ref.tex:
+	* refcards/sk-refcard.tex, refcards/sk-survival.tex:
+	Input "utf8off", which seems to be needed.
+
+2014-04-01  Michael Albinus  <michael.albinus@gmx.de>
+
+	* NEWS: `url-handler-mode' passes operations to Tramp for some
+	protocols.
+
 2014-03-28  Tassilo Horn  <tsdh@gnu.org>
 
 	* themes/tsdh-light-theme.el (tsdh-light): Add gnus-group-* faces.

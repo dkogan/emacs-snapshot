@@ -1628,36 +1628,37 @@ a special event, so ignore the prefix argument and don't clear it."
                      (prog1 prefix-arg
                        (setq current-prefix-arg prefix-arg)
                        (setq prefix-arg nil)))))
-    (and (symbolp cmd)
-         (get cmd 'disabled)
-         ;; FIXME: Weird calling convention!
-         (run-hooks 'disabled-command-function))
-    (let ((final cmd))
-      (while
-          (progn
-            (setq final (indirect-function final))
-            (if (autoloadp final)
-                (setq final (autoload-do-load final cmd)))))
-      (cond
-       ((arrayp final)
-        ;; If requested, place the macro in the command history.  For
-        ;; other sorts of commands, call-interactively takes care of this.
-        (when record-flag
-          (push `(execute-kbd-macro ,final ,prefixarg) command-history)
-          ;; Don't keep command history around forever.
-          (when (and (numberp history-length) (> history-length 0))
-            (let ((cell (nthcdr history-length command-history)))
-              (if (consp cell) (setcdr cell nil)))))
-        (execute-kbd-macro final prefixarg))
-       (t
-        ;; Pass `cmd' rather than `final', for the backtrace's sake.
-        (prog1 (call-interactively cmd record-flag keys)
-          (when (and (symbolp cmd)
-                     (get cmd 'byte-obsolete-info)
-                     (not (get cmd 'command-execute-obsolete-warned)))
-            (put cmd 'command-execute-obsolete-warned t)
-            (message "%s" (macroexp--obsolete-warning
-                           cmd (get cmd 'byte-obsolete-info) "command")))))))))
+    (if (and (symbolp cmd)
+             (get cmd 'disabled)
+             disabled-command-function)
+        ;; FIXME: Weird calling convention!
+        (run-hooks 'disabled-command-function)
+      (let ((final cmd))
+        (while
+            (progn
+              (setq final (indirect-function final))
+              (if (autoloadp final)
+                  (setq final (autoload-do-load final cmd)))))
+        (cond
+         ((arrayp final)
+          ;; If requested, place the macro in the command history.  For
+          ;; other sorts of commands, call-interactively takes care of this.
+          (when record-flag
+            (push `(execute-kbd-macro ,final ,prefixarg) command-history)
+            ;; Don't keep command history around forever.
+            (when (and (numberp history-length) (> history-length 0))
+              (let ((cell (nthcdr history-length command-history)))
+                (if (consp cell) (setcdr cell nil)))))
+          (execute-kbd-macro final prefixarg))
+         (t
+          ;; Pass `cmd' rather than `final', for the backtrace's sake.
+          (prog1 (call-interactively cmd record-flag keys)
+            (when (and (symbolp cmd)
+                       (get cmd 'byte-obsolete-info)
+                       (not (get cmd 'command-execute-obsolete-warned)))
+              (put cmd 'command-execute-obsolete-warned t)
+              (message "%s" (macroexp--obsolete-warning
+                             cmd (get cmd 'byte-obsolete-info) "command"))))))))))
 
 (defvar minibuffer-history nil
   "Default minibuffer history list.
@@ -2142,7 +2143,12 @@ as an argument limits undo to changes within the current region."
       ;; above when checking.
       (while (eq (car list) nil)
 	(setq list (cdr list)))
-      (puthash list (if undo-in-region t pending-undo-list)
+      (puthash list
+               ;; Prevent identity mapping.  This can happen if
+               ;; consecutive nils are erroneously in undo list.
+               (if (or undo-in-region (eq list pending-undo-list))
+                   t
+                 pending-undo-list)
 	       undo-equiv-table))
     ;; Don't specify a position in the undo record for the undo command.
     ;; Instead, undoing this should move point to where the change is.
@@ -4497,7 +4503,12 @@ Some commands act specially on the region when Transient Mark
 mode is enabled.  Usually, such commands should use
 `use-region-p' instead of this function, because `use-region-p'
 also checks the value of `use-empty-active-region'."
-  (and transient-mark-mode mark-active))
+  (and transient-mark-mode mark-active
+       ;; FIXME: Somehow we sometimes end up with mark-active non-nil but
+       ;; without the mark being set (e.g. bug#17324).  We really should fix
+       ;; that problem, but in the mean time, let's make sure we don't say the
+       ;; region is active when there's no mark.
+       (mark)))
 
 
 (defvar redisplay-unhighlight-region-function
@@ -6465,6 +6476,7 @@ The function should return non-nil if the two tokens do not match.")
                             (not blink-matching-paren-dont-ignore-comments))))
                   (condition-case ()
                       (progn
+			(syntax-propertize (point))
                         (forward-sexp -1)
                         ;; backward-sexp skips backward over prefix chars,
                         ;; so move back to the matching paren.
@@ -6866,7 +6878,7 @@ With a prefix argument, set VARIABLE to VALUE buffer-locally."
 
 (defvar completion-list-mode-map
   (let ((map (make-sparse-keymap)))
-    (define-key map [mouse-2] 'mouse-choose-completion)
+    (define-key map [mouse-2] 'choose-completion)
     (define-key map [follow-link] 'mouse-face)
     (define-key map [down-mouse-2] nil)
     (define-key map "\C-m" 'choose-completion)
@@ -7115,8 +7127,7 @@ back on `completion-list-insert-choice-function' when nil."
   "Major mode for buffers showing lists of possible completions.
 Type \\<completion-list-mode-map>\\[choose-completion] in the completion list\
  to select the completion near point.
-Use \\<completion-list-mode-map>\\[mouse-choose-completion] to select one\
- with the mouse.
+Or click to select one with the mouse.
 
 \\{completion-list-mode-map}"
   (set (make-local-variable 'completion-base-size) nil))
@@ -7174,7 +7185,7 @@ Called from `temp-buffer-show-hook'."
 	(goto-char (point-min))
 	(if (display-mouse-p)
 	    (insert (substitute-command-keys
-		     "Click \\[mouse-choose-completion] on a completion to select it.\n")))
+		     "Click on a completion to select it.\n")))
 	(insert (substitute-command-keys
 		 "In this buffer, type \\[choose-completion] to \
 select the completion near point.\n\n"))))))

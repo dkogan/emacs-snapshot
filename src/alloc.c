@@ -47,6 +47,7 @@ along with GNU Emacs.  If not, see <http://www.gnu.org/licenses/>.  */
 #endif /* HAVE_WINDOW_SYSTEM */
 
 #include <verify.h>
+#include <execinfo.h>           /* For backtrace.  */
 
 #if (defined ENABLE_CHECKING			\
      && defined HAVE_VALGRIND_VALGRIND_H	\
@@ -191,6 +192,35 @@ static ptrdiff_t pure_bytes_used_non_lisp;
    displayed.  */
 
 const char *pending_malloc_warning;
+
+#if 0 /* Normally, pointer sanity only on request... */
+#ifdef ENABLE_CHECKING
+#define SUSPICIOUS_OBJECT_CHECKING 1
+#endif
+#endif
+
+/* ... but unconditionally use SUSPICIOUS_OBJECT_CHECKING while the GC
+   bug is unresolved.  */
+#define SUSPICIOUS_OBJECT_CHECKING 1
+
+#ifdef SUSPICIOUS_OBJECT_CHECKING
+struct suspicious_free_record
+{
+  void *suspicious_object;
+  void *backtrace[128];
+};
+static void *suspicious_objects[32];
+static int suspicious_object_index;
+struct suspicious_free_record suspicious_free_history[64] EXTERNALLY_VISIBLE;
+static int suspicious_free_history_index;
+/* Find the first currently-monitored suspicious pointer in range
+   [begin,end) or NULL if no such pointer exists.  */
+static void *find_suspicious_object_in_range (void *begin, void *end);
+static void detect_suspicious_free (void *ptr);
+#else
+# define find_suspicious_object_in_range(begin, end) NULL
+# define detect_suspicious_free(ptr) (void)
+#endif
 
 /* Maximum amount of C stack to save when a GC happens.  */
 
@@ -2101,7 +2131,7 @@ bool_vector_fill (Lisp_Object a, Lisp_Object init)
       unsigned char *data = bool_vector_uchar_data (a);
       int pattern = NILP (init) ? 0 : (1 << BOOL_VECTOR_BITS_PER_CHAR) - 1;
       ptrdiff_t nbytes = bool_vector_bytes (nbits);
-      int last_mask = ~ (~0 << ((nbits - 1) % BOOL_VECTOR_BITS_PER_CHAR + 1));
+      int last_mask = ~ (~0u << ((nbits - 1) % BOOL_VECTOR_BITS_PER_CHAR + 1));
       memset (data, pattern, nbytes - 1);
       data[nbytes - 1] = pattern & last_mask;
     }
@@ -2302,21 +2332,21 @@ make_formatted_string (char *buf, const char *format, ...)
 #define FLOAT_BLOCK_SIZE					\
   (((BLOCK_BYTES - sizeof (struct float_block *)		\
      /* The compiler might add padding at the end.  */		\
-     - (sizeof (struct Lisp_Float) - sizeof (int))) * CHAR_BIT) \
+     - (sizeof (struct Lisp_Float) - sizeof (bits_word))) * CHAR_BIT) \
    / (sizeof (struct Lisp_Float) * CHAR_BIT + 1))
 
 #define GETMARKBIT(block,n)				\
-  (((block)->gcmarkbits[(n) / (sizeof (int) * CHAR_BIT)]	\
-    >> ((n) % (sizeof (int) * CHAR_BIT)))		\
+  (((block)->gcmarkbits[(n) / BITS_PER_BITS_WORD]	\
+    >> ((n) % BITS_PER_BITS_WORD))			\
    & 1)
 
 #define SETMARKBIT(block,n)				\
-  (block)->gcmarkbits[(n) / (sizeof (int) * CHAR_BIT)]	\
-  |= 1 << ((n) % (sizeof (int) * CHAR_BIT))
+  ((block)->gcmarkbits[(n) / BITS_PER_BITS_WORD]	\
+   |= (bits_word) 1 << ((n) % BITS_PER_BITS_WORD))
 
 #define UNSETMARKBIT(block,n)				\
-  (block)->gcmarkbits[(n) / (sizeof (int) * CHAR_BIT)]	\
-  &= ~(1 << ((n) % (sizeof (int) * CHAR_BIT)))
+  ((block)->gcmarkbits[(n) / BITS_PER_BITS_WORD]	\
+   &= ~((bits_word) 1 << ((n) % BITS_PER_BITS_WORD)))
 
 #define FLOAT_BLOCK(fptr) \
   ((struct float_block *) (((uintptr_t) (fptr)) & ~(BLOCK_ALIGN - 1)))
@@ -2328,7 +2358,7 @@ struct float_block
 {
   /* Place `floats' at the beginning, to ease up FLOAT_INDEX's job.  */
   struct Lisp_Float floats[FLOAT_BLOCK_SIZE];
-  int gcmarkbits[1 + FLOAT_BLOCK_SIZE / (sizeof (int) * CHAR_BIT)];
+  bits_word gcmarkbits[1 + FLOAT_BLOCK_SIZE / BITS_PER_BITS_WORD];
   struct float_block *next;
 };
 
@@ -2409,7 +2439,7 @@ make_float (double float_value)
 #define CONS_BLOCK_SIZE						\
   (((BLOCK_BYTES - sizeof (struct cons_block *)			\
      /* The compiler might add padding at the end.  */		\
-     - (sizeof (struct Lisp_Cons) - sizeof (int))) * CHAR_BIT)	\
+     - (sizeof (struct Lisp_Cons) - sizeof (bits_word))) * CHAR_BIT)	\
    / (sizeof (struct Lisp_Cons) * CHAR_BIT + 1))
 
 #define CONS_BLOCK(fptr) \
@@ -2422,7 +2452,7 @@ struct cons_block
 {
   /* Place `conses' at the beginning, to ease up CONS_INDEX's job.  */
   struct Lisp_Cons conses[CONS_BLOCK_SIZE];
-  int gcmarkbits[1 + CONS_BLOCK_SIZE / (sizeof (int) * CHAR_BIT)];
+  bits_word gcmarkbits[1 + CONS_BLOCK_SIZE / BITS_PER_BITS_WORD];
   struct cons_block *next;
 };
 
@@ -2655,7 +2685,9 @@ DEFUN ("make-list", Fmake_list, Smake_list, 2, 2, 0,
  ***********************************************************************/
 
 /* Sometimes a vector's contents are merely a pointer internally used
-   in vector allocation code.  Usually you don't want to touch this.  */
+   in vector allocation code.  On the rare platforms where a null
+   pointer cannot be tagged, represent it with a Lisp 0.
+   Usually you don't want to touch this.  */
 
 static struct Lisp_Vector *
 next_vector (struct Lisp_Vector *v)
@@ -2922,6 +2954,7 @@ vector_nbytes (struct Lisp_Vector *v)
 static void
 cleanup_vector (struct Lisp_Vector *vector)
 {
+  detect_suspicious_free (vector);
   if (PSEUDOVECTOR_TYPEP (&vector->header, PVEC_FONT)
       && ((vector->header.size & PSEUDOVECTOR_SIZE_MASK)
 	  == FONT_OBJECT_MAX))
@@ -3080,6 +3113,9 @@ allocate_vectorlike (ptrdiff_t len)
       if (!mmap_lisp_allowed_p ())
         mallopt (M_MMAP_MAX, MMAP_MAX_AREAS);
 #endif
+
+      if (find_suspicious_object_in_range (p, (char *) p + nbytes))
+        emacs_abort ();
 
       consing_since_gc += nbytes;
       vector_cells_consed += len;
@@ -3323,6 +3359,13 @@ struct symbol_block
 
 static struct symbol_block *symbol_block;
 static int symbol_block_index = SYMBOL_BLOCK_SIZE;
+/* Pointer to the first symbol_block that contains pinned symbols.
+   Tests for 24.4 showed that at dump-time, Emacs contains about 15K symbols,
+   10K of which are pinned (and all but 250 of them are interned in obarray),
+   whereas a "typical session" has in the order of 30K symbols.
+   `symbol_block_pinned' lets mark_pinned_symbols scan only 15K symbols rather
+   than 30K to find the 10K symbols we need to mark.  */
+static struct symbol_block *symbol_block_pinned;
 
 /* List of free symbols.  */
 
@@ -3375,10 +3418,11 @@ Its value is void, and its function definition and property list are nil.  */)
   SET_SYMBOL_VAL (p, Qunbound);
   set_symbol_function (val, Qnil);
   set_symbol_next (val, NULL);
-  p->gcmarkbit = 0;
+  p->gcmarkbit = false;
   p->interned = SYMBOL_UNINTERNED;
   p->constant = 0;
-  p->declared_special = 0;
+  p->declared_special = false;
+  p->pinned = false;
   consing_since_gc += sizeof (struct Lisp_Symbol);
   symbols_consed++;
   total_free_symbols--;
@@ -3727,7 +3771,7 @@ memory_full (size_t nbytes)
       memory_full_cons_threshold = sizeof (struct cons_block);
 
       /* The first time we get here, free the spare memory.  */
-      for (i = 0; i < sizeof (spare_memory) / sizeof (char *); i++)
+      for (i = 0; i < ARRAYELTS (spare_memory); i++)
 	if (spare_memory[i])
 	  {
 	    if (i == 0)
@@ -5180,6 +5224,8 @@ make_pure_c_string (const char *data, ptrdiff_t nchars)
   return string;
 }
 
+static Lisp_Object purecopy (Lisp_Object obj);
+
 /* Return a cons allocated from pure space.  Give it pure copies
    of CAR as car and CDR as cdr.  */
 
@@ -5189,8 +5235,8 @@ pure_cons (Lisp_Object car, Lisp_Object cdr)
   Lisp_Object new;
   struct Lisp_Cons *p = pure_alloc (sizeof *p, Lisp_Cons);
   XSETCONS (new, p);
-  XSETCAR (new, Fpurecopy (car));
-  XSETCDR (new, Fpurecopy (cdr));
+  XSETCAR (new, purecopy (car));
+  XSETCDR (new, purecopy (cdr));
   return new;
 }
 
@@ -5231,9 +5277,19 @@ Does not copy symbols.  Copies strings without text properties.  */)
 {
   if (NILP (Vpurify_flag))
     return obj;
-
-  if (PURE_POINTER_P (XPNTR (obj)))
+  else if (MARKERP (obj) || OVERLAYP (obj)
+	   || HASH_TABLE_P (obj) || SYMBOLP (obj))
+    /* Can't purify those.  */
     return obj;
+  else
+    return purecopy (obj);
+}
+
+static Lisp_Object
+purecopy (Lisp_Object obj)
+{
+  if (PURE_POINTER_P (XPNTR (obj)) || INTEGERP (obj) || SUBRP (obj))
+    return obj;    /* Already pure.  */
 
   if (HASH_TABLE_P (Vpurify_flag)) /* Hash consing.  */
     {
@@ -5261,7 +5317,7 @@ Does not copy symbols.  Copies strings without text properties.  */)
 	size &= PSEUDOVECTOR_SIZE_MASK;
       vec = XVECTOR (make_pure_vector (size));
       for (i = 0; i < size; i++)
-	vec->contents[i] = Fpurecopy (AREF (obj, i));
+	vec->contents[i] = purecopy (AREF (obj, i));
       if (COMPILEDP (obj))
 	{
 	  XSETPVECTYPE (vec, PVEC_COMPILED);
@@ -5270,11 +5326,23 @@ Does not copy symbols.  Copies strings without text properties.  */)
       else
 	XSETVECTOR (obj, vec);
     }
-  else if (MARKERP (obj))
-    error ("Attempt to copy a marker to pure storage");
+  else if (SYMBOLP (obj))
+    {
+      if (!XSYMBOL (obj)->pinned)
+	{ /* We can't purify them, but they appear in many pure objects.
+	     Mark them as `pinned' so we know to mark them at every GC cycle.  */
+	  XSYMBOL (obj)->pinned = true;
+	  symbol_block_pinned = symbol_block;
+	}
+      return obj;
+    }
   else
-    /* Not purified, don't hash-cons.  */
-    return obj;
+    {
+      Lisp_Object args[2];
+      args[0] = build_pure_c_string ("Don't know how to purify: %S");
+      args[1] = obj;
+      Fsignal (Qerror, (Fcons (Fformat (2, args), Qnil)));
+    }
 
   if (HASH_TABLE_P (Vpurify_flag)) /* Hash consing.  */
     Fputhash (obj, obj, Vpurify_flag);
@@ -5437,6 +5505,24 @@ compact_undo_list (Lisp_Object list)
   return list;
 }
 
+static void
+mark_pinned_symbols (void)
+{
+  struct symbol_block *sblk;
+  int lim = (symbol_block_pinned == symbol_block
+	     ? symbol_block_index : SYMBOL_BLOCK_SIZE);
+
+  for (sblk = symbol_block_pinned; sblk; sblk = sblk->next)
+    {
+      union aligned_Lisp_Symbol *sym = sblk->symbols, *end = sym + lim;
+      for (; sym < end; ++sym)
+	if (sym->s.pinned)
+	  mark_object (make_lisp_ptr (&sym->s, Lisp_Symbol));
+
+      lim = SYMBOL_BLOCK_SIZE;
+    }
+}
+
 DEFUN ("garbage-collect", Fgarbage_collect, Sgarbage_collect, 0, 0, "",
        doc: /* Reclaim storage for Lisp objects no longer needed.
 Garbage collection happens automatically if you cons more than
@@ -5539,6 +5625,7 @@ See Info node `(elisp)Garbage Collection'.  */)
   for (i = 0; i < staticidx; i++)
     mark_object (*staticvec[i]);
 
+  mark_pinned_symbols ();
   mark_specpdl ();
   mark_terminals ();
   mark_kboards ();
@@ -6135,6 +6222,8 @@ mark_object (Lisp_Object arg)
 	  break;
 	CHECK_ALLOCATED_AND_LIVE (live_symbol_p);
 	ptr->gcmarkbit = 1;
+	/* Attempt to catch bogus objects.  */
+        eassert (valid_lisp_object_p (ptr->function) >= 1);
 	mark_object (ptr->function);
 	mark_object (ptr->plist);
 	switch (ptr->redirect)
@@ -6347,27 +6436,27 @@ NO_INLINE /* For better stack traces */
 static void
 sweep_conses (void)
 {
-  register struct cons_block *cblk;
+  struct cons_block *cblk;
   struct cons_block **cprev = &cons_block;
-  register int lim = cons_block_index;
+  int lim = cons_block_index;
   EMACS_INT num_free = 0, num_used = 0;
 
   cons_free_list = 0;
 
   for (cblk = cons_block; cblk; cblk = *cprev)
     {
-      register int i = 0;
+      int i = 0;
       int this_free = 0;
-      int ilim = (lim + BITS_PER_INT - 1) / BITS_PER_INT;
+      int ilim = (lim + BITS_PER_BITS_WORD - 1) / BITS_PER_BITS_WORD;
 
       /* Scan the mark bits an int at a time.  */
       for (i = 0; i < ilim; i++)
         {
-          if (cblk->gcmarkbits[i] == -1)
+          if (cblk->gcmarkbits[i] == BITS_WORD_MAX)
             {
               /* Fast path - all cons cells for this int are marked.  */
               cblk->gcmarkbits[i] = 0;
-              num_used += BITS_PER_INT;
+              num_used += BITS_PER_BITS_WORD;
             }
           else
             {
@@ -6375,10 +6464,10 @@ sweep_conses (void)
                  Find which ones, and free them.  */
               int start, pos, stop;
 
-              start = i * BITS_PER_INT;
+              start = i * BITS_PER_BITS_WORD;
               stop = lim - start;
-              if (stop > BITS_PER_INT)
-                stop = BITS_PER_INT;
+              if (stop > BITS_PER_BITS_WORD)
+                stop = BITS_PER_BITS_WORD;
               stop += start;
 
               for (pos = start; pos < stop; pos++)
@@ -6540,12 +6629,7 @@ sweep_symbols (void)
 
       for (; sym < end; ++sym)
         {
-          /* Check if the symbol was created during loadup.  In such a case
-             it might be pointed to by pure bytecode which we don't trace,
-             so we conservatively assume that it is live.  */
-          bool pure_p = PURE_POINTER_P (XSTRING (sym->s.name));
-
-          if (!sym->s.gcmarkbit && !pure_p)
+          if (!sym->s.gcmarkbit)
             {
               if (sym->s.redirect == SYMBOL_LOCALIZED)
                 xfree (SYMBOL_BLV (&sym->s));
@@ -6559,9 +6643,9 @@ sweep_symbols (void)
           else
             {
               ++num_used;
-              if (!pure_p)
-                eassert (!STRING_MARKED_P (XSTRING (sym->s.name)));
               sym->s.gcmarkbit = 0;
+              /* Attempt to catch bogus objects.  */
+              eassert (valid_lisp_object_p (sym->s.function) >= 1);
             }
         }
 
@@ -6787,6 +6871,78 @@ which_symbols (Lisp_Object obj, EMACS_INT find_max)
    return found;
 }
 
+#ifdef SUSPICIOUS_OBJECT_CHECKING
+
+static void *
+find_suspicious_object_in_range (void *begin, void *end)
+{
+  char *begin_a = begin;
+  char *end_a = end;
+  int i;
+
+  for (i = 0; i < ARRAYELTS (suspicious_objects); ++i)
+    {
+      char *suspicious_object = suspicious_objects[i];
+      if (begin_a <= suspicious_object && suspicious_object < end_a)
+	return suspicious_object;
+    }
+
+  return NULL;
+}
+
+static void
+note_suspicious_free (void* ptr)
+{
+  struct suspicious_free_record* rec;
+
+  rec = &suspicious_free_history[suspicious_free_history_index++];
+  if (suspicious_free_history_index ==
+      ARRAYELTS (suspicious_free_history))
+    {
+      suspicious_free_history_index = 0;
+    }
+
+  memset (rec, 0, sizeof (*rec));
+  rec->suspicious_object = ptr;
+  backtrace (&rec->backtrace[0], ARRAYELTS (rec->backtrace));
+}
+
+static void
+detect_suspicious_free (void* ptr)
+{
+  int i;
+
+  eassert (ptr != NULL);
+
+  for (i = 0; i < ARRAYELTS (suspicious_objects); ++i)
+    if (suspicious_objects[i] == ptr)
+      {
+        note_suspicious_free (ptr);
+        suspicious_objects[i] = NULL;
+      }
+}
+
+#endif /* SUSPICIOUS_OBJECT_CHECKING */
+
+DEFUN ("suspicious-object", Fsuspicious_object, Ssuspicious_object, 1, 1, 0,
+       doc: /* Return OBJ, maybe marking it for extra scrutiny.
+If Emacs is compiled with suspicous object checking, capture
+a stack trace when OBJ is freed in order to help track down
+garbage collection bugs.  Otherwise, do nothing and return OBJ.   */)
+   (Lisp_Object obj)
+{
+#ifdef SUSPICIOUS_OBJECT_CHECKING
+  /* Right now, we care only about vectors.  */
+  if (VECTORLIKEP (obj))
+    {
+      suspicious_objects[suspicious_object_index++] = XVECTOR (obj);
+      if (suspicious_object_index == ARRAYELTS (suspicious_objects))
+	suspicious_object_index = 0;
+    }
+#endif
+  return obj;
+}
+
 #ifdef ENABLE_CHECKING
 
 bool suppress_checking;
@@ -6957,6 +7113,7 @@ The time is in seconds as a floating point value.  */);
   defsubr (&Sgarbage_collect);
   defsubr (&Smemory_limit);
   defsubr (&Smemory_use_counts);
+  defsubr (&Ssuspicious_object);
 
 #if GC_MARK_STACK == GC_USE_GCPROS_CHECK_ZOMBIES
   defsubr (&Sgc_status);
@@ -6975,7 +7132,6 @@ union
   enum char_bits char_bits;
   enum CHECK_LISP_OBJECT_TYPE CHECK_LISP_OBJECT_TYPE;
   enum DEFAULT_HASH_SIZE DEFAULT_HASH_SIZE;
-  enum enum_USE_LSB_TAG enum_USE_LSB_TAG;
   enum FLOAT_TO_STRING_BUFSIZE FLOAT_TO_STRING_BUFSIZE;
   enum Lisp_Bits Lisp_Bits;
   enum Lisp_Compiled Lisp_Compiled;

@@ -27,6 +27,13 @@ otherwise leave it unmarked.
 +++
 ** Building Emacs now requires GNU make.
 
+** By default, Emacs no longer works on IRIX.  We expect that Emacs
+users are not affected by this, as SGI stopped supporting IRIX in
+December 2013.  If you are affected, please send a bug report.  You
+should be able to work around the problem either by porting the Emacs
+undumping code to GCC under IRIX, or by configuring --with-wide-int,
+or by sticking with Emacs 24.4.
+
 
 * Startup Changes in Emacs 24.5
 
@@ -49,12 +56,23 @@ for use in Emacs bug reports.
 
 * Editing Changes in Emacs 24.5
 
+Emacs now supports "bracketed paste mode" when running on a terminal
+that supports it.  This facility allows Emacs to understand pasted
+chunks of text as strings to be inserted instead of interpreting each
+character in the pasted text as actual user input, resulting in a
+paste experience similar to that under a window system and significant
+performance improvements when pasting large amounts of text.
+
 
 * Changes in Specialized Modes and Packages in Emacs 24.5
 
 ---
 ** The Rmail commands d, C-d and u now handle repeat counts
 to delete or undelete multiple messages.
+
+** The URL package accepts now the protocols "ssh", "scp" and "rsync".
+When `url-handler-mode' is enabled, file operations for these
+protocols as well as for "telnet" and "ftp" are passed to Tramp.
 
 ** Obsolete packages
 
@@ -67,12 +85,28 @@ to delete or undelete multiple messages.
 
 * Incompatible Lisp Changes in Emacs 24.5
 
+** window-configurations do not record the buffers's marks any more.
+
+** inhibit-modification-hooks now also inhibits lock-file checks as well as
+active region handling.
+
+** deactivate-mark is now buffer-local.
+
+** cl-the now asserts that its argument is of the given type.
+
 
 * Lisp Changes in Emacs 24.5
 
+** New function `function-put' to use instead of `put' for function properties.
+
 +++
-** You can specify a function's interactive-only property via `declare'.
-However you specify it, the property affects `describe-function' output.
+** New properties that can be specified with `declare':
+*** (interactive-only INSTEAD), tells to use INSTEAD for non-interactive use.
+*** (pure VAL), if VAL is non-nil, indicates the function is pure.
+*** (side-effect-free VAL), if VAL is non-nil, indicates the function does not
+have side effects.
+
+** You can access the slots of structures using `cl-struct-slot-value'.
 
 
 * Changes in Emacs 24.5 on Non-Free Operating Systems
@@ -214,6 +248,10 @@ You can change the default by customizing `blink-cursor-blinks'.
 +++
 ** In keymaps where SPC scrolls forward, S-SPC now scrolls backward.
 This affects View mode, etc.
+
++++
+** The default value of `make-backup-file-name-function' is no longer nil.
+Instead it defaults to a function that does what the nil value used to.
 
 ** Help changes
 
@@ -655,7 +693,9 @@ See also related options `desktop-restore-reuses-frames',
 
 +++
 ** New Dired minor mode `dired-hide-details-mode' toggles whether details,
-such as file ownership or permissions, are visible.
+such as file ownership or permissions, are visible in Dired buffers.
+See the new options `dired-hide-details-hide-symlink-targets' and
+`dired-hide-details-hide-information-lines' for customizing what to hide.
 
 ---
 ** You can enable ElDoc inside the `eval-expression' minibuffer with:
@@ -1268,8 +1308,19 @@ in the presence of files with negative time stamps.
 ** The cars of the elements in `interpreter-mode-alist' are now
 treated as regexps rather than literal strings.
 
+---
+** Overlay priority does not have to be nil or a non-negative integer.
+Overlay priority can be other kinds of Lisp objects.  We didn't yet
+decide whether other types of values are stable enough, and therefore
+don't feel it's right to document them.  For now, don't assume in your
+code that the values of overlay priority can only be either nil or an
+integer, always test them with an appropriate predicate to be one or
+the other.
+
 
 * Lisp Changes in Emacs 24.4
+
+** overlays-at can optionally sort its result by priority.
 
 +++
 ** The second argument of `eval' can now specify a lexical environment.
@@ -1451,19 +1502,26 @@ used in place of the 9th element of `file-attributes'.
 argument, with the same interpretation as the returned value of
 `visited-file-modtime'.
 
-** Autorevert changes
+** Revert and Autorevert changes
+
++++
+*** The default values of `buffer-stale-function', `revert-buffer-function',
+and `revert-buffer-insert-file-contents-function' are no longer nil.
+Instead they default to functions that do what the nil value used to.
+
++++
+*** `buffer-stale-function' is now used for buffers visiting files too.
 
 ---
-*** If Emacs is compiled with file notification support, notifications
-are used instead of checking the time stamp of the files.  You can
-disable this by setting the user option `auto-revert-use-notify' to
-nil.  Alternatively, a regular expression of directories to be
-excluded from file notifications can be specified by
+*** If Emacs is compiled with file notification support, it uses notifications
+instead of checking file time stamps.  To disable this, set the user option
+`auto-revert-use-notify' to nil.  Alternatively, you can specify a regular
+expression matching directories to be excluded from file notifications via
 `auto-revert-notify-exclude-dir-regexp'.
 
 ---
 *** The new user option `auto-revert-remote-files' enables reversion
-of remote files when set to non-nil.
+of remote files, if set to non-nil.
 
 ** Face changes
 

@@ -1262,12 +1262,23 @@ Value is the height in pixels of the line at point.  */)
   struct it it;
   struct text_pos pt;
   struct window *w = XWINDOW (selected_window);
+  struct buffer *old_buffer = NULL;
+  Lisp_Object result;
 
+  if (XBUFFER (w->contents) != current_buffer)
+    {
+      old_buffer = current_buffer;
+      set_buffer_internal_1 (XBUFFER (w->contents));
+    }
   SET_TEXT_POS (pt, PT, PT_BYTE);
   start_display (&it, w, pt);
   it.vpos = it.current_y = 0;
   last_height = 0;
-  return make_number (line_bottom_y (&it));
+  result = make_number (line_bottom_y (&it));
+  if (old_buffer)
+    set_buffer_internal_1 (old_buffer);
+
+  return result;
 }
 
 /* Return the default pixel height of text lines in window W.  The
@@ -9511,6 +9522,7 @@ move_it_by_lines (struct it *it, ptrdiff_t dvpos)
       ptrdiff_t start_charpos, i;
       int nchars_per_row
 	= (it->last_visible_x - it->first_visible_x) / FRAME_COLUMN_WIDTH (it->f);
+      bool hit_pos_limit = false;
       ptrdiff_t pos_limit;
 
       /* Start at the beginning of the screen line containing IT's
@@ -9527,8 +9539,11 @@ move_it_by_lines (struct it *it, ptrdiff_t dvpos)
 	pos_limit = BEGV;
       else
 	pos_limit = max (start_charpos + dvpos * nchars_per_row, BEGV);
+
       for (i = -dvpos; i > 0 && IT_CHARPOS (*it) > pos_limit; --i)
 	back_to_previous_visible_line_start (it);
+      if (i > 0 && IT_CHARPOS (*it) <= pos_limit)
+	hit_pos_limit = true;
       reseat (it, it->current.pos, 1);
 
       /* Move further back if we end up in a string or an image.  */
@@ -9571,6 +9586,25 @@ move_it_by_lines (struct it *it, ptrdiff_t dvpos)
 	    RESTORE_IT (it, &it2, it2data);
 	  else
 	    bidi_unshelve_cache (it2data, 1);
+	}
+      else if (hit_pos_limit && pos_limit > BEGV
+	       && dvpos < 0 && it2.vpos < -dvpos)
+	{
+	  /* If we hit the limit, but still didn't make it far enough
+	     back, that means there's a display string with a newline
+	     covering a large chunk of text, and that caused
+	     back_to_previous_visible_line_start try to go too far.
+	     Punish those who commit such atrocities by going back
+	     until we've reached DVPOS, after lifting the limit, which
+	     could make it slow for very long lines.  "If it hurts,
+	     don't do that!"  */
+	  dvpos += it2.vpos;
+	  RESTORE_IT (it, it, it2data);
+	  for (i = -dvpos; i > 0; --i)
+	    {
+	      back_to_previous_visible_line_start (it);
+	      it->vpos--;
+	    }
 	}
       else
 	RESTORE_IT (it, it, it2data);
@@ -18654,6 +18688,7 @@ insert_left_trunc_glyphs (struct it *it)
   truncate_it.current_x = 0;
   truncate_it.face_id = DEFAULT_FACE_ID;
   truncate_it.glyph_row = &scratch_glyph_row;
+  truncate_it.area = TEXT_AREA;
   truncate_it.glyph_row->used[TEXT_AREA] = 0;
   CHARPOS (truncate_it.position) = BYTEPOS (truncate_it.position) = -1;
   truncate_it.object = make_number (0);
@@ -22639,7 +22674,7 @@ decode_mode_spec (struct window *w, register int c, int field_width,
 	return decode_mode_spec_buf;
     no_value:
         {
-	  char* p = decode_mode_spec_buf;
+	  char *p = decode_mode_spec_buf;
 	  int pad = width - 2;
 	  while (pad-- > 0)
 	    *p++ = ' ';
@@ -23387,7 +23422,7 @@ calc_pixel_width_or_height (double *res, struct it *it, Lisp_Object prop,
 	    return OK_PIXELS (WINDOW_SCROLL_BAR_AREA_WIDTH (it->w));
 	}
 
-      prop = buffer_local_value_1 (prop, it->w->contents);
+      prop = buffer_local_value (prop, it->w->contents);
       if (EQ (prop, Qunbound))
 	prop = Qnil;
     }
@@ -23439,7 +23474,7 @@ calc_pixel_width_or_height (double *res, struct it *it, Lisp_Object prop,
 	      return OK_PIXELS (pixels);
 	    }
 
-	  car = buffer_local_value_1 (car, it->w->contents);
+	  car = buffer_local_value (car, it->w->contents);
 	  if (EQ (car, Qunbound))
 	    car = Qnil;
 	}
@@ -28508,8 +28543,8 @@ note_mode_line_or_margin_highlight (Lisp_Object window, int x, int y,
 	  else if (area == ON_MODE_LINE)
 	    {
 	      Lisp_Object default_help
-		= buffer_local_value_1 (Qmode_line_default_help_echo,
-					w->contents);
+		= buffer_local_value (Qmode_line_default_help_echo,
+				      w->contents);
 
 	      if (STRINGP (default_help))
 		{

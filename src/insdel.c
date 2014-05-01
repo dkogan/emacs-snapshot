@@ -1804,6 +1804,9 @@ prepare_to_modify_buffer_1 (ptrdiff_t start, ptrdiff_t end,
   else
     base_buffer = current_buffer;
 
+  if (inhibit_modification_hooks)
+    return;
+
   if (!NILP (BVAR (base_buffer, file_truename))
       /* Make binding buffer-file-name to nil effective.  */
       && !NILP (BVAR (base_buffer, filename))
@@ -1813,7 +1816,6 @@ prepare_to_modify_buffer_1 (ptrdiff_t start, ptrdiff_t end,
   /* If `select-active-regions' is non-nil, save the region text.  */
   /* FIXME: Move this to Elisp (via before-change-functions).  */
   if (!NILP (BVAR (current_buffer, mark_active))
-      && !inhibit_modification_hooks
       && XMARKER (BVAR (current_buffer, mark))->buffer
       && NILP (Vsaved_region_selection)
       && (EQ (Vselect_active_regions, Qonly)
@@ -1847,6 +1849,38 @@ invalidate_buffer_caches (struct buffer *buf, ptrdiff_t start, ptrdiff_t end)
      need to consider the caches of their base buffer.  */
   if (buf->base_buffer)
     buf = buf->base_buffer;
+  /* The bidi_paragraph_cache must be invalidated first, because doing
+     so might need to use the newline_cache (via find_newline_no_quit,
+     see below).  */
+  if (buf->bidi_paragraph_cache)
+    {
+      if (start != end
+	  && start > BUF_BEG (buf))
+	{
+	  /* If we are deleting or replacing characters, we could
+	     create a paragraph start, because all of the characters
+	     from START to the beginning of START's line are
+	     whitespace.  Therefore, we must extend the region to be
+	     invalidated up to the newline before START.  */
+	  ptrdiff_t line_beg = start;
+	  ptrdiff_t start_byte = buf_charpos_to_bytepos (buf, start);
+
+	  if (BUF_FETCH_BYTE (buf, start_byte - 1) != '\n')
+	    {
+	      struct buffer *old = current_buffer;
+
+	      set_buffer_internal (buf);
+
+	      line_beg = find_newline_no_quit (start, start_byte, -1,
+					       &start_byte);
+	      set_buffer_internal (old);
+	    }
+	  start = line_beg - (line_beg > BUF_BEG (buf));
+	}
+      invalidate_region_cache (buf,
+			       buf->bidi_paragraph_cache,
+			       start - BUF_BEG (buf), BUF_Z (buf) - end);
+    }
   if (buf->newline_cache)
     invalidate_region_cache (buf,
                              buf->newline_cache,
@@ -1854,10 +1888,6 @@ invalidate_buffer_caches (struct buffer *buf, ptrdiff_t start, ptrdiff_t end)
   if (buf->width_run_cache)
     invalidate_region_cache (buf,
                              buf->width_run_cache,
-                             start - BUF_BEG (buf), BUF_Z (buf) - end);
-  if (buf->bidi_paragraph_cache)
-    invalidate_region_cache (buf,
-                             buf->bidi_paragraph_cache,
                              start - BUF_BEG (buf), BUF_Z (buf) - end);
 }
 
@@ -1924,9 +1954,6 @@ signal_before_change (ptrdiff_t start_int, ptrdiff_t end_int,
   ptrdiff_t count = SPECPDL_INDEX ();
   struct rvoe_arg rvoe_arg;
 
-  if (inhibit_modification_hooks)
-    return;
-
   start = make_number (start_int);
   end = make_number (end_int);
   preserve_marker = Qnil;
@@ -1937,7 +1964,7 @@ signal_before_change (ptrdiff_t start_int, ptrdiff_t end_int,
   specbind (Qinhibit_modification_hooks, Qt);
 
   /* If buffer is unmodified, run a special hook for that case.  The
-   check for Vfirst_change_hook is just a minor optimization. */
+   check for Vfirst_change_hook is just a minor optimization.  */
   if (SAVE_MODIFF >= MODIFF
       && !NILP (Vfirst_change_hook))
     {

@@ -3955,9 +3955,7 @@ xpm_str_to_color_key (const char *s)
 {
   int i;
 
-  for (i = 0;
-       i < sizeof xpm_color_key_strings / sizeof xpm_color_key_strings[0];
-       i++)
+  for (i = 0; i < ARRAYELTS (xpm_color_key_strings); i++)
     if (strcmp (xpm_color_key_strings[i], s) == 0)
       return i;
   return -1;
@@ -6264,9 +6262,6 @@ struct my_jpeg_error_mgr
       MY_JPEG_INVALID_IMAGE_SIZE,
       MY_JPEG_CANNOT_CREATE_X
     } failure_code;
-#ifdef lint
-  FILE *fp;
-#endif
 };
 
 
@@ -6481,7 +6476,8 @@ jpeg_load_body (struct frame *f, struct image *img,
 {
   Lisp_Object file, specified_file;
   Lisp_Object specified_data;
-  FILE *fp = NULL;
+  /* The 'volatile' silences a bogus diagnostic; see GCC bug 54561.  */
+  FILE * IF_LINT (volatile) fp = NULL;
   JSAMPARRAY buffer;
   int row_stride, x, y;
   XImagePtr ximg = NULL;
@@ -6513,8 +6509,6 @@ jpeg_load_body (struct frame *f, struct image *img,
       image_error ("Invalid image data `%s'", specified_data, Qnil);
       return 0;
     }
-
-  IF_LINT (mgr->fp = fp);
 
   /* Customize libjpeg's error handling to call my_error_exit when an
      error is detected.  This function will perform a longjmp.  */
@@ -6553,9 +6547,6 @@ jpeg_load_body (struct frame *f, struct image *img,
       x_clear_image (f, img);
       return 0;
     }
-
-  /* Silence a bogus diagnostic; see GCC bug 54561.  */
-  IF_LINT (fp = mgr->fp);
 
   /* Create the JPEG decompression object.  Let it read from fp.
 	 Read the JPEG image header.  */

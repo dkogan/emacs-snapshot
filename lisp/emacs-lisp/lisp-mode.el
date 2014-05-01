@@ -74,7 +74,7 @@ It has `lisp-mode-abbrev-table' as its parent."
     (modify-syntax-entry ?` "'   " table)
     (modify-syntax-entry ?' "'   " table)
     (modify-syntax-entry ?, "'   " table)
-    (modify-syntax-entry ?@ "'   " table)
+    (modify-syntax-entry ?@ "_ p" table)
     ;; Used to be singlequote; changed for flonums.
     (modify-syntax-entry ?. "_   " table)
     (modify-syntax-entry ?# "'   " table)
@@ -104,7 +104,8 @@ It has `lisp-mode-abbrev-table' as its parent."
 			     (regexp-opt
 			      '("defun" "defun*" "defsubst" "defmacro"
 				"defadvice" "define-skeleton"
-				"define-minor-mode" "define-global-minor-mode"
+				"define-compilation-mode" "define-minor-mode"
+				"define-global-minor-mode"
 				"define-globalized-minor-mode"
 				"define-derived-mode" "define-generic-mode"
 				"define-compiler-macro" "define-modify-macro"
@@ -155,6 +156,24 @@ It has `lisp-mode-abbrev-table' as its parent."
 
 
 ;;;; Font-lock support.
+
+(defun lisp--match-hidden-arg (limit)
+  (let ((res nil))
+    (while
+        (let ((ppss (parse-partial-sexp (line-beginning-position)
+                                        (line-end-position)
+                                        -1)))
+          (skip-syntax-forward " )")
+          (if (or (>= (car ppss) 0)
+                  (looking-at ";\\|$"))
+              (progn
+                (forward-line 1)
+                (< (point) limit))
+            (looking-at ".*")           ;Set the match-data.
+	    (forward-line 1)
+            (setq res (point))
+            nil)))
+    res))
 
 (pcase-let
     ((`(,vdefs ,tdefs
@@ -347,6 +366,9 @@ It has `lisp-mode-abbrev-table' as its parent."
        ;; and that they get the wrong color.
        ;; ;; CL `with-' and `do-' constructs
        ;;("(\\(\\(do-\\|with-\\)\\(\\s_\\|\\w\\)*\\)" 1 font-lock-keyword-face)
+       (lisp--match-hidden-arg
+        (0 '(face font-lock-warning-face
+             help-echo "Hidden behind deeper element; move to another line?")))
        ))
     "Gaudy level highlighting for Emacs Lisp mode.")
 
@@ -377,6 +399,9 @@ It has `lisp-mode-abbrev-table' as its parent."
        ;; and that they get the wrong color.
        ;; ;; CL `with-' and `do-' constructs
        ;;("(\\(\\(do-\\|with-\\)\\(\\s_\\|\\w\\)*\\)" 1 font-lock-keyword-face)
+       (lisp--match-hidden-arg
+        (0 '(face font-lock-warning-face
+             help-echo "Hidden behind deeper element; move to another line?")))
        ))
     "Gaudy level highlighting for Lisp modes."))
 
@@ -465,10 +490,10 @@ font-lock keywords will not be case sensitive."
                lisp-cl-font-lock-keywords-2))
 	  nil ,keywords-case-insensitive nil nil
 	  (font-lock-mark-block-function . mark-defun)
+          (font-lock-extra-managed-props help-echo)
 	  (font-lock-syntactic-face-function
 	   . lisp-font-lock-syntactic-face-function)))
   (setq-local prettify-symbols-alist lisp--prettify-symbols-alist)
-  ;; electric
   (when elisp
     (setq-local electric-pair-text-pairs
                 (cons '(?\` . ?\') electric-pair-text-pairs)))

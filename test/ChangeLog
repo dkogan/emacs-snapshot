@@ -1,3 +1,128 @@
+2014-04-25  Michael Albinus  <michael.albinus@gmx.de>
+
+	* automated/tramp-tests.el (top):
+	* automated/file-notify-tests.el (top): Do not disable interactive
+	passwords in batch mode.
+	(password-cache-expiry): Set to nil.
+
+	* automated/file-notify-tests.el
+	(file-notify-test-remote-temporary-file-directory):
+	* automated/tramp-tests.el (tramp-test-temporary-file-directory):
+	Use a mock-up method as default.
+	(tramp-test00-availability): Print the used directory name.
+	(tramp-test33-recursive-load): Fix typo.
+
+2014-04-22  Michael Albinus  <michael.albinus@gmx.de>
+
+	* automated/tramp-tests.el (tramp--test-check-files): Remove traces.
+	(tramp-test30-special-characters): Remove test for backslash.
+
+2014-04-20  Michael Albinus  <michael.albinus@gmx.de>
+
+	* automated/tramp-tests.el
+	(tramp-test19-directory-files-and-attributes)
+	(tramp-test22-file-times): Check for `file-attributes' equality
+	only if there is a usable timestamp.
+	(tramp--test-check-files): Do not use `copy-sequence'.
+
+2014-04-22  Daniel Colascione  <dancol@dancol.org>
+
+	* automated/bytecomp-tests.el (test-byte-comp-compile-and-load):
+	Add compile flag.
+	(test-byte-comp-macro-expansion)
+	(test-byte-comp-macro-expansion-eval-and-compile)
+	(test-byte-comp-macro-expansion-eval-when-compile)
+	(test-byte-comp-macro-expand-lexical-override): Use it.
+	(test-eager-load-macro-expansion)
+	(test-eager-load-macro-expansion-eval-and-compile)
+	(test-eager-load-macro-expansion-eval-when-compile)
+	(test-eager-load-macro-expand-lexical-override): New tests.
+
+	* automated/cl-lib.el (cl-lib-struct-accessors): Fix test to
+	account for removal of `cl-struct-set-slot-value'. Also, move
+	the defstruct to top level.
+
+2014-04-21  Daniel Colascione  <dancol@dancol.org>
+
+	* automated/bytecomp-tests.el (test-byte-comp-compile-and-load):
+	New function.
+	(test-byte-comp-macro-expansion)
+	(test-byte-comp-macro-expansion-eval-and-compile)
+	(test-byte-comp-macro-expansion-eval-when-compile)
+	(test-byte-comp-macro-expand-lexical-override): New tests.
+
+	* automated/cl-lib.el (cl-loop-destructuring-with): New test.
+	(cl-the): Fix cl-the test.
+
+2014-04-20  Daniel Colascione  <dancol@dancol.org>
+
+	* automated/cl-lib.el (cl-lib-struct-accessors,cl-the): New tests.
+
+2014-04-19  Michael Albinus  <michael.albinus@gmx.de>
+
+	* automated/tramp-tests.el (tramp--test-check-files): Extend test.
+	(tramp-test31-utf8): Let-bind also `file-name-coding-system'.
+
+2014-04-18  Michael Albinus  <michael.albinus@gmx.de>
+
+	* automated/tramp-tests.el (tramp-copy-size-limit): Set to nil.
+	(tramp--test-make-temp-name): Optional argument LOCAL.
+	(tramp--instrument-test-case): Show messages.  Catch also `quit'.
+	(tramp-test10-write-region): No special test for out-of-band copy
+	needed anymore.
+	(tramp-test11-copy-file, tramp-test12-rename-file)
+	(tramp-test21-file-links): Extend tests.
+	(tramp-test20-file-modes): More robust check for user "root".
+	(tramp--test-check-files): New defun.
+	(tramp-test30-special-characters, tramp-test33-recursive-load)
+	(tramp-test34-unload): New tests.
+	(tramp-test31-utf8, tramp-test32-asynchronous-requests):  Rename.
+
+2014-04-11  Glenn Morris  <rgm@gnu.org>
+
+	* automated/Makefile.in (EMACSDATA, EMACSDOC, EMACSPATH): Unexport.
+
+2014-04-11  Paul Eggert  <eggert@cs.ucla.edu>
+
+	* automated/electric-tests.el: Fix spelling error in test name.
+	(whitespace-skipping-for-quotes-not-outside):
+	Rename from whitespace-skipping-for-quotes-not-ouside.
+
+2014-04-09  Daniel Colascione  <dancol@dancol.org>
+
+	* automated/syntax-tests.el: New file.
+
+2014-04-09  Glenn Morris  <rgm@gnu.org>
+
+	* automated/python-tests.el (python-triple-quote-pairing):
+	Enable/disable electric-pair-mode as needed.
+
+	* automated/electric-tests.el (electric-pair-backspace-1):
+	Replace deleted function.
+
+2014-04-07  João Távora  <joaotavora@gmail.com>
+
+	* automated/python-tests.el (python-triple-quote-pairing): New test.
+	(python-syntax-after-python-backspace): New test.
+
+	* automated/electric-tests.el (electric-pair-define-test-form):
+	More readable test docstrings.
+	(whitespace-skipping-for-quotes-not-ouside)
+	(whitespace-skipping-for-quotes-only-inside)
+	(whitespace-skipping-quotes-not-without-proper-syntax): New tests.
+
+2014-04-04  João Távora  <joaotavora@gmail.com>
+
+	* automated/electric-tests.el (define-electric-pair-test):
+	Don't overtest.
+	(inhibit-in-mismatched-string-inside-ruby-comments): New test.
+	(inhibit-in-mismatched-string-inside-c-comments): New test.
+
+2014-04-02  João Távora  <joaotavora@gmail.com>
+
+	* automated/electric-tests.el (inhibit-if-strings-mismatched):
+	New test, change from `inhibit-only-of-next-is-mismatched'.
+
 2014-03-26  Barry O'Reilly  <gundaetiapo@gmail.com>
 
 	* automated/undo-tests.el (undo-test-marker-adjustment-nominal):

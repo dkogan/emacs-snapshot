@@ -1158,10 +1158,10 @@ DEFUN ("buffer-local-value", Fbuffer_local_value,
        Sbuffer_local_value, 2, 2, 0,
        doc: /* Return the value of VARIABLE in BUFFER.
 If VARIABLE does not have a buffer-local binding in BUFFER, the value
-is the default binding of the variable. */)
+is the default binding of the variable.  */)
   (register Lisp_Object variable, register Lisp_Object buffer)
 {
-  register Lisp_Object result = buffer_local_value_1 (variable, buffer);
+  register Lisp_Object result = buffer_local_value (variable, buffer);
 
   if (EQ (result, Qunbound))
     xsignal1 (Qvoid_variable, variable);
@@ -1174,7 +1174,7 @@ is the default binding of the variable. */)
    locally unbound.  */
 
 Lisp_Object
-buffer_local_value_1 (Lisp_Object variable, Lisp_Object buffer)
+buffer_local_value (Lisp_Object variable, Lisp_Object buffer)
 {
   register struct buffer *buf;
   register Lisp_Object result;
@@ -4163,9 +4163,10 @@ OVERLAY.  */)
 }
 
 
-DEFUN ("overlays-at", Foverlays_at, Soverlays_at, 1, 1, 0,
-       doc: /* Return a list of the overlays that contain the character at POS.  */)
-  (Lisp_Object pos)
+DEFUN ("overlays-at", Foverlays_at, Soverlays_at, 1, 2, 0,
+       doc: /* Return a list of the overlays that contain the character at POS.
+If SORTED is non-nil, then sort them by decreasing priority.  */)
+  (Lisp_Object pos, Lisp_Object sorted)
 {
   ptrdiff_t len, noverlays;
   Lisp_Object *overlay_vec;
@@ -4184,6 +4185,10 @@ DEFUN ("overlays-at", Foverlays_at, Soverlays_at, 1, 1, 0,
      Store the length in len.  */
   noverlays = overlays_at (XINT (pos), 1, &overlay_vec, &len,
 			   NULL, NULL, 0);
+
+  if (!NILP (sorted))
+    noverlays = sort_overlays (overlay_vec, noverlays,
+			       WINDOWP (sorted) ? XWINDOW (sorted) : NULL);
 
   /* Make a list of them all.  */
   result = Flist (noverlays, overlay_vec);

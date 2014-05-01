@@ -308,7 +308,7 @@ int event_record_index;
 void
 record_event (char *locus, int type)
 {
-  if (event_record_index == sizeof (event_record) / sizeof (struct record))
+  if (event_record_index == ARRAYELTS (event_record))
     event_record_index = 0;
 
   event_record[event_record_index].locus = locus;
@@ -2399,15 +2399,19 @@ x_draw_image_glyph_string (struct glyph_string *s)
 	{
 	  int x = s->x;
 	  int y = s->y;
+	  int width = s->background_width;
 
 	  if (s->first_glyph->left_box_line_p
 	      && s->slice.x == 0)
-	    x += box_line_hwidth;
+	    {
+	      x += box_line_hwidth;
+	      width -= box_line_hwidth;
+	    }
 
 	  if (s->slice.y == 0)
 	    y += box_line_vwidth;
 
-	  x_draw_glyph_string_bg_rect (s, x, y, s->background_width, height);
+	  x_draw_glyph_string_bg_rect (s, x, y, width, height);
 	}
 
       s->background_filled_p = 1;
@@ -5620,7 +5624,7 @@ static int temp_index;
 static short temp_buffer[100];
 
 #define STORE_KEYSYM_FOR_DEBUG(keysym)				\
-  if (temp_index == sizeof temp_buffer / sizeof (short))	\
+  if (temp_index == ARRAYELTS (temp_buffer))			\
     temp_index = 0;						\
   temp_buffer[temp_index++] = (keysym)
 
@@ -7775,20 +7779,16 @@ x_new_font (struct frame *f, Lisp_Object font_object, int fontset)
 
   compute_fringe_widths (f, 1);
 
+  /* Compute character columns occupied by scrollbar.
+
+     Don't do things differently for non-toolkit scrollbars
+     (Bug#17163).  */
   unit = FRAME_COLUMN_WIDTH (f);
-#ifdef USE_TOOLKIT_SCROLL_BARS
-  /* The width of a toolkit scrollbar does not change with the new
-     font but we have to calculate the number of columns it occupies
-     anew.  */
-  FRAME_CONFIG_SCROLL_BAR_COLS (f)
-    = (FRAME_CONFIG_SCROLL_BAR_WIDTH (f) + unit - 1) / unit;
-#else
-  /* The width of a non-toolkit scrollbar is at least 14 pixels and a
-     multiple of the frame's character width.  */
-  FRAME_CONFIG_SCROLL_BAR_COLS (f) = (14 + unit - 1) / unit;
-  FRAME_CONFIG_SCROLL_BAR_WIDTH (f)
-    = FRAME_CONFIG_SCROLL_BAR_COLS (f) * unit;
-#endif  
+  if (FRAME_CONFIG_SCROLL_BAR_WIDTH (f) > 0)
+    FRAME_CONFIG_SCROLL_BAR_COLS (f)
+      = (FRAME_CONFIG_SCROLL_BAR_WIDTH (f) + unit - 1) / unit;
+  else
+    FRAME_CONFIG_SCROLL_BAR_COLS (f) = (14 + unit - 1) / unit;
 
   if (FRAME_X_WINDOW (f) != 0)
     {
@@ -7994,7 +7994,7 @@ xim_close_dpy (struct x_display_info *dpyinfo)
     {
 #ifdef HAVE_X11R6_XIM
       struct xim_inst_t *xim_inst = dpyinfo->xim_callback_data;
-      
+
       if (dpyinfo->display)
 	{
 	  Bool ret = XUnregisterIMInstantiateCallback
@@ -8900,6 +8900,7 @@ void
 x_make_frame_visible (struct frame *f)
 {
   int original_top, original_left;
+  int tries = 0;
 
   block_input ();
 
@@ -9007,7 +9008,13 @@ x_make_frame_visible (struct frame *f)
 	/* Force processing of queued events.  */
 	x_sync (f);
 
-	/* This hack is still in use at least for Cygwin.  See
+        /* If on another desktop, the deiconify/map may be ignored and the
+           frame never becomes visible.  XMonad does this.
+           Prevent an endless loop.  */
+        if (FRAME_ICONIFIED_P (f) &&  ++tries > 100)
+          break;
+
+       /* This hack is still in use at least for Cygwin.  See
 	   http://lists.gnu.org/archive/html/emacs-devel/2013-12/msg00351.html.
 
 	   Machines that do polling rather than SIGIO have been
@@ -10103,7 +10110,7 @@ x_term_init (Lisp_Object display_name, char *xrm_option, char *resource_name)
     };
 
     int i;
-    const int atom_count = sizeof (atom_refs) / sizeof (atom_refs[0]);
+    const int atom_count = ARRAYELTS (atom_refs);
     /* 1 for _XSETTINGS_SN  */
     const int total_atom_count = 1 + atom_count;
     Atom *atoms_return = xmalloc (total_atom_count * sizeof *atoms_return);
@@ -10162,6 +10169,7 @@ x_term_init (Lisp_Object display_name, char *xrm_option, char *resource_name)
 
 #ifdef USE_LUCID
   {
+    XFontStruct *xfont = NULL;
     XrmValue d, fr, to;
     Font font;
 
@@ -10175,8 +10183,10 @@ x_term_init (Lisp_Object display_name, char *xrm_option, char *resource_name)
     x_catch_errors (dpy);
     if (!XtCallConverter (dpy, XtCvtStringToFont, &d, 1, &fr, &to, NULL))
       emacs_abort ();
-    if (x_had_errors_p (dpy) || !XQueryFont (dpy, font))
+    if (x_had_errors_p (dpy) || !((xfont = XQueryFont (dpy, font))))
       XrmPutLineResource (&xrdb, "Emacs.dialog.*.font: 9x15");
+    if (xfont)
+      XFreeFont (dpy, xfont);
     x_uncatch_errors ();
   }
 #endif

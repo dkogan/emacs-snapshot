@@ -951,12 +951,14 @@ target of the symlink differ."
 	  (cond
 	   ;; Use GNU readlink --canonicalize-missing where available.
 	   ((tramp-get-remote-readlink v)
-	    (setq result
-		  (tramp-send-command-and-read
-		   v
-		   (format "echo \"\\\"`%s --canonicalize-missing %s`\\\"\""
-			   (tramp-get-remote-readlink v)
-			   (tramp-shell-quote-argument localname)))))
+	    (tramp-send-command-and-check
+	     v
+	     (format "%s --canonicalize-missing %s"
+		     (tramp-get-remote-readlink v)
+		     (tramp-shell-quote-argument localname)))
+	    (with-current-buffer (tramp-get-connection-buffer v)
+	      (goto-char (point-min))
+	      (setq result (buffer-substring (point-min) (point-at-eol)))))
 
 	   ;; Use Perl implementation.
 	   ((and (tramp-get-remote-perl v)
@@ -1732,7 +1734,7 @@ be non-negative integers."
                        ;; wildcard.  This will return "too many" entries
                        ;; but that isn't harmful.
                        " || %s -a 2>/dev/null)"
-                       " | while read f; do"
+                       " | while IFS= read f; do"
                        " if %s -d \"$f\" 2>/dev/null;"
                        " then \\echo \"$f/\"; else \\echo \"$f\"; fi; done"
                        " && \\echo ok) || \\echo fail")
@@ -2359,8 +2361,7 @@ The method used must be an out-of-band method."
 				  (append
 				   copy-args
 				   (list
-				    (shell-quote-argument source)
-				    (shell-quote-argument target)
+				    source target
 				    "&&" "echo" "tramp_exit_status" "0"
 				    "||" "echo" "tramp_exit_status" "1"))))))
 		  (tramp-message
@@ -4836,9 +4837,10 @@ Return ATTR."
 	(host (tramp-file-name-real-host vec))
 	(localname (tramp-shell-quote-argument
 		    (tramp-file-name-localname vec))))
-    (if (not (zerop (length user)))
-        (format "%s@%s:%s" user host localname)
-      (format "%s:%s" host localname))))
+    (shell-quote-argument
+     (if (not (zerop (length user)))
+	 (format "%s@%s:%s" user host localname)
+       (format "%s:%s" host localname)))))
 
 (defun tramp-method-out-of-band-p (vec size)
   "Return t if this is an out-of-band method, nil otherwise."

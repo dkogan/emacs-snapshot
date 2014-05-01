@@ -1,3 +1,112 @@
+2014-04-30  Eli Zaretskii  <eliz@gnu.org>
+
+	* trouble.texi (Quitting, DEL Does Not Delete, Emergency Escape)
+	(Bug Criteria): Fix usage of @kbd and @key.  (Bug#17362)
+
+	* text.texi (Words, Pages, Foldout, HTML Mode): Fix usage of @kbd
+	and @key.
+
+	* search.texi (Special Isearch, Regexp Search): Fix usage of @kbd
+	and @key.
+
+	* screen.texi (Echo Area, Menu Bar): Fix usage of @kbd and @key.
+
+	* rmail.texi (Rmail Scrolling): Fix usage of @kbd and @key.
+
+	* programs.texi (Hungry Delete, Other C Commands): Fix usage of
+	@kbd and @key.
+
+	* picture-xtra.texi (Insert in Picture): Fix usage of @kbd and
+	@key.
+
+	* mule.texi (Unibyte Mode, Bidirectional Editing): Fix usage of
+	@kbd and @key.
+
+	* msdog.texi (Windows Keyboard, Windows Processes): Fix usage of
+	@kbd and @key.
+
+	* msdog-xtra.texi (MS-DOS Keyboard, MS-DOS Printing)
+	(MS-DOS Processes): Fix usage of @kbd and @key.
+
+	* misc.texi (Shell Ring, Printing Package): Fix usage of @kbd and
+	@key.
+
+	* mini.texi (Completion Commands, Minibuffer History): Fix usage
+	of @kbd and @key.
+
+	* kmacro.texi (Keyboard Macro Step-Edit): Fix usage of @kbd and
+	@key.
+
+	* killing.texi (Deletion, Rectangles, CUA Bindings): Fix usage of
+	@kbd and @key.
+
+	* indent.texi (Indentation Commands): Fix usage of @kbd and @key.
+
+	* help.texi (Help Mode, Misc Help): Fix usage of @kbd and @key.
+
+	* glossary.texi (Glossary): Fix usage of @kbd and @key.
+
+	* frames.texi (Speedbar): Fix usage of @kbd and @key.
+
+	* files.texi (Misc File Ops, File Name Cache, File Conveniences)
+	(Filesets): Fix usage of @kbd and @key.
+
+	* display.texi (View Mode): Fix usage of @kbd and @key.
+
+	* dired.texi (Image-Dired): Fix usage of @kbd and @key.
+
+	* custom.texi (Modifier Keys, Function Keys, Named ASCII Chars)
+	(Init Syntax): Fix usage of @kbd and @key.
+
+	* commands.texi (User Input): Fix usage of @kbd and @key.
+
+	* calendar.texi (Counting Days, General Calendar): Fix usage of
+	@kbd and @key.
+
+	* building.texi (Threads Buffer): Fix usage of @kbd and @key.
+
+	* buffers.texi (Select Buffer, Icomplete): Fix usage of @kbd and
+	@key.
+
+	* basic.texi (Inserting Text, Erasing, Arguments): Fix usage of
+	@kbd and @key.
+
+	* anti.texi (Antinews): Fix usage of @kbd and @key.
+
+	* sending.texi (Mail Signature): Document signature variables used
+	by Message mode.  (Bug#17308)
+
+2014-04-22  Eli Zaretskii  <eliz@gnu.org>
+
+	* buffers.texi (Uniquify): Clarify the default uniquification.
+
+	* indent.texi (Tab Stops): Improve wording.
+
+	* cmdargs.texi (General Variables): Improve docs of
+	EMACSLOADPATH.  Index all the environment variables.
+	(Misc Variables): Index all the environment variables.
+
+2014-04-17  Paul Eggert  <eggert@cs.ucla.edu>
+
+	* Makefile.in (infoclean): Be consistent about reporting failures.
+	Do not fail merely because the info directory does not exist,
+	but do fail if it exists and can't be cleaned.
+
+2014-04-16  Eli Zaretskii  <eliz@gnu.org>
+
+	* display.texi (Cursor Display): Explain better how to customize
+	'blink-cursor-blinks'.
+
+2014-04-07  Glenn Morris  <rgm@gnu.org>
+
+	* trouble.texi (Checklist): Dribble files may contain passwords.
+
+	* files.texi (Backup Names):
+	* arevert-xtra.texi (Supporting additional buffers):
+	Update for default values of some -function vars no longer being nil.
+	(Supporting additional buffers):
+	Update for buffer-stale-function also applying to file-buffers.
+
 2014-03-28  Glenn Morris  <rgm@gnu.org>
 
 	* custom.texi (Terminal Init): Mention term-file-aliases.
@@ -17,7 +126,7 @@
 2014-03-15  Dmitry Gutov  <dgutov@yandex.ru>
 
 	* programs.texi (Matching): Update WRT to the new
-	`blink-matchin-paren' behavior.
+	`blink-matching-paren' behavior.
 
 2014-03-13  Paul Eggert  <eggert@cs.ucla.edu>
 

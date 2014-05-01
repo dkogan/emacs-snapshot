@@ -727,6 +727,11 @@ DEFUN ("fset", Ffset, Sfset, 2, 2, 0,
   if (AUTOLOADP (function))
     Fput (symbol, Qautoload, XCDR (function));
 
+  /* Convert to eassert or remove after GC bug is found.  In the
+     meantime, check unconditionally, at a slight perf hit.  */
+  if (valid_lisp_object_p (definition) < 1)
+    emacs_abort ();
+
   set_symbol_function (symbol, definition);
 
   return definition;
@@ -2890,7 +2895,7 @@ In this case, the sign bit is duplicated.  */)
   if (XINT (count) >= BITS_PER_EMACS_INT)
     XSETINT (val, 0);
   else if (XINT (count) > 0)
-    XSETINT (val, XINT (value) << XFASTINT (count));
+    XSETINT (val, XUINT (value) << XFASTINT (count));
   else if (XINT (count) <= -BITS_PER_EMACS_INT)
     XSETINT (val, XINT (value) < 0 ? -1 : 0);
   else
@@ -2982,7 +2987,7 @@ bool_vector_spare_mask (EMACS_INT nr_bits)
 /* Info about unsigned long long, falling back on unsigned long
    if unsigned long long is not available.  */
 
-#if HAVE_UNSIGNED_LONG_LONG_INT
+#if HAVE_UNSIGNED_LONG_LONG_INT && defined ULLONG_MAX
 enum { BITS_PER_ULL = CHAR_BIT * sizeof (unsigned long long) };
 # define ULL_MAX ULLONG_MAX
 #else

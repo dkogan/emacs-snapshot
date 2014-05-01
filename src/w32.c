@@ -1707,7 +1707,7 @@ static unsigned num_of_processors;
 /* We maintain 1-sec samples for the last 16 minutes in a circular buffer.  */
 static struct load_sample samples[16*60];
 static int first_idx = -1, last_idx = -1;
-static int max_idx = sizeof (samples) / sizeof (samples[0]);
+static int max_idx = ARRAYELTS (samples);
 
 static int
 buf_next (int from)
@@ -2511,7 +2511,7 @@ init_environment (char ** argv)
 
   int i;
 
-  const int imax = sizeof (tempdirs) / sizeof (tempdirs[0]);
+  const int imax = ARRAYELTS (tempdirs);
 
   /* Implementation note: This function explicitly works with ANSI
      file names, not with UTF-8 encoded file names.  This is because
@@ -2584,7 +2584,7 @@ init_environment (char ** argv)
       {"LANG", NULL},
     };
 
-#define N_ENV_VARS sizeof (dflt_envvars)/sizeof (dflt_envvars[0])
+#define N_ENV_VARS ARRAYELTS (dflt_envvars)
 
     /* We need to copy dflt_envvars[] and work on the copy because we
        don't want the dumped Emacs to inherit the values of
@@ -5353,11 +5353,6 @@ utime (const char *name, struct utimbuf *times)
   return 0;
 }
 
-/* Emacs expects us to support the traditional octal form of the mode
-   bits, which is not what msvcrt.dll wants.  */
-
-#define WRITE_USER 00200
-
 int
 sys_umask (int mode)
 {
@@ -5369,14 +5364,14 @@ sys_umask (int mode)
      at all.  */
   /* FIXME: if the GROUP and OTHER bits are reset, we should use ACLs
      to prevent access by other users on NTFS.  */
-  if ((mode & WRITE_USER) != 0)
+  if ((mode & S_IWRITE) != 0)
     arg |= S_IWRITE;
 
   retval = _umask (arg);
   /* Merge into the return value the bits they've set the last time,
      which msvcrt.dll ignores and never returns.  Emacs insists on its
      notion of mask being identical to what we return.  */
-  retval |= (current_mask & ~WRITE_USER);
+  retval |= (current_mask & ~S_IWRITE);
   current_mask = mode;
 
   return retval;

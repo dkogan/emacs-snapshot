@@ -136,7 +136,7 @@ static void *malloc_state_ptr;
 /* From glibc, a routine that returns a copy of the malloc internal state.  */
 extern void *malloc_get_state (void);
 /* From glibc, a routine that overwrites the malloc internal state.  */
-extern int malloc_set_state (void*);
+extern int malloc_set_state (void *);
 /* True if the MALLOC_CHECK_ environment variable was set while
    dumping.  Used to work around a bug in glibc's malloc.  */
 static bool malloc_using_checking;
@@ -1008,7 +1008,7 @@ main (int argc, char **argv)
     {
       int i;
       printf ("Usage: %s [OPTION-OR-FILENAME]...\n", argv[0]);
-      for (i = 0; i < sizeof usage_message / sizeof *usage_message; i++)
+      for (i = 0; i < ARRAYELTS (usage_message); i++)
 	fputs (usage_message[i], stdout);
       exit (0);
     }
@@ -1817,7 +1817,7 @@ sort_args (int argc, char **argv)
 	    }
 
 	  /* Look for a match with a known old-fashioned option.  */
-	  for (i = 0; i < sizeof (standard_args) / sizeof (standard_args[0]); i++)
+	  for (i = 0; i < ARRAYELTS (standard_args); i++)
 	    if (!strcmp (argv[from], standard_args[i].name))
 	      {
 		options[from] = standard_args[i].nargs;
@@ -1839,8 +1839,7 @@ sort_args (int argc, char **argv)
 
 	      match = -1;
 
-	      for (i = 0;
-		   i < sizeof (standard_args) / sizeof (standard_args[0]); i++)
+	      for (i = 0; i < ARRAYELTS (standard_args); i++)
 		if (standard_args[i].longname
 		    && !strncmp (argv[from], standard_args[i].longname,
 				 thislen))

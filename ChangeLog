@@ -1,3 +1,108 @@
+2014-04-30  Glenn Morris  <rgm@gnu.org>
+
+	* configure.ac: Treat MirBSD as OpenBSD.  (Bug#17339)
+
+2014-04-21  Daniel Colascione  <dancol@dancol.org>
+
+	* .bzrignore: Add a.out to bzr ignore list (a test generates this
+	file).
+
+2014-04-19  Paul Eggert  <eggert@cs.ucla.edu>
+
+	Link to glib-using libraries when checking for glib (Bug#17289).
+	* configure.ac (XGSELOBJ): Include GTK_LIBS, RSVG_LIBS, etc.
+	when testing whether Glib is linked in.  Similarly for CFLAGS.
+
+2014-04-17  Paul Eggert  <eggert@cs.ucla.edu>
+
+	* GNUmakefile: Speed up 'make bootstrap' in fresh checkout.
+	(ORDINARY_GOALS): New macro, which excludes 'bootstrap'.
+	(bootstrap, .PHONY): New rules.
+	* INSTALL.REPO: Document current procedure better.
+	Move copyright notice to just before license notice.
+
+	* Makefile.in (FRC, force-info): Remove.
+	All uses removed.  This hack is no longer needed here
+	now that we can assume GNU Make's .PHONY feature works.
+	(bootstrap): No need to make 'info', since 'all' now implies 'info'.
+
+2014-04-16  Eli Zaretskii  <eliz@gnu.org>
+
+	* config.bat: Update for Emacs 24.4.
+
+2014-04-16  Paul Eggert  <eggert@cs.ucla.edu>
+
+	Port to IRIX 6.5 (Bug#9684).
+	This port requires IRIX cc, as I did not have time to get
+	undump working with the old GCC on the system I had access to,
+	but that's better than nothing.
+	* configure.ac (gl_GCC_VERSION_IFELSE): Remove unused macro
+	that wouldn't have worked anyway, with IRIX cc.
+	(emacs_cv_clang, emacs_cv_sanitize_address)
+	(ns_osx_have_104, ns_osx_have_105):
+	Don't assume '#error' makes the compiler fail,
+	as this doesn't work with IRIX cc.
+	(CFLAGS, LIBS): Don't let the GnuTLS results infect later 'configure'
+	checks.  This runs afoul of an IRIX configuration where GnuTLS is
+	in an optional library that also contains getdelim, and causes
+	a later 'configure' to incorrectly think getdelim is supported.
+
+2014-04-16  Eli Zaretskii  <eliz@gnu.org>
+
+	* configure.ac (LN_S_FILEONLY, LN_S): Use "/bin/ln" on MinGW, to
+	ensure the MSYS ln.exe is invoked.
+
+2014-04-15  Paul Eggert  <eggert@cs.ucla.edu>
+
+	Remove DATA_SEG_BITS.
+	* configure.ac (DATA_SEG_BITS): Remove.  All uses removed.
+
+2014-04-14  Paul Eggert  <eggert@cs.ucla.edu>
+
+	* autogen.sh: Use autoreconf's -f option (Bug#17258).
+
+	Clean up configure-time library handling a bit.
+	This patch was inspired by emacs-24 bzr 116961, which fixed
+	a bug due to sloppy library handling in 'configure'.
+	* configure.ac (LIB_MATH, LIB_PTHREAD, LIBXMU):
+	Use AC_SEARCH_LIBS instead of AC_CHECK_LIB as per Autoconf manual.
+	(LIB_MATH, LIB_PTHREAD, HAVE_X11, IMAGEMAGICK_LIBS, GTK_LIBS)
+	(DBUS_LIBS, LIBXMU, XFT_LIBS, LIBXSM, LIBXML2_LIBS, LIBS_MAIL)
+	(with_kerberos):
+	Don't let the library choice infect $LIBS.
+	(dnet_ntoa, cma_open): Remove obsolete tests.
+	(emacs_pthread_function): Probe for pthread_kill, not pthread_self,
+	as that's a bit more selective on GNU/Linux.
+	(LIBXEXT): Remove.
+	(touchlock): Test for existence when $LIBS_MAIL is in use.
+	(AC_CHECK_FUNCS): Use only $LIB_MATH in addition to $LIBS
+	when testing for typical functions like accept4, lrand48.
+	(random, rint): Remove obsolete HP-UX 9 A.09.05 test.
+
+2014-04-11  Glenn Morris  <rgm@gnu.org>
+
+	* make-dist: Do not distribute generated admin/grammars/Makefile.
+	Do distribute lib-src/update-game-score.exe.manifest.
+
+2014-04-11  Ken Brown  <kbrown@cornell.edu>
+
+	* configure.ac (EMACS_MANIFEST): Revert last change (but leave
+	UPDATE_MANIFEST empty).
+
+2014-04-07  Ken Brown  <kbrown@cornell.edu>
+
+	* configure.ac (EMACS_MANIFEST, UPDATE_MANIFEST): Leave these
+	variables empty on Cygwin.  (Bug#17176)
+
+2014-04-03  Glenn Morris  <rgm@gnu.org>
+
+	* make-dist: Further update AC_INIT regexp.
+
+2014-04-02  Glenn Morris  <rgm@gnu.org>
+
+	* configure.ac: Make the final "Does Emacs use Gsettings" message
+	consistent with src/config.h.
+
 2014-03-31  Jan Djärv  <jan.h.d@swipnet.se>
 
 	* configure.ac: Fix errors from previous checkin (GSettings check).
