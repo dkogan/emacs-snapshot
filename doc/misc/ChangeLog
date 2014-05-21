@@ -1,3 +1,33 @@
+2014-05-20  Leo Liu  <sdl.web@gmail.com>
+
+	* cl.texi (List Functions, Efficiency Concerns): Update cl-endp.
+
+2014-05-13  Paul Eggert  <eggert@cs.ucla.edu>
+
+	* texinfo.tex: Update from gnulib.
+
+2014-05-08  Michael Albinus  <michael.albinus@gmx.de>
+
+	* tramp.texi (Frequently Asked Questions): Mention HISTFILE
+	setting in ~/.ssh/environment.
+
+2014-05-04  Stephen Berman  <stephen.berman@gmx.net>
+
+	* todo-mode.texi: Update, improve exposition, add cross
+	references, fix typos.
+	(Inserting New Items, Editing Item Headers and Text): Rewrite to
+	document new user interface.
+
+2014-05-04  Glenn Morris  <rgm@gnu.org>
+
+	* autotype.texi (Skeleton Language):
+	* message.texi (Header Commands): Replace `iff'.
+
+2014-05-02  Paul Eggert  <eggert@cs.ucla.edu>
+
+	* vhdl-mode.texi: Add "@documentencoding UTF-8",
+	since this is a toplevel .texi file.
+
 2014-04-22  Bastien Guerry  <bzg@gnu.org>
 
 	* org.texi (Installation): Be more clear on why installing Org

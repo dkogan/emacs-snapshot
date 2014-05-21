@@ -208,6 +208,7 @@ It has `lisp-mode-abbrev-table' as its parent."
                        "with-category-table" "with-coding-priority"
                        "with-current-buffer" "with-demoted-errors"
                        "with-electric-help" "with-eval-after-load"
+                       "with-file-modes"
                        "with-local-quit" "with-no-warnings"
                        "with-output-to-temp-buffer" "with-selected-window"
                        "with-selected-frame" "with-silent-modifications"
@@ -1017,26 +1018,20 @@ If CHAR is not a character, return nil."
 	      (forward-sexp -1))))
 
 	(save-restriction
-	  ;; vladimir@cs.ualberta.ca 30-Jul-1997: skip ` in
-	  ;; `variable' so that the value is returned, not the
-	  ;; name
-	  (if (and ignore-quotes
-		   (eq (following-char) ?`))
+	  (if (and ignore-quotes (eq (following-char) ?`))
+              ;; vladimir@cs.ualberta.ca 30-Jul-1997: Skip ` in `variable' so
+              ;; that the value is returned, not the name.
 	      (forward-char))
+          (when (looking-at ",@?") (goto-char (match-end 0)))
 	  (narrow-to-region (point-min) opoint)
 	  (setq expr (read (current-buffer)))
-	  ;; If it's an (interactive ...) form, it's more
-	  ;; useful to show how an interactive call would
-	  ;; use it.
-	  (and (consp expr)
-	       (eq (car expr) 'interactive)
+          ;; If it's an (interactive ...) form, it's more useful to show how an
+          ;; interactive call would use it.
+          ;; FIXME: Is it really the right place for this?
+          (when (eq (car-safe expr) 'interactive)
 	       (setq expr
-		     (list 'call-interactively
-			   (list 'quote
-				 (list 'lambda
-				       '(&rest args)
-				       expr
-				       'args)))))
+                  `(call-interactively
+                    (lambda (&rest args) ,expr args))))
 	  expr)))))
 
 

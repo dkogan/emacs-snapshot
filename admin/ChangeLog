@@ -1,3 +1,27 @@
+2014-05-17  Paul Eggert  <eggert@cs.ucla.edu>
+
+	Assume C99 or later (Bug#17487).
+	* merge-gnulib (GNULIB_MODULES): Remove stdarg, stdbool.
+	(GNULIB_TOOL_FLAGS): Avoid stdarg, stdbool.
+
+2014-05-16  Paul Eggert  <eggert@cs.ucla.edu>
+
+	Don't require pkg-config when building from repository.
+	* merge-pkg-config: New script.
+	* notes/copyright: Update for m4/*.m4, in particular m4/pkg.m4.
+
+2014-05-13  Paul Eggert  <eggert@cs.ucla.edu>
+
+	* merge-gnulib: Defer to autogen.sh for ACLOCAL_PATH computation.
+
+2014-05-12  Glenn Morris  <rgm@gnu.org>
+
+	* find-gc.el: Move here from ../lisp/emacs-lisp.
+
+	* admin.el (set-version-in-file): Don't set identical version.
+	(set-version): Provide default version number.
+	(set-version, set-copyright): Give start/end messages.
+
 2014-04-18  Paul Eggert  <eggert@cs.ucla.edu>
 
 	* notes/bzr: Update instructions for merging from gnulib.

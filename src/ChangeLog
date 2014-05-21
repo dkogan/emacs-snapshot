@@ -1,3 +1,179 @@
+2014-05-21  Leo Liu  <sdl.web@gmail.com>
+
+	* fns.c (Fnreverse): Accept strings for SEQ and update doc-string.
+
+2014-05-20  Michael Albinus  <michael.albinus@gmx.de>
+
+	* dbusbind.c (xd_signature): Revert last 2 patches.
+
+2014-05-19  Paul Eggert  <eggert@cs.ucla.edu>
+
+	Allow any non-nil value to count as true in bool-vector.
+	Likewise for xd_signature in dbusbind.c.
+	This is more consistent with the usual practice in Emacs, which is
+	that any non-nil value counts as true.
+	* alloc.c (Fbool_vector): Don't require args to be t or nil.
+	* dbusbind.c (xd_signature): Likewise, for booleans.
+	* data.c, lisp.h (Qbooleanp):
+	* lisp.h (CHECK_BOOLEAN): Remove.  All uses removed.
+
+2014-05-19  Dmitry Antipov  <dmantipov@yandex.ru>
+
+	* lisp.h (CHECK_BOOLEAN): New function.
+	* alloc.c (Fbool_vector): New function.
+	(syms_of_alloc): Defsubr it.
+	* data.c (Qbooleanp): New symbol.
+	(syms_of_data): DEFSYM it.
+	* dbusbind.c (xd_signature): Use CHECK_BOOLEAN.
+
+	* font.c (font_matching_entity): Extract font-entity object
+	from the vector of matching entities (Bug#17486).
+
+2014-05-17  Paul Eggert  <eggert@cs.ucla.edu>
+
+	Assume C99 or later (Bug#17487).
+	* bytecode.c (B__dummy__): Remove.
+	* conf_post.h (bool_bf) [!NS_IMPL_GNUSTEP]: Use bool.
+	(FLEXIBLE_ARRAY_MEMBER): Now always empty.
+	* dbusbind.c (XD_DEBUG_MESSAGE) [!DBUS_DEBUG]:
+	* regex.c (DEBUG_PRINT): Assume varargs macros.
+	* lisp.h (DEFUN_FUNCTION_INIT): Remove.  All uses now assume C99.
+
+2014-05-17  Fabrice Popineau  <fabrice.popineau@gmail.com>
+
+	* buffer.c (init_buffer) [USE_MMAP_FOR_BUFFERS]: Always map new
+	memory for every buffer that was dumped.
+
+2014-05-15  Dmitry Antipov  <dmantipov@yandex.ru>
+
+	* fns.c (Freverse): Allow vectors, bool vectors and strings.
+	(Fnreverse): Allow vectors and bool vectors.
+
+2014-05-14  Dmitry Antipov  <dmantipov@yandex.ru>
+
+	Minor cleanup for terminal setup.
+	* termhooks.h (create_terminal): Adjust prototype.
+	* terminal.c (create_terminal): Pass output method and RIF as args.
+	(init_initial_terminal):
+	* nsterm.m (ns_create_terminal):
+	* term.c (init_tty):
+	* w32term.c (w32_create_terminal):
+	* xterm.c (x_create_terminal): Adjust users.
+	Avoid redundant NULL initializers and add comments.
+
+2014-05-13  Paul Eggert  <eggert@cs.ucla.edu>
+
+	* keyboard.c (Qdeactivate_mark): Now static.
+
+2014-05-13  Dmitry Antipov  <dmantipov@yandex.ru>
+
+	If available, use Xfixes extension to do pointer blanking.
+	* Makefile.in (XFIXES_CFLAGS, XFIXES_LIBS): New var.
+	* xfns.c (x_set_mouse_color): Do not call make_invisible_cursor here.
+	(make_invisible_cursor): Move to...
+	* xterm.c (make_invisible_cursor): ...here.
+	(x_probe_xfixes_extension, xfixes_toggle_visible_pointer)
+	(x_toggle_visible_pointer, x_setup_pointer_blanking): New functions.
+	(x_term_init): Call to x_setup_pointer_blanking.
+	(XTtoggle_invisible_pointer): Use blanking specific to this display.
+	* xterm.h (struct x_display_info): New member toggle_visible_pointer.
+
+2014-05-12  YAMAMOTO Mitsuharu  <mituharu@math.s.chiba-u.ac.jp>
+
+	* xdisp.c (draw_glyphs): Set clipping to highlight boundaries.
+
+2014-05-12  Glenn Morris  <rgm@gnu.org>
+
+	* fileio.c (Ffile_executable_p): Doc tweak.
+
+2014-05-12  Jan Djärv  <jan.h.d@swipnet.se>
+
+	* xsettings.c (init_gsettings): Use g_settings_schema_source_lookup
+	instead of deprecated g_settings_list_schemas if possible (Bug#17434).
+
+2014-05-08  Paul Eggert  <eggert@cs.ucla.edu>
+
+	* minibuf.c (read_minibuf): Avoid C99ism in previous patch (Bug#17430).
+
+2014-05-08  Jarek Czekalski  <jarekczek@poczta.onet.pl>
+
+	Fix initialization of minibuffer history variable (Bug#17430).
+	* minibuf.c (read_minibuf): Initialize histval to Qnil if unbound.
+	Move the initialization up to prevent any "value void" message.
+
+2014-05-08  Samuel Bronson  <naesten@gmail.com>
+
+	* keyboard.c (Frecursive_edit): Ensure inc&dec of command_loop_level
+	are matched (bug#17413).
+
+2014-05-08  Jarek Czekalski  <jarekczek@poczta.onet.pl>
+
+	Stop tooltips pulling Emacs window to front (Bug#17408).
+	* w32fns.c (Fx_show_tip): Add SWP_NOOWNERZORDER flag to
+	SetWindowPos invocations.
+
+2014-05-08  Jan Djärv  <jan.h.d@swipnet.se>
+
+	* nsselect.m (Fx_selection_exists_p): Just return Qnil if window system
+	not initialized (Bug#17398).
+
+2014-05-07  Paul Eggert  <eggert@cs.ucla.edu>
+
+	* image.c: Include <png.h> before <setjmp.h> (Bug#17429).
+
+2014-05-06  Paul Eggert  <eggert@cs.ucla.edu>
+
+	* image.c: Do not use libpng if HAVE_NS, as NS does its own thing.
+	[HAVE_NS]: Do not include png.h.
+	(x_query_frame_background_color): New function.
+	(png_load_body, imagemagick_load_image, svg_load_image): Use it.
+	(png_load_body): Coalesce duplicate code.
+
+2014-05-04  Paul Eggert  <eggert@cs.ucla.edu>
+
+	Consult libpng-config more consistently (Bug#17339).
+	* Makefile.in (PNG_CFLAGS): New var.
+	(ALL_CFLAGS): Use it.
+	* image.c [HAVE_PNG]: Don't worry about <libpng/png.h>, as
+	CFLAGS now handles this.
+
+2014-05-03  Paul Eggert  <eggert@cs.ucla.edu>
+
+	Handle systems without WCONTINUED consistently.  (Bug#15110, 17339)
+	* process.c (handle_child_signal): Remove WCONTINUED ifdef,
+	because WCONTINUED is always defined now.
+	* syswait.h (WCONTINUED): Move here from ../lib-src/emacsclient.c.
+
+2014-05-03  Eli Zaretskii  <eliz@gnu.org>
+
+	* buffer.c (overlay_strings): Fix the wording of the commentary.
+
+2014-05-01  Glenn Morris  <rgm@gnu.org>
+
+	* floatfns.c (Fisnan):
+	* profiler.c (Fprofiler_cpu_running_p): Doc fix (replace `iff').
+
+2014-05-01  Eli Zaretskii  <eliz@gnu.org>
+
+	* term.c (tty_menu_activate): A better initialization for cursor
+	coordinates.
+
+2014-05-01  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* intervals.c: Tighten assertions.
+	(create_root_interval): Make sure the interval is not empty.
+	(intervals_equal): Use booleans.
+	(rotate_right, rotate_left): Check LENGTHs rather than TOTAL_LENGTH.
+	(balance_an_interval): Sanity check LENGTHs and TOTAL_LENGTHs.
+	(balance_possible_root_interval): Simplify and use booleans.
+	(split_interval_right, split_interval_left): Check LENGTH, and remove
+	now redundant assertion.
+	(adjust_intervals_for_insertion): Remove now redundant assertions.
+	(delete_node, interval_deletion_adjustment)
+	(adjust_intervals_for_deletion, merge_interval_right)
+	(merge_interval_left): Check LENGTH rather than TOTAL_LENGTH.
+	(reproduce_interval): Make sure the interval is not empty.
+
 2014-04-30  Paul Eggert  <eggert@cs.ucla.edu>
 
 	* term.c (tty_menu_activate): Don't assume row and col are initialized.

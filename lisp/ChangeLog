@@ -1,3 +1,430 @@
+2014-05-21  Daniel Colascione  <dancol@dancol.org>
+
+	* files.el (interpreter-mode-alist): Add mksh.
+
+	* progmodes/sh-script.el (sh-ancestor-alist): Add mksh, a pdksh
+	derivative.
+	(sh-alias-alist): Alias /system/bin/sh (Android's system shell) to
+	mksh. Improve custom spec; allow regular expressions.
+	(sh-shell): Delegate name splitting to `sh-canonicalize-shell'.
+	(sh-after-hack-local-variables): New function.
+	(sh-mode): Use it; respect file-local `sh-shell' variable. (bug#17333)
+	(sh-set-shell): Use `sh-canonicalize-shell' instead of open-coding
+	the normalization.
+	(sh-canonicalize-shell): Rewrite to support regexes.
+
+2014-05-21  Leo Liu  <sdl.web@gmail.com>
+
+	* emacs-lisp/cl-lib.el (cl-endp): Fix last change.
+
+2014-05-19  Leo Liu  <sdl.web@gmail.com>
+
+	* emacs-lisp/cl-lib.el (cl-endp): Conform to CL's semantics.
+
+2014-05-18  Glenn Morris  <rgm@gnu.org>
+
+	* loadup.el:
+	* play/gametree.el: `track-mouse' is always defined since 2012-11-24.
+
+2014-05-14  Sam Steingold  <sds@gnu.org>
+
+	* progmodes/python.el (python-shell-get-or-create-process):
+	Do not bind `current-prefix-arg' so that C-c C-z does not talk
+	back unless requested.
+
+2014-05-14  Glenn Morris  <rgm@gnu.org>
+
+	* subr.el (with-file-modes): New macro.
+	* printing.el (pr-save-file-modes): Make obsolete.
+	* eshell/esh-util.el (eshell-with-file-modes): Make obsolete.
+	* emacs-lisp/lisp-mode.el (lisp-el-font-lock-keywords-2):
+	Add with-file-modes.
+	* doc-view.el (doc-view-make-safe-dir):
+	* epg.el (epg--start):
+	* files.el (locate-user-emacs-file, make-temp-file)
+	(backup-buffer-copy, move-file-to-trash):
+	* printing.el (pr-despool-print, pr-call-process, pr-text2ps):
+	* eshell/esh-util.el (eshell-with-private-file-modes)
+	(eshell-make-private-directory):
+	* net/browse-url.el (browse-url-mosaic):
+	* obsolete/mailpost.el (post-mail-send-it):
+	* obsolete/pgg-pgp.el (pgg-pgp-verify-region):
+	* obsolete/pgg-pgp5.el (pgg-pgp5-verify-region):
+	Use with-file-modes.
+
+	* vc/emerge.el (emerge-make-temp-file): Simplify.
+
+2014-05-14  Stephen Berman <stephen.berman@gmx.net>
+            Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* minibuffer.el (completion-pcm--merge-try): Merge trailing / with
+	suffix (bug#15419).
+
+2014-05-14  Glenn Morris  <rgm@gnu.org>
+
+	* vc/emerge.el (emerge-temp-file-prefix):
+	Make pointless option obsolete.
+	(emerge-temp-file-mode): Make non-functional option obsolete.
+
+2014-05-14  Michael Albinus  <michael.albinus@gmx.de>
+
+	* net/browse-url.el (browse-url):
+	Use `unhandled-file-name-directory' when setting `default-directory',
+	in order to circumvent stalled remote connections.  (Bug#17425)
+
+2014-05-14  Glenn Morris  <rgm@gnu.org>
+
+	* printing.el (subst-char-in-string, make-temp-file, pr-get-symbol):
+	Optimize on Emacs, which has the relevant functions for ages.
+
+2014-05-13  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* simple.el (undo-make-selective-list): Obey undo-no-redo.
+
+2014-05-12  Sam Steingold  <sds@gnu.org>
+
+	* calendar/time-date.el (seconds-to-string): New function to
+	pretty print time delay in seconds.
+
+2014-05-12  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* mpc.el (mpc-format): Trim Date to the year.
+	(mpc-songs-hashcons): Shorten the Date field.
+
+	* emacs-lisp/nadvice.el (advice--interactive-form): Don't get fooled
+	into autoloading just because of a silly indirection.
+
+2014-05-12  Santiago Payà i Miralta  <santiagopim@gmail.com>  (tiny change)
+
+	* vc/vc-hg.el (vc-hg-unregister): New function.  (Bug#17454)
+
+2014-05-12  Glenn Morris  <rgm@gnu.org>
+
+	* emacs-lisp/find-gc.el: Move to ../admin.
+
+	* printing.el (pr-version):
+	* ps-print.el (ps-print-version): Also mention bug-gnu-emacs.
+
+	* net/browse-url.el (browse-url-mosaic):
+	Create /tmp/Mosaic.PID as a private file.
+
+2014-05-12  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* emacs-lisp/nadvice.el: Support adding a given function multiple times.
+	(advice--member-p): If name is given, only compare the name.
+	(advice--remove-function): Don't stop at the first match.
+	(advice--normalize-place): New function.
+	(add-function, remove-function): Use it.
+	(advice--add-function): Pass the name, if any, to
+	advice--remove-function.
+
+2014-05-12  Philipp Rumpf  <prumpf@gmail.com>  (tiny change)
+
+	* electric.el (electric-indent-post-self-insert-function): Don't use
+	`pos' after modifying the buffer (bug#17449).
+
+2014-05-12  Stephen Berman  <stephen.berman@gmx.net>
+
+	* calendar/todo-mode.el (todo-insert-item-from-calendar):
+	Correct argument list to conform to todo-insert-item--basic.
+
+2014-05-12  Glenn Morris  <rgm@gnu.org>
+
+	* files.el (cd-absolute): Test if directory is accessible
+	rather than executable.  (Bug#17330)
+
+	* progmodes/compile.el (recompile):
+	Handle C-u M-x recompile from a non-compilation buffer.  (Bug#17444)
+
+	* net/browse-url.el (browse-url-mosaic):
+	Be careful when writing /tmp/Mosaic.PID.  (Bug#17428)
+	This is CVE-2014-3423.
+
+2014-05-11  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* mouse.el: Use the normal toplevel loop while dragging.
+	(mouse-set-point): Handle multi-clicks.
+	(mouse-set-region): Handle multi-clicks for drags.
+	(mouse-drag-region): Update call accordingly.
+	(mouse-drag-track): Remove `do-mouse-drag-region-post-process' hack.
+	Use the normal event loop instead of a local while/read-event loop.
+	(global-map): Remove redundant bindings for double/triple-mouse-1.
+	* xt-mouse.el (xterm-mouse-translate-1): Only process one event at a time.
+	Generate synthetic down events when the protocol only sends up events.
+	(xterm-mouse-last): Remove.
+	(xterm-mouse--read-event-sequence-1000): Use xterm-mouse-last-down
+	terminal parameter instead.
+	(xterm-mouse--set-click-count): New function.
+	(xterm-mouse-event): Detect/generate double/triple clicks.
+	* reveal.el (reveal-close-old-overlays): Don't close while dragging.
+
+	* info.el (Info-quoted): New face.
+	(Info-mode-font-lock-keywords): New var.
+	(Info-mode): Use it.
+
+	* emacs-lisp/lisp-mode.el (preceding-sexp): Exclude leading "," which
+	are a hindrance for C-x C-e.
+
+2014-05-11  Leo Liu  <sdl.web@gmail.com>
+
+	* net/rcirc.el (rcirc-sentinel): Fix last change.
+
+2014-05-08  Sam Steingold  <sds@gnu.org>
+
+	* net/rcirc.el (rcirc-reconnect-delay): New user option.
+	(rcirc-sentinel): Auto-reconnect to the server if
+	`rcirc-reconnect-delay' is non-0 (but not more often than its
+	value in case the host is off-line).
+
+2014-05-09  Eli Zaretskii  <eliz@gnu.org>
+
+	* progmodes/grep.el (lgrep): Fix a typo in last commit.
+
+2014-05-09  Glenn Morris  <rgm@gnu.org>
+
+	* files.el (file-expand-wildcards):
+	* man.el (Man-support-local-filenames):
+	* printing.el (pr-i-directory, pr-interface-directory):
+	* progmodes/grep.el (lgrep, rgrep):
+	* textmodes/ispell.el (ispell-call-process)
+	(ispell-call-process-region, ispell-start-process)
+	(ispell-init-process): Use file-accessible-directory-p.
+
+2014-05-08  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* xt-mouse.el: Drop spurious/oddly shaped events (bug#17378).
+	(xterm-mouse--read-event-sequence-1000): Return nil if something
+	looks fishy.
+	(xterm-mouse-event): Propagate it.
+	(xterm-mouse-translate-1): Handle it.
+
+2014-05-08  Stephen Berman  <stephen.berman@gmx.net>
+
+	* calendar/todo-mode.el (todo-insert-item--apply-args): When all
+	four slots of the parameter list are filled, make sure to pass it
+	to the argument list of todo-insert-item--basic.
+
+2014-05-08  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* emacs-lisp/package.el (package-compute-transaction): Topological sort.
+	Add optional `seen' argument to detect and break infinite loops.
+
+2014-05-08  Eli Zaretskii  <eliz@gnu.org>
+
+	* emacs-lisp/find-gc.el (find-gc-unsafe, find-unsafe-funcs)
+	(trace-unsafe, trace-use-tree): Make parentheses style be
+	according to Emacs style.
+
+2014-05-08  Michael Albinus  <michael.albinus@gmx.de>
+
+	* net/tramp-sh.el (tramp-remote-process-environment):
+	Remove HISTFILE and HISTSIZE; it's too late to set them here.
+	Add :version entry.
+	(tramp-open-shell): Do not let-bind `tramp-end-of-output'.
+	Add "HISTSIZE=/dev/null" to the shell's env arguments.  Do not send
+	extra "PSx=..." commands.
+	(tramp-maybe-open-connection): Setenv HISTFILE to /dev/null.
+	(Bug#17295)
+
+	(tramp-uudecode): Replace the hard-coded temporary file name by a
+	format specifier.
+	(tramp-remote-coding-commands): Enhance docstring.
+	(tramp-find-inline-encoding): Replace "%t" by a temporary file
+	name.  (Bug#17415)
+	This is CVE-2014-3424.
+
+2014-05-08  Glenn Morris  <rgm@gnu.org>
+
+	* emacs-lisp/find-gc.el (find-gc-source-directory): Give it a value.
+	(find-gc-source-files): Update some names.
+	(trace-call-tree): Simplify and update.
+	Avoid predictable temp-file names.  (http://bugs.debian.org/747100)
+	This is CVE-2014-3422.
+
+2014-05-08  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* minibuffer.el (completion--try-word-completion): Revert fix for
+	Bug#15980 (bug#17375).
+
+	* xt-mouse.el (xterm-mouse--read-event-sequence-1000): (bug#17378)
+	Always store button numbers in the same way in xterm-mouse-last;
+	Don't burp is xterm-mouse-last is not set as expected.
+	Never return negative indices.
+
+2014-05-08  Dmitry Gutov  <dgutov@yandex.ru>
+
+	* progmodes/ruby-mode.el (ruby-syntax-propertize-function):
+	Backtrack one char if the global/char-literal var matcher hits
+	inside a string.  The next char could be the beginning of an
+	expression expansion.
+
+2014-05-08  Glenn Morris  <rgm@gnu.org>
+
+	* help-fns.el (describe-function-1): Test for an autoload before a
+	macro, since `macrop' works on autoloads.  (Bug#17410)
+
+2014-05-08  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* electric.el (electric-indent-functions-without-reindent): Add yaml.
+
+	* minibuffer.el (completion-table-with-quoting) <completion--unquote>:
+	Make sure the new point we return is within the new string (bug#17239).
+
+2014-05-05  Daniel Colascione  <dancol@dancol.org>
+
+	* progmodes/compile.el (compilation-error-regexp-alist-alist):
+	Port `gnu' pattern to rx.
+
+2014-05-05  Jarek Czekalski  <jarekczek@poczta.onet.pl>
+
+	Remove unneeded prompt when closing a buffer with active
+	emacsclient ("Buffer ... still has clients"), #16548.
+	* server.el (server-start): Remove the only call to:
+	(server-kill-buffer-query-function): Remove.
+
+2014-05-04  Leo Liu  <sdl.web@gmail.com>
+
+	* calendar/diary-lib.el (calendar-chinese-month-name-array):
+	Defvar to pacify compiler.
+
+2014-05-04  Eli Zaretskii  <eliz@gnu.org>
+
+	* mail/rmailsum.el (rmail-new-summary-1): Fix a typo in a comment.
+
+2014-05-04  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* vc/ediff-diff.el (ediff-set-fine-diff-properties-in-one-buffer):
+	Use nil rather than `default' for the "default" appearance (bug#17388).
+	* vc/ediff-util.el (ediff-inferior-compare-regions)
+	(ediff-toggle-autorefine, ediff-unselect-difference): Don't use
+	a misleading `default' value when it's really a boolean.
+	* vc/ediff-init.el (ediff-set-overlay-face): Don't set help-echo if the
+	overlay is not visible.
+
+2014-05-04  Stephen Berman  <stephen.berman@gmx.net>
+
+	* calendar/todo-mode.el (todo-edit-file): Use display-warning.
+	(todo-menu): Uncomment and update.
+
+2014-05-04  Stephen Berman  <stephen.berman@gmx.net>
+
+	* calendar/todo-mode.el: Reimplement item editing to have the same
+	basic user interface as item insertion, and make small UI and
+	larger internal improvements to the latter.
+	(todo-insert-item): Add reference to the Todo mode user manual to
+	the documentation string.
+	(todo-insert-item--basic): Rename from todo-basic-insert-item and
+	adjust all callers.  Change signature to combine diary and
+	nonmarking arguments.  Incorporate functionality of deleted item
+	copying command and add error checking.  Remove detailed
+	descriptions of the arguments from the documentation string, since
+	this is treated in the Todo mode user manual.
+	(todo-copy-item, todo-edit-multiline-item)
+	(todo-edit-done-item-comment, todo-edit-item-header)
+	(todo-edit-item-time, todo-edit-item-date-from-calendar)
+	(todo-edit-item-date-to-today, todo-edit-item-date-day-name)
+	(todo-edit-item-date-year, todo-edit-item-date-month)
+	(todo-edit-item-date-day, todo-edit-item-diary-nonmarking):
+	Remove.
+	(todo-edit-item): Reimplement as wrapper command for
+	todo-edit-item--next-key and make it distinguish done and not done
+	todo items.
+	(todo-edit-item--text): New function, replacing old command
+	todo-edit-item and incorporating deleted commands
+	todo-edit-multiline-item and todo-edit-done-item-comment.
+	(todo-edit-item--header): Rename from todo-basic-edit-item-header.
+	Use only numeric value of prefix argument.  Remove detailed
+	descriptions of the arguments from the documentation string, since
+	this is treated in the Todo mode user manual.
+	(todo-edit-item--diary-inclusion): New function, replacing old
+	command todo-edit-item-diary-inclusion and incorporating and fixing
+	functionality of deleted command todo-edit-item-diary-nonmarking,
+	making sure to remove todo-nondiary-marker when adding
+	diary-nonmarking-symbol.
+	(todo-edit-category-diary-inclusion): Make sure to delete
+	diary-nonmarking-symbol when adding todo-nondiary-marker.
+	(todo-edit-category-diary-nonmarking): Fix indentation.
+	(todo-insert-item--parameters): Group diary and nonmarking
+	parameters together.
+	(todo-insert-item--apply-args): Adjust to signature of
+	todo-insert-item--basic and incorporate copy parameter.
+	Make small code improvements.
+	(todo-insert-item--next-param): Improve prompt and adjust it to
+	new parameter grouping.  Remove obsolete code.
+	(todo-edit-item--param-key-alist)
+	(todo-edit-item--date-param-key-alist)
+	(todo-edit-done-item--param-key-alist): New defconsts.
+	(todo-edit-item--prompt): New variable.
+	(todo-edit-item--next-key): New function.
+	(todo-key-bindings-t): Bind "e" to todo-edit-item.
+	Remove bindings of deleted commands.
+
+2014-05-04  Leo Liu  <sdl.web@gmail.com>
+
+	* emacs-lisp/cl-macs.el (cl-deftype): Fix indentation.
+
+2014-05-04  Glenn Morris  <rgm@gnu.org>
+
+	* allout-widgets.el (allout-widgets-tally)
+	(allout-decorate-item-guides):
+	* menu-bar.el (menu-bar-positive-p):
+	* minibuffer.el (completion-pcm-complete-word-inserts-delimiters):
+	* progmodes/gdb-mi.el (gdbmi-same-start, gdbmi-is-number):
+	* progmodes/js.el (js--inside-param-list-p)
+	(js--inside-dojo-class-list-p, js--forward-destructuring-spec):
+	* progmodes/prolog.el (region-exists-p):
+	* progmodes/verilog-mode.el (verilog-scan-cache-ok-p):
+	* textmodes/reftex-parse.el (reftex-using-biblatex-p):
+	Doc fixes (replace `iff').
+
+2014-05-04  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* mpc.el (mpc-volume-mouse-set): Don't burp at the boundaries.
+
+2014-05-04  Leo Liu  <sdl.web@gmail.com>
+
+	Support Chinese diary entries in calendar and diary.  (Bug#17393)
+	* calendar/cal-china.el (calendar-chinese-month-name-array): New var.
+	(calendar-chinese-from-absolute-for-diary)
+	(calendar-chinese-to-absolute-for-diary)
+	(calendar-chinese-mark-date-pattern, diary-chinese-mark-entries)
+	(diary-chinese-list-entries): New functions to list and mark
+	Chinese diary entries in the calendar window.
+	(diary-chinese-anniversary)
+	(diary-chinese-insert-anniversary-entry)
+	(diary-chinese-insert-entry, diary-chinese-insert-monthly-entry)
+	(diary-chinese-insert-yearly-entry): New commands to insert
+	Chinese diary entries.
+
+	* calendar/diary-lib.el (diary-font-lock-keywords):
+	Support font-locking Chinese dates.
+
+	* calendar/cal-menu.el (cal-menu-diary-menu): Add entries for
+	inserting Chinese diary entries.
+
+	* calendar/calendar.el (diary-chinese-entry-symbol):
+	New customizable variable.
+	(calendar-mode-map): Add bindings for inserting Chinese diary
+	entries.
+
+2014-05-03  Juri Linkov  <juri@jurta.org>
+
+	* dired.el (dired-check-switches, dired-switches-recursive-p):
+	New functions.  (Bug#17218)
+	(dired-switches-escape-p, dired-move-to-end-of-filename):
+	Use `dired-check-switches'.
+	(dired-insert-old-subdirs, dired-build-subdir-alist)
+	(dired-sort-R-check): Use `dired-switches-recursive-p'.
+
+2014-05-01  Barry O'Reilly  <gundaetiapo@gmail.com>
+
+	* simple.el (undo-make-selective-list): New algorithm fixes
+	incorrectness of position adjustments when undoing in region.
+	(Bug#17235)
+	(undo-elt-crosses-region): Make obsolete.
+	(undo-adjust-elt, undo-adjust-beg-end, undo-adjust-pos):
+	New functions to adjust positions using undo-deltas.
+
 2014-05-01  Stefan Monnier  <monnier@iro.umontreal.ca>
 
 	* emacs-lisp/lisp-mode.el (lisp--match-hidden-arg): Only highlight past

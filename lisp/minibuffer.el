@@ -519,11 +519,35 @@ for use at QPOS."
         completions))
 
      ((eq action 'completion--unquote)
-      (let ((ustring (funcall unquote string))
-            (uprefix (funcall unquote (substring string 0 pred))))
-        ;; We presume (more or less) that `concat' and `unquote' commute.
-        (cl-assert (string-prefix-p uprefix ustring))
-        (list ustring table (length uprefix)
+      ;; PRED is really a POINT in STRING.
+      ;; We should return a new set (STRING TABLE POINT REQUOTE)
+      ;; where STRING is a new (unquoted) STRING to match against the new TABLE
+      ;; using a new POINT inside it, and REQUOTE is a requoting function which
+      ;; should reverse the unquoting, (i.e. it receives the completion result
+      ;; of using the new TABLE and should turn it into the corresponding
+      ;; quoted result).
+      (let* ((qpos pred)
+	     (ustring (funcall unquote string))
+	     (uprefix (funcall unquote (substring string 0 qpos)))
+	     ;; FIXME: we really should pass `qpos' to `unuote' and have that
+	     ;; function give us the corresponding `uqpos'.  But for now we
+	     ;; presume (more or less) that `concat' and `unquote' commute.
+	     (uqpos (if (string-prefix-p uprefix ustring)
+			;; Yay!!  They do seem to commute!
+			(length uprefix)
+		      ;; They don't commute this time!  :-(
+		      ;; Maybe qpos is in some text that disappears in the
+		      ;; ustring (bug#17239).  Let's try a second chance guess.
+		      (let ((usuffix (funcall unquote (substring string qpos))))
+			(if (string-suffix-p usuffix ustring)
+			    ;; Yay!!  They still "commute" in a sense!
+			    (- (length ustring) (length usuffix))
+			  ;; Still no luck!  Let's just choose *some* position
+			  ;; within ustring.
+			  (/ (+ (min (length uprefix) (length ustring))
+				(max (- (length ustring) (length usuffix)) 0))
+			     2))))))
+        (list ustring table uqpos
               (lambda (unquoted-result op)
                 (pcase op
                   (1 ;;try
@@ -853,6 +877,7 @@ completing buffer and file names, respectively."
              (setq string (pop new))
              (setq table (pop new))
              (setq point (pop new))
+	     (cl-assert (<= point (length string)))
              (pop new))))
         (result
          (completion--some (lambda (style)
@@ -1365,19 +1390,18 @@ appear to be a match."
         ;; instead, but it was too blunt, leading to situations where SPC
         ;; was the only insertable char at point but minibuffer-complete-word
         ;; refused inserting it.
-        (let* ((exts (mapcar (lambda (str) (propertize str 'completion-try-word t))
-			     '(" " "-")))
-	       (before (substring string 0 point))
-	       (after (substring string point))
-	       (comps
-		(delete nil
-			(mapcar (lambda (ext)
-				  (completion-try-completion
-				   (concat before ext after)
-				   table predicate (1+ point) md))
-				exts))))
-	  (when (and (null (cdr comps)) (consp (car comps)))
-	    (setq comp (car comps)))))
+        (let ((exts (mapcar (lambda (str) (propertize str 'completion-try-word t))
+                            '(" " "-")))
+              (before (substring string 0 point))
+              (after (substring string point))
+	      tem)
+          ;; If both " " and "-" lead to completions, prefer " " so SPC behaves
+          ;; a bit more like a self-inserting key (bug#17375).
+	  (while (and exts (not (consp tem)))
+            (setq tem (completion-try-completion
+		       (concat before (pop exts) after)
+		       table predicate (1+ point) md)))
+	  (if (consp tem) (setq comp tem))))
 
       ;; Completing a single word is actually more difficult than completing
       ;; as much as possible, because we first have to find the "current
@@ -2773,7 +2797,7 @@ expression (not containing character ranges like `a-z')."
 
 (defcustom completion-pcm-complete-word-inserts-delimiters nil
   "Treat the SPC or - inserted by `minibuffer-complete-word' as delimiters.
-Those chars are treated as delimiters iff this variable is non-nil.
+Those chars are treated as delimiters if this variable is non-nil.
 I.e. if non-nil, M-x SPC will just insert a \"-\" in the minibuffer, whereas
 if nil, it will list all possible commands in *Completions* because none of
 the commands start with a \"-\" or a SPC."
@@ -3192,11 +3216,20 @@ the same set of elements."
                          ;; Not `prefix'.
                          mergedpat))
            ;; New pos from the start.
-           (newpos (length (completion-pcm--pattern->string pointpat)))
+	   (newpos (length (completion-pcm--pattern->string pointpat)))
            ;; Do it afterwards because it changes `pointpat' by side effect.
            (merged (completion-pcm--pattern->string (nreverse mergedpat))))
 
-      (setq suffix (completion--merge-suffix merged newpos suffix))
+      (setq suffix (completion--merge-suffix
+                    ;; The second arg should ideally be "the position right
+                    ;; after the last char of `merged' that comes from the text
+                    ;; to be completed".  But completion-pcm--merge-completions
+                    ;; currently doesn't give us that info.  So instead we just
+                    ;; use the "last but one" position, which tends to work
+                    ;; well in practice since `suffix' always starts
+                    ;; with a boundary and we hence mostly/only care about
+                    ;; merging this boundary (bug#15419).
+                    merged (max 0 (1- (length merged))) suffix))
       (cons (concat prefix merged suffix) (+ newpos (length prefix)))))))
 
 (defun completion-pcm-try-completion (string table pred point)

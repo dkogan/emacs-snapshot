@@ -3267,7 +3267,10 @@ tty_menu_activate (tty_menu *menu, int *pane, int *selidx,
 
   /* Turn off the cursor.  Otherwise it shows through the menu
      panes, which is ugly.  */
+  col = cursorX (tty);
+  row = cursorY (tty);
   tty_hide_cursor (tty);
+
   if (buffers_num_deleted)
     menu->text[0][7] = ' ';
   onepane = menu->count == 1 && menu->submenu[0];
@@ -3405,8 +3408,6 @@ tty_menu_activate (tty_menu *menu, int *pane, int *selidx,
 	  col = cursorX (tty);
 	  row = cursorY (tty);
 	}
-      else
-	row = -1;
 
       /* Display the help-echo message for the currently-selected menu
 	 item.  */
@@ -3418,8 +3419,7 @@ tty_menu_activate (tty_menu *menu, int *pane, int *selidx,
 	  /* Move the cursor to the beginning of the current menu
 	     item, so that screen readers and other accessibility aids
 	     know where the active region is.  */
-	  if (0 <= row)
-	    cursor_to (sf, row, col);
+	  cursor_to (sf, row, col);
 	  tty_hide_cursor (tty);
 	  fflush (tty->output);
 	  prev_menu_help_message = menu_help_message;
@@ -3940,43 +3940,24 @@ clear_tty_hooks (struct terminal *terminal)
 static void
 set_tty_hooks (struct terminal *terminal)
 {
-  terminal->rif = 0; /* ttys don't support window-based redisplay. */
-
   terminal->cursor_to_hook = &tty_cursor_to;
   terminal->raw_cursor_to_hook = &tty_raw_cursor_to;
-
   terminal->clear_to_end_hook = &tty_clear_to_end;
   terminal->clear_frame_hook = &tty_clear_frame;
   terminal->clear_end_of_line_hook = &tty_clear_end_of_line;
-
   terminal->ins_del_lines_hook = &tty_ins_del_lines;
-
   terminal->insert_glyphs_hook = &tty_insert_glyphs;
   terminal->write_glyphs_hook = &tty_write_glyphs;
   terminal->delete_glyphs_hook = &tty_delete_glyphs;
-
   terminal->ring_bell_hook = &tty_ring_bell;
-
   terminal->reset_terminal_modes_hook = &tty_reset_terminal_modes;
   terminal->set_terminal_modes_hook = &tty_set_terminal_modes;
-  terminal->update_begin_hook = 0; /* Not needed. */
   terminal->update_end_hook = &tty_update_end;
   terminal->set_terminal_window_hook = &tty_set_terminal_window;
-
-  terminal->mouse_position_hook = 0; /* Not needed. */
-  terminal->frame_rehighlight_hook = 0; /* Not needed. */
-  terminal->frame_raise_lower_hook = 0; /* Not needed. */
-
-  terminal->set_vertical_scroll_bar_hook = 0; /* Not needed. */
-  terminal->condemn_scroll_bars_hook = 0; /* Not needed. */
-  terminal->redeem_scroll_bar_hook = 0; /* Not needed. */
-  terminal->judge_scroll_bars_hook = 0; /* Not needed. */
-
   terminal->read_socket_hook = &tty_read_avail_input; /* keyboard.c */
-  terminal->frame_up_to_date_hook = 0; /* Not needed. */
-
   terminal->delete_frame_hook = &tty_free_frame_resources;
   terminal->delete_terminal_hook = &delete_tty;
+  /* Other hooks are NULL by default.  */
 }
 
 /* If FD is the controlling terminal, drop it.  */
@@ -4040,7 +4021,7 @@ init_tty (const char *name, const char *terminal_type, bool must_succeed)
   if (terminal)
     return terminal;
 
-  terminal = create_terminal ();
+  terminal = create_terminal (output_termcap, NULL);
 #ifdef MSDOS
   if (been_here > 0)
     maybe_fatal (0, 0, "Attempt to create another terminal %s", "",
@@ -4054,7 +4035,6 @@ init_tty (const char *name, const char *terminal_type, bool must_succeed)
   tty->next = tty_list;
   tty_list = tty;
 
-  terminal->type = output_termcap;
   terminal->display_info.tty = tty;
   tty->terminal = terminal;
 

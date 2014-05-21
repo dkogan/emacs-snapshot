@@ -1,3 +1,55 @@
+2014-05-15  Katsumi Yamaoka  <yamaoka@jpl.org>
+
+	* gnus-art.el (gnus-mime-inline-part, gnus-mm-display-part): Don't
+	delete next part button; keep spacing between buttons.
+
+2014-05-14  Katsumi Yamaoka  <yamaoka@jpl.org>
+
+	* gnus-art.el (gnus-mime-inline-part, gnus-mm-display-part):
+	Work for the last MIME part in an article.
+	(gnus-mime-display-single): Suppress excessive newlines between parts.
+
+	* mm-uu.el (mm-uu-dissect): Assume that separators may be accompanied
+	by leading or trailing newline.
+
+2014-05-09  Katsumi Yamaoka  <yamaoka@jpl.org>
+
+	* gnus-art.el (gnus-mm-display-part): Don't put article out of sight
+	while prompting a user for a file name, etc.
+	(gnus-mime-display-single): Display part with a common appearance no
+	matter whether MIME button is omitted or not; don't add duplicate entry
+	to gnus-article-mime-handle-alist.
+	(gnus-mime-buttonize-attachments-in-header): Use copied buttons.
+
+2014-05-08  Adam Sjøgren  <asjo@koldfront.dk>
+
+	* mml2015.el (mml2015-display-key-image): New variable.
+
+2014-05-08  Glenn Morris  <rgm@gnu.org>
+
+	* gnus-fun.el (gnus-grab-cam-face):
+	Do not use predictable temp-file name.  (http://bugs.debian.org/747100)
+	This is CVE-2014-3421.
+
+2014-05-04  Glenn Morris  <rgm@gnu.org>
+
+	* gnus-registry.el (gnus-registry-install-p): Doc fix.
+
+2014-05-02  Katsumi Yamaoka  <yamaoka@jpl.org>
+
+	* gnus-art.el (gnus-mime-inline-part): Redisplay a button so as to show
+	the displaying state of a part.
+	(gnus-mm-display-part): Don't insert a newline in the beginning of
+	a part like gnus-mime-inline-part doesn't; work for XEmacs.
+
+	* mm-decode.el (mm-display-part): Don't insert a newline in the top.
+	(mm-shr): Make undisplayer unbreakable.
+
+	* mm-view.el (mm-inline-image-emacs, mm-inline-image-xemacs): Don't
+	insert excessive newline.
+	(mm-inline-text-html-render-with-w3m, mm-inline-text)
+	(mm-insert-inline): Make undisplayer unbreakable.
+
 2014-05-01  Katsumi Yamaoka  <yamaoka@jpl.org>
 
 	* gnus-art.el (gnus-mm-display-part):
@@ -6,7 +58,7 @@
 2014-04-30  Katsumi Yamaoka  <yamaoka@jpl.org>
 
 	* gnus-art.el (gnus-mm-display-part): Don't move point while toggling
-	a part; redisplay a button (enbugged in 2014-02-05).
+	a part; redisplay a button (enbugged in 2014-03-23).
 
 2014-04-27  Teodor Zlatanov  <tzz@lifelogs.com>
 

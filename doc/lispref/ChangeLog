@@ -1,3 +1,37 @@
+2014-05-21  Leo Liu  <sdl.web@gmail.com>
+
+	* sequences.texi (Sequence Functions): Update nreverse.
+
+2014-05-19  Paul Eggert  <eggert@cs.ucla.edu>
+
+	Allow any non-nil value to count as true in bool-vector.
+	* sequences.texi (Bool-Vectors): Coalesce discussion of how to
+	print them.  bool-vector's args need not be t or nil.
+
+2014-05-19  Dmitry Antipov  <dmantipov@yandex.ru>
+
+	* sequences.texi (Bool-vectors): Mention bool-vector.
+
+2014-05-17  Paul Eggert  <eggert@cs.ucla.edu>
+
+	Assume C99 or later (Bug#17487).
+	* internals.texi (C Dialect): Document this.
+
+2014-05-15  Dmitry Antipov  <dmantipov@yandex.ru>
+
+	* lists.texi (Building Cons Cells and Lists): Remove
+	description of `reverse' and `'nreverse' to generalize them...
+	* sequences.texi (Sequences): ...for sequences here.
+
+2014-05-14  Glenn Morris  <rgm@gnu.org>
+
+	* files.texi (Changing Files): Mention with-file-modes.
+
+2014-05-08  Paul Eggert  <eggert@cs.ucla.edu>
+
+	* internals.texi (C Dialect): New section.
+	(C Integer Types): Mention bool_bf.
+
 2014-04-30  Stefan Monnier  <monnier@iro.umontreal.ca>
 
 	* processes.texi (Filter Functions, Sentinels): Advertise add-function.

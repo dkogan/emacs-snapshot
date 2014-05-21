@@ -83,6 +83,9 @@ done
 AC_CONFIG_HEADERS(src/config.h:src/config.in)
 AC_CONFIG_SRCDIR(src/lisp.h)
 AC_CONFIG_AUX_DIR(build-aux)
+dnl automake 1.13 and later understand this, making -I m4 unnecessary.
+dnl With older versions this is a no-op.
+AC_CONFIG_MACRO_DIR(m4)
 
 xcsdkdir=
 AC_CHECK_PROGS(XCRUN, [xcrun])
@@ -293,6 +296,9 @@ otherwise for the first of `gfile' or `inotify' that is usable.])
 dnl http://lists.gnu.org/archive/html/emacs-devel/2008-04/msg01844.html
 OPTION_DEFAULT_ON([makeinfo],[don't require makeinfo for building manuals])
 
+## This might be a 'configure' arg.
+AC_SUBST([ACLOCAL_PATH])
+
 ## Makefile.in needs the cache file name.
 AC_SUBST(cache_file)
 
@@ -301,15 +307,6 @@ AC_SUBST(cache_file)
 OPTION_DEFAULT_ON([compress-install],
   [don't compress some files (.el, .info, etc.) when installing.  Equivalent to:
 make GZIP_PROG= install])
-
-AC_ARG_WITH([pkg-config-prog],dnl
-[AS_HELP_STRING([--with-pkg-config-prog=FILENAME],
-                  [file name of pkg-config for finding GTK and librsvg])])
-if test "X${with_pkg_config_prog}" != X; then
-   if test "${with_pkg_config_prog}" != yes; then
-      PKG_CONFIG="${with_pkg_config_prog}"
-   fi
-fi
 
 AC_ARG_WITH(gameuser,dnl
 [AS_HELP_STRING([--with-gameuser=USER],[user for shared game score files])])
@@ -673,12 +670,18 @@ fi
 
 #### Choose a compiler.
 
+dnl Don't bother to test for C89.
+AC_DEFUN([_AC_PROG_CC_C89], [$2])
+
 dnl Sets GCC=yes if using gcc.
 AC_PROG_CC([gcc cc cl clang "$XCRUN gcc" "$XCRUN clang"])
 if test -n "$XCRUN"; then
   AC_CHECK_PROGS(AR, [ar "$XCRUN ar"])
   test -n "$AR" && export AR
 fi
+
+dnl Emacs needs C99 or later.
+gl_PROG_CC_C99
 
 AM_PROG_CC_C_O
 
@@ -764,32 +767,6 @@ AC_ARG_ENABLE([gcc-warnings],
    gl_gcc_warnings=$enableval],
   [gl_gcc_warnings=no]
 )
-
-AC_ARG_ENABLE(link-time-optimization,
-[AS_HELP_STRING([--enable-link-time-optimization],
-                [build emacs with link-time optimization.
-                 This is supported only for GCC since 4.5.0.])],
-if test "${enableval}" != "no"; then
-   AC_MSG_CHECKING([whether link-time optimization is supported])
-   ac_lto_supported=no
-   if test x$GCC = xyes; then
-      CPUS=`getconf _NPROCESSORS_ONLN 2>/dev/null`
-      if test x$CPUS != x; then
-      	 LTO="-flto=$CPUS"
-      else
-	 LTO="-flto"
-      fi
-      old_CFLAGS=$CFLAGS
-      CFLAGS="$CFLAGS $LTO"
-      AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]], [[]])],
-      	[ac_lto_supported=yes], [ac_lto_supported=no])
-      CFLAGS="$old_CFLAGS"
-   fi
-   AC_MSG_RESULT([$ac_lto_supported])
-   if test "$ac_lto_supported" = "yes"; then
-      CFLAGS="$CFLAGS $LTO"
-   fi
-fi)
 
 # clang is unduly picky about some things.
 AC_CACHE_CHECK([whether the compiler is clang], [emacs_cv_clang],
@@ -909,7 +886,58 @@ else
   AC_SUBST([GNULIB_WARN_CFLAGS])
 fi
 
+edit_cflags="
+  s,///*,/,g
+  s/^/ /
+  s/ -I/ $isystem/g
+  s/^ //
+"
 
+AC_ARG_ENABLE(link-time-optimization,
+[AS_HELP_STRING([--enable-link-time-optimization],
+                [build emacs with link-time optimization.
+		 This is supported for gcc since 4.5.0 and clang.
+		 Note that clang support is experimental - see INSTALL])],
+if test "${enableval}" != "no"; then
+   ac_lto_supported=no
+   if test $emacs_cv_clang = yes; then
+      AC_MSG_CHECKING([whether link-time optimization is supported by clang])
+      GOLD_PLUGIN=`$CC -print-file-name=LLVMgold.so 2>/dev/null`
+      if test -x "$GOLD_PLUGIN"; then
+	 LTO="-flto"
+      fi
+   elif test x$GCC = xyes; then
+      AC_MSG_CHECKING([whether link-time optimization is supported by gcc])
+      CPUS=`getconf _NPROCESSORS_ONLN 2>/dev/null`
+      if test x$CPUS != x; then
+	 LTO="-flto=$CPUS"
+      else
+	 LTO="-flto"
+      fi
+   else
+      AC_MSG_ERROR([Link-time optimization is not supported with your compiler.])
+   fi
+   if test -z "$LTO"; then
+      ac_lto_supported=no
+   else
+      old_CFLAGS=$CFLAGS
+      CFLAGS="$CFLAGS $LTO"
+      AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]], [[]])],
+         [ac_lto_supported=yes], [ac_lto_supported=no])
+         CFLAGS="$old_CFLAGS"
+   fi
+   AC_MSG_RESULT([$ac_lto_supported])
+   if test "$ac_lto_supported" = "yes"; then
+      CFLAGS="$CFLAGS $LTO"
+      if test x$emacs_cv_clang = xyes; then
+	 AC_MSG_WARN([Please read INSTALL before using link-time optimization with clang])
+	 # WARNING: 'ar --plugin ...' doesn't work without
+	 # command, so plugin name is appended to ARFLAGS.
+	 ARFLAGS="cru --plugin $GOLD_PLUGIN"
+	 RANLIB="$RANLIB --plugin $GOLD_PLUGIN"
+      fi
+   fi
+fi)
 
 dnl Some other nice autoconf tests.
 dnl These are commented out, since gl_EARLY and/or Autoconf already does them.
@@ -1281,7 +1309,7 @@ else
   CPPFLAGS="$C_SWITCH_SYSTEM $C_SWITCH_MACHINE $CPPFLAGS"
 fi
 
-# Suppress obsolescent Autoconf test for size_t; Emacs assumes C89 or better.
+# Suppress obsolescent Autoconf test for size_t; Emacs assumes C99 or better.
 AC_DEFUN([AC_TYPE_SIZE_T])
 # Likewise for obsolescent test for uid_t, gid_t; Emacs assumes them.
 AC_DEFUN([AC_TYPE_UID_T])
@@ -1341,61 +1369,20 @@ AC_DEFINE_UNQUOTED(SYSTEM_TYPE, "$SYSTEM_TYPE",
 pre_PKG_CONFIG_CFLAGS=$CFLAGS
 pre_PKG_CONFIG_LIBS=$LIBS
 
-AC_PATH_PROG(PKG_CONFIG, pkg-config, no)
+PKG_PROG_PKG_CONFIG(0.9.0)
 
-dnl This function definition taken from Gnome 2.0
-dnl PKG_CHECK_MODULES(GSTUFF, gtk+-2.0 >= 1.3 glib = 1.3.4, action-if, action-not)
-dnl defines GSTUFF_LIBS, GSTUFF_CFLAGS, see pkg-config man page
-dnl also defines GSTUFF_PKG_ERRORS on error
-AC_DEFUN([PKG_CHECK_MODULES], [
-  succeeded=no
-
-  if test "$PKG_CONFIG" = "no" ; then
-     ifelse([$4], , [AC_MSG_ERROR([
-      *** The pkg-config script could not be found. Make sure it is in your path, or give the full name of pkg-config with the PKG_CONFIG environment variable or --with-pkg-config-prog.  Or see http://www.freedesktop.org/software/pkgconfig to get pkg-config.])], [$4])
-  else
-     PKG_CONFIG_MIN_VERSION=0.9.0
-     if "$PKG_CONFIG" --atleast-pkgconfig-version $PKG_CONFIG_MIN_VERSION; then
-        AC_MSG_CHECKING(for $2)
-
-        if "$PKG_CONFIG" --exists "$2" 2>&AS_MESSAGE_LOG_FD &&
-	   $1_CFLAGS=`"$PKG_CONFIG" --cflags "$2" 2>&AS_MESSAGE_LOG_FD` &&
-	   $1_LIBS=`"$PKG_CONFIG" --libs "$2" 2>&AS_MESSAGE_LOG_FD`; then
-	    edit_cflags="
-	      s,///*,/,g
-	      s/^/ /
-	      s/ -I/ $isystem/g
-	      s/^ //
-	    "
-	    $1_CFLAGS=`AS_ECHO(["$$1_CFLAGS"]) | sed -e "$edit_cflags"`
-	    $1_LIBS=`AS_ECHO(["$$1_LIBS"]) | sed -e 's,///*,/,g'`
-            AC_MSG_RESULT([yes CFLAGS='$$1_CFLAGS' LIBS='$$1_LIBS'])
-            succeeded=yes
-        else
-            AC_MSG_RESULT(no)
-            $1_CFLAGS=""
-            $1_LIBS=""
-            ## If we have a custom action on failure, don't print errors, but
-	    ## do set a variable so people can do so.  Do it in a subshell
-	    ## to capture any diagnostics in invoking pkg-config.
-	    $1_PKG_ERRORS=`("$PKG_CONFIG" --print-errors "$2") 2>&1`
-	    ifelse([$4], ,echo "$$1_PKG_ERRORS",)
-        fi
-
-        AC_SUBST($1_CFLAGS)
-        AC_SUBST($1_LIBS)
-     else
-        echo "*** Your version of pkg-config is too old. You need version $PKG_CONFIG_MIN_VERSION or newer."
-        echo "*** See http://www.freedesktop.org/software/pkgconfig"
-     fi
-  fi
-
-  if test $succeeded = yes; then
-     ifelse([$3], , :, [$3])
-  else
-     ifelse([$4], , [AC_MSG_ERROR([Library requirements ($2) not met; consider adjusting the PKG_CONFIG_PATH environment variable if your libraries are in a nonstandard prefix so pkg-config can find them.])], [$4])
-  fi
-])
+dnl EMACS_CHECK_MODULES(GSTUFF, gtk+-2.0 >= 1.3 glib = 1.3.4)
+dnl acts like PKG_CHECK_MODULES(GSTUFF, gtk+-2.0 >= 1.3 glib = 1.3.4,
+dnl HAVE_GSTUFF=yes, HAVE_GSTUFF=no) -- see pkg-config man page --
+dnl except that it postprocesses CFLAGS as needed for --enable-gcc-warnings.
+dnl EMACS_CHECK_MODULES accepts optional 3rd and 4th arguments that
+dnl can take the place of the default HAVE_GSTUFF=yes and HAVE_GSTUFF=no
+dnl actions.
+AC_DEFUN([EMACS_CHECK_MODULES],
+  [PKG_CHECK_MODULES([$1], [$2],
+     [$1_CFLAGS=`AS_ECHO(["$$1_CFLAGS"]) | sed -e "$edit_cflags"`
+      m4_default([$3], [HAVE_$1=yes])],
+     [m4_default([$4], [HAVE_$1=no])])])
 
 HAVE_SOUND=no
 if test "${with_sound}" != "no"; then
@@ -1423,7 +1410,7 @@ if test "${with_sound}" != "no"; then
   if test "${with_sound}" = "alsa" || test "${with_sound}" = "yes"; then
     ALSA_REQUIRED=1.0.0
     ALSA_MODULES="alsa >= $ALSA_REQUIRED"
-    PKG_CHECK_MODULES(ALSA, $ALSA_MODULES, HAVE_ALSA=yes, HAVE_ALSA=no)
+    EMACS_CHECK_MODULES([ALSA], [$ALSA_MODULES])
     if test $HAVE_ALSA = yes; then
       SAVE_CFLAGS="$CFLAGS"
       SAVE_LIBS="$LIBS"
@@ -2191,7 +2178,7 @@ if test "${HAVE_X11}" = "yes" || test "${HAVE_NS}" = "yes" || test "${opsys}" = 
     RSVG_REQUIRED=2.11.0
     RSVG_MODULE="librsvg-2.0 >= $RSVG_REQUIRED"
 
-    PKG_CHECK_MODULES(RSVG, $RSVG_MODULE, HAVE_RSVG=yes, :)
+    EMACS_CHECK_MODULES([RSVG], [$RSVG_MODULE])
     AC_SUBST(RSVG_CFLAGS)
     AC_SUBST(RSVG_LIBS)
 
@@ -2209,12 +2196,10 @@ fi
 HAVE_IMAGEMAGICK=no
 if test "${HAVE_X11}" = "yes" || test "${HAVE_NS}" = "yes" || test "${HAVE_W32}" = "yes"; then
   if test "${with_imagemagick}" != "no"; then
-    ## 6.2.8 is the earliest version known to work, but earlier versions
-    ## might work - let us know if you find one.
-    ## 6.0.7 does not work.  See bug#7955.
+    ## 6.3.5 is the earliest version known to work; see Bug#17339.
     ## 6.8.2 makes Emacs crash; see Bug#13867.
-    IMAGEMAGICK_MODULE="Wand >= 6.2.8 Wand != 6.8.2"
-    PKG_CHECK_MODULES(IMAGEMAGICK, $IMAGEMAGICK_MODULE, HAVE_IMAGEMAGICK=yes, :)
+    IMAGEMAGICK_MODULE="Wand >= 6.3.5 Wand != 6.8.2"
+    EMACS_CHECK_MODULES([IMAGEMAGICK], [$IMAGEMAGICK_MODULE])
     AC_SUBST(IMAGEMAGICK_CFLAGS)
     AC_SUBST(IMAGEMAGICK_LIBS)
 
@@ -2244,7 +2229,8 @@ if test "${opsys}" != "mingw32"; then
     GTK_MODULES="gtk+-3.0 >= $GTK_REQUIRED glib-2.0 >= $GLIB_REQUIRED"
 
     dnl Checks for libraries.
-    PKG_CHECK_MODULES(GTK, $GTK_MODULES, pkg_check_gtk=yes, pkg_check_gtk=no)
+    EMACS_CHECK_MODULES([GTK], [$GTK_MODULES],
+      [pkg_check_gtk=yes], [pkg_check_gtk=no])
     if test "$pkg_check_gtk" = "no" && test "$with_gtk3" = "yes"; then
        AC_MSG_ERROR($GTK_PKG_ERRORS)
     fi
@@ -2271,7 +2257,8 @@ if test "${opsys}" != "mingw32"; then
     GTK_MODULES="gtk+-2.0 >= $GTK_REQUIRED glib-2.0 >= $GLIB_REQUIRED"
 
     dnl Checks for libraries.
-    PKG_CHECK_MODULES(GTK, $GTK_MODULES, pkg_check_gtk=yes, pkg_check_gtk=no)
+    EMACS_CHECK_MODULES([GTK], [$GTK_MODULES],
+      [pkg_check_gtk=yes], [pkg_check_gtk=no])
     if test "$pkg_check_gtk" = "no" &&
        { test "$with_gtk" = yes || test "$with_gtk2" = "yes"; }
     then
@@ -2395,7 +2382,7 @@ dnl other platforms.
 HAVE_DBUS=no
 DBUS_OBJ=
 if test "${with_dbus}" = "yes"; then
-   PKG_CHECK_MODULES(DBUS, dbus-1 >= 1.0, HAVE_DBUS=yes, HAVE_DBUS=no)
+   EMACS_CHECK_MODULES([DBUS], [dbus-1 >= 1.0])
    if test "$HAVE_DBUS" = yes; then
      AC_DEFINE(HAVE_DBUS, 1, [Define to 1 if using D-Bus.])
      dnl dbus_watch_get_unix_fd has been introduced in D-Bus 1.1.1.
@@ -2413,12 +2400,14 @@ if test "${with_dbus}" = "yes"; then
      DBUS_OBJ=dbusbind.o
    fi
 fi
+AC_SUBST(DBUS_CFLAGS)
+AC_SUBST(DBUS_LIBS)
 AC_SUBST(DBUS_OBJ)
 
 dnl GSettings has been tested under GNU/Linux only.
 HAVE_GSETTINGS=no
 if test "${HAVE_X11}" = "yes" && test "${with_gsettings}" = "yes"; then
-   PKG_CHECK_MODULES(GSETTINGS, gio-2.0 >= 2.26, HAVE_GSETTINGS=yes, HAVE_GSETTINGS=no)
+   EMACS_CHECK_MODULES([GSETTINGS], [gio-2.0 >= 2.26])
    if test "$HAVE_GSETTINGS" = "yes"; then
       old_CFLAGS=$CFLAGS
       CFLAGS="$CFLAGS $GSETTINGS_CFLAGS"
@@ -2452,7 +2441,7 @@ dnl GConf has been tested under GNU/Linux only.
 dnl The version is really arbitrary, it is about the same age as Gtk+ 2.6.
 HAVE_GCONF=no
 if test "${HAVE_X11}" = "yes" && test "${with_gconf}" = "yes"; then
-   PKG_CHECK_MODULES(GCONF, gconf-2.0 >= 2.13, HAVE_GCONF=yes, HAVE_GCONF=no)
+   EMACS_CHECK_MODULES([GCONF], [gconf-2.0 >= 2.13])
    if test "$HAVE_GCONF" = yes; then
       AC_DEFINE(HAVE_GCONF, 1, [Define to 1 if using GConf.])
       dnl Newer GConf doesn't link with g_objects, so this is not defined.
@@ -2462,7 +2451,7 @@ if test "${HAVE_X11}" = "yes" && test "${with_gconf}" = "yes"; then
 fi
 
 if test "$HAVE_GSETTINGS" = "yes" || test "$HAVE_GCONF" = "yes"; then
-    PKG_CHECK_MODULES(GOBJECT, gobject-2.0 >= 2.0, HAVE_GOBJECT=yes, HAVE_GOBJECT=no)
+    EMACS_CHECK_MODULES([GOBJECT], [gobject-2.0 >= 2.0])
     if test "$HAVE_GOBJECT" = "yes"; then
        SETTINGS_CFLAGS="$SETTINGS_CFLAGS $GOBJECT_CFLAGS"
        SETTINGS_LIBS="$SETTINGS_LIBS $GOBJECT_LIBS"
@@ -2493,12 +2482,14 @@ AC_SUBST(LIBSELINUX_LIBS)
 HAVE_GNUTLS=no
 HAVE_GNUTLS3=no
 if test "${with_gnutls}" = "yes" ; then
-  PKG_CHECK_MODULES([LIBGNUTLS], [gnutls >= 3.0.0], HAVE_GNUTLS3=yes, HAVE_GNUTLS3=no)
+  EMACS_CHECK_MODULES([LIBGNUTLS], [gnutls >= 3.0.0],
+    [HAVE_GNUTLS3=yes], [HAVE_GNUTLS3=no])
   if test "${HAVE_GNUTLS3}" = "yes"; then
     AC_DEFINE(HAVE_GNUTLS3, 1, [Define if using GnuTLS v3.])
     HAVE_GNUTLS="yes"
   else
-    PKG_CHECK_MODULES([LIBGNUTLS], [gnutls >= 2.6.6], HAVE_GNUTLS=yes, HAVE_GNUTLS=no)
+    EMACS_CHECK_MODULES([LIBGNUTLS], [gnutls >= 2.6.6],
+      [HAVE_GNUTLS=yes], [HAVE_GNUTLS=no])
   fi
   if test "${HAVE_GNUTLS}" = "yes"; then
     AC_DEFINE(HAVE_GNUTLS, 1, [Define if using GnuTLS.])
@@ -2540,7 +2531,7 @@ dnl only sense when glib has been compiled with inotify support.  How
 dnl to check?
 case $with_file_notification,$NOTIFY_OBJ in
   gfile, | yes,)
-    PKG_CHECK_MODULES(GFILENOTIFY, gio-2.0 >= 2.24, HAVE_GFILENOTIFY=yes, HAVE_GFILENOTIFY=no)
+    EMACS_CHECK_MODULES([GFILENOTIFY], [gio-2.0 >= 2.24])
     if test "$HAVE_GFILENOTIFY" = "yes"; then
        AC_DEFINE(HAVE_GFILENOTIFY, 1, [Define to 1 if using GFile.])
        NOTIFY_OBJ=gfilenotify.o
@@ -2814,7 +2805,8 @@ fi
 
 ### Start of font-backend (under X11) section.
 if test "${HAVE_X11}" = "yes"; then
-   PKG_CHECK_MODULES(FONTCONFIG, fontconfig >= 2.2.0, HAVE_FC=yes, HAVE_FC=no)
+   EMACS_CHECK_MODULES([FONTCONFIG], [fontconfig >= 2.2.0],
+     [HAVE_FC=yes], [HAVE_FC=no])
 
    ## Use -lXft if available, unless `--with-xft=no'.
    HAVE_XFT=maybe
@@ -2823,7 +2815,7 @@ if test "${HAVE_X11}" = "yes"; then
     fi
     if test "x${with_xft}" != "xno"; then
 
-      PKG_CHECK_MODULES(XFT, xft >= 0.13.0, , HAVE_XFT=no)
+      EMACS_CHECK_MODULES([XFT], [xft >= 0.13.0], [], [HAVE_XFT=no])
       ## Because xftfont.c uses XRenderQueryExtension, we also
       ## need to link to -lXrender.
       HAVE_XRENDER=no
@@ -2862,8 +2854,7 @@ if test "${HAVE_X11}" = "yes"; then
        dnl ftfont.o: undefined reference to symbol 'FT_New_Face'
        dnl if -lfreetype is not specified.
        dnl The following is needed to set FREETYPE_LIBS.
-       PKG_CHECK_MODULES(FREETYPE, freetype2, HAVE_FREETYPE=yes,
-			 HAVE_FREETYPE=no)
+       EMACS_CHECK_MODULES([FREETYPE], [freetype2])
 
        test "$HAVE_FREETYPE" = "no" && AC_MSG_ERROR(libxft requires libfreetype)
     fi
@@ -2873,8 +2864,7 @@ if test "${HAVE_X11}" = "yes"; then
       AC_DEFINE(HAVE_FREETYPE, 1,
 		[Define to 1 if using the freetype and fontconfig libraries.])
       if test "${with_libotf}" != "no"; then
-	PKG_CHECK_MODULES(LIBOTF, libotf, HAVE_LIBOTF=yes,
-			  HAVE_LIBOTF=no)
+	EMACS_CHECK_MODULES([LIBOTF], [libotf])
 	if test "$HAVE_LIBOTF" = "yes"; then
 	  AC_DEFINE(HAVE_LIBOTF, 1, [Define to 1 if using libotf.])
 	  AC_CHECK_LIB(otf, OTF_get_variation_glyphs,
@@ -2893,7 +2883,7 @@ if test "${HAVE_X11}" = "yes"; then
     HAVE_M17N_FLT=no
     if test "${HAVE_LIBOTF}" = yes; then
       if test "${with_m17n_flt}" != "no"; then
-	PKG_CHECK_MODULES(M17N_FLT, m17n-flt, HAVE_M17N_FLT=yes, HAVE_M17N_FLT=no)
+	EMACS_CHECK_MODULES([M17N_FLT], [m17n-flt])
 	if test "$HAVE_M17N_FLT" = "yes"; then
 	  AC_DEFINE(HAVE_M17N_FLT, 1, [Define to 1 if using libm17n-flt.])
 	fi
@@ -3045,60 +3035,6 @@ elif test "${HAVE_X11}" = "yes" || test "${HAVE_W32}" = "yes"; then
 fi
 AC_SUBST(LIBJPEG)
 
-### Use -lpng if available, unless `--with-png=no'.
-### mingw32 doesn't use -lpng, since it loads the library dynamically.
-HAVE_PNG=no
-LIBPNG=
-if test "${opsys}" = "mingw32"; then
-  if test "${with_png}" != "no"; then
-    AC_CHECK_HEADER(png.h, HAVE_PNG=yes, HAVE_PNG=no)
-  fi
-  if test "${HAVE_PNG}" = "yes"; then
-    AC_DEFINE(HAVE_PNG, 1, [Define to 1 if you have the png library (-lpng).])
-
-    AC_CHECK_DECL(png_longjmp,
-      [],
-      [AC_DEFINE(PNG_DEPSTRUCT, [],
-	 [Define to empty to suppress deprecation warnings when building
-	  with --enable-gcc-warnings and with libpng versions before 1.5,
-	  which lack png_longjmp.])],
-      [[#ifdef HAVE_LIBPNG_PNG_H
-	# include <libpng/png.h>
-	#else
-	# include <png.h>
-	#endif
-      ]])
-  fi
-elif test "${HAVE_X11}" = "yes" || test "${HAVE_W32}" = "yes"; then
-  if test "${with_png}" != "no"; then
-    # Debian unstable as of July 2003 has multiple libpngs, and puts png.h
-    # in /usr/include/libpng.
-    AC_CHECK_HEADERS(png.h libpng/png.h, break)
-    if test "$ac_cv_header_png_h" = yes || test "$ac_cv_header_libpng_png_h" = yes ; then
-      AC_CHECK_LIB(png, png_get_channels, HAVE_PNG=yes, , -lz -lm)
-    fi
-  fi
-
-  if test "${HAVE_PNG}" = "yes"; then
-    AC_DEFINE(HAVE_PNG, 1, [Define to 1 if you have the png library (-lpng).])
-    LIBPNG="-lpng -lz -lm"
-
-    AC_CHECK_DECL(png_longjmp,
-      [],
-      [AC_DEFINE(PNG_DEPSTRUCT, [],
-	 [Define to empty to suppress deprecation warnings when building
-	  with --enable-gcc-warnings and with libpng versions before 1.5,
-	  which lack png_longjmp.])],
-      [[#ifdef HAVE_LIBPNG_PNG_H
-	# include <libpng/png.h>
-	#else
-	# include <png.h>
-	#endif
-      ]])
-  fi
-fi
-AC_SUBST(LIBPNG)
-
 HAVE_ZLIB=no
 LIBZ=
 if test "${with_zlib}" != "no"; then
@@ -3118,6 +3054,69 @@ if test "${HAVE_ZLIB}" = "yes"; then
 fi
 AC_SUBST(LIBZ)
 
+### Use -lpng if available, unless `--with-png=no'.
+HAVE_PNG=no
+LIBPNG=
+PNG_CFLAGS=
+if test "${NS_IMPL_COCOA}" = yes; then
+  : # Nothing to do
+elif test "${with_png}" != no; then
+  # mingw32 loads the library dynamically.
+  if test "$opsys" = mingw32; then
+    AC_CHECK_HEADER([png.h], [HAVE_PNG=yes])
+  elif test "${HAVE_X11}" = "yes" || test "${HAVE_W32}" = "yes"; then
+    AC_MSG_CHECKING([for png])
+    png_cflags=`(libpng-config --cflags) 2>&AS_MESSAGE_LOG_FD` &&
+    png_libs=`(libpng-config --libs) 2>&AS_MESSAGE_LOG_FD` || {
+      # libpng-config does not work; configure by hand.
+      # Debian unstable as of July 2003 has multiple libpngs, and puts png.h
+      # in /usr/include/libpng.
+      if test -r /usr/include/libpng/png.h &&
+	 test ! -r /usr/include/png.h; then
+	png_cflags=-I/usr/include/libpng
+      else
+	png_cflags=
+      fi
+      png_libs='-lpng'
+    }
+    SAVE_CFLAGS=$CFLAGS
+    SAVE_LIBS=$LIBS
+    CFLAGS="$CFLAGS $png_cflags"
+    LIBS="$png_libs -lz -lm $LIBS"
+    AC_LINK_IFELSE(
+      [AC_LANG_PROGRAM([[#include <png.h>]],
+	 [[return !png_get_channels (0, 0);]])],
+      [HAVE_PNG=yes
+       PNG_CFLAGS=`AS_ECHO(["$png_cflags"]) | sed -e "$edit_cflags"`
+       LIBPNG=$png_libs
+       # $LIBPNG requires explicit -lz in some cases.
+       # We don't know what those cases are, exactly, so play it safe and
+       # append -lz to any nonempty $LIBPNG, unless we're already using LIBZ.
+       if test -n "$LIBPNG" && test -z "$LIBZ"; then
+	 LIBPNG="$LIBPNG -lz"
+       fi])
+    CFLAGS=$SAVE_CFLAGS
+    LIBS=$SAVE_LIBS
+    AC_MSG_RESULT([$HAVE_PNG])
+  fi
+fi
+if test $HAVE_PNG = yes; then
+  AC_DEFINE([HAVE_PNG], [1], [Define to 1 if you have the png library.])
+
+  SAVE_CFLAGS=$CFLAGS
+  CFLAGS="$CFLAGS $PNG_CFLAGS"
+  AC_CHECK_DECL([png_longjmp],
+    [],
+    [AC_DEFINE([PNG_DEPSTRUCT], [],
+       [Define to empty to suppress deprecation warnings when building
+	with --enable-gcc-warnings and with libpng versions before 1.5,
+	which lack png_longjmp.])],
+    [[#include <png.h>
+    ]])
+  CFLAGS=$SAVE_CFLAGS
+fi
+AC_SUBST(LIBPNG)
+AC_SUBST(PNG_CFLAGS)
 
 ### Use -ltiff if available, unless `--with-tiff=no'.
 ### mingw32 doesn't use -ltiff, since it loads the library dynamically.
@@ -3259,14 +3258,13 @@ HAVE_XRANDR=no
 if test "${HAVE_X11}" = "yes"; then
   XRANDR_REQUIRED=1.2.2
   XRANDR_MODULES="xrandr >= $XRANDR_REQUIRED"
-  PKG_CHECK_MODULES(XRANDR, $XRANDR_MODULES, HAVE_XRANDR=yes, HAVE_XRANDR=no)
+  EMACS_CHECK_MODULES([XRANDR], [$XRANDR_MODULES])
   if test $HAVE_XRANDR = no; then
     # Test old way in case pkg-config doesn't have it (older machines).
     AC_CHECK_HEADER(X11/extensions/Xrandr.h,
       [AC_CHECK_LIB(Xrandr, XRRGetScreenResources, HAVE_XRANDR=yes)])
     if test $HAVE_XRANDR = yes; then
       XRANDR_LIBS=-lXrandr
-      AC_SUBST(XRANDR_LIBS)
     fi
   fi
   if test $HAVE_XRANDR = yes; then
@@ -3281,35 +3279,57 @@ if test "${HAVE_X11}" = "yes"; then
     AC_DEFINE(HAVE_XRANDR, 1, [Define to 1 if you have the XRandr extension.])
   fi
 fi
+AC_SUBST(XRANDR_CFLAGS)
+AC_SUBST(XRANDR_LIBS)
 
 ### Use Xinerama (-lXinerama) if available
 HAVE_XINERAMA=no
 if test "${HAVE_X11}" = "yes"; then
   XINERAMA_REQUIRED=1.0.2
   XINERAMA_MODULES="xinerama >= $XINERAMA_REQUIRED"
-  PKG_CHECK_MODULES(XINERAMA, $XINERAMA_MODULES, HAVE_XINERAMA=yes,
-                    HAVE_XINERAMA=no)
+  EMACS_CHECK_MODULES([XINERAMA], [$XINERAMA_MODULES])
   if test $HAVE_XINERAMA = no; then
     # Test old way in case pkg-config doesn't have it (older machines).
     AC_CHECK_HEADER(X11/extensions/Xinerama.h,
       [AC_CHECK_LIB(Xinerama, XineramaQueryExtension, HAVE_XINERAMA=yes)])
     if test $HAVE_XINERAMA = yes; then
       XINERAMA_LIBS=-lXinerama
-      AC_SUBST(XINERAMA_LIBS)
     fi
   fi
   if test $HAVE_XINERAMA = yes; then
     AC_DEFINE(HAVE_XINERAMA, 1, [Define to 1 if you have the Xinerama extension.])
   fi
 fi
+AC_SUBST(XINERAMA_CFLAGS)
+AC_SUBST(XINERAMA_LIBS)
 
+### Use Xfixes (-lXfixes) if available
+HAVE_XFIXES=no
+if test "${HAVE_X11}" = "yes"; then
+  XFIXES_REQUIRED=4.0.0
+  XFIXES_MODULES="xfixes >= $XFIXES_REQUIRED"
+  EMACS_CHECK_MODULES([XFIXES], [$XFIXES_MODULES])
+  if test $HAVE_XFIXES = no; then
+    # Test old way in case pkg-config doesn't have it (older machines).
+    AC_CHECK_HEADER(X11/extensions/Xfixes.h,
+      [AC_CHECK_LIB(Xfixes, XFixesHideCursor, HAVE_XFIXES=yes)])
+    if test $HAVE_XFIXES = yes; then
+      XFIXES_LIBS=-lXfixes
+    fi
+  fi
+  if test $HAVE_XFIXES = yes; then
+    AC_DEFINE(HAVE_XFIXES, 1, [Define to 1 if you have the Xfixes extension.])
+  fi
+fi
+AC_SUBST(XFIXES_CFLAGS)
+AC_SUBST(XFIXES_LIBS)
 
 ### Use libxml (-lxml2) if available
 ### mingw32 doesn't use -lxml2, since it loads the library dynamically.
 HAVE_LIBXML2=no
 if test "${with_xml2}" != "no"; then
   ### I'm not sure what the version number should be, so I just guessed.
-  PKG_CHECK_MODULES(LIBXML2, libxml-2.0 > 2.6.17, HAVE_LIBXML2=yes, HAVE_LIBXML2=no)
+  EMACS_CHECK_MODULES([LIBXML2], [libxml-2.0 > 2.6.17])
   # Built-in libxml2 on OS X 10.8 lacks libxml-2.0.pc.
   if test "${HAVE_LIBXML2}" != "yes" -a "$opsys" = "darwin"; then
     SAVE_CPPFLAGS="$CPPFLAGS"
@@ -3446,7 +3466,7 @@ select getpagesize setlocale \
 getrlimit setrlimit shutdown getaddrinfo \
 strsignal setitimer \
 sendto recvfrom getsockname getpeername getifaddrs freeifaddrs \
-gai_strerror getline getdelim sync \
+gai_strerror sync \
 getpwent endpwent getgrent endgrent \
 cfmakeraw cfsetspeed copysign __executable_start log2)
 LIBS=$OLD_LIBS
@@ -4936,7 +4956,7 @@ echo "  Does Emacs use -lXpm?                                   ${HAVE_XPM}"
 echo "  Does Emacs use -ljpeg?                                  ${HAVE_JPEG}"
 echo "  Does Emacs use -ltiff?                                  ${HAVE_TIFF}"
 echo "  Does Emacs use a gif library?                           ${HAVE_GIF} $LIBGIF"
-echo "  Does Emacs use -lpng?                                   ${HAVE_PNG}"
+echo "  Does Emacs use a png library?                           ${HAVE_PNG} $LIBPNG"
 echo "  Does Emacs use -lrsvg-2?                                ${HAVE_RSVG}"
 echo "  Does Emacs use imagemagick?                             ${HAVE_IMAGEMAGICK}"
 

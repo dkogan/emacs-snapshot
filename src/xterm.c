@@ -32,6 +32,11 @@ along with GNU Emacs.  If not, see <http://www.gnu.org/licenses/>.  */
 #include "xterm.h"
 #include <X11/cursorfont.h>
 
+/* If we have Xfixes extension, use it for pointer blanking.  */
+#ifdef HAVE_XFIXES
+#include <X11/extensions/Xfixes.h>
+#endif
+
 /* Load sys/types.h if not already loaded.
    In some systems loading it twice is suicidal.  */
 #ifndef makedev
@@ -3096,16 +3101,7 @@ static void
 XTtoggle_invisible_pointer (struct frame *f, int invisible)
 {
   block_input ();
-  if (invisible)
-    {
-      if (FRAME_DISPLAY_INFO (f)->invisible_cursor != 0)
-        XDefineCursor (FRAME_X_DISPLAY (f), FRAME_X_WINDOW (f),
-                       FRAME_DISPLAY_INFO (f)->invisible_cursor);
-    }
-  else
-    XDefineCursor (FRAME_X_DISPLAY (f), FRAME_X_WINDOW (f),
-                   f->output_data.x->current_cursor);
-  f->pointer_invisible = invisible;
+  FRAME_DISPLAY_INFO (f)->toggle_visible_pointer (f, invisible);
   unblock_input ();
 }
 
@@ -9720,6 +9716,94 @@ my_log_handler (const gchar *log_domain, GLogLevelFlags log_level,
 }
 #endif
 
+/* Create invisible cursor on X display referred by DPYINFO.  */
+
+static Cursor
+make_invisible_cursor (struct x_display_info *dpyinfo)
+{
+  Display *dpy = dpyinfo->display;
+  static char const no_data[] = { 0 };
+  Pixmap pix;
+  XColor col;
+  Cursor c = 0;
+
+  x_catch_errors (dpy);
+  pix = XCreateBitmapFromData (dpy, dpyinfo->root_window, no_data, 1, 1);
+  if (! x_had_errors_p (dpy) && pix != None)
+    {
+      Cursor pixc;
+      col.pixel = 0;
+      col.red = col.green = col.blue = 0;
+      col.flags = DoRed | DoGreen | DoBlue;
+      pixc = XCreatePixmapCursor (dpy, pix, pix, &col, &col, 0, 0);
+      if (! x_had_errors_p (dpy) && pixc != None)
+        c = pixc;
+      XFreePixmap (dpy, pix);
+    }
+
+  x_uncatch_errors ();
+
+  return c;
+}
+
+/* True if DPY supports Xfixes extension >= 4.  */
+
+static bool
+x_probe_xfixes_extension (Display *dpy)
+{
+#ifdef HAVE_XFIXES
+  int major, minor;
+  return XFixesQueryVersion (dpy, &major, &minor) && major >= 4;
+#else
+  return false;
+#endif /* HAVE_XFIXES */
+}
+
+/* Toggle mouse pointer visibility on frame F by using Xfixes functions.  */
+
+static void
+xfixes_toggle_visible_pointer (struct frame *f, bool invisible)
+{
+#ifdef HAVE_XFIXES
+  if (invisible)
+    XFixesHideCursor (FRAME_X_DISPLAY (f), FRAME_X_WINDOW (f));
+  else
+    XFixesShowCursor (FRAME_X_DISPLAY (f), FRAME_X_WINDOW (f));
+  f->pointer_invisible = invisible;
+#else
+  emacs_abort ();
+#endif /* HAVE_XFIXES */
+}
+
+/* Toggle mouse pointer visibility on frame F by using invisible cursor.  */
+
+static void
+x_toggle_visible_pointer (struct frame *f, bool invisible)
+{
+  eassert (FRAME_DISPLAY_INFO (f)->invisible_cursor != 0);
+  if (invisible)
+    XDefineCursor (FRAME_X_DISPLAY (f), FRAME_X_WINDOW (f),
+		   FRAME_DISPLAY_INFO (f)->invisible_cursor);
+  else
+    XDefineCursor (FRAME_X_DISPLAY (f), FRAME_X_WINDOW (f),
+		   f->output_data.x->current_cursor);
+  f->pointer_invisible = invisible;  
+}
+
+/* Setup pointer blanking, prefer Xfixes if available.  */
+
+static void
+x_setup_pointer_blanking (struct x_display_info *dpyinfo)
+{
+  if (x_probe_xfixes_extension (dpyinfo->display))
+    dpyinfo->toggle_visible_pointer = xfixes_toggle_visible_pointer;
+  else
+    {
+      dpyinfo->toggle_visible_pointer = x_toggle_visible_pointer;
+      dpyinfo->invisible_cursor = make_invisible_cursor (dpyinfo);
+    }
+}
+
 /* Current X display connection identifier.  Incremented for each next
    connection established.  */
 static unsigned x_display_id;
@@ -10148,6 +10232,8 @@ x_term_init (Lisp_Object display_name, char *xrm_option, char *resource_name)
 				   gray_bits, gray_width, gray_height,
 				   1, 0, 1);
 
+  x_setup_pointer_blanking (dpyinfo);
+  
 #ifdef HAVE_X_I18N
   xim_initialize (dpyinfo, resource_name);
 #endif
@@ -10440,9 +10526,8 @@ x_create_terminal (struct x_display_info *dpyinfo)
 {
   struct terminal *terminal;
 
-  terminal = create_terminal ();
+  terminal = create_terminal (output_x_window, &x_redisplay_interface);
 
-  terminal->type = output_x_window;
   terminal->display_info.x = dpyinfo;
   dpyinfo->terminal = terminal;
 
@@ -10453,11 +10538,8 @@ x_create_terminal (struct x_display_info *dpyinfo)
   terminal->delete_glyphs_hook = x_delete_glyphs;
   terminal->ring_bell_hook = XTring_bell;
   terminal->toggle_invisible_pointer_hook = XTtoggle_invisible_pointer;
-  terminal->reset_terminal_modes_hook = NULL;
-  terminal->set_terminal_modes_hook = NULL;
   terminal->update_begin_hook = x_update_begin;
   terminal->update_end_hook = x_update_end;
-  terminal->set_terminal_window_hook = NULL;
   terminal->read_socket_hook = XTread_socket;
   terminal->frame_up_to_date_hook = XTframe_up_to_date;
   terminal->mouse_position_hook = XTmouse_position;
@@ -10468,11 +10550,9 @@ x_create_terminal (struct x_display_info *dpyinfo)
   terminal->condemn_scroll_bars_hook = XTcondemn_scroll_bars;
   terminal->redeem_scroll_bar_hook = XTredeem_scroll_bar;
   terminal->judge_scroll_bars_hook = XTjudge_scroll_bars;
-
   terminal->delete_frame_hook = x_destroy_window;
   terminal->delete_terminal_hook = x_delete_terminal;
-
-  terminal->rif = &x_redisplay_interface;
+  /* Other hooks are NULL by default.  */
 
   return terminal;
 }
