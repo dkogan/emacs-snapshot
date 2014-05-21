@@ -7,11 +7,11 @@ Signed-off-by: Julien Danjou <julien@danjou.info>
  lisp/menu-bar.el | 33 +++++++++++++++++++++++++++++++++
  1 file changed, 33 insertions(+)
 
-Index: emacs-snapshot/lisp/menu-bar.el
-===================================================================
---- emacs-snapshot.orig/lisp/menu-bar.el	2014-05-01 12:17:06.766648758 -0700
-+++ emacs-snapshot/lisp/menu-bar.el	2014-05-01 12:17:06.762648758 -0700
-@@ -1575,6 +1575,28 @@
+diff --git a/lisp/menu-bar.el b/lisp/menu-bar.el
+index 436d8f6..52c233a 100644
+--- a/lisp/menu-bar.el
++++ b/lisp/menu-bar.el
+@@ -1575,6 +1575,28 @@ key, a click, or a menu-item"))
    (info "elisp")
    (Info-index topic))
  
@@ -40,7 +40,7 @@ Index: emacs-snapshot/lisp/menu-bar.el
  (defvar menu-bar-search-documentation-menu
    (let ((menu (make-sparse-keymap "Search Documentation")))
  
-@@ -1679,6 +1701,17 @@
+@@ -1679,6 +1701,17 @@ key, a click, or a menu-item"))
        `(menu-item "Describe" ,menu-bar-describe-menu))
      (bindings--define-key menu [search-documentation]
        `(menu-item "Search Documentation" ,menu-bar-search-documentation-menu))
