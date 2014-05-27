@@ -1,0 +1,22 @@
+#!/bin/bash
+set -e
+
+git fetch upstream
+git checkout upstream
+git merge upstream/master
+
+git checkout master
+git merge upstream
+
+gbp-pq rebase
+gbp-pq export
+git add debian/patches/
+git commit -m 'patch update' debian/patches/
+
+dch -v `date +'2:%Y%m%d-1'`
+git commit -m 'new snapshot' debian/changelog
+
+git clean -ffdx; git reset --hard
+./debian/rules debian/control
+./debian/rules debian/copyright
+git-buildpackage --git-ignore-new
