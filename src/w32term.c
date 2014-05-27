@@ -6419,8 +6419,6 @@ x_delete_display (struct w32_display_info *dpyinfo)
     if (dpyinfo->palette)
       DeleteObject (dpyinfo->palette);
   }
-  xfree (dpyinfo->w32_id_name);
-
   w32_reset_fringes ();
 }
 

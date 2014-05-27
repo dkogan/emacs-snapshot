@@ -1,3 +1,142 @@
+2014-05-27  Paul Eggert  <eggert@cs.ucla.edu>
+
+	* image.c (imagemagick_load_image): Use MagickRealType for local
+	'color_scale', instead of double, to avoid a GCC warning about
+	double promotion.
+
+	* xfns.c (Fx_window_property): Remove unused local.
+
+	Don't kill already-reaped process (Bug#17561).
+	* process.c (process_send_signal): Fix race condition where a
+	subprocess was reaped by a signal handler between the check for
+	liveness and calling 'kill', which meant that Emacs could in
+	theory kill an innocent bystander process.  Do the fix by blocking
+	SIGCHLD in a critical section that checks liveness before killing.
+
+2014-05-26  Eli Zaretskii  <eliz@gnu.org>
+
+	* w32.c (_ANONYMOUS_UNION, _ANONYMOUS_STRUCT): Define only if
+	undefined.
+
+2014-05-26  Ken Brown  <kbrown@cornell.edu>
+
+	* w32term.c (x_delete_display): Don't free dpyinfo->w32_id_name,
+	even if !CYGWIN (see bug#17510).
+
+2014-05-26  Jan Djärv  <jan.h.d@swipnet.se>
+
+	* nsfns.m (Fns_do_applescript): Surround NSApp run
+	with calls to ns_init_events, ns_finish_events (Bug#17424).
+
+	* nsterm.h (ns_init_events, ns_finish_events): Declare.
+
+	* nsterm.m (ns_init_events, ns_finish_events): New functions.
+	(ns_read_socket, ns_select): Call ns_init_events, ns_finish_events.
+
+	* nsfns.m (ns_do_applescript): Surround executeAndReturnError
+	with calls to ns_init_events, ns_finish_events (Bug#17424).
+
+2014-05-26  Eli Zaretskii  <eliz@gnu.org>
+
+	* xdisp.c (move_it_in_display_line_to): Don't record wrap position
+	if we are iterating over an object that generates glyphs for
+	marginal areas.  (Bug#17585)
+
+2014-05-26  Paul Eggert  <eggert@cs.ucla.edu>
+
+	* xdisp.c (safe__call1, safe__eval): Now static.
+
+2014-05-26  Eli Zaretskii  <eliz@gnu.org>
+
+	* xdisp.c (safe__call): Accept va_list argument instead of '...'.
+	(safe_call, safe__call1): Construct a va_list argument for safe_call.
+	(safe_call1): Call safe_call instead of safe__call directly.
+
+2014-05-26  Ken Brown  <kbrown@cornell.edu>
+
+	* w32term.c (x_delete_display) [CYGWIN]: Don't free
+	dpyinfo->w32_id_name, to make sure it doesn't get freed more than
+	once.  (Bug#17510)
+
+2014-05-26  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* xdisp.c: Bind inhibit-quit during pre-redisplay-function.
+	(safe__call, safe__call1, safe__eval): New functions.
+	(safe_call): Use it.
+	(prepare_menu_bars): Use it for pre-redisplay-function (bug#17577).
+	(display_mode_element): Same for `:eval'.
+
+2014-05-26  Paul Eggert  <eggert@cs.ucla.edu>
+
+	Fix port to 32-bit AIX (Bug#17540).
+	* unexaix.c (copy_text_and_data): Don't add text_scnptr to ptr
+	twice.  _text already includes this offset.
+	(unrelocate_symbols): Don't cast 64-bit integer to pointer.
+
+2014-05-26  Eli Zaretskii  <eliz@gnu.org>
+
+	* xdisp.c (move_it_in_display_line_to): Avoid infinite recursion:
+	when closest_pos is identical to to_charpos, don't recurse, since
+	we already tried that, and failed.  (Bug#17539)
+
+	* w32fns.c (unwind_create_frame) [GLYPH_DEBUG]: If we are
+	unwinding when frame's faces were not initialized yet, increment
+	the frame's image-cache reference count before calling
+	x_free_frame_resources.  Don't dereference
+	dpyinfo->terminal->image_cache if it is NULL.  (Bug#17524)
+
+2014-05-25  Jan Djärv  <jan.h.d@swipnet.se>
+
+	* nsfont.m (nsfont_draw): Simplify as arguments are adjusted in
+	nsterm.m now.
+
+	* nsterm.m (ns_draw_glyph_string): Move isComposite and end from
+	macfont.m, call draw with adjusted arguments so font drivers
+	don't need to do that.
+
+	* macfont.m (macfont_draw): Merge changes from Macport.
+
+2014-05-24  Eli Zaretskii  <eliz@gnu.org>
+
+	* alloc.c (garbage_collect_1): New function, with all of the guts
+	of Fgarbage_collect.
+	(mark_stack): Accept an argument END and don't mark Lisp objects
+	on the stack beyond the address given by END.  Calculation of END
+	was moved to Fgarbage_collect.
+	(Fgarbage_collect): Calculate the end address of the stack portion
+	that needs to be examined by mark_stack, and pass that address to
+	garbage_collect_1, which will pass it to mark_stack. See
+	http://lists.gnu.org/archive/html/emacs-devel/2014-05/msg00270.html
+	for more details about the underlying problems.  In particular,
+	this avoids dumping Emacs with the large hash-table whose value is
+	held in purify-flag for most of the time loadup.el runs.
+
+2014-05-24  Jan Djärv  <jan.h.d@swipnet.se>
+
+	* xfns.c (x_window_property_intern): New function (code from
+	x_window_property).
+	(Fx_window_property): Call x_window_property_intern.  If property
+	not found and NILP (source) and outer window != inner window,
+	check outer window for property (Bug#17537).
+
+2014-05-22  Paul Eggert  <eggert@cs.ucla.edu>
+
+	Supply malloc and alloc_size attributes for extern allocators.
+	This documents the C API, and helps GCC generate a bit better code.
+	* conf_post.h (ATTRIBUTE_MALLOC, ATTRIBUTE_ALLOC_SIZE)
+	(ATTRIBUTE_MALLOC_SIZE): New macros.
+	* gmalloc.c (malloc, realloc, calloc):
+	* gtkutil.h (malloc_widget_value):
+	* lisp.h (ralloc, r_re_alloc, xmalloc, xzalloc, xrealloc, xnmalloc)
+	(xnrealloc, xstrdup, xlispstrdup, record_xmalloc):
+	Use them.
+
+2014-05-21  Paul Eggert  <eggert@cs.ucla.edu>
+
+	Don't assume that ImageMagick uses a 16-bit quantum (Bug#17519).
+	* image.c (imagemagick_load_image): Port to hosts that do not use
+	a 16-bit quantum, i.e., QuantumRange does not equal 65535.
+
 2014-05-21  Leo Liu  <sdl.web@gmail.com>
 
 	* fns.c (Fnreverse): Accept strings for SEQ and update doc-string.

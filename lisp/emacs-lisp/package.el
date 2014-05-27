@@ -688,6 +688,7 @@ untar into a directory named DIR; otherwise, signal an error."
           (print-length nil))
       (write-region
        (concat
+        ";;; -*- no-byte-compile: t -*-\n"
         (prin1-to-string
          (nconc
           (list 'define-package
@@ -702,13 +703,24 @@ untar into a directory named DIR; otherwise, signal an error."
                            (list (car elt)
                                  (package-version-join (cadr elt))))
                          requires))))
-          (package--alist-to-plist
-           (package-desc-extras pkg-desc))))
+          (let ((alist (package-desc-extras pkg-desc))
+                flat)
+            (while alist
+              (let* ((pair (pop alist))
+                     (key (car pair))
+                     (val (cdr pair)))
+                ;; Don't bother ‘quote’ing ‘key’; it is always a keyword.
+                (push key flat)
+                (push (if (and (not (consp val))
+                               (or (keywordp val)
+                                   (not (symbolp val))
+                                   (memq val '(nil t))))
+                          val
+                        `',val)
+                      flat)))
+            (nreverse flat))))
         "\n")
        nil pkg-file nil 'silent))))
-
-(defun package--alist-to-plist (alist)
-  (apply #'nconc (mapcar (lambda (pair) (list (car pair) (cdr pair))) alist)))
 
 (defun package-unpack (pkg-desc)
   "Install the contents of the current buffer as a package."
@@ -1254,10 +1266,7 @@ similar to an entry in `package-alist'.  Save the cached copy to
       ;; may fetch a URL redirect page).
       (when (listp (read (current-buffer)))
 	(make-directory dir t)
-	(setq buffer-file-name (expand-file-name file dir))
-	(let ((version-control 'never)
-              (require-final-newline nil))
-	  (save-buffer))))
+        (write-region nil nil (expand-file-name file dir) nil 'silent)))
     (when good-signatures
       ;; Write out good signatures into archive-contents.signed file.
       (write-region (mapconcat #'epg-signature-to-string good-signatures "\n")
@@ -1503,11 +1512,13 @@ If optional arg NO-ACTIVATE is non-nil, don't activate packages."
                      (package--with-work-buffer
                          (package-archive-base desc)
                          (format "%s-readme.txt" name)
-                       (setq buffer-file-name
-                             (expand-file-name readme package-user-dir))
-                       (let ((version-control 'never)
-                             (require-final-newline t))
-                         (save-buffer))
+                       (save-excursion
+                         (goto-char (point-max))
+                         (unless (bolp)
+                           (insert ?\n)))
+                       (write-region nil nil
+                                     (expand-file-name readme package-user-dir)
+                                     nil 'silent)
                        (setq readme-string (buffer-string))
                        t))
 		 (error nil))

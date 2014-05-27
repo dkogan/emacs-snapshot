@@ -88,6 +88,9 @@ to delete or undelete multiple messages.
 *** Calendar can list and mark diary entries with Chinese dates:
 `diary-chinese-list-entries' and `diary-chinese-mark-entries'.
 
+** In sh-mode, you can now use `sh-shell' as a file-local variable to
+specify the type of shell in use (bash, csh, etc).
+
 ** The URL package accepts now the protocols "ssh", "scp" and "rsync".
 When `url-handler-mode' is enabled, file operations for these
 protocols as well as for "telnet" and "ftp" are passed to Tramp.
@@ -1473,7 +1476,6 @@ This is like the old `eval-after-load', but better behaved.
 *** `generic-make-keywords-list'
 *** `get-upcase-table' (use `case-table-get-table' instead).
 
-+++
 ** `with-wrapper-hook' is obsoleted by `add-function'.
 The few hooks that used with-wrapper-hook are replaced as follows:
 *** `abbrev-expand-function' obsoletes `abbrev-expand-functions'.
@@ -4184,6 +4186,7 @@ along with GNU Emacs.  If not, see <http://www.gnu.org/licenses/>.
 
 
 Local variables:
+coding: utf-8
 mode: outline
 paragraph-separate: "[ 	]*$"
 end:

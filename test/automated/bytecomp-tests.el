@@ -318,7 +318,8 @@ Subtests signal errors if something goes wrong."
                (print form (current-buffer)))
              (write-region (point-min) (point-max) elfile))
            (if compile
-               (let ((byte-compile-dest-file elcfile))
+               (let ((byte-compile-dest-file-function
+                      (lambda (e) elcfile)))
                  (byte-compile-file elfile t))
              (load elfile)))
       (when elfile (delete-file elfile))

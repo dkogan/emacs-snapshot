@@ -1,3 +1,7 @@
+2014-05-25  YAMAMOTO Mitsuharu  <mituharu@math.s.chiba-u.ac.jp>
+
+	* mac/uvs.el: New file from Mac port.  Generates src/macuvs.h.
+
 2014-05-17  Paul Eggert  <eggert@cs.ucla.edu>
 
 	Assume C99 or later (Bug#17487).

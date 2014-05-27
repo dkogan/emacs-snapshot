@@ -1,3 +1,27 @@
+2014-05-27  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* indent/ruby.rb: Add one more test.
+
+	* indent/ps-mode.ps: New file.
+
+	* indent/octave.m: Add a few more tests.
+
+	* automated/core-elisp-tests.el
+	(core-elisp-test-window-configurations): New test.
+
+2014-05-26  Glenn Morris  <rgm@gnu.org>
+
+	* automated/package-test.el (package-test-install-single):
+	Update for changed output.
+
+2014-05-22  Glenn Morris  <rgm@gnu.org>
+
+	* automated/bytecomp-tests.el (test-byte-comp-compile-and-load):
+	Fix handling of temporary elc files.
+
+	* automated/fns-tests.el (fns-tests-nreverse):
+	Update for changed string behavior.
+
 2014-05-15  Dmitry Antipov  <dmantipov@yandex.ru>
 
 	* automated/fns-tests.el: New file.
