@@ -1,3 +1,174 @@
+2014-06-01  Juanma Barranquero  <lekktu@gmail.com>
+
+	* callint.c (Ffuncall_interactively): Add usage.
+
+2014-06-01  Jan Djärv  <jan.h.d@swipnet.se>
+
+	* nsfns.m (ns_appkit_version_str): Add os version for Cocoa.
+
+2014-05-30  Eli Zaretskii  <eliz@gnu.org>
+
+	* w32heap.c (malloc_before_dump, malloc_after_dump)
+	(malloc_before_dump, realloc_after_dump, realloc_before_dump)
+	(mmap_alloc, mmap_realloc): Check for errors more thoroughly and
+	set errno where appropriate to emulate CRT functions.
+
+2014-05-30  Dmitry Antipov  <dmantipov@yandex.ru>
+
+	Debugging facility to check whether 'const char *' points to
+	relocatable data of non-pure Lisp string.
+	* alloc.c (maybe_lisp_pointer): New function, refactored out of ...
+	(mark_maybe_pointer): ... adjusted user.
+	(relocatable_string_data_p): New function.
+	* lisp.h (relocatable_string_data_p): Add prototype.
+	* xdisp.c (message_with_string): If ENABLE_CHECKING, make sure
+	the pointer to relocatable Lisp data is not used.
+
+2014-05-30  Paul Eggert  <eggert@cs.ucla.edu>
+
+	Don't let SIGINT handling block SIGCHLD indefinitely (Bug#17561).
+	* atimer.c (block_atimers):
+	* callproc.c (block_child_signal): Block SIGINT too;
+	otherwise, its handler might now unblock signals that it shouldn't.
+	* keyboard.c (read_char): Clear signal mask, since we may
+	be in a SIGINT handler, and many signals may be masked.
+	* keyboard.c (handle_interrupt):
+	* sysdep.c (handle_arith_signal):
+	Clear signal mask instead of just unblocking the signal that
+	was received, since several signals may be blocked at this point.
+
+2014-05-29  Eli Zaretskii  <eliz@gnu.org>
+
+	* Makefile.in (TEMACS_POST_LINK): Remove target.
+	(emacs$(EXEEXT)): Remove $(ADDSECTION) from prerequisites.
+	(temacs$(EXEEXT)): Remove $(TEMACS_POST_LINK) from the recipe.
+
+2014-05-29  Dmitry Antipov  <dmantipov@yandex.ru>
+
+	* xmenu.c (xdialog_show): Remove prototype, rename to
+	x_dialog_show, remove 2nd arg because it's always zero
+	and simplify accordingly.
+	(xw_popup_dialog): Adjust user.
+	* w32menu.c (w32_dialog_show): Adjust prototype, remove
+	2nd arg because it's always zero and simplify accordingly.
+	(w32_popup_dialog): Adjust user.
+
+2014-05-29  Eli Zaretskii  <eliz@gnu.org>
+
+	* w32heap.c (report_temacs_memory_usage): New function.
+
+	* unexw32.c (unexec) [ENABLE_CHECKING]: Call
+	report_temacs_memory_usage.
+
+	* w32heap.h (report_temacs_memory_usage): Add prototype.
+
+2014-05-29  Paul Eggert  <eggert@cs.ucla.edu>
+
+	Don't substitute sigprocmask for pthread_sigmask (Bug#17561).
+	* Makefile.in (LIB_PTHREAD_SIGMASK): Remove; all uses removed.
+
+2014-05-29  Eli Zaretskii  <eliz@gnu.org>
+
+	* buffer.c (init_buffer): Accept an argument 'initialized'.
+	[USE_MMAP_FOR_BUFFERS]: If 'initialized' is non-zero, reset
+	mmap_regions and mmap_fd, to avoid referencing stale data from the
+	dump phase.  Add an assertion for buffer text of buffers created
+	in temacs before this function is called.  (Bug#17622)
+	(mmap_regions_1, mmap_fd_1): Remove unused variables.
+
+	* lisp.h (init_buffer): Update prototype.
+
+	* emacs.c (main): Pass 'initialized' as the argument to init_buffer.
+
+2014-05-29  Dmitry Antipov  <dmantipov@yandex.ru>
+
+	* alloc.c (Fgarbage_collect): Fix compilation with
+	GC_MARK_STACK == GC_USE_GCPROS_AS_BEFORE.
+
+2014-05-29  Paul Eggert  <eggert@cs.ucla.edu>
+
+	* frame.c, frame.h (frame_char_to_pixel_position)
+	(frame_set_mouse_position): Now static, and made private in
+	frame.c rather than public in frame.h.
+
+2014-05-28  Dmitry Antipov  <dmantipov@yandex.ru>
+
+	Refactor mouse positioning stuff to avoid code duplication.
+	* frame.h (frame_char_to_pixel_position): New function.
+	(x_set_mouse_position): Rename to...
+	(frame_set_mouse_position): ...new function.
+	(frame_set_mouse_pixel_position): Add prototype.
+	* nsterm.m, w32term.c, xterm.c (x_set_mouse_pixel_position):
+	Rename to frame_set_mouse_pixel_position.
+	* frame.c (Fset_mouse_pixel_position, Fset_mouse_position):
+	Adjust users.
+	* xterm.h, w32term.h ( x_set_mouse_position)
+	(x_set_mouse_pixel_position): Remove prototypes.
+
+2014-05-28  Dmitry Antipov  <dmantipov@yandex.ru>
+
+	On X, always make pointer visible when deleting frame (Bug#17609).
+	* frame.c (frame_make_pointer_visible, frame_make_pointer_invisible):
+	Pass frame as arg.
+	* frame.h (frame_make_pointer_visible, frame_make_pointer_invisible):
+	Adjust prototypes.
+	* cmds.c (Fself_insert_command): Use SELECTED_FRAME.
+	* keyboard.c (gobble_input): If there is no terminal input error,
+	make sure the pointer is visible for all frames on this terminal.
+	* xterm.c (x_free_frame_resources): Enable pointer visibility if
+	it was previously disabled.
+
+2014-05-28  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* data.c (Fzerop): Move to Elisp.
+	(syms_of_data): Don't defsubr it.
+	* keyboard.c (echo_keystrokes_p): New function.
+	(read_char, record_menu_key, read_key_sequence): Use it.
+
+	* callint.c (Qfuncall_interactively): New var.
+	(Qcall_interactively): Remove.
+	(Ffuncall_interactively): New function.
+	(Fcall_interactively): Use it.
+	(syms_of_callint): Defsubr it.
+
+2014-05-27  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* bytecode.c (FETCH) [BYTE_CODE_SAFE]: Check the bytecode wasn't
+	relocated from under us.
+
+2014-05-27  Fabrice Popineau  <fabrice.popineau@gmail.com>
+
+	Use mmap(2) emulation for allocating buffer text on MS-Windows.
+	* Makefile.in (C_HEAP_SWITCH): Get the predefined heap size from
+	configure.
+	(ADDSECTION, MINGW_TEMACS_POST_LINK): Remove, no longer used.
+
+	* lisp.h (NONPOINTER_BITS): Modify the condition to define to zero
+	for MinGW, since it no longer uses gmalloc.
+
+	* buffer.c: Do not define mmap allocations functions for Windows.
+	Remove mmap_find which is unused. Remove mmap_set_vars which does
+	nothing useful.
+	[WINDOWSNT]: Include w32heap.h.
+	(init_buffer): Always allocate new memory for buffers.
+
+	* emacs.c: Remove mmap_set_vars calls.
+
+	* image.c (free_image): Undef free for Windows because it is
+	redirected to our private version.
+
+	* unexw32.c (COPY_PROC_CHUNK): Use %p format for 64bits
+	compatibility.
+	(copy_executable_and_dump_data): Remove dumping the heap section.
+	(unexec): Restore using_dynamic_heap after dumping.
+
+	* w32heap.c (dumped_data_commit, malloc_after_dump)
+	(malloc_before_dump, realloc_after_dump, realloc_before_dump)
+	(free_after_dump, free_before_dump, mmap_alloc, mmap_realloc)
+	(mmap_free): New functions.
+
+	* w32heap.h: Declare dumped_data and mmap_* function prototypes.
+
 2014-05-27  Paul Eggert  <eggert@cs.ucla.edu>
 
 	* image.c (imagemagick_load_image): Use MagickRealType for local
@@ -323,8 +494,8 @@
 
 	* term.c (tty_menu_display): Move the cursor to the active menu item.
 	(tty_menu_activate): Return the cursor to the active menu item
-	after displaying the menu and after displaying help-echo.  See
-	http://lists.gnu.org/archive/html/emacs-devel/2014-04/msg00402.html
+	after displaying the menu and after displaying help-echo.
+	See http://lists.gnu.org/archive/html/emacs-devel/2014-04/msg00402.html
 	for the details of why this is needed by screen readers and
 	Braille displays.
 
@@ -443,8 +614,8 @@
 
 2014-04-17  Daniel Colascione  <dancol@dancol.org>
 
-	* term.c (Qtty_mode_set_strings, Qtty_mode_reset_strings): New
-	symbols.
+	* term.c (Qtty_mode_set_strings, Qtty_mode_reset_strings):
+	New symbols.
 	(tty_send_additional_strings): New function.
 	(tty_set_terminal_modes, tty_reset_terminal_modes): Use it.
 	(syms_of_term): Intern tty-mode-set-strings and

@@ -1,3 +1,109 @@
+2014-06-01  Glenn Morris  <rgm@gnu.org>
+
+	* loadup.el (load-prefer-newer): Set non-nil when dumping.  (Bug#17629)
+
+2014-05-31  Glenn Morris  <rgm@gnu.org>
+
+	* files.el (locate-dominating-file): Expand file argument.  (Bug#17641)
+
+2014-05-30  Glenn Morris  <rgm@gnu.org>
+
+	* loadup.el: Treat `command-line-args' more flexibly.
+
+2014-05-30  Alan Mackenzie  <acm@muc.de>
+
+	Guard (looking-at "\\s!") from XEmacs.
+	* progmodes/cc-engine.el (c-state-pp-to-literal): add guard form.
+
+2014-05-30    Ken Olum  <kdo@cosmos.phy.tufts.edu>  (tiny change)
+
+	* mail/rmail.el (rmail-delete-forward, rmail-delete-backward): The
+	argument COUNT is now optional, to be more backward-compatible.
+	Doc fix.  (Bug#17560)
+
+2014-05-29  Reuben Thomas  <rrt@sc3d.org>
+
+	* whitespace.el (whitespace-report-region): Simplify
+	documentation.
+	(whitespace-report-region): Allow report-if-bogus to take the
+	value `never', for non-interactive use.
+	(whitespace-report): Refer to whitespace-report-region's
+	documentation.
+
+2014-05-29  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* whitespace.el: Use font-lock-flush.  Minimize refontifications.
+	Side benefit: it works without jit-lock.
+	(whitespace-point--used): New buffer-local var.
+	(whitespace-color-on): Initialize it and flush it.  Use font-lock-flush.
+	(whitespace-color-off): Use font-lock-flush.
+	(whitespace-point--used, whitespace-point--flush-used): New functions.
+	(whitespace-trailing-regexp, whitespace-empty-at-bob-regexp)
+	(whitespace-empty-at-eob-regexp): Use them.
+	(whitespace-post-command-hook): Rewrite.
+
+	* font-lock.el (font-lock-flush, font-lock-ensure): New functions.
+	(font-lock-fontify-buffer): Mark interactive-only.
+	(font-lock-multiline, font-lock-fontified, font-lock-set-defaults):
+	Make buffer-local.
+	(font-lock-specified-p): Remove redundant boundp check.
+	(font-lock-flush-function, font-lock-ensure-function): New vars.
+	(font-lock-turn-on-thing-lock): Set them.
+	(font-lock-default-fontify-buffer): Obey font-lock-dont-widen.
+	(font-lock-after-change-function): Make `old-len' optional.
+	(font-lock-set-defaults): Remove redundant `set' of font-lock-defaults.
+	Call font-lock-flush, just in case.
+	* progmodes/verilog-mode.el (verilog-preprocess): Disable workaround in
+	recent Emacsen.
+	* progmodes/vera-mode.el (vera-fontify-buffer): Declare obsolete.
+	(vera-mode-map, vera-mode-menu): Remove bindings to it.
+	* progmodes/idlw-help.el (idlwave-help-fontify): Use font-lock-ensure
+	and with-syntax-table.
+	* textmodes/conf-mode.el (conf-quote-normal):
+	* progmodes/sh-script.el (sh-set-shell):
+	* progmodes/prog-mode.el (prettify-symbols-mode):
+	* progmodes/f90.el (f90-font-lock-n):
+	* progmodes/cwarn.el (cwarn-mode):
+	* nxml/nxml-mode.el (nxml-toggle-char-ref-extra-display):
+	* progmodes/compile.el (compilation-setup, compilation--unsetup):
+	* hi-lock.el (hi-lock-mode, hi-lock-unface-buffer)
+	(hi-lock-set-pattern, hi-lock-set-file-patterns): Use font-lock-flush.
+	* mail/rmail.el (rmail-variables): Set font-lock-dont-widen instead of
+	font-lock-fontify-buffer-function and
+	font-lock-unfontify-buffer-function.
+	(rmail-unfontify-buffer-function, rmail-fontify-message):
+	Use with-silent-modifications.
+	* htmlfontify.el (hfy-force-fontification): Use jit-lock-fontify-now
+	and font-lock-ensure.
+	* bs.el (bs-show-in-buffer): Use font-lock-ensure.
+
+2014-05-28  Thien-Thi Nguyen  <ttn@gnu.org>
+
+	* emacs-lisp/package.el (package-generate-autoloads):
+	Inhibit backup files.
+
+2014-05-28  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* progmodes/hideshow.el (hs-hide-all): Call syntax-propertize
+	(bug#17608).
+
+2014-05-21  Michal Nazarewicz  <mina86@mina86.com>
+
+	* textmodes/tildify.el (tildify-buffer, tildify-region):
+	Add dont-ask option.
+
+2014-05-28  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* subr.el (zerop): Move from C.  Add compiler-macro (bug#17475).
+	* emacs-lisp/byte-opt.el (byte-optimize-zerop): Remove.
+
+	* subr.el (internal--funcall-interactively): New.
+	(internal--call-interactively): Remove.
+	(called-interactively-p): Detect funcall-interactively instead of
+	call-interactively.
+	* simple.el (repeat-complex-command): Use funcall-interactively.
+	(repeat-complex-command--called-interactively-skip): Remove.
+
 2014-05-27  Stefan Monnier  <monnier@iro.umontreal.ca>
 
 	* register.el (register-read-with-preview): Don't burp on

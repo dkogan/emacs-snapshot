@@ -1,3 +1,19 @@
+2014-05-29  Eli Zaretskii  <eliz@gnu.org>
+
+	* Makefile.in (DONT_INSTALL): Now empty.
+	(addsection${EXEEXT}): Remove target.
+
+	* addsection.c: File removed.
+
+2014-05-27  Fabrice Popineau  <fabrice.popineau@gmail.com>
+
+	* inc/ms-w32.h: Switch to the system heap allocation scheme
+	instead of GNU malloc and ralloc.
+
+	* inc/sys/mman.h: New file.
+
+	* INSTALL: Update for the new build requirements.
+
 2014-05-17  Paul Eggert  <eggert@cs.ucla.edu>
 
 	Assume C99 or later (Bug#17487).

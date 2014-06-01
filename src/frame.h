@@ -995,8 +995,8 @@ extern struct frame *make_frame_without_minibuffer (Lisp_Object,
 #endif /* HAVE_WINDOW_SYSTEM */
 extern bool window_system_available (struct frame *);
 extern void check_window_system (struct frame *);
-extern void frame_make_pointer_invisible (void);
-extern void frame_make_pointer_visible (void);
+extern void frame_make_pointer_invisible (struct frame *);
+extern void frame_make_pointer_visible (struct frame *);
 extern Lisp_Object delete_frame (Lisp_Object, Lisp_Object);
 
 extern Lisp_Object Vframe_list;
@@ -1313,8 +1313,7 @@ extern void set_frame_menubar (struct frame *f, bool first_time, bool deep_p);
 extern void x_set_window_size (struct frame *f, int change_grav,
 			       int width, int height, bool pixelwise);
 extern Lisp_Object x_get_focus_frame (struct frame *);
-extern void x_set_mouse_position (struct frame *f, int h, int v);
-extern void x_set_mouse_pixel_position (struct frame *f, int pix_x, int pix_y);
+extern void frame_set_mouse_pixel_position (struct frame *f, int pix_x, int pix_y);
 extern void x_make_frame_visible (struct frame *f);
 extern void x_make_frame_invisible (struct frame *f);
 extern void x_iconify_frame (struct frame *f);
@@ -1354,7 +1353,6 @@ x_set_bitmap_icon (struct frame *f)
 }
 
 #endif /* !HAVE_NS */
-
 #endif /* HAVE_WINDOW_SYSTEM */
 
 INLINE void

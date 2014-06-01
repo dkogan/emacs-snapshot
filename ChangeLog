@@ -1,3 +1,33 @@
+2014-05-29  Paul Eggert  <eggert@cs.ucla.edu>
+
+	* configure.ac (pthread_sigmask): Look in LIB_PTHREAD too (Bug#17561).
+	Fixes configuration glitch found in <http://bugs.gnu.org/17561#59>.
+
+2014-05-29  Eli Zaretskii  <eliz@gnu.org>
+
+	* configure.ac (ADDSECTION, TEMACS_POST_LINK): Don't compute,
+	unused.
+
+2014-05-29  Paul Eggert  <eggert@cs.ucla.edu>
+
+	Don't substitute sigprocmask for pthread_sigmask (Bug#17561).
+	sigprocmask isn't portable in a multithreaded process.
+	* configure.ac (gl_THREADLIB): Remove dummy.
+	Merge from gnulib, incorporating:
+	2014-05-28 pthread_sigmask, timer-time: use gl_THREADLIB only if needed
+	* m4/pthread_sigmask.m4, m4/timer_time.m4: Update from gnulib.
+
+2014-05-29  Glenn Morris  <rgm@gnu.org>
+
+	* configure.ac: Explicitly drop some ancient Solaris versions.
+
+2014-05-27  Fabrice Popineau  <fabrice.popineau@gmail.com>
+
+	* configure.ac (C_HEAP_SWITCH) define for different values of
+	dumped heap size depending on 32/64bits arch on Windows.
+	Don't check for pthreads.h on MinGW32/64, it gets in the way.
+	Use mmap(2) for buffers and system malloc for MinGW32/64.
+
 2014-05-27  Paul Eggert  <eggert@cs.ucla.edu>
 
 	Merge from gnulib, incorporating:

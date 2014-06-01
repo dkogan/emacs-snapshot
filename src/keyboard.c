@@ -2376,6 +2376,13 @@ read_decoded_event_from_main_queue (struct timespec *end_time,
     }
 }
 
+static bool
+echo_keystrokes_p (void)
+{
+  return (FLOATP (Vecho_keystrokes) ? XFLOAT_DATA (Vecho_keystrokes) > 0.0
+	  : INTEGERP (Vecho_keystrokes) ? XINT (Vecho_keystrokes) > 0 : false);
+}
+
 /* Read a character from the keyboard; call the redisplay if needed.  */
 /* commandflag 0 means do not autosave, but do redisplay.
    -1 means do not redisplay, but do autosave.
@@ -2657,6 +2664,7 @@ read_char (int commandflag, Lisp_Object map,
       /* We must have saved the outer value of getcjmp here,
 	 so restore it now.  */
       restore_getcjmp (save_jump);
+      pthread_sigmask (SIG_SETMASK, &empty_mask, 0);
       unbind_to (jmpcount, Qnil);
       XSETINT (c, quit_char);
       internal_last_event_frame = selected_frame;
@@ -2711,8 +2719,7 @@ read_char (int commandflag, Lisp_Object map,
       && !current_kboard->immediate_echo
       && this_command_key_count > 0
       && ! noninteractive
-      && (FLOATP (Vecho_keystrokes) || INTEGERP (Vecho_keystrokes))
-      && NILP (Fzerop (Vecho_keystrokes))
+      && echo_keystrokes_p ()
       && (/* No message.  */
 	  NILP (echo_area_buffer[0])
 	  /* Or empty message.  */
@@ -3173,8 +3180,7 @@ read_char (int commandflag, Lisp_Object map,
     {
 
       /* Don't echo mouse motion events.  */
-      if ((FLOATP (Vecho_keystrokes) || INTEGERP (Vecho_keystrokes))
-	  && NILP (Fzerop (Vecho_keystrokes))
+      if (echo_keystrokes_p ()
 	  && ! (EVENT_HAS_PARAMETERS (c)
 		&& EQ (EVENT_HEAD_KIND (EVENT_HEAD (c)), Qmouse_movement)))
 	{
@@ -3250,8 +3256,7 @@ record_menu_key (Lisp_Object c)
 #endif
 
   /* Don't echo mouse motion events.  */
-  if ((FLOATP (Vecho_keystrokes) || INTEGERP (Vecho_keystrokes))
-      && NILP (Fzerop (Vecho_keystrokes)))
+  if (echo_keystrokes_p ())
     {
       echo_char (c);
 
@@ -6873,6 +6878,20 @@ gobble_input (void)
 	      }
             }
 
+	  /* If there was no error, make sure the pointer
+	     is visible for all frames on this terminal.  */
+	  if (nr >= 0)
+	    {
+	      Lisp_Object tail, frame;
+
+	      FOR_EACH_FRAME (tail, frame)
+		{
+		  struct frame *f = XFRAME (frame);
+		  if (FRAME_TERMINAL (f) == t)
+		    frame_make_pointer_visible (f);
+		}
+	    }
+
           if (hold_quit.kind != NO_EVENT)
             kbd_buffer_store_event (&hold_quit);
         }
@@ -6882,8 +6901,6 @@ gobble_input (void)
 
   if (err && !nread)
     nread = -1;
-
-  frame_make_pointer_visible ();
 
   return nread;
 }
@@ -8931,8 +8948,7 @@ read_key_sequence (Lisp_Object *keybuf, int bufsize, Lisp_Object prompt,
 	  echo_now ();
 	}
       else if (cursor_in_echo_area
-	       && (FLOATP (Vecho_keystrokes) || INTEGERP (Vecho_keystrokes))
-	       && NILP (Fzerop (Vecho_keystrokes)))
+	       && echo_keystrokes_p ())
 	/* This doesn't put in a dash if the echo buffer is empty, so
 	   you don't always see a dash hanging out in the minibuffer.  */
 	echo_dash ();
@@ -9064,8 +9080,7 @@ read_key_sequence (Lisp_Object *keybuf, int bufsize, Lisp_Object prompt,
 	{
 	  key = keybuf[t];
 	  add_command_key (key);
-	  if ((FLOATP (Vecho_keystrokes) || INTEGERP (Vecho_keystrokes))
-	      && NILP (Fzerop (Vecho_keystrokes))
+	  if (echo_keystrokes_p ()
 	      && current_kboard->immediate_echo)
 	    {
 	      echo_add_key (key);
@@ -9729,8 +9744,7 @@ read_key_sequence (Lisp_Object *keybuf, int bufsize, Lisp_Object prompt,
      Better ideas?  */
   for (; t < mock_input; t++)
     {
-      if ((FLOATP (Vecho_keystrokes) || INTEGERP (Vecho_keystrokes))
-	  && NILP (Fzerop (Vecho_keystrokes)))
+      if (echo_keystrokes_p ())
 	echo_char (keybuf[t]);
       add_command_key (keybuf[t]);
     }
@@ -10310,9 +10324,6 @@ static void
 handle_interrupt (bool in_signal_handler)
 {
   char c;
-  sigset_t blocked;
-  sigemptyset (&blocked);
-  sigaddset (&blocked, SIGINT);
 
   cancel_echoing ();
 
@@ -10324,6 +10335,9 @@ handle_interrupt (bool in_signal_handler)
 	  /* If SIGINT isn't blocked, don't let us be interrupted by
 	     a SIGINT.  It might be harmful due to non-reentrancy
 	     in I/O functions.  */
+	  sigset_t blocked;
+	  sigemptyset (&blocked);
+	  sigaddset (&blocked, SIGINT);
 	  pthread_sigmask (SIG_BLOCK, &blocked, 0);
 	}
 
@@ -10408,7 +10422,7 @@ handle_interrupt (bool in_signal_handler)
 	  struct gcpro gcpro1, gcpro2, gcpro3, gcpro4;
 
 	  immediate_quit = 0;
-	  pthread_sigmask (SIG_UNBLOCK, &blocked, 0);
+	  pthread_sigmask (SIG_SETMASK, &empty_mask, 0);
 	  saved = gl_state;
 	  GCPRO4 (saved.object, saved.global_code,
 		  saved.current_syntax_table, saved.old_prop);
@@ -10429,7 +10443,7 @@ handle_interrupt (bool in_signal_handler)
         }
     }
 
-  pthread_sigmask (SIG_UNBLOCK, &blocked, 0);
+  pthread_sigmask (SIG_SETMASK, &empty_mask, 0);
 
 /* TODO: The longjmp in this call throws the NS event loop integration off,
          and it seems to do fine without this.  Probably some attention

@@ -72,7 +72,7 @@ DEFINE_GDB_SYMBOL_END (GCTYPEBITS)
    2.  We know malloc returns a multiple of 8.  */
 #if (defined alignas \
      && (defined GNU_MALLOC || defined DOUG_LEA_MALLOC || defined __GLIBC__ \
-	 || defined DARWIN_OS || defined __sun))
+	 || defined DARWIN_OS || defined __sun || defined __MINGW32__))
 # define NONPOINTER_BITS 0
 #else
 # define NONPOINTER_BITS GCTYPEBITS
@@ -3747,6 +3747,7 @@ extern void init_alloc (void);
 extern void syms_of_alloc (void);
 extern struct buffer * allocate_buffer (void);
 extern int valid_lisp_object_p (Lisp_Object);
+extern int relocatable_string_data_p (const char *);
 #ifdef GC_CHECK_CONS_LIST
 extern void check_cons_list (void);
 #else
@@ -3951,7 +3952,7 @@ extern bool overlay_touches_p (ptrdiff_t);
 extern Lisp_Object other_buffer_safely (Lisp_Object);
 extern Lisp_Object get_truename_buffer (Lisp_Object);
 extern void init_buffer_once (void);
-extern void init_buffer (void);
+extern void init_buffer (int);
 extern void syms_of_buffer (void);
 extern void keys_of_buffer (void);
 

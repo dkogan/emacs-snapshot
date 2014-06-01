@@ -576,10 +576,13 @@ case "${canonical}" in
 		opsys=sol2-10
 		emacs_check_sunpro_c=yes
 		;;
+      *-sunos5.[1-5]* | *-solaris2.[1-5]* ) unported=yes ;;
+      ## Note that Emacs 23.1's NEWS said the following would be dropped.
       *-sunos5.6* | *-solaris2.6* )
 		opsys=sol2-6
 		RANLIB="ar -ts"
 		;;
+      ## 5.7 EOL Aug 2008, 5.8 EOL Mar 2012.
       *-sunos5.[7-9]* | *-solaris2.[7-9]* )
 		opsys=sol2-6
 		emacs_check_sunpro_c=yes
@@ -701,8 +704,6 @@ AC_DEFUN([gl_CRYPTO_CHECK])
 # Avoid gnulib's tests for HAVE_WORKING_O_NOATIME and HAVE_WORKING_O_NOFOLLOW,
 # as we don't use them.
 AC_DEFUN([gl_FCNTL_O_FLAGS])
-# Avoid gnulib's threadlib module, as we do threads our own way.
-AC_DEFUN([gl_THREADLIB])
 
 # Initialize gnulib right after choosing the compiler.
 dnl Amongst other things, this sets AR and ARFLAGS.
@@ -1973,7 +1974,7 @@ doug_lea_malloc=$emacs_cv_var_doug_lea_malloc
 system_malloc=$emacs_cv_sanitize_address
 case "$opsys" in
   ## darwin ld insists on the use of malloc routines in the System framework.
-  darwin|sol2-10) system_malloc=yes ;;
+  darwin|mingw32|sol2-10) system_malloc=yes ;;
 esac
 
 GMALLOC_OBJ=
@@ -2020,7 +2021,7 @@ if test "$doug_lea_malloc" = "yes" ; then
   ## #ifdef DOUG_LEA_MALLOC; #undef REL_ALLOC; #endif
   ## Does the AC_FUNC_MMAP test below make this check unnecessary?
   case "$opsys" in
-    gnu*) REL_ALLOC=no ;;
+    mingw32|gnu*) REL_ALLOC=no ;;
   esac
 fi
 
@@ -2030,7 +2031,7 @@ fi
 
 use_mmap_for_buffers=no
 case "$opsys" in
-  cygwin|freebsd|irix6-5) use_mmap_for_buffers=yes ;;
+  cygwin|mingw32|freebsd|irix6-5) use_mmap_for_buffers=yes ;;
 esac
 
 AC_FUNC_MMAP
@@ -2046,6 +2047,7 @@ AC_CHECK_LIB(Xbsd, main, LD_SWITCH_X_SITE="$LD_SWITCH_X_SITE -lXbsd")
 
 dnl Check for the POSIX thread library.
 LIB_PTHREAD=
+if test "$opsys" != "mingw32"; then
 AC_CHECK_HEADERS_ONCE(pthread.h)
 if test "$ac_cv_header_pthread_h"; then
   dnl gmalloc.c uses pthread_atfork, which is not available on older-style
@@ -2066,6 +2068,7 @@ if test "$ac_cv_header_pthread_h"; then
   LIBS=$OLD_LIBS
 fi
 AC_SUBST([LIB_PTHREAD])
+fi
 
 dnl Check for need for bigtoc support on IBM AIX
 
@@ -3467,13 +3470,13 @@ esac
 AC_SUBST(BLESSMAIL_TARGET)
 
 OLD_LIBS=$LIBS
-LIBS="$LIB_MATH $LIBS"
+LIBS="$LIB_PTHREAD $LIB_MATH $LIBS"
 AC_CHECK_FUNCS(accept4 gethostname \
 getrusage get_current_dir_name \
 lrand48 random rint \
 select getpagesize setlocale \
 getrlimit setrlimit shutdown getaddrinfo \
-strsignal setitimer \
+pthread_sigmask strsignal setitimer \
 sendto recvfrom getsockname getpeername getifaddrs freeifaddrs \
 gai_strerror sync \
 getpwent endpwent getgrent endgrent \
@@ -3822,14 +3825,6 @@ dnl Fixme: Not used.  Should this be HAVE_SOCKETS?
   AC_DEFINE(HAVE_INET_SOCKETS, 1,
 	    [Define to 1 if you have inet sockets.])
 fi
-
-dnl Check for a Solaris 2.4 vfork bug that Autoconf misses (through 2.69).
-dnl This can be removed once we assume Autoconf 2.70.
-case $canonical in
-  *-solaris2.4 | *-solaris2.4.*)
-    dnl Disable the Autoconf-generated vfork test.
-    : ${ac_cv_func_vfork_works=no};;
-esac
 
 AC_FUNC_FORK
 
@@ -4817,11 +4812,9 @@ case "$opsys" in
   gnu*) LD_SWITCH_SYSTEM_TEMACS="\$(LD_SWITCH_X_SITE_RPATH)" ;;
 
   mingw32)
-   ## MinGW64 does not prepend an underscore to symbols, so we must
-   ## pass a different -entry switch to linker.  FIXME: It is better
-   ## to make the entry points the same by changing unexw32.c.
+   ## Is it any better under MinGW64 to relocate emacs into higher addresses?
    case "$canonical" in
-     x86_64-*-*) LD_SWITCH_SYSTEM_TEMACS="-Wl,-stack,0x00800000 -Wl,-heap,0x00100000 -Wl,-image-base,0x01000000 -Wl,-entry,__start -Wl,-Map,./temacs.map" ;;
+     x86_64-*-*) LD_SWITCH_SYSTEM_TEMACS="-Wl,-stack,0x00800000 -Wl,-heap,0x00100000 -Wl,-image-base,0x400000000 -Wl,-entry,__start -Wl,-Map,./temacs.map" ;;
      *) LD_SWITCH_SYSTEM_TEMACS="-Wl,-stack,0x00800000 -Wl,-heap,0x00100000 -Wl,-image-base,0x01000000 -Wl,-entry,__start -Wl,-Map,./temacs.map" ;;
    esac
    ;;
@@ -4842,23 +4835,17 @@ LD_SWITCH_SYSTEM_TEMACS="$LDFLAGS_NOCOMBRELOC $LD_SWITCH_SYSTEM_TEMACS"
 
 AC_SUBST(LD_SWITCH_SYSTEM_TEMACS)
 
-## MinGW-specific post-link processing of temacs.
-TEMACS_POST_LINK=":"
-ADDSECTION=
-EMACS_HEAPSIZE=
+## MinGW-specific compilation switch.
+C_HEAP_SWITCH=
 if test "${opsys}" = "mingw32"; then
-  TEMACS_POST_LINK="\$(MINGW_TEMACS_POST_LINK)"
-  ADDSECTION="../nt/addsection\$(EXEEXT)"
   ## Preload heap size of temacs.exe in MB.
   case "$canonical" in
-    x86_64-*-*) EMACS_HEAPSIZE=42 ;;
-    *) EMACS_HEAPSIZE=27 ;;
+    x86_64-*-*) C_HEAP_SWITCH="-DHEAPSIZE=18" ;;
+    *) C_HEAP_SWITCH="-DHEAPSIZE=10" ;;
   esac
 fi
 
-AC_SUBST(ADDSECTION)
-AC_SUBST(TEMACS_POST_LINK)
-AC_SUBST(EMACS_HEAPSIZE)
+AC_SUBST(C_HEAP_SWITCH)
 
 ## Common for all window systems
 if test "$window_system" != "none"; then

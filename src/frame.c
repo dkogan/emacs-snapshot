@@ -1593,6 +1593,42 @@ and nil for X and Y.  */)
   return Fcons (lispy_dummy, Fcons (x, y));
 }
 
+#ifdef HAVE_WINDOW_SYSTEM
+
+/* On frame F, convert character coordinates X and Y to pixel
+   coordinates *PIX_X and *PIX_Y.  */
+
+static void
+frame_char_to_pixel_position (struct frame *f, int x, int y,
+			      int *pix_x, int *pix_y)
+{
+  *pix_x = FRAME_COL_TO_PIXEL_X (f, x) + FRAME_COLUMN_WIDTH (f) / 2;
+  *pix_y = FRAME_LINE_TO_PIXEL_Y (f, y) + FRAME_LINE_HEIGHT (f) / 2;
+
+  if (*pix_x < 0)
+    *pix_x = 0;
+  if (*pix_x > FRAME_PIXEL_WIDTH (f))
+    *pix_x = FRAME_PIXEL_WIDTH (f);
+
+  if (*pix_y < 0)
+    *pix_y = 0;
+  if (*pix_y > FRAME_PIXEL_HEIGHT (f))
+    *pix_y = FRAME_PIXEL_HEIGHT (f);
+}
+
+/* On frame F, reposition mouse pointer to character coordinates X and Y.  */
+
+static void
+frame_set_mouse_position (struct frame *f, int x, int y)
+{
+  int pix_x, pix_y;
+
+  frame_char_to_pixel_position (f, x, y, &pix_x, &pix_y);
+  frame_set_mouse_pixel_position (f, pix_x, pix_y);
+}
+
+#endif /* HAVE_WINDOW_SYSTEM */
+
 DEFUN ("set-mouse-position", Fset_mouse_position, Sset_mouse_position, 3, 3, 0,
        doc: /* Move the mouse pointer to the center of character cell (X,Y) in FRAME.
 Coordinates are relative to the frame, not a window,
@@ -1617,7 +1653,7 @@ before calling this function on it, like this.
 #ifdef HAVE_WINDOW_SYSTEM
   if (FRAME_WINDOW_P (XFRAME (frame)))
     /* Warping the mouse will cause enternotify and focus events.  */
-    x_set_mouse_position (XFRAME (frame), XINT (x), XINT (y));
+    frame_set_mouse_position (XFRAME (frame), XINT (x), XINT (y));
 #else
 #if defined (MSDOS)
   if (FRAME_MSDOS_P (XFRAME (frame)))
@@ -1658,7 +1694,7 @@ before calling this function on it, like this.
 #ifdef HAVE_WINDOW_SYSTEM
   if (FRAME_WINDOW_P (XFRAME (frame)))
     /* Warping the mouse will cause enternotify and focus events.  */
-    x_set_mouse_pixel_position (XFRAME (frame), XINT (x), XINT (y));
+    frame_set_mouse_pixel_position (XFRAME (frame), XINT (x), XINT (y));
 #else
 #if defined (MSDOS)
   if (FRAME_MSDOS_P (XFRAME (frame)))
@@ -4373,16 +4409,11 @@ x_figure_window_size (struct frame *f, Lisp_Object parms, bool toolbar_p)
 #endif /* HAVE_WINDOW_SYSTEM */
 
 void
-frame_make_pointer_invisible (void)
+frame_make_pointer_invisible (struct frame *f)
 {
   if (! NILP (Vmake_pointer_invisible))
     {
-      struct frame *f;
-      if (!FRAMEP (selected_frame) || !FRAME_LIVE_P (XFRAME (selected_frame)))
-        return;
-
-      f = SELECTED_FRAME ();
-      if (f && !f->pointer_invisible
+      if (f && FRAME_LIVE_P (f) && !f->pointer_invisible
           && FRAME_TERMINAL (f)->toggle_invisible_pointer_hook)
         {
           f->mouse_moved = 0;
@@ -4393,17 +4424,11 @@ frame_make_pointer_invisible (void)
 }
 
 void
-frame_make_pointer_visible (void)
+frame_make_pointer_visible (struct frame *f)
 {
   /* We don't check Vmake_pointer_invisible here in case the
      pointer was invisible when Vmake_pointer_invisible was set to nil.  */
-  struct frame *f;
-
-  if (!FRAMEP (selected_frame) || !FRAME_LIVE_P (XFRAME (selected_frame)))
-    return;
-
-  f = SELECTED_FRAME ();
-  if (f && f->pointer_invisible && f->mouse_moved
+  if (f && FRAME_LIVE_P (f) && f->pointer_invisible && f->mouse_moved
       && FRAME_TERMINAL (f)->toggle_invisible_pointer_hook)
     {
       FRAME_TERMINAL (f)->toggle_invisible_pointer_hook (f, 0);

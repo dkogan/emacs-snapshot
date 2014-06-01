@@ -334,6 +334,7 @@ Any list whose car is `frame-configuration' is assumed to be a frame
 configuration."
   (and (consp object)
        (eq (car object) 'frame-configuration)))
+
 
 ;;;; List functions.
 
@@ -381,6 +382,13 @@ If N is omitted or nil, remove the last element."
 	 (progn
 	   (if (> n 0) (setcdr (nthcdr (- (1- m) n) list) nil))
 	   list))))
+
+(defun zerop (number)
+  "Return t if NUMBER is zero."
+  ;; Used to be in C, but it's pointless since (= 0 n) is faster anyway because
+  ;; = has a byte-code.
+  (declare (compiler-macro (lambda (_) `(= 0 ,number))))
+  (= 0 number))
 
 (defun delete-dups (list)
   "Destructively remove `equal' duplicates from LIST.
@@ -2173,12 +2181,16 @@ floating point support."
     (let ((read (read-event nil t seconds)))
       (or (null read)
 	  (progn
-	    ;; If last command was a prefix arg, e.g. C-u, push this event onto
-	    ;; unread-command-events as (t . EVENT) so it will be added to
-	    ;; this-command-keys by read-key-sequence.
-	    (if (eq overriding-terminal-local-map universal-argument-map)
-		(setq read (cons t read)))
-	    (push read unread-command-events)
+            ;; https://lists.gnu.org/archive/html/emacs-devel/2006-10/msg00394.html
+            ;; We want `read' appear in the next command's this-command-event
+            ;; but not in the current one.
+            ;; By pushing (cons t read), we indicate that `read' has not
+            ;; yet been recorded in this-command-keys, so it will be recorded
+            ;; next time it's read.
+            ;; And indeed the `seconds' argument to read-event correctly
+            ;; prevented recording this event in the current command's
+            ;; this-command-keys.
+	    (push (cons t read) unread-command-events)
 	    nil))))))
 
 ;; Behind display-popup-menus-p test.
@@ -3845,7 +3857,8 @@ This function is called directly from the C code."
 	    (byte-compile-log-warning msg))
 	(run-with-timer 0 nil
 			(lambda (msg)
-			  (message "%s" msg)) msg))))
+			  (message "%s" msg))
+                        msg))))
 
   ;; Finally, run any other hook.
   (run-hook-with-args 'after-load-functions abs-file))
@@ -4162,7 +4175,8 @@ I is the index of the frame after FRAME2.  It should return nil
 if those frames don't seem special and otherwise, it should return
 the number of frames to skip (minus 1).")
 
-(defconst internal--call-interactively (symbol-function 'call-interactively))
+(defconst internal--funcall-interactively
+  (symbol-function 'funcall-interactively))
 
 (defun called-interactively-p (&optional kind)
   "Return t if the containing function was called by `call-interactively'.
@@ -4236,10 +4250,13 @@ command is called from a keyboard macro?"
       (pcase (cons frame nextframe)
         ;; No subr calls `interactive-p', so we can rule that out.
         (`((,_ ,(pred (lambda (f) (subrp (indirect-function f)))) . ,_) . ,_) nil)
-        ;; In case #<subr call-interactively> without going through the
-        ;; `call-interactively' symbol (bug#3984).
-        (`(,_ . (t ,(pred (eq internal--call-interactively)) . ,_)) t)
-        (`(,_ . (t call-interactively . ,_)) t)))))
+        ;; In case #<subr funcall-interactively> without going through the
+        ;; `funcall-interactively' symbol (bug#3984).
+        (`(,_ . (t ,(pred (lambda (f)
+                            (eq internal--funcall-interactively
+                                (indirect-function f))))
+                   . ,_))
+         t)))))
 
 (defun interactive-p ()
   "Return t if the containing function was run directly by user input.
