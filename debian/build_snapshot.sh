@@ -21,7 +21,7 @@ git add debian/patches/
 git commit -m 'patch update' debian/patches/ || true
 
 # need to make this non-interactive
-dch -v `date +'2:%Y%m%d-1'`
+dch -r -v `date +'2:%Y%m%d-1'`
 git commit -m 'new snapshot' debian/changelog
 
 git clean -ffdx; git reset --hard
@@ -29,5 +29,7 @@ git clean -ffdx; git reset --hard
 ./debian/rules debian/copyright
 git-buildpackage --git-ignore-new
 
+
+# dch should be this non-interactive and not UNRELEASED
 # GFDL issues
 # debsign issues
