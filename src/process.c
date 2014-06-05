@@ -286,12 +286,6 @@ static int read_process_output (Lisp_Object, int);
 static void handle_child_signal (int);
 static void create_pty (Lisp_Object);
 
-/* If we support a window system, turn on the code to poll periodically
-   to detect C-g.  It isn't actually used when doing interrupt input.  */
-#ifdef HAVE_WINDOW_SYSTEM
-#define POLL_FOR_INPUT
-#endif
-
 static Lisp_Object get_process (register Lisp_Object name);
 static void exec_sentinel (Lisp_Object proc, Lisp_Object reason);
 
@@ -468,7 +462,6 @@ static struct fd_callback_data
 void
 add_read_fd (int fd, fd_callback func, void *data)
 {
-  eassert (fd < FD_SETSIZE);
   add_keyboard_wait_descriptor (fd);
 
   fd_callback_info[fd].func = func;
@@ -481,7 +474,6 @@ add_read_fd (int fd, fd_callback func, void *data)
 void
 delete_read_fd (int fd)
 {
-  eassert (fd < FD_SETSIZE);
   delete_keyboard_wait_descriptor (fd);
 
   fd_callback_info[fd].condition &= ~FOR_READ;
@@ -498,7 +490,6 @@ delete_read_fd (int fd)
 void
 add_write_fd (int fd, fd_callback func, void *data)
 {
-  eassert (fd < FD_SETSIZE);
   FD_SET (fd, &write_mask);
   if (fd > max_input_desc)
     max_input_desc = fd;
@@ -529,7 +520,6 @@ delete_input_desc (int fd)
 void
 delete_write_fd (int fd)
 {
-  eassert (fd < FD_SETSIZE);
   FD_CLR (fd, &write_mask);
   fd_callback_info[fd].condition &= ~FOR_WRITE;
   if (fd_callback_info[fd].condition == 0)
@@ -4630,12 +4620,13 @@ wait_reading_process_output (intmax_t time_limit, int nsecs, int read_kbd,
 		      {
 			struct Lisp_Process *p =
 			  XPROCESS (chan_process[channel]);
-			if (p && p->gnutls_p && p->gnutls_state && p->infd
+			if (p && p->gnutls_p && p->gnutls_state
 			    && ((emacs_gnutls_record_check_pending
 				 (p->gnutls_state))
 				> 0))
 			  {
 			    nfds++;
+			    eassert (p->infd == channel);
 			    FD_SET (p->infd, &Available);
 			  }
 		      }

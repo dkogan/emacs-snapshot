@@ -1,3 +1,53 @@
+2014-06-05  Paul Eggert  <eggert@cs.ucla.edu>
+
+	Try harder to find GNU Make when configuring.
+	* configure.ac (AC_PROG_MAKE_SET): Define a dummy.
+	(MAKE): Set it to GNU Make, if one can be found.
+	Search PATH for 'make', 'gmake', 'gnumake'.
+	This works better on platforms like AIX, where GNU Make
+	might be in /opt/freeware/bin/make, and reside
+	behind /usr/bin/make in the PATH.
+
+2014-06-05  Dmitry Antipov  <dmantipov@yandex.ru>
+
+	* configure.ac (POLL_FOR_INPUT): Define with HAVE_WINDOW_SYSTEM.
+
+2014-06-05  Paul Eggert  <eggert@cs.ucla.edu>
+
+	* configure.ac: --without-all now implies --without-xft, --disable-acl.
+	* INSTALL: Remove apparently unmaintained documentation about what
+	--without-all exactly means.
+
+2014-06-03  Eli Zaretskii  <eliz@gnu.org>
+
+	* configure.ac (C_HEAP_SWITCH): Remove.
+
+2014-06-02  Paul Eggert  <eggert@cs.ucla.edu>
+
+	Fix port to 32-bit AIX with xlc (Bug#17598).
+	This doesn't fix Bug#17598, but it does fix a regression since Emacs
+	built with xlc until recently, and perhaps it'll help us fix Bug#17598.
+	* configure.ac (GC_SETJMP_WORKS): Define for AIX, too.
+	Merge from gnulib, incorporating:
+	2014-05-30 ftoastr: work around compiler bug in IBM xlc 12.1
+	* lib/ftoastr.c: Update from gnulib.
+
+2014-06-01  Paul Eggert  <eggert@cs.ucla.edu>
+
+	Merge from gnulib, incorporating:
+	2014-06-02 acl: apply pure attribute to two functions
+	2014-06-01 gnulib-common.m4: add _GL_UNUSED_LABEL
+	2014-05-31 dup2, fcntl, fcntl-h: port to AIX 7.1
+	2014-05-30 ftoastr: work around compiler bug in IBM xlc 12.1
+	* lib/acl-internal.h, lib/fcntl.in.h, lib/ftoastr.h:
+	* m4/dup2.m4, m4/fcntl.m4, m4/gnulib-common.m4:
+	Update from gnulib.
+
+2014-06-01  Juanma Barranquero  <lekktu@gmail.com>
+
+	* configure.ac (C_HEAP_SWITCH): Raise HEAPSIZE value for 32-bit
+	builds on Windows.
+
 2014-05-29  Paul Eggert  <eggert@cs.ucla.edu>
 
 	* configure.ac (pthread_sigmask): Look in LIB_PTHREAD too (Bug#17561).
@@ -23,7 +73,7 @@
 
 2014-05-27  Fabrice Popineau  <fabrice.popineau@gmail.com>
 
-	* configure.ac (C_HEAP_SWITCH) define for different values of
+	* configure.ac (C_HEAP_SWITCH): Define for different values of
 	dumped heap size depending on 32/64bits arch on Windows.
 	Don't check for pthreads.h on MinGW32/64, it gets in the way.
 	Use mmap(2) for buffers and system malloc for MinGW32/64.

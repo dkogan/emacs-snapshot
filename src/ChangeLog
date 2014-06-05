@@ -1,3 +1,213 @@
+2014-06-05  Dmitry Antipov  <dmantipov@yandex.ru>
+
+	* keyboard.c, process.c: Do not define POLL_FOR_INPUT here
+	because it will be defined in generated config.h if needed.
+
+2014-06-04  Dmitry Antipov  <dmantipov@yandex.ru>
+
+	Use terminal-specific hooks to display popup dialogs.
+	* termhooks.h (struct terminal): New field popup_dialog_hook.
+	* menu.c (emulate_dialog_with_menu): New function, refactored from ...
+	(Fx_popup_dialog): ... adjusted user.  Also remove old #if 0
+	code and use popup_dialog_hook.
+	* nsmenu.m (ns_popup_dialog): Make hook-compatible.
+	* nsterm.h (ns_popup_dialog): Adjust prototype.
+	* nsterm.m (ns_create_terminal):
+	* w32term.c (w32_create_terminal):
+	* xterm.c (x_create_terminal) [USE_X_TOOLKIT || USE_GTK]: Setup
+	popup_dialog_hook.
+
+2014-06-04  Eli Zaretskii  <eliz@gnu.org>
+
+	* w32heap.c (report_temacs_memory_usage): Improve the report by
+	reporting the large blocks that are actually occupied at dump
+	time.
+
+	* w32console.c (initialize_w32_display): Set the console
+	menu_show_hook, otherwise TTY menus are broken on w32.
+
+2014-06-04  Dmitry Antipov  <dmantipov@yandex.ru>
+
+	Use terminal-specific hooks to display menus.
+	* termhooks.h (struct terminal): New field menu_show_hook.
+	* menu.h (<anonymous enum>): Bit flags for menu hooks.
+	(x_menu_show, w32_menu_show, ns_menu_show, tty_menu_show):
+	Adjust prototypes.
+	* menu.c (Fx_popup_menu): Use bit flags and menu_show_hook.
+	* nsmenu.m (ns_menu_show):
+	* w32menu.c (w32_menu_show):
+	* xmenu.c (x_menu_show):
+	* term.c (tty_menu_show): Adjust to use bit flags.
+	(set_tty_hooks): Set menu_show_hook.
+	* xterm.c (x_create_terminal):
+	* nsterm.m (ns_create_terminal):
+	* msdos.c (initialize_msdos_display):
+	* w32term.c (w32_create_terminal): Likewise.
+
+2014-06-03  Juanma Barranquero  <lekktu@gmail.com>
+
+	* w32heap.c (DUMPED_HEAP_SIZE) [!_WIN64]: Reduce to 11 MB.
+
+2014-06-03  Eli Zaretskii  <eliz@gnu.org>
+
+	* sysselect.h (fd_CLR, fd_ISSET, fd_SET, FD_CLR, FD_ISSET)
+	(FD_SET): Don't define on WINDOWSNT.
+
+2014-06-03  Paul Eggert  <eggert@cs.ucla.edu>
+
+	* emacs.c: Include "sysselect.h", to define its inline functions.
+	Problem reported by Glenn Morris in:
+	http://lists.gnu.org/archive/html/emacs-devel/2014-06/msg00077.html
+
+	Do not require libXt-devel when building with gtk.
+	* gtkutil.h, menu.h: Include lwlib-widget.h, not lwlib-h, to avoid
+	dependency on libXt-devel.
+	* menu.h [HAVE_NTGUI]: Include lwlib-widget.h in this case too.
+	(enum button_type, widget_value) [HAVE_NTGUI]: Remove, as
+	lwlib-widget.h now does this.
+	* nsmenu.m (ns_menu_show): "enabled" -> "enable" to fix typo.
+
+2014-06-03  Paul Eggert  <eggert@penguin.cs.ucla.edu>
+
+	If ENABLE_CHECKING, range-check args of FD_CLR, FD_ISSET, FD_SET.
+	* process.c (add_read_fd, delete_read_fd, add_write_fd)
+	(delete_write_fd, wait_reading_process_output):
+	Remove now-redundant easserts.
+	* sysselect.h (SYSSELECT_H): New macro, to avoid double-inclusion woes.
+	Use INLINE_HEADER_BEGIN, INLINE_HEADER_END.
+	(fd_CLR, fd_ISSET, fd_SET): New inline functions.
+	(FD_CLR, FD_ISSET, FD_SET): Redefine in terms of these functions.
+
+2014-06-03  Eli Zaretskii  <eliz@gnu.org>
+
+	* w32heap.c (DUMPED_HEAP_SIZE): Move from w32heap.h.  Don't use
+	HEAPSIZE; instead, define separate values for the 32- and 64-bit
+	builds.
+	(calloc): Don't undef, it is never defined.
+	(HEAP_ENTRY_SHIFT): Remove unused macro.
+
+	* Makefile.in (C_HEAP_SWITCH): Remove.
+	(ALL_CFLAGS): Don't use $(C_HEAP_SWITCH).
+
+	Fix MS-Windows build broken by menu changes on 2014-06-02.
+	* w32menu.c (w32_menu_show): Fix a typo that broke compilation.
+
+	* menu.h (enum button_type, struct _widget_value) [HAVE_NTGUI]:
+	Define instead of including ../lwlib/lwlib.h, which causes
+	compilation errors due to missing X11 headers.
+
+2014-06-03  Paul Eggert  <eggert@cs.ucla.edu>
+
+	* process.c (wait_reading_process_output): Omit incorrect test
+	of p->infd against zero.  Add easserts for infd having a plausible
+	value.
+
+2014-06-02  Dmitry Antipov  <dmantipov@yandex.ru>
+
+	Adjust to match recent lwlib changes.
+	* menu.h (xmalloc_widget_value): Replaced by ...
+	(make_widget_value): ... new prototype.
+	* menu.c (xmalloc_widget_value): Replaced by ...
+	(make_widget_value): ... new function.
+	(free_menubar_widget_value_tree, digest_single_submenu): Adjust users.
+	* gtkutil.c (malloc_widget_value, free_widget_value):
+	(widget_value_free_list, malloc_cpt): Remove old lwlib-compatible code.
+	* keyboard.h (enum button_type, struct _widget_value):
+	* gtkutil.h, nsgui.h, w32gui.h (malloc_widget_value, free_widget_value):
+	Likewise.
+	* nsmenu.m (ns_update_menubar, ns_menu_show):
+	* w32menu.c (set_frame_menubar, w32_menu_show, w32_dialog_show):
+	* xmenu.c (set_frame_menubar, xmenu_show, x_dialog_show): Adjust users.
+	* xterm.h (XtParent) [USE_GTK]: Remove unused macro.
+
+2014-06-02  Dmitry Antipov  <dmantipov@yandex.ru>
+
+	* image.c (x_query_frame_background_color)
+	[HAVE_PNG || HAVE_NS || HAVE_IMAGEMAGICK || HAVE_RSVG]:
+	Fix --enable-gcc-warnings compilation without image libraries.
+
+2014-06-02  Eli Zaretskii  <eliz@gnu.org>
+
+	* w32heap.c (malloc_after_dump, realloc_after_dump): Update the
+	emulated break value only if it goes up.
+	(sbrk): Add assertion that the INCREMENT argument is strictly
+	zero.  Improve and correct the commentary.
+
+2014-06-02  Paul Eggert  <eggert@cs.ucla.edu>
+
+	Improve AIX-related merge from emacs-24.
+	* conf_post.h (FLEXIBLE_ARRAY_MEMBER): Fix comment.
+	* lisp.h (ENUMABLE) [!_AIX]: Don't define to 0 merely because we're
+	not on AIX; since we're on the trunk we can use enums more broadly.
+
+	* frame.c (x_set_frame_parameters): Don't read uninitialized storage.
+
+2014-06-02  Jan Djärv  <jan.h.d@swipnet.se>
+
+	* xterm.c (xg_scroll_callback): Remove position, for jump set portion
+	to min(value, whole).
+
+2014-06-02  Paul Eggert  <eggert@cs.ucla.edu>
+
+	Bring back the changes to GDB-visible symbols, but only on AIX.
+	And only if it's not pre-4.2 GCC.
+	* lisp.h (ENUMABLE, DEFINE_GDB_SYMBOL_ENUM): New macros.
+	(ARRAY_MARK_FLAG, PSEUDOVECTOR_FLAG, VALMASK): Use them.
+	(ARRAY_MARK_FLAG_val, PSEUDOVECTOR_FLAG_val, VALMASK_val):
+	New macros.
+
+2014-06-02  Eli Zaretskii  <eliz@gnu.org>
+
+	* fileio.c (Finsert_file_contents): Call prepare_to_modify_buffer
+	with PT, not GPT.  (Bug#16433)
+
+	Revert last changes to GDB-visible symbols.
+	* lisp.h (ENUMABLE, DEFINE_GDB_SYMBOL_ENUM): Delete macros.
+	(ARRAY_MARK_FLAG, PSEUDOVECTOR_FLAG, VALMASK): Don't use them.
+	(ARRAY_MARK_FLAG_val, PSEUDOVECTOR_FLAG_val, VALMASK_val):
+	Delete macros.
+
+2014-06-02  Glenn Morris  <rgm@gnu.org>
+
+	* cmds.c (Fself_insert_command): Allow zero repeat count.  (Bug#17649)
+
+2014-06-02  Paul Eggert  <eggert@cs.ucla.edu>
+
+	Fix port to 32-bit AIX with xlc (Bug#17598).
+	* alloc.c (gdb_make_enums_visible): Remove FLOAT_TO_STRING_BUFSIZE.
+	* conf_post.h (FLEXIBLE_ARRAY_MEMBER) [__IBMC__]: Don't define to empty.
+	* lisp.h (FLOAT_TO_STRING_BUFSIZE): Make it a macro, instead of an enum,
+	to work around a compiler bug in IBM xlc 12.1.
+
+2014-06-02  Eli Zaretskii  <eliz@gnu.org>
+
+	* xterm.c (x_update_window_end): Don't invalidate the entire
+	mouse-highlight info, just signal frame_up_to_date_hook that mouse
+	highlight needs to be redisplayed.  (Bug#17588)
+
+2014-06-02  Paul Eggert  <eggert@cs.ucla.edu>
+
+	Port the GDB-visible symbols to AIX.
+	Without them, GDB doesn't work to debug Emacs, since the AIX linker
+	optimizes away the relevant external symbols.  Use enums instead;
+	this suffices for the AIX port, which is 32-bit-only anyway.
+	* lisp.h (ENUMABLE, DEFINE_GDB_SYMBOL_ENUM): New macros.
+	(ARRAY_MARK_FLAG, PSEUDOVECTOR_FLAG, VALMASK): Use them.
+	(ARRAY_MARK_FLAG_val, PSEUDOVECTOR_FLAG_val, VALMASK_val):
+	New macros.
+
+	Include sources used to create macuvs.h.
+	* Makefile.in ($(srcdir)/macuvs.h): New rule.
+	* macuvs.h: Use automatically-generated header.
+
+2014-06-01  Paul Eggert  <eggert@cs.ucla.edu>
+
+	Port signal-handling to DragonFly BSD (Bug#17646).
+	* callproc.c, sysdep.c (block_child_signal, unblock_child_signal):
+	Move implementations from callproc.c to sysdep.c.
+	* process.h, syssignal.h (block_child_signal, unblock_child_signal):
+	Move declarations from process.h to syssignal.h.
+
 2014-06-01  Juanma Barranquero  <lekktu@gmail.com>
 
 	* callint.c (Ffuncall_interactively): Add usage.

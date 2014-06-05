@@ -92,7 +92,7 @@ AC_CHECK_PROGS(XCRUN, [xcrun])
 if test -n "$XCRUN"; then
   if test -z "$MAKE"; then
     dnl Call the variable MAKE_PROG, not MAKE, to avoid confusion with
-    dnl SET_MAKE and with the usual MAKE variable that 'make' itself uses.
+    dnl the usual MAKE variable that 'make' itself uses.
     AC_CHECK_PROG([MAKE_PROG], [make], [yes])
     if test -z "$MAKE_PROG"; then
       MAKE="$XCRUN MAKE"
@@ -101,6 +101,47 @@ if test -n "$XCRUN"; then
     fi
   fi
 fi
+
+dnl GNU Make is required, so don't test for its individual features.
+am_cv_make_support_nested_variables=yes
+AC_DEFUN([AC_PROG_MAKE_SET],
+  [SET_MAKE=
+   AC_SUBST([SET_MAKE])])
+
+dnl Check for GNU Make and possibly set MAKE before running AM_INIT_AUTOMAKE.
+AC_CACHE_CHECK([for GNU Make], [ac_cv_path_MAKE],
+  [ac_path_MAKE_found=false
+   if test -n "$MAKE"; then
+     emacs_makeout=`($MAKE --version) 2>/dev/null` &&
+     case $emacs_makeout in
+       'GNU Make '*)
+	 ac_path_MAKE_found=:;;
+     esac
+     ac_cv_path_MAKE=$MAKE
+   else
+     emacs_tried_make=false
+     emacs_tried_gmake=false
+     emacs_tried_gnumake=false
+     AC_PATH_PROGS_FEATURE_CHECK([MAKE], [make gmake gnumake],
+       [[emacs_makeout=`($ac_path_MAKE --version) 2>/dev/null` &&
+	 case $emacs_makeout in
+	   'GNU Make '*)
+	      # Use the fully-qualified program name only if the basename
+	      # would not resolve to it.
+	      if eval \$emacs_tried_$ac_prog; then
+		ac_cv_path_MAKE=$ac_path_MAKE
+	      else
+		ac_cv_path_MAKE=$ac_prog
+	      fi
+	      ac_path_MAKE_found=:;;
+	 esac
+	 eval emacs_tried_$ac_prog=:]])
+   fi])
+$ac_path_MAKE_found || { AC_MSG_ERROR([[Building Emacs requires GNU Make.
+If you have it installed under another name, configure with 'MAKE=...'.
+For example, run '$0 MAKE=gnu-make'.]])
+}
+MAKE=$ac_cv_path_MAKE
 
 dnl Fairly arbitrary, older versions might work too.
 AM_INIT_AUTOMAKE(1.11)
@@ -656,18 +697,6 @@ if test $unported = yes; then
   AC_MSG_ERROR([Emacs does not support `${canonical}' systems.
 If you think it should, please send a report to ${PACKAGE_BUGREPORT}.
 Check `etc/MACHINES' for recognized configuration names.])
-fi
-
-
-AC_MSG_CHECKING([whether we are using GNU Make])
-testval=`${MAKE-make} --version 2>/dev/null | grep 'GNU Make'`
-if test "x$testval" != x; then
-  AC_MSG_RESULT([yes])
-else
-  AC_MSG_RESULT([no])
-  AC_MSG_ERROR([Building Emacs requires GNU make.
-If you have it installed under another name, configure with 'MAKE=...'.
-For example, run './configure MAKE=gmake'.])
 fi
 
 
@@ -1531,7 +1560,6 @@ dnl Check for endianness.
 dnl AC_C_BIGENDIAN is done by gnulib.
 
 dnl check for Make feature
-dnl AC_PROG_MAKE_SET is done by Automake.
 
 DEPFLAGS=
 MKDEPDIR=":"
@@ -2817,14 +2845,17 @@ fi
 
 ### Start of font-backend (under X11) section.
 if test "${HAVE_X11}" = "yes"; then
-   EMACS_CHECK_MODULES([FONTCONFIG], [fontconfig >= 2.2.0],
-     [HAVE_FC=yes], [HAVE_FC=no])
-
-   ## Use -lXft if available, unless `--with-xft=no'.
-   HAVE_XFT=maybe
-    if test "${HAVE_FC}" = "no" || test "x${with_x}" = "xno"; then
+    ## Use -lXft if available, unless `--with-xft=no'.
+    HAVE_XFT=maybe
+    if test "x${with_x}" = "xno"; then
       with_xft="no";
     fi
+
+    if test "$with_xft" != no; then
+      EMACS_CHECK_MODULES([FONTCONFIG], [fontconfig >= 2.2.0])
+      with_xft=$HAVE_FONTCONFIG
+    fi
+
     if test "x${with_xft}" != "xno"; then
 
       EMACS_CHECK_MODULES([XFT], [xft >= 0.13.0], [], [HAVE_XFT=no])
@@ -4332,7 +4363,7 @@ if test x$GCC = xyes; then
 else
   case $opsys in
     dnl irix: Tested on Irix 6.5.  SCM worked on earlier versions.
-    dragonfly | freebsd | netbsd | openbsd | irix6-5 | sol2* )
+    aix* | dragonfly | freebsd | netbsd | openbsd | irix6-5 | sol2* )
       AC_DEFINE(GC_SETJMP_WORKS, 1)
       ;;
   esac
@@ -4751,6 +4782,12 @@ AH_VERBATIM([FORTIFY_SOUR],
 #endif
 ])
 
+# If user asks to omit features, disable optional features that gnulib
+# might otherwise enable.
+if test "$with_features" = no && test "$enable_acl" != yes; then
+  enable_acl=no
+fi
+
 # Configure gnulib.  Although this does not affect CFLAGS or LIBS permanently.
 # it temporarily reverts them to their pre-pkg-config values,
 # because gnulib needs to work with both src (which uses the
@@ -4835,21 +4872,10 @@ LD_SWITCH_SYSTEM_TEMACS="$LDFLAGS_NOCOMBRELOC $LD_SWITCH_SYSTEM_TEMACS"
 
 AC_SUBST(LD_SWITCH_SYSTEM_TEMACS)
 
-## MinGW-specific compilation switch.
-C_HEAP_SWITCH=
-if test "${opsys}" = "mingw32"; then
-  ## Preload heap size of temacs.exe in MB.
-  case "$canonical" in
-    x86_64-*-*) C_HEAP_SWITCH="-DHEAPSIZE=18" ;;
-    *) C_HEAP_SWITCH="-DHEAPSIZE=10" ;;
-  esac
-fi
-
-AC_SUBST(C_HEAP_SWITCH)
-
 ## Common for all window systems
 if test "$window_system" != "none"; then
   AC_DEFINE(HAVE_WINDOW_SYSTEM, 1, [Define if you have a window system.])
+  AC_DEFINE(POLL_FOR_INPUT, 1, [Define if you poll periodically to detect C-g.])
   WINDOW_SYSTEM_OBJ="fontset.o fringe.o image.o"
 fi
 
@@ -5092,3 +5118,5 @@ fi
 ])
 
 AC_OUTPUT
+
+test "$MAKE" = make || AC_MSG_NOTICE([Now you can run '$MAKE'.])

@@ -3332,8 +3332,9 @@ User is always nil."
 (defun tramp-handle-unhandled-file-name-directory (_filename)
   "Like `unhandled-file-name-directory' for Tramp files."
   ;; With Emacs 23, we could simply return `nil'.  But we must keep it
-  ;; for backward compatibility.
-  (expand-file-name "~/"))
+  ;; for backward compatibility.  "~/" cannot be returned, because
+  ;; there might be machines without a HOME directory (like hydra).
+  "/")
 
 (defun tramp-handle-set-visited-file-modtime (&optional time-list)
   "Like `set-visited-file-modtime' for Tramp files."
@@ -4122,12 +4123,24 @@ This is needed because for some Emacs flavors Tramp has
 defadvised `call-process' to behave like `process-file'.  The
 Lisp error raised when PROGRAM is nil is trapped also, returning 1.
 Furthermore, traces are written with verbosity of 6."
-  (tramp-message
-   (vector tramp-current-method tramp-current-user tramp-current-host nil nil)
-   6 "`%s %s' %s %s" program (mapconcat 'identity args " ") infile destination)
-  (if (executable-find program)
-      (apply 'call-process program infile destination display args)
-    1))
+  (let ((v (vector tramp-current-method tramp-current-user tramp-current-host
+		   nil nil))
+	result)
+    (tramp-message
+     v 6 "`%s %s' %s %s"
+     program (mapconcat 'identity args " ") infile destination)
+    (condition-case err
+	(with-temp-buffer
+	  (setq result
+		(apply
+		 'call-process program infile (or destination t) display args))
+	  (with-current-buffer
+	      (if (bufferp destination) destination (current-buffer))
+	    (tramp-message v 6 "%d\n%s" result (buffer-string))))
+      (error
+       (setq result 1)
+       (tramp-message v 6 "%d\n%s" result (error-message-string err))))
+    result))
 
 ;;;###tramp-autoload
 (defun tramp-read-passwd (proc &optional prompt)
