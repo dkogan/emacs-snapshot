@@ -26,6 +26,8 @@ git commit -m 'patch update' debian/patches/ || true
 # need to make this non-interactive
 UPSTREAM_VER=`git describe --tags --always upstream/master`
 test -n "$UPSTREAM_VER" # make sure version was parsed
+export DEBEMAIL=dima@secretsauce.net
+export DEBFULLNAME='Dima Kogan'
 dch -v `date +'2:%Y%m%d+'$UPSTREAM_VER'-1'` 'New snapshot'
 dch -r ''
 git commit -m 'new snapshot' debian/changelog
