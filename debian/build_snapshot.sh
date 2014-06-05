@@ -1,6 +1,9 @@
 #!/bin/bash
 set -e -x
 
+# report the previous state so that we can try again
+git show-ref | grep refs/heads
+
 cd `dirname $0`/..
 
 git fetch upstream
@@ -11,7 +14,7 @@ git checkout upstream
 git merge -m 'Merged upstream' upstream/master
 
 git checkout master
-git merge -m 'merging new upstream' upstream
+git merge -m 'Merging new upstream' upstream
 
 gbp-pq rebase
 gbp-pq export
@@ -21,7 +24,10 @@ git add debian/patches/
 git commit -m 'patch update' debian/patches/ || true
 
 # need to make this non-interactive
-dch -r -v `date +'2:%Y%m%d-1'`
+UPSTREAM_VER=`git describe --tags --always upstream/master`
+test -n "$UPSTREAM_VER" # make sure version was parsed
+dch -v `date +'2:%Y%m%d+'$UPSTREAM_VER'-1'` 'New snapshot'
+dch -r ''
 git commit -m 'new snapshot' debian/changelog
 
 git clean -ffdx; git reset --hard
