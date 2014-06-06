@@ -35,9 +35,5 @@ git commit -m 'new snapshot' debian/changelog
 git clean -ffdx; git reset --hard
 ./debian/rules debian/control
 ./debian/rules debian/copyright
-git-buildpackage --git-ignore-new
-
-
-# dch should be this non-interactive and not UNRELEASED
-# GFDL issues
-# debsign issues
+git-buildpackage --git-pbuilder --git-dist=wheezy  --git-ignore-new
+dput -u digitalocean  ../emacs-snapshot*.changes(om[1])
