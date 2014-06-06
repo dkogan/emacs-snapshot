@@ -1,3 +1,122 @@
+2014-06-06  Mario Lang  <mlang@delysid.org>
+
+	* emacs-lisp/tabulated-list.el (tabulated-list-print): Only call
+	`recenter' if `current-buffer' is equal to `window-buffer'.
+
+2014-06-05  Leo Liu  <sdl.web@gmail.com>
+
+	* emacs-lisp/cl-macs.el (cl-macrolet): Avoid excessive progn's.
+
+2014-06-05  Michal Nazarewicz  <mina86@mina86.com>
+
+	* textmodes/tildify.el (tildify-foreach-region-outside-env): New
+	function which calls a callback on portions of the buffer that are
+	outside of ignored environments.
+	(tildify-build-regexp): Remove function since it is now
+	incorporated in `tildify-foreach-region-outside-env' where it is
+	optimised and simplified by the use of `mapconcat'.
+	(tildify-tildify): Return number of substitutions made so that…
+	(tildify-count): …can be removed.
+	(tildify-find-env): Accept a new PAIRS argument which was
+	previously looked up in `tildify-ignored-environments-alist' each
+	time the function was called.  With this change, the lookup is
+	performed only once in `tildify-foreach-region-outside-env'.
+	(tildify-region): Greatly simplify the function since now most of
+	the work is done by `tildify-foreach-region-outside-env'.
+	(tildify-mode-alist): Simplify slightly by avoiding if and setq
+	and instead using or.
+
+	* textmodes/tildify.el (tildify-ignored-environments-alist):
+	Optimise environments regexes
+
+	Each time beginning of an environment to ignore is found,
+	`tildify-find-env' needs to identify regexp for the ending
+	of the environment.  This is done by trying all the opening
+	regexes on matched text in a loop, so to speed that up, this
+	loop should have fewer things to match, which can be done by
+	using alternatives in the opening regexes.
+
+	Coincidentally, this should make matching of the opening
+	regexp faster as well thanks to the use of `regexp-opt' and
+	having common prefix pulled from many regexes.
+
+	* textmodes/tildify.el (tildify-string-alist)
+	(tildify-ignored-environments-alist): Add `nxml-mode' to the list
+	of supported modes since `xml-mode' is no longer a thing but just
+	an alias to the former.  Also include comments and insides of tags
+	in `tildify-ignored-environments-alist' for XML modes.  Finally,
+	since XML does not define “&nbsp;”[1], use a numeric reference for
+	a no-break space (namely “&#160;”)
+
+	[1] XML specification defines only a handful of predefined entities.
+	    The list is at <http://www.w3.org/TR/REC-xml/#sec-predefined-ent>
+	    and includes only &lt;, &gt;, &amp;, &apos; and &quot; (meaning <,
+	    >, &, ' and " respectively).  This is in contrast to HTML and even
+	    XHTML which defined a whole bunch of entities including “&nbsp;”.
+
+	* textmodes/tildify.el (tildify-pattern-alist)
+	(tildify-string-alist, tildify-ignored-environments-alist):
+	Improve defcustom's types by adding more tags explaining what each
+	value means and replace “sexp” used in
+	`tildify-ignored-environments-alist' with a full type declaration.
+
+	* textmodes/tildify.el (tildify-find-env): Fix matched group
+	indexes in end-regex building
+
+	When looking for a start of an ignore-environment, the regex is built
+	by concatenating regexes of all the environments configured in
+	`tildify-ignored-environments-alist'.  So for example, the following
+	list could be used to match TeX's \verb and \verb* commands:
+
+	    (("\\\\verb\\(.\\)" . (1))
+	     ("\\\\verb\\*\\(.\\)" . (1)))
+
+	This would result in the following regex being used to find the start
+	of any of the variants of the \verb command:
+
+	    \\\\verb\\(.\\)\\|\\\\verb\\*\\(.\\)
+
+	But now, if “\\\\verb\\*\\(.\\)” matches, the first capture group
+	won't match anything, and thus (match-string 1) will be nil, which
+	will cause building of the end-matching regex to fail.
+
+	Fix this by using capture groups from the time when the opening
+	regexes are matched individually.
+
+	* textmodes/tildify.el (tildify-find-env): Fix end-regex building
+	in `tildify-find-env'
+
+	The `tildify-ignored-environments-alist' allows the end-regex to
+	be provided not as a static string but mix of strings and indexes
+	of groups matched the begin-regex.  For example, the “\verb!…!”
+	TeX-command (where “!” is an arbitrary character) is handled
+	using:
+
+	    ("\\\\verb\\*?\\(.\\)" . (1))
+
+	In the same way, the following should be supported as well:
+
+	    ("open-\\(.\\)" . ("end-" 1))
+
+	However the tildify-find-env function fails at
+
+	    (concat result
+	            (if (stringp (setq aux (car expression)))
+	                 expression  ; BUG: expression is a list
+	               (regexp-quote (match-string aux))))
+
+	where the string part is handled incorrectly.
+
+	The most trivial fix would be to replace `expression' in the
+	true-part of the if-statement with `aux', but instead, this commit
+	optimises `tildify-find-env' by changing it to use `mapconcat'
+	rather than open-coded while-loop.
+
+2014-06-05  Mario Lang  <mlang@delysid.org>
+
+	* woman.el (woman-mapcan): Remove.
+	(woman-parse-colon-path): Use cl-mapcan instead.
+
 2014-06-03  Rüdiger Sonderfeld  <ruediger@c-plusplus.de>
 
 	* register.el: Add link to Emacs manual in Commentary.

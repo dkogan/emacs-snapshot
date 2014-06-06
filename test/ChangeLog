@@ -1,3 +1,28 @@
+2014-06-05  Michal Nazarewicz  <mina86@mina86.com>
+
+	* automated/tildify-tests.el (tildify-test--test): Optimise the test
+	slightly by reusing the same temporary buffer across multiple test
+	cases.
+
+	* automated/tildify-tests.el (tildify-test-find-env-end-re-bug)
+	(tildify-test-find-env-group-index-bug): Update to support new
+	signature of the `tildify-foreach-region-outside-env' function.
+	Namely, it now takes pairs as an argument instead of looking it up in
+	`tildify-ignored-environments-alist'.
+
+	* automated/tildify-tests.el (tildify-test--example-html): Add support
+	for generating XML code, so that…
+	(tildify-test-xml) …test can be added to check handling of XML
+	documents.
+
+	* automated/tildify-tests.el (tildify-test-find-env-group-index-bug):
+	New test checking end-regex building when multiple environment pairs
+	use integers to refer to capture groups.
+
+	* automated/tildify-tests.el (tildify-test-find-env-end-re-bug): New
+	test checking end-regex building in `tildify-find-env' function when
+	integers (denoting capture groups) and strings are mixed together.
+
 2014-06-02  Michael Albinus  <michael.albinus@gmx.de>
 
 	* automated/tramp-tests.el (tramp-remote-process-environment): Declare.
