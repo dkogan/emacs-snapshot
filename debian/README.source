@@ -3,13 +3,5 @@ missing files from the debian/ directory. Just call:
 
 $ ./debian/rules debian/control
 $ ./debian/rules debian/copyright
-$ ./debian/rules debian/patches/series
 
-To have the patches generated correctly, the rules file wants you to
-have a "trunk" and a "debian/patches" branch that is the Emacs trunk branch.
-You can create them with git since it's included in the repository:
-
-$ git branch trunk origin/trunk
-$ git branch debian/patches origin/debian/patches
-
- -- Julien Danjou <acid@debian.org>, Thu, 10 May 2012 09:47:04 +0200
+ -- Dima Kogan <dima@secretsauce.net>, Fri,  6 Jun 2014 01:56:42 -0700

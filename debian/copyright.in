@@ -2,7 +2,7 @@
 
 This package was debianized by Rob Browning <rlb@defaultvalue.org>
 on Tue, 16 Dec 1997 00:05:45 -0600 and is now maintained by
-Julien Danjou <acid@debian.org>.
+Dima Kogan <dima@secretsauce.net>.
 
 The Debian source is based on a git checkout of the GNU Emacs Bazaar trunk,
 which can be obtained with:
