@@ -3582,6 +3582,10 @@ tty_menu_new_item_coords (struct frame *f, int which, int *x, int *y)
     }
 }
 
+/* WINDOWSNT uses this as menu_show_hook, see w32console.c.  */
+#ifndef WINDOWSNT
+static
+#endif
 Lisp_Object
 tty_menu_show (struct frame *f, int x, int y, int menuflags,
 	       Lisp_Object title, const char **error_name)

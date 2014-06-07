@@ -1,4 +1,21 @@
+2014-06-07  Eli Zaretskii  <eliz@gnu.org>
+
+	* term.c (tty_menu_show) [WINDOWSNT]: Make tty_menu_show extern
+	only for WINDOWSNT.
+	* menu.h (tty_menu_show) [WINDOWSNT]: Declare extern only for WINDOWSNT.
+
+2014-06-06  Paul Eggert  <eggert@cs.ucla.edu>
+
+	* term.c (tty_menu_show) [!HAVE_NTGUI]: Now static.
+	* menu.h (tty_menu_show) [!HAVE_NTGUI]: Omit extern decl.
+
 2014-06-06  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* window.c (Frecenter): Signal an error if window-buffer is not
+	current-buffer.
+
+	* keyboard.c (make_lispy_position): Don't include a buffer position in
+	mode/header-line mouse events.
 
 	* keyboard.c (read_char): Handle (t . <event>) in the second use of
 	Vunread_command_events (bug#17650).
