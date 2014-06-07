@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/bin/zsh
+
 set -e -x
 
 # report the previous state so that we can try again
