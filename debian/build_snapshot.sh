@@ -33,6 +33,10 @@ dch -v `date +'2:%Y%m%d+'$UPSTREAM_VER'-1'` 'New snapshot'
 dch -r ''
 git commit -m 'new snapshot' debian/changelog
 
+# done preparing the source. Push and build
+git push origin upstream:upstream
+git push origin master:master
+
 git clean -ffdx; git reset --hard
 ./debian/rules debian/control
 ./debian/rules debian/copyright
