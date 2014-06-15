@@ -1000,7 +1000,7 @@ x_set_mouse_face_gc (struct glyph_string *s)
   else
     face_id = FACE_FOR_CHAR (s->f, face, 0, -1, Qnil);
   s->face = FACE_FROM_ID (s->f, face_id);
-  PREPARE_FACE_FOR_DISPLAY (s->f, s->face);
+  prepare_face_for_display (s->f, s->face);
 
   /* If font in this face is same as S->font, use it.  */
   if (s->font == s->face->font)
@@ -1050,7 +1050,7 @@ x_set_mode_line_face_gc (struct glyph_string *s)
 static inline void
 x_set_glyph_string_gc (struct glyph_string *s)
 {
-  PREPARE_FACE_FOR_DISPLAY (s->f, s->face);
+  prepare_face_for_display (s->f, s->face);
 
   if (s->hl == DRAW_NORMAL_TEXT)
     {
@@ -4536,10 +4536,11 @@ w32_read_socket (struct terminal *terminal,
                    Emacs events should reflect only motion after
                    the ButtonPress.  */
                 if (f != 0)
-                  f->mouse_moved = 0;
-
-                if (!tool_bar_p)
-                  last_tool_bar_item = -1;
+		  {
+		    f->mouse_moved = 0;
+		    if (!tool_bar_p)
+		      f->last_tool_bar_item = -1;
+		  }
 	      }
 	    break;
 	  }
@@ -4564,9 +4565,9 @@ w32_read_socket (struct terminal *terminal,
 		   should reflect only motion after the
 		   ButtonPress.  */
 		f->mouse_moved = 0;
+		f->last_tool_bar_item = -1;
 	      }
 	    dpyinfo->last_mouse_frame = f;
-	    last_tool_bar_item = -1;
 	  }
 	  break;
 
@@ -6454,7 +6455,6 @@ w32_initialize (void)
 			     &w32_use_visible_system_caret, 0))
     w32_use_visible_system_caret = 0;
 
-  last_tool_bar_item = -1;
   any_help_event_p = 0;
 
   /* Initialize input mode: interrupt_input off, no flow control, allow

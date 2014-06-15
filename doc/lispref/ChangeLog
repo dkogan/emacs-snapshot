@@ -1,3 +1,31 @@
+2014-06-15  Glenn Morris  <rgm@gnu.org>
+
+	* Makefile.in (bootstrap-clean): New.
+
+2014-06-15  Eli Zaretskii  <eliz@gnu.org>
+
+	* commands.texi (Accessing Mouse): Improve the wording of the
+	posn-col-row documentation.  (Bug#17768)
+
+2014-06-10  Glenn Morris  <rgm@gnu.org>
+
+	* Makefile.in (INFO_EXT): Remove and replace by ".info" throughout.
+	(INFO_OPTS): Set directly rather than with configure.
+
+2014-06-09  Paul Eggert  <eggert@cs.ucla.edu>
+
+	Say (accept-process-output P)'s result pertains to P if P is non-nil.
+	* processes.texi (Accepting Output): Mention that if PROCESS is non-nil,
+	the return value is about PROCESS, not about other processes.
+
+2014-06-08  Glenn Morris  <rgm@gnu.org>
+
+	* os.texi (Startup Summary): Small fix for initial-buffer-choice.
+
+	* files.texi (Subroutines of Visiting): Mention uniquify.
+
+	* numbers.texi (Comparison of Numbers): Copyedits.
+
 2014-06-08  Glenn Morris  <rgm@gnu.org>
 
 	* display.texi (Window Systems): Remove window-setup-hook.

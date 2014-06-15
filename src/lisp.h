@@ -4127,9 +4127,7 @@ extern void set_frame_param (struct frame *, Lisp_Object, Lisp_Object);
 extern void store_frame_param (struct frame *, Lisp_Object, Lisp_Object);
 extern void store_in_alist (Lisp_Object *, Lisp_Object, Lisp_Object);
 extern Lisp_Object do_switch_frame (Lisp_Object, int, int, Lisp_Object);
-#if HAVE_NS || HAVE_NTGUI
 extern Lisp_Object get_frame_param (struct frame *, Lisp_Object);
-#endif
 extern void frames_discard_buffer (Lisp_Object);
 extern void syms_of_frame (void);
 
@@ -4180,10 +4178,8 @@ extern bool running_asynch_code;
 /* Defined in process.c.  */
 extern Lisp_Object QCtype, Qlocal;
 extern void kill_buffer_processes (Lisp_Object);
-extern bool wait_reading_process_output (intmax_t, int, int, bool,
-					 Lisp_Object,
-					 struct Lisp_Process *,
-					 int);
+extern int wait_reading_process_output (intmax_t, int, int, bool, Lisp_Object,
+					struct Lisp_Process *, int);
 /* Max value for the first argument of wait_reading_process_output.  */
 #if __GNUC__ == 3 || (__GNUC__ == 4 && __GNUC_MINOR__ <= 5)
 /* Work around a bug in GCC 3.4.2, known to be fixed in GCC 4.6.3.

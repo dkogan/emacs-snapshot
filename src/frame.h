@@ -164,6 +164,11 @@ struct frame
   /* Cache of realized faces.  */
   struct face_cache *face_cache;
 
+#if defined (HAVE_WINDOW_SYSTEM) && ! defined (USE_GTK) && ! defined (HAVE_NS)
+  /* Tool-bar item index of the item on which a mouse button was pressed.  */
+  int last_tool_bar_item;
+#endif
+
   /* Number of elements in `menu_bar_vector' that have meaningful data.  */
   int menu_bar_items_used;
 
@@ -992,8 +997,10 @@ extern struct frame *make_minibuffer_frame (void);
 extern struct frame *make_frame_without_minibuffer (Lisp_Object,
                                                     struct kboard *,
                                                     Lisp_Object);
-#endif /* HAVE_WINDOW_SYSTEM */
 extern bool window_system_available (struct frame *);
+#else /* not HAVE_WINDOW_SYSTEM */
+#define window_system_available(f) ((void) (f), false)
+#endif /* HAVE_WINDOW_SYSTEM */
 extern void check_window_system (struct frame *);
 extern void frame_make_pointer_invisible (struct frame *);
 extern void frame_make_pointer_visible (struct frame *);

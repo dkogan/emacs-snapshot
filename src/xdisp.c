@@ -98,7 +98,9 @@ along with GNU Emacs.  If not, see <http://www.gnu.org/licenses/>.  */
 
       This function attempts to redisplay a window by reusing parts of
       its existing display.  It finds and reuses the part that was not
-      changed, and redraws the rest.
+      changed, and redraws the rest.  (The "id" part in the function's
+      name stands for "insert/delete", not for "identification" or
+      somesuch.)
 
     . try_window
 
@@ -112,6 +114,19 @@ along with GNU Emacs.  If not, see <http://www.gnu.org/licenses/>.  */
    it is known that they are not applicable).  If none of the
    optimizations were successful, redisplay calls redisplay_windows,
    which performs a full redisplay of all windows.
+
+   Note that there's one more important optimization up Emacs's
+   sleeve, but it is related to actually redrawing the potentially
+   changed portions of the window/frame, not to reproducing the
+   desired matrices of those potentially changed portions.  Namely,
+   the function update_frame and its subroutines, which you will find
+   in dispnew.c, compare the desired matrices with the current
+   matrices, and only redraw the portions that changed.  So it could
+   happen that the functions in this file for some reason decide that
+   the entire desired matrix needs to be regenerated from scratch, and
+   still only parts of the Emacs display, or even nothing at all, will
+   be actually delivered to the glass, because update_frame has found
+   that the new and the old screen contents are similar or identical.
 
    Desired matrices.
 
@@ -11806,11 +11821,6 @@ update_menu_bar (struct frame *f, int save_match_data, int hooks_run)
 
 #ifdef HAVE_WINDOW_SYSTEM
 
-/* Tool-bar item index of the item on which a mouse button was pressed
-   or -1.  */
-
-int last_tool_bar_item;
-
 /* Select `frame' temporarily without running all the code in
    do_switch_frame.
    FIXME: Maybe do_switch_frame should be trimmed down similarly
@@ -12612,7 +12622,7 @@ handle_tool_bar_click (struct frame *f, int x, int y, int down_p,
      where the button was pressed, disregarding where it was
      released.  */
   if (NILP (Vmouse_highlight) && !down_p)
-    prop_idx = last_tool_bar_item;
+    prop_idx = f->last_tool_bar_item;
 
   /* If item is disabled, do nothing.  */
   enabled_p = AREF (f->tool_bar_items, prop_idx + TOOL_BAR_ITEM_ENABLED_P);
@@ -12624,7 +12634,7 @@ handle_tool_bar_click (struct frame *f, int x, int y, int down_p,
       /* Show item in pressed state.  */
       if (!NILP (Vmouse_highlight))
 	show_mouse_face (hlinfo, DRAW_IMAGE_SUNKEN);
-      last_tool_bar_item = prop_idx;
+      f->last_tool_bar_item = prop_idx;
     }
   else
     {
@@ -12649,7 +12659,7 @@ handle_tool_bar_click (struct frame *f, int x, int y, int down_p,
       event.arg = key;
       event.modifiers = modifiers;
       kbd_buffer_store_event (&event);
-      last_tool_bar_item = -1;
+      f->last_tool_bar_item = -1;
     }
 }
 
@@ -12699,8 +12709,7 @@ note_tool_bar_highlight (struct frame *f, int x, int y)
   mouse_down_p = (x_mouse_grabbed (dpyinfo)
 		  && f == dpyinfo->last_mouse_frame);
 
-  if (mouse_down_p
-      && last_tool_bar_item != prop_idx)
+  if (mouse_down_p && f->last_tool_bar_item != prop_idx)
     return;
 
   draw = mouse_down_p ? DRAW_IMAGE_SUNKEN : DRAW_IMAGE_RAISED;
@@ -14419,7 +14428,7 @@ set_cursor_from_row (struct window *w, struct glyph_row *row,
 					      pos_after, 0);
 
 		if (prop_pos >= pos_before)
-		  bpos_max = prop_pos - 1;
+		  bpos_max = prop_pos;
 	      }
 	    if (INTEGERP (chprop))
 	      {
@@ -14493,7 +14502,7 @@ set_cursor_from_row (struct window *w, struct glyph_row *row,
 					      pos_after, 0);
 
 		if (prop_pos >= pos_before)
-		  bpos_max = prop_pos - 1;
+		  bpos_max = prop_pos;
 	      }
 	    if (INTEGERP (chprop))
 	      {
@@ -14523,7 +14532,7 @@ set_cursor_from_row (struct window *w, struct glyph_row *row,
      GLYPH_BEFORE and GLYPH_AFTER.  */
   if (!((row->reversed_p ? glyph > glyphs_end : glyph < glyphs_end)
 	&& BUFFERP (glyph->object) && glyph->charpos == pt_old)
-      && !(bpos_max < pt_old && pt_old <= bpos_covered))
+      && !(bpos_max <= pt_old && pt_old <= bpos_covered))
     {
       /* An empty line has a single glyph whose OBJECT is zero and
 	 whose CHARPOS is the position of a newline on that line.
@@ -15710,9 +15719,6 @@ try_cursor_movement (Lisp_Object window, struct text_pos startp, int *scroll_ste
   return rc;
 }
 
-#if !defined USE_TOOLKIT_SCROLL_BARS || defined USE_GTK
-static
-#endif
 void
 set_vertical_scroll_bar (struct window *w)
 {
@@ -15755,7 +15761,51 @@ set_vertical_scroll_bar (struct window *w)
    selected_window is redisplayed.
 
    We can return without actually redisplaying the window if fonts has been
-   changed on window's frame.  In that case, redisplay_internal will retry.  */
+   changed on window's frame.  In that case, redisplay_internal will retry.
+
+   As one of the important parts of redisplaying a window, we need to
+   decide whether the previous window-start position (stored in the
+   window's w->start marker position) is still valid, and if it isn't,
+   recompute it.  Some details about that:
+
+    . The previous window-start could be in a continuation line, in
+      which case we need to recompute it when the window width
+      changes.  See compute_window_start_on_continuation_line and its
+      call below.
+
+    . The text that changed since last redisplay could include the
+      previous window-start position.  In that case, we try to salvage
+      what we can from the current glyph matrix by calling
+      try_scrolling, which see.
+
+    . Some Emacs command could force us to use a specific window-start
+      position by setting the window's force_start flag, or gently
+      propose doing that by setting the window's optional_new_start
+      flag.  In these cases, we try using the specified start point if
+      that succeeds (i.e. the window desired matrix is successfully
+      recomputed, and point location is within the window).  In case
+      of optional_new_start, we first check if the specified start
+      position is feasible, i.e. if it will allow point to be
+      displayed in the window.  If using the specified start point
+      fails, e.g., if new fonts are needed to be loaded, we abort the
+      redisplay cycle and leave it up to the next cycle to figure out
+      things.
+
+    . Note that the window's force_start flag is sometimes set by
+      redisplay itself, when it decides that the previous window start
+      point is fine and should be kept.  Search for "goto force_start"
+      below to see the details.  Like the values of window-start
+      specified outside of redisply, these internally deduced values
+      are tested for feasibility, and ignored if found to be
+      unfeasible.
+
+    . Note that the function try_window, used to completely redisplay
+      a window, accepts the window's start point as its argument.
+      This is used several times in the redisplay code to control
+      where the window start will be, according to user options such
+      as scroll-conservatively, and also to ensure the screen line
+      showing point will be fully (as opposed to partially) visible on
+      display.  */
 
 static void
 redisplay_window (Lisp_Object window, bool just_this_one_p)
@@ -15801,6 +15851,8 @@ redisplay_window (Lisp_Object window, bool just_this_one_p)
   eassert (XMARKER (w->start)->buffer == buffer);
   eassert (XMARKER (w->pointm)->buffer == buffer);
 
+  /* We come here again if we need to run window-text-change-functions
+     below.  */
  restart:
   reconsider_clip_changes (w);
   frame_line_height = default_line_pixel_height (w);
@@ -15865,7 +15917,7 @@ redisplay_window (Lisp_Object window, bool just_this_one_p)
        && !current_buffer->prevent_redisplay_optimizations_p
        && !window_outdated (w));
 
-  /* Run the window-bottom-change-functions
+  /* Run the window-text-change-functions
      if it is possible that the text on the screen has changed
      (either due to modification of the text, or any other reason).  */
   if (!current_matrix_up_to_date_p
@@ -20694,6 +20746,7 @@ Value is the new character position of point.  */)
      recorded in the glyphs, at least as long as the goal is on the
      screen.  */
   if (w->window_end_valid
+      && NILP (Vexecuting_kbd_macro)
       && !windows_or_buffers_changed
       && b
       && !b->clip_changed
@@ -23683,7 +23736,7 @@ get_char_face_and_encoding (struct frame *f, int c, int face_id,
 #endif
     {
       eassert (face != NULL);
-      PREPARE_FACE_FOR_DISPLAY (f, face);
+      prepare_face_for_display (f, face);
     }
 
   return face;
@@ -23706,7 +23759,7 @@ get_glyph_face_and_encoding (struct frame *f, struct glyph *glyph,
 
   /* Make sure X resources of the face are allocated.  */
   eassert (face != NULL);
-  PREPARE_FACE_FOR_DISPLAY (f, face);
+  prepare_face_for_display (f, face);
 
   if (two_byte_p)
     *two_byte_p = 0;
@@ -24023,7 +24076,7 @@ fill_stretch_glyph_string (struct glyph_string *s, int start, int end)
   s->ybase += voffset;
 
   /* The case that face->gc == 0 is handled when drawing the glyph
-     string by calling PREPARE_FACE_FOR_DISPLAY.  */
+     string by calling prepare_face_for_display.  */
   eassert (s->face);
   return glyph - s->row->glyphs[s->area];
 }
@@ -24972,7 +25025,7 @@ produce_image_glyph (struct it *it)
   face = FACE_FROM_ID (it->f, it->face_id);
   eassert (face);
   /* Make sure X resources of the face is loaded.  */
-  PREPARE_FACE_FOR_DISPLAY (it->f, face);
+  prepare_face_for_display (it->f, face);
 
   if (it->image_id < 0)
     {
@@ -25250,7 +25303,7 @@ produce_stretch_glyph (struct it *it)
     {
       struct face *face = FACE_FROM_ID (it->f, it->face_id);
       font = face->font ? face->font : FRAME_FONT (it->f);
-      PREPARE_FACE_FOR_DISPLAY (it->f, face);
+      prepare_face_for_display (it->f, face);
     }
 #endif
 
@@ -25714,7 +25767,7 @@ produce_glyphless_glyph (struct it *it, int for_no_font, Lisp_Object acronym)
 
       face = FACE_FROM_ID (it->f, face_id);
       font = face->font ? face->font : FRAME_FONT (it->f);
-      PREPARE_FACE_FOR_DISPLAY (it->f, face);
+      prepare_face_for_display (it->f, face);
 
       if (it->glyphless_method == GLYPHLESS_DISPLAY_ACRONYM)
 	{
@@ -27055,9 +27108,6 @@ draw_phys_cursor_glyph (struct window *w, struct glyph_row *row,
 
 /* Erase the image of a cursor of window W from the screen.  */
 
-#ifndef HAVE_NTGUI
-static
-#endif
 void
 erase_phys_cursor (struct window *w)
 {

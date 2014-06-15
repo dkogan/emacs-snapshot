@@ -25,22 +25,6 @@ AC_PREREQ(2.65)
 dnl Note this is parsed by (at least) make-dist and lisp/cedet/ede/emacs.el.
 AC_INIT(GNU Emacs, 24.4.50, bug-gnu-emacs@gnu.org)
 
-dnl We get MINGW64 with MSYS2
-if test "x$MSYSTEM" = "xMINGW32" -o "x$MSYSTEM" = "xMINGW64"
-then
-  . $srcdir/nt/mingw-cfg.site
-
-  case $srcdir in
-    /* | ?:*)
-      # srcdir is an absolute path.  In this case, force the format
-      # "/c/foo/bar", to simplify later conversions to native Windows
-      # format ("c:/foo/bar")
-      srcdir=`cd "${srcdir}" && pwd -W`
-      srcdir="/${srcdir:0:1}${srcdir:2}"
-      ;;
-  esac
-fi
-
 dnl Set emacs_config_options to the options of 'configure', quoted for the shell,
 dnl and then quoted again for a C string.  Separate options with spaces.
 dnl Add some environment variables, if they were passed via the environment
@@ -109,35 +93,39 @@ AC_DEFUN([AC_PROG_MAKE_SET],
    AC_SUBST([SET_MAKE])])
 
 dnl Check for GNU Make and possibly set MAKE before running AM_INIT_AUTOMAKE.
+[emacs_check_gnu_make ()
+{
+  emacs_makeout=`($1 --version) 2>/dev/null` &&
+  case $emacs_makeout in
+    'GNU Make '3.8[1-9]* | 'GNU Make '3.9[0-9]* | \
+    'GNU Make '3.[1-9][0-9][0-9]* | 'GNU Make '[4-9]* | 'GNU Make '[1-9][0-9]* )
+       ac_path_MAKE_found=:;;
+  esac
+}]
 AC_CACHE_CHECK([for GNU Make], [ac_cv_path_MAKE],
   [ac_path_MAKE_found=false
    if test -n "$MAKE"; then
-     emacs_makeout=`($MAKE --version) 2>/dev/null` &&
-     case $emacs_makeout in
-       'GNU Make '*)
-	 ac_path_MAKE_found=:;;
-     esac
+     emacs_check_gnu_make "$MAKE"
      ac_cv_path_MAKE=$MAKE
    else
      emacs_tried_make=false
      emacs_tried_gmake=false
      emacs_tried_gnumake=false
      AC_PATH_PROGS_FEATURE_CHECK([MAKE], [make gmake gnumake],
-       [[emacs_makeout=`($ac_path_MAKE --version) 2>/dev/null` &&
-	 case $emacs_makeout in
-	   'GNU Make '*)
-	      # Use the fully-qualified program name only if the basename
-	      # would not resolve to it.
-	      if eval \$emacs_tried_$ac_prog; then
-		ac_cv_path_MAKE=$ac_path_MAKE
-	      else
-		ac_cv_path_MAKE=$ac_prog
-	      fi
-	      ac_path_MAKE_found=:;;
-	 esac
+       [[emacs_check_gnu_make "$ac_path_MAKE"
+	 if $ac_path_MAKE_found; then
+	   # Use the fully-qualified program name only if the basename
+	   # would not resolve to it.
+	   if eval \$emacs_tried_$ac_prog; then
+	     ac_cv_path_MAKE=$ac_path_MAKE
+	   else
+	     ac_cv_path_MAKE=$ac_prog
+	   fi
+	 fi
 	 eval emacs_tried_$ac_prog=:]])
    fi])
-$ac_path_MAKE_found || { AC_MSG_ERROR([[Building Emacs requires GNU Make.
+$ac_path_MAKE_found || {
+AC_MSG_ERROR([[Building Emacs requires GNU Make, at least version 3.81.
 If you have it installed under another name, configure with 'MAKE=...'.
 For example, run '$0 MAKE=gnu-make'.]])
 }
@@ -145,6 +133,27 @@ MAKE=$ac_cv_path_MAKE
 
 dnl Fairly arbitrary, older versions might work too.
 AM_INIT_AUTOMAKE(1.11)
+
+dnl Canonicalize the configuration name.
+AC_CANONICAL_HOST
+canonical=$host
+configuration=${host_alias-${build_alias-$host}}
+
+dnl We get MINGW64 with MSYS2.
+case $canonical in
+ *-mingw*)
+  . $srcdir/nt/mingw-cfg.site
+
+  case $srcdir in
+    /* | ?:*)
+      # srcdir is an absolute path.  In this case, force the format
+      # "/c/foo/bar", to simplify later conversions to native Windows
+      # format ("c:/foo/bar").
+      srcdir=`cd "${srcdir}" && pwd -W`
+      srcdir="/${srcdir:0:1}${srcdir:2}"
+      ;;
+  esac;;
+esac
 
 dnl Support for --program-prefix, --program-suffix and
 dnl --program-transform-name options
@@ -488,12 +497,6 @@ AC_ARG_ENABLE(gtk-deprecation-warnings,
 [AS_HELP_STRING([--enable-gtk-deprecation-warnings],
 		[Show Gtk+/Gdk deprecation warnings for Gtk+ >= 3.0])],
 [ac_enable_gtk_deprecation_warnings="${enableval}"],[])
-
-### Canonicalize the configuration name.
-
-AC_CANONICAL_HOST
-canonical=$host
-configuration=${host_alias-${build_alias-$host}}
 
 dnl This used to use changequote, but, apart from `changequote is evil'
 dnl per the autoconf manual, we can speed up autoconf somewhat by quoting
@@ -1112,12 +1115,6 @@ with the `--without-makeinfo' option to build without the manuals.] )
   fi
 fi
 AC_SUBST(HAVE_MAKEINFO)
-
-dnl Just so that there is only a single place we need to edit.
-INFO_EXT=.info
-INFO_OPTS=--no-split
-AC_SUBST(INFO_EXT)
-AC_SUBST(INFO_OPTS)
 
 if test $opsys = mingw32; then
    DOCMISC_W32=efaq-w32
@@ -2094,11 +2091,15 @@ if test "$ac_cv_header_pthread_h"; then
      # Some systems optimize for single-threaded programs by default, and
      # need special flags to disable these optimizations. For example, the
      # definition of 'errno' in <errno.h>.
-     if test "$opsys" = aix4-2; then
-       AC_DEFINE([_THREAD_SAFE], [1],
-         [Define to 1 if your system requires this in multithreaded code.])
-     fi])
-  if test "X$LIBS" != "X$OLD_LIBS"; then
+     case $opsys in
+       sol*)
+         AC_DEFINE([_REENTRANT], 1,
+   	[Define to 1 if your system requires this in multithreaded code.]);;
+       aix4-2)
+         AC_DEFINE([_THREAD_SAFE], 1,
+   	[Define to 1 if your system requires this in multithreaded code.]);;
+     esac])
+ if test "X$LIBS" != "X$OLD_LIBS"; then
     eval LIB_PTHREAD=\$ac_cv_search_$emacs_pthread_function
   fi
   LIBS=$OLD_LIBS

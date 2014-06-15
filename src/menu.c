@@ -66,9 +66,6 @@ Lisp_Object menu_items;
 
 /* If non-nil, means that the global vars defined here are already in use.
    Used to detect cases where we try to re-enter this non-reentrant code.  */
-#if ! (defined USE_GTK || defined USE_MOTIF)
-static
-#endif
 Lisp_Object menu_items_inuse;
 
 /* Number of slots currently allocated in menu_items.  */
@@ -1413,9 +1410,12 @@ no quit occurs and `x-popup-menu' returns nil.  */)
   record_unwind_protect_void (discard_menu_items);
 #endif
 
-  /* Display them in a menu.  */
-  selection = FRAME_TERMINAL (f)->menu_show_hook (f, xpos, ypos, menuflags,
-						  title, &error_name);
+  /* Display them in a menu, but not if F is the initial frame that
+     doesn't have its hooks set (e.g., in a batch session), because
+     such a frame cannot display menus.  */
+  if (!FRAME_INITIAL_P (f))
+    selection = FRAME_TERMINAL (f)->menu_show_hook (f, xpos, ypos, menuflags,
+						    title, &error_name);
 
 #ifdef HAVE_NS
   unbind_to (specpdl_count, Qnil);
