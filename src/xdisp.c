@@ -12279,11 +12279,6 @@ tool_bar_height (struct frame *f, int *n_rows, bool pixelwise)
 
 #endif /* !USE_GTK && !HAVE_NS */
 
-#if defined USE_GTK || defined HAVE_NS
-EXFUN (Ftool_bar_height, 2) ATTRIBUTE_CONST;
-EXFUN (Ftool_bar_lines_needed, 1) ATTRIBUTE_CONST;
-#endif
-
 DEFUN ("tool-bar-height", Ftool_bar_height, Stool_bar_height,
        0, 2, 0,
        doc: /* Return the number of lines occupied by the tool bar of FRAME.
@@ -15795,7 +15790,7 @@ set_vertical_scroll_bar (struct window *w)
       redisplay itself, when it decides that the previous window start
       point is fine and should be kept.  Search for "goto force_start"
       below to see the details.  Like the values of window-start
-      specified outside of redisply, these internally deduced values
+      specified outside of redisplay, these internally-deduced values
       are tested for feasibility, and ignored if found to be
       unfeasible.
 
@@ -20746,12 +20741,15 @@ Value is the new character position of point.  */)
      recorded in the glyphs, at least as long as the goal is on the
      screen.  */
   if (w->window_end_valid
-      && NILP (Vexecuting_kbd_macro)
       && !windows_or_buffers_changed
       && b
       && !b->clip_changed
       && !b->prevent_redisplay_optimizations_p
       && !window_outdated (w)
+      /* We rely below on the cursor coordinates to be up to date, but
+	 we cannot trust them if some command moved point since the
+	 last complete redisplay.  */
+      && w->last_point == BUF_PT (b)
       && w->cursor.vpos >= 0
       && w->cursor.vpos < w->current_matrix->nrows
       && (row = MATRIX_ROW (w->current_matrix, w->cursor.vpos))->enabled_p)
