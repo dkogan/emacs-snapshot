@@ -801,11 +801,11 @@ PRESERVE-UID-GID and PRESERVE-EXTENDED-ATTRIBUTES are completely ignored."
 	     v (format "(cd %s; %s)"
 		       (tramp-shell-quote-argument localname) command)
 	     "")
-	    ;; We should show the output anyway.
+	    ;; We should add the output anyway.
 	    (when outbuf
 	      (with-current-buffer outbuf
 		(insert-buffer-substring (tramp-get-connection-buffer v)))
-	      (when display (display-buffer outbuf))))
+	      (when (and display (get-buffer-window outbuf t)) (redisplay))))
 	;; When the user did interrupt, we should do it also.  We use
 	;; return code -1 as marker.
 	(quit
@@ -1032,7 +1032,7 @@ This happens for Android >= 4.0."
 
 (defun tramp-adb-send-command-and-check
   (vec command)
-  "Run COMMAND and and check its exit status.
+  "Run COMMAND and check its exit status.
 Sends `echo $?' along with the COMMAND for checking the exit status.  If
 COMMAND is nil, just sends `echo $?'.  Returns the exit status found."
   (tramp-adb-send-command

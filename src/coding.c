@@ -1485,7 +1485,7 @@ decode_coding_utf_8 (struct coding_system *coding)
       src = src_base;
       consumed_chars = consumed_chars_base;
       ONE_MORE_BYTE (c);
-      *charbuf++ = ASCII_BYTE_P (c) ? c : BYTE8_TO_CHAR (c);
+      *charbuf++ = ASCII_CHAR_P (c) ? c : BYTE8_TO_CHAR (c);
       coding->errors++;
     }
 
@@ -1549,8 +1549,8 @@ encode_coding_utf_8 (struct coding_system *coding)
 	    *dst++ = CHAR_TO_BYTE8 (c);
 	  else
 	    CHAR_STRING_ADVANCE_NO_UNIFY (c, dst);
-	  produced_chars++;
 	}
+      produced_chars = dst - (coding->destination + coding->produced);
     }
   record_conversion_result (coding, CODING_RESULT_SUCCESS);
   coding->produced_char += produced_chars;
@@ -1725,7 +1725,7 @@ decode_coding_utf_16 (struct coding_system *coding)
 	ONE_MORE_BYTE (c2);
       if (c2 < 0)
 	{
-	  *charbuf++ = ASCII_BYTE_P (c1) ? c1 : BYTE8_TO_CHAR (c1);
+	  *charbuf++ = ASCII_CHAR_P (c1) ? c1 : BYTE8_TO_CHAR (c1);
 	  *charbuf++ = -c2;
 	  continue;
 	}
@@ -2108,7 +2108,7 @@ emacs_mule_char (struct coding_system *coding, const unsigned char *src,
 
 	case 1:
 	  code = c;
-	  charset_ID = ASCII_BYTE_P (code) ? charset_ascii : charset_eight_bit;
+	  charset_ID = ASCII_CHAR_P (code) ? charset_ascii : charset_eight_bit;
 	  break;
 
 	default:
@@ -2596,7 +2596,7 @@ decode_coding_emacs_mule (struct coding_system *coding)
       src = src_base;
       consumed_chars = consumed_chars_base;
       ONE_MORE_BYTE (c);
-      *charbuf++ = ASCII_BYTE_P (c) ? c : BYTE8_TO_CHAR (c);
+      *charbuf++ = ASCII_CHAR_P (c) ? c : BYTE8_TO_CHAR (c);
       char_offset++;
       coding->errors++;
     }
@@ -3573,7 +3573,7 @@ decode_coding_iso_2022 (struct coding_system *coding)
 
       if (CODING_ISO_EXTSEGMENT_LEN (coding) > 0)
 	{
-	  *charbuf++ = ASCII_BYTE_P (c1) ? c1 : BYTE8_TO_CHAR (c1);
+	  *charbuf++ = ASCII_CHAR_P (c1) ? c1 : BYTE8_TO_CHAR (c1);
 	  char_offset++;
 	  CODING_ISO_EXTSEGMENT_LEN (coding)--;
 	  continue;
@@ -3600,7 +3600,7 @@ decode_coding_iso_2022 (struct coding_system *coding)
 	    }
 	  else
 	    {
-	      *charbuf++ = ASCII_BYTE_P (c1) ? c1 : BYTE8_TO_CHAR (c1);
+	      *charbuf++ = ASCII_CHAR_P (c1) ? c1 : BYTE8_TO_CHAR (c1);
 	      char_offset++;
 	    }
 	  continue;
@@ -3974,7 +3974,7 @@ decode_coding_iso_2022 (struct coding_system *coding)
 	  MAYBE_FINISH_COMPOSITION ();
 	  for (; src_base < src; src_base++, char_offset++)
 	    {
-	      if (ASCII_BYTE_P (*src_base))
+	      if (ASCII_CHAR_P (*src_base))
 		*charbuf++ = *src_base;
 	      else
 		*charbuf++ = BYTE8_TO_CHAR (*src_base);
@@ -4004,7 +4004,7 @@ decode_coding_iso_2022 (struct coding_system *coding)
       src = src_base;
       consumed_chars = consumed_chars_base;
       ONE_MORE_BYTE (c);
-      *charbuf++ = c < 0 ? -c : ASCII_BYTE_P (c) ? c : BYTE8_TO_CHAR (c);
+      *charbuf++ = c < 0 ? -c : ASCII_CHAR_P (c) ? c : BYTE8_TO_CHAR (c);
       char_offset++;
       coding->errors++;
       /* Reset the invocation and designation status to the safest
@@ -5640,7 +5640,7 @@ decode_coding_charset (struct coding_system *coding)
       src = src_base;
       consumed_chars = consumed_chars_base;
       ONE_MORE_BYTE (c);
-      *charbuf++ = c < 0 ? -c : ASCII_BYTE_P (c) ? c : BYTE8_TO_CHAR (c);
+      *charbuf++ = c < 0 ? -c : ASCII_CHAR_P (c) ? c : BYTE8_TO_CHAR (c);
       char_offset++;
       coding->errors++;
     }
@@ -7265,13 +7265,16 @@ produce_charset (struct coding_system *coding, int *charbuf, ptrdiff_t pos)
 		      coding->dst_object);
 }
 
+#define MAX_CHARBUF_SIZE 0x4000
+#define MIN_CHARBUF_SIZE 0x10
 
-#define CHARBUF_SIZE 0x4000
-
-#define ALLOC_CONVERSION_WORK_AREA(coding)				\
-  do {									\
-    coding->charbuf = SAFE_ALLOCA (CHARBUF_SIZE * sizeof (int));	\
-    coding->charbuf_size = CHARBUF_SIZE;				\
+#define ALLOC_CONVERSION_WORK_AREA(coding, size)		\
+  do {								\
+    int units = ((size) > MAX_CHARBUF_SIZE ? MAX_CHARBUF_SIZE	\
+		 : (size) < MIN_CHARBUF_SIZE ? MIN_CHARBUF_SIZE	\
+		 : size);					\
+    coding->charbuf = SAFE_ALLOCA ((units) * sizeof (int));	\
+    coding->charbuf_size = (units);				\
   } while (0)
 
 
@@ -7373,7 +7376,7 @@ decode_coding (struct coding_system *coding)
   record_conversion_result (coding, CODING_RESULT_SUCCESS);
   coding->errors = 0;
 
-  ALLOC_CONVERSION_WORK_AREA (coding);
+  ALLOC_CONVERSION_WORK_AREA (coding, coding->src_bytes);
 
   attrs = CODING_ID_ATTRS (coding->id);
   translation_table = get_translation_table (attrs, 0, NULL);
@@ -7769,7 +7772,7 @@ encode_coding (struct coding_system *coding)
   record_conversion_result (coding, CODING_RESULT_SUCCESS);
   coding->errors = 0;
 
-  ALLOC_CONVERSION_WORK_AREA (coding);
+  ALLOC_CONVERSION_WORK_AREA (coding, coding->src_chars);
 
   if (coding->encoder == encode_coding_ccl)
     {
@@ -9031,13 +9034,13 @@ DEFUN ("find-coding-systems-region-internal",
     p = pbeg = BYTE_POS_ADDR (start_byte);
   pend = p + (end_byte - start_byte);
 
-  while (p < pend && ASCII_BYTE_P (*p)) p++;
-  while (p < pend && ASCII_BYTE_P (*(pend - 1))) pend--;
+  while (p < pend && ASCII_CHAR_P (*p)) p++;
+  while (p < pend && ASCII_CHAR_P (*(pend - 1))) pend--;
 
   work_table = Fmake_char_table (Qnil, Qnil);
   while (p < pend)
     {
-      if (ASCII_BYTE_P (*p))
+      if (ASCII_CHAR_P (*p))
 	p++;
       else
 	{
@@ -9091,8 +9094,7 @@ DEFUN ("find-coding-systems-region-internal",
 
 DEFUN ("unencodable-char-position", Funencodable_char_position,
        Sunencodable_char_position, 3, 5, 0,
-       doc: /*
-Return position of first un-encodable character in a region.
+       doc: /* Return position of first un-encodable character in a region.
 START and END specify the region and CODING-SYSTEM specifies the
 encoding to check.  Return nil if CODING-SYSTEM does encode the region.
 
@@ -9102,8 +9104,9 @@ list of positions.
 
 If optional 5th argument STRING is non-nil, it is a string to search
 for un-encodable characters.  In that case, START and END are indexes
-to the string.  */)
-  (Lisp_Object start, Lisp_Object end, Lisp_Object coding_system, Lisp_Object count, Lisp_Object string)
+to the string and treated as in `substring'.  */)
+  (Lisp_Object start, Lisp_Object end, Lisp_Object coding_system,
+   Lisp_Object count, Lisp_Object string)
 {
   EMACS_INT n;
   struct coding_system coding;
@@ -9140,12 +9143,7 @@ to the string.  */)
   else
     {
       CHECK_STRING (string);
-      CHECK_NATNUM (start);
-      CHECK_NATNUM (end);
-      if (! (XINT (start) <= XINT (end) && XINT (end) <= SCHARS (string)))
-	args_out_of_range_3 (string, start, end);
-      from = XINT (start);
-      to = XINT (end);
+      validate_subarray (string, start, end, SCHARS (string), &from, &to);
       if (! STRING_MULTIBYTE (string))
 	return Qnil;
       p = SDATA (string) + string_char_to_byte (string, from);
@@ -9169,7 +9167,7 @@ to the string.  */)
       int c;
 
       if (ascii_compatible)
-	while (p < stop && ASCII_BYTE_P (*p))
+	while (p < stop && ASCII_CHAR_P (*p))
 	  p++, from++;
       if (p >= stop)
 	{
@@ -9285,12 +9283,12 @@ is nil.  */)
     p = pbeg = BYTE_POS_ADDR (start_byte);
   pend = p + (end_byte - start_byte);
 
-  while (p < pend && ASCII_BYTE_P (*p)) p++, pos++;
-  while (p < pend && ASCII_BYTE_P (*(pend - 1))) pend--;
+  while (p < pend && ASCII_CHAR_P (*p)) p++, pos++;
+  while (p < pend && ASCII_CHAR_P (*(pend - 1))) pend--;
 
   while (p < pend)
     {
-      if (ASCII_BYTE_P (*p))
+      if (ASCII_CHAR_P (*p))
 	p++;
       else
 	{
@@ -9598,7 +9596,7 @@ Return the corresponding character.  */)
   CHECK_CODING_SYSTEM_GET_SPEC (Vsjis_coding_system, spec);
   attrs = AREF (spec, 0);
 
-  if (ASCII_BYTE_P (ch)
+  if (ASCII_CHAR_P (ch)
       && ! NILP (CODING_ATTR_ASCII_COMPAT (attrs)))
     return code;
 
@@ -9679,7 +9677,7 @@ Return the corresponding character.  */)
   CHECK_CODING_SYSTEM_GET_SPEC (Vbig5_coding_system, spec);
   attrs = AREF (spec, 0);
 
-  if (ASCII_BYTE_P (ch)
+  if (ASCII_CHAR_P (ch)
       && ! NILP (CODING_ATTR_ASCII_COMPAT (attrs)))
     return code;
 

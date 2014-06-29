@@ -1962,13 +1962,12 @@ their associated keys and their effects."
 	    ;; If user cancels before setting priority, restore
 	    ;; display.
 	    (unless item-added
-	      (if ocat
-		  (progn
-		    (unless (equal cat ocat)
-		      (todo-category-number ocat)
-		      (todo-category-select))
-		    (and done-only (todo-toggle-view-done-only)))
-		(set-window-buffer (selected-window) (set-buffer obuf)))
+	      (set-window-buffer (selected-window) (set-buffer obuf))
+	      (when ocat
+		(unless (equal cat ocat)
+		  (todo-category-number ocat)
+		  (todo-category-select))
+		(and done-only (todo-toggle-view-done-only)))
 	      (goto-char opoint))
 	    ;; If the todo items section is not visible when the
 	    ;; insertion command is called (either because only done
@@ -2553,9 +2552,9 @@ meaning to raise or lower the item's priority by one."
 		(goto-char (point-min))
 		(setq done (re-search-forward todo-done-string-start nil t))))
 	    (let ((todo-show-with-done done))
-	      (todo-category-select)
-	      ;; Keep top of category in view while setting priority.
-	      (goto-char (point-min)))))
+	      ;; Keep current item or top of moved to category in view
+	      ;; while setting priority.
+	      (save-excursion (todo-category-select)))))
 	;; Prompt for priority only when the category has at least one
 	;; todo item.
 	(when (> maxnum 1)
@@ -4293,30 +4292,30 @@ set the user customizable option `todo-top-priorities-overrides'."
 	 (file todo-current-todo-file)
 	 (rules todo-top-priorities-overrides)
 	 (frule (assoc-string file rules))
-	 (crule (assoc-string cat (nth 2 frule)))
 	 (crules (nth 2 frule))
-	 (cur (or (if arg (cdr crule) (nth 1 frule))
+	 (crule (assoc-string cat crules))
+	 (cur (or (and arg (cdr crule))
+		  (nth 1 frule)
 		  todo-top-priorities))
 	 (prompt (if arg (concat "Number of top priorities in this category"
 				 " (currently %d): ")
 		   (concat "Default number of top priorities per category"
 				 " in this file (currently %d): ")))
-	 (new -1)
-	 nrule)
+	 (new -1))
     (while (< new 0)
       (let ((cur0 cur))
 	(setq new (read-number (format prompt cur0))
 	      prompt "Enter a non-negative number: "
 	      cur0 nil)))
-    (setq nrule (if arg
-		    (append (delete crule crules) (list (cons cat new)))
-		  (append (list file new) (list crules))))
-    (setq rules (cons (if arg
-			  (list file cur nrule)
-			nrule)
-		      (delete frule rules)))
-    (customize-save-variable 'todo-top-priorities-overrides rules)
-    (todo-prefix-overlays)))
+    (let ((nrule (if arg
+		     (append (delete crule crules) (list (cons cat new)))
+		   (append (list file new) (list crules)))))
+      (setq rules (cons (if arg
+			    (list file cur nrule)
+			  nrule)
+			(delete frule rules)))
+      (customize-save-variable 'todo-top-priorities-overrides rules)
+      (todo-prefix-overlays))))
 
 (defun todo-find-item (str)
   "Search for filtered item STR in its saved todo file.
@@ -5304,6 +5303,8 @@ of each other."
 			  (todo-current-category)
 			  (nth 2 (assoc-string todo-current-todo-file
 					       todo-top-priorities-overrides))))
+		    (nth 1 (assoc-string todo-current-todo-file
+					 todo-top-priorities-overrides))
 		    todo-top-priorities))
 	done prefix)
     (save-excursion
