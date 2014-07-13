@@ -22,6 +22,10 @@ along with GNU Emacs.  If not, see <http://www.gnu.org/licenses/>.  */
 #include <errno.h>
 #include <stdio.h>
 
+#ifdef WINDOWSNT
+#include <fcntl.h>	/* For O_BINARY, O_TEXT. */
+#endif
+
 #include "lisp.h"
 #include "commands.h"
 #include "character.h"
@@ -34,6 +38,7 @@ along with GNU Emacs.  If not, see <http://www.gnu.org/licenses/>.  */
 #include "intervals.h"
 #include "keymap.h"
 #include "termhooks.h"
+#include "systty.h"
 
 /* List of buffers for use as minibuffers.
    The first element of the list is used for the outermost minibuffer
@@ -224,6 +229,23 @@ read_minibuf_noninteractive (Lisp_Object map, Lisp_Object initial,
   char *line;
   Lisp_Object val;
   int c;
+  unsigned char hide_char = 0;
+  struct emacs_tty etty;
+
+  /* Check, whether we need to suppress echoing.  */
+  if (CHARACTERP (Vread_hide_char))
+    hide_char = XFASTINT (Vread_hide_char);
+
+  /* Manipulate tty.  */
+  if (hide_char)
+    {
+      emacs_get_tty (fileno (stdin), &etty);
+#ifdef WINDOWSNT
+      if (isatty (fileno (stdin)))
+	_setmode (fileno (stdin), O_BINARY);
+#endif
+      suppress_echo_on_tty (fileno (stdin));
+    }
 
   fprintf (stdout, "%s", SDATA (prompt));
   fflush (stdout);
@@ -233,7 +255,7 @@ read_minibuf_noninteractive (Lisp_Object map, Lisp_Object initial,
   len = 0;
   line = xmalloc (size);
 
-  while ((c = getchar ()) != '\n')
+  while ((c = getchar ()) != '\n' && c != '\r')
     {
       if (c == EOF)
 	{
@@ -242,6 +264,8 @@ read_minibuf_noninteractive (Lisp_Object map, Lisp_Object initial,
 	}
       else
 	{
+	  if (hide_char)
+	    fprintf (stdout, "%c", hide_char);
 	  if (len == size)
 	    {
 	      if (STRING_BYTES_BOUND / 2 < size)
@@ -253,7 +277,18 @@ read_minibuf_noninteractive (Lisp_Object map, Lisp_Object initial,
 	}
     }
 
-  if (len || c == '\n')
+  /* Reset tty.  */
+  if (hide_char)
+    {
+      fprintf (stdout, "\n");
+      emacs_set_tty (fileno (stdin), &etty, 0);
+#ifdef WINDOWSNT
+      if (isatty (fileno (stdin)))
+	_setmode (fileno (stdin), O_TEXT);
+#endif
+    }
+
+  if (len || c == '\n' || c == '\r')
     {
       val = make_string (line, len);
       xfree (line);
@@ -2078,6 +2113,12 @@ properties.  */);
   /* We use `intern' here instead of Qread_only to avoid
      initialization-order problems.  */
   Vminibuffer_prompt_properties = list2 (intern_c_string ("read-only"), Qt);
+
+  DEFVAR_LISP ("read-hide-char", Vread_hide_char,
+	       doc: /* Whether to hide input characters in noninteractive mode.
+It must be a character, which will be used to mask the input
+characters.  This variable should never be set globally.  */);
+  Vread_hide_char = Qnil;
 
   defsubr (&Sactive_minibuffer_window);
   defsubr (&Sset_minibuffer_window);

@@ -225,7 +225,35 @@ font_make_object (int size, Lisp_Object entity, int pixelsize)
   return font_object;
 }
 
-
+#if defined (HAVE_XFT) || defined (HAVE_FREETYPE) || defined (HAVE_NS)
+
+static int font_unparse_fcname (Lisp_Object, int, char *, int);
+
+/* Like above, but also set `type', `name' and `fullname' properties
+   of font-object.  */
+
+Lisp_Object
+font_build_object (int vectorsize, Lisp_Object type,
+		   Lisp_Object entity, double pixelsize)
+{
+  int len;
+  char name[256];
+  Lisp_Object font_object = font_make_object (vectorsize, entity, pixelsize);
+
+  ASET (font_object, FONT_TYPE_INDEX, type);
+  len = font_unparse_xlfd (entity, pixelsize, name, sizeof name);
+  if (len > 0)
+    ASET (font_object, FONT_NAME_INDEX, make_string (name, len));
+  len = font_unparse_fcname (entity, pixelsize, name, sizeof name);
+  if (len > 0)
+    ASET (font_object, FONT_FULLNAME_INDEX, make_string (name, len));
+  else
+    ASET (font_object, FONT_FULLNAME_INDEX,
+	  AREF (font_object, FONT_NAME_INDEX));
+  return font_object;
+}
+
+#endif /* HAVE_XFT || HAVE_FREETYPE || HAVE_NS */
 
 static int font_pixel_size (struct frame *f, Lisp_Object);
 static Lisp_Object font_open_entity (struct frame *, Lisp_Object, int);
@@ -1573,11 +1601,14 @@ font_parse_fcname (char *name, ptrdiff_t len, Lisp_Object font)
   return 0;
 }
 
+#if defined HAVE_XFT || defined HAVE_FREETYPE || defined HAVE_NS
+
 /* Store fontconfig's font name of FONT (font-spec or font-entity) in
    NAME (NBYTES length), and return the name length.  If
-   FONT_SIZE_INDEX of FONT is 0, use PIXEL_SIZE instead.  */
+   FONT_SIZE_INDEX of FONT is 0, use PIXEL_SIZE instead.
+   Return a negative value on error.  */
 
-int
+static int
 font_unparse_fcname (Lisp_Object font, int pixel_size, char *name, int nbytes)
 {
   Lisp_Object family, foundry;
@@ -1697,6 +1728,8 @@ font_unparse_fcname (Lisp_Object font, int pixel_size, char *name, int nbytes)
 
   return (p - name);
 }
+
+#endif
 
 /* Parse NAME (null terminated) and store information in FONT
    (font-spec or font-entity).  If NAME is successfully parsed, return

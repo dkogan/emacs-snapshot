@@ -1,3 +1,213 @@
+2014-07-12  Eli Zaretskii  <eliz@gnu.org>
+
+	* xdisp.c (display_line): Don't call FETCH_BYTE with argument less
+	than 1.  (Bug#17962)
+
+	* w32fns.c (Fx_file_dialog): Mention in the doc string the
+	behavior on Windows 7 and later when the function is repeatedly
+	invoked with the same value of DIR.  (Bug#17950)
+
+	* xfns.c (Fx_file_dialog) [USE_MOTIF, USE_GTK]: Update the doc
+	string to match the one in w32fns.c.
+
+	* minibuf.c (read_minibuf_noninteractive) [WINDOWSNT]: Switch
+	stdin to binary mode only if it is connected to a terminal.
+
+2014-07-11  Paul Eggert  <eggert@cs.ucla.edu>
+
+	Coalesce extern decls.
+	* minibuf.c (emacs_get_tty, emacs_set_tty, suppress_echo_on_tty):
+	* sysdep.c (emacs_get_tty, emacs_set_tty):
+	Move duplicate extern decls from here ...
+	* systty.h: ... to here, so that there's just one copy.
+
+2014-07-11  Jan Djärv  <jan.h.d@swipnet.se>
+
+	* nsterm.m (changeFont:): Add ifdef NS_IMPL_COCOA.
+
+	* nsfns.m (Fns_popup_font_panel): Ditto.
+
+2014-07-11  Eli Zaretskii  <eliz@gnu.org>
+
+	* minibuf.c (read_minibuf_noninteractive): Finish reading on '\r',
+	not only on '\n'.
+	[WINDOWSNT]: Switch stdin to binary mode when not echoing input.
+
+	* sysdep.c (emacs_get_tty, emacs_set_tty, suppress_echo_on_tty)
+	[DOS_NT]: Implement for WINDOWSNT.
+
+	* systty.h (struct emacs_tty) [DOS_NT]: The struct member is now
+	unsigned.
+
+2014-07-11  Michael Albinus  <michael.albinus@gmx.de>
+
+	* sysdep.c (suppress_echo_on_tty): New function.
+	* minibuf.c (read_minibuf_noninteractive): Use it.
+
+2014-07-11  Dmitry Antipov  <dmantipov@yandex.ru>
+
+	* alloc.c (Fmemory_info) [HAVE_LINUX_SYSINFO]: Return nil if
+	sysinfo failed.  Adjust docstring.
+
+2014-07-11  Eli Zaretskii  <eliz@gnu.org>
+
+	Implement memory-info for MS-DOS.
+	* dosfns.c (dos_memory_info): New function.
+	* dosfns.h (dos_memory_info): Add prototype.
+	* alloc.c (Fmemory_info) [MSDOS]: Call dos_memory_info.
+	* vm-limit.c (get_lim_data) [MSDOS]: Call dos_memory_info, instead
+	of doing some of its job.
+
+	* minibuf.c (read_minibuf_noninteractive) [WINDOWSNT]: Don't
+	reference termios structure members.
+
+2014-07-11  Michael Albinus  <michael.albinus@gmx.de>
+
+	* sysdep.c (emacs_get_tty, emacs_set_tty): Make them externally visible.
+
+	* minibuf.c (top): Include systty.h.  Declare external
+	emacs_get_tty and emacs_set_tty.
+	(Vread_hide_char): New lisp variable.
+	(read_minibuf_noninteractive): Hide characters with
+	Vread_hide_char if it is a character.  (Bug#17839)
+
+2014-07-10  Eli Zaretskii  <eliz@gnu.org>
+
+	Implement memory-info for MS-Windows.
+	* w32.c (w32_memory_info): New function.
+	* w32.h (w32_memory_info): Prototype it.
+	* alloc.c (Fmemory_info) [WINDOWSNT]: Call it.
+
+2014-07-10  Dmitry Antipov  <dmantipov@yandex.ru>
+
+	* coding.h (struct coding_system): Remove 'error_positions' (unused)
+	and 'errors' (set but unused) fields.  Use bitfields for 'eol_seen',
+	'mode', 'common_flags' and 'result' fields, adjust layout to avoid
+	extra padding and shrink struct coding_system by 56 bytes (x86_64).
+	* coding.c (decode_coding_utf_8, decode_coding_utf_16)
+	(decode_coding_emacs_mule, decode_coding_iso_2022, decode_coding_sjis)
+	(decode_coding_big5, decode_coding_charset, decode_coding)
+	(encode_coding): Adjust users.
+
+	* alloc.c (Fmemory_info): New function.
+
+2014-07-09  Paul Eggert  <eggert@cs.ucla.edu>
+
+	* syntax.c (back_comment): Use more-natural location for label.
+
+	* font.c, font.h (font_unparse_fcname): Now static.
+	Define only if HAVE_XFT || HAVE_FREETYPE || HAVE_NS.
+
+2014-07-09  Dmitry Antipov  <dmantipov@yandex.ru>
+
+	Next minor cleanup of font subsystem.
+	* font.h (enum font_property_index): Remove FONT_ENTITY_INDEX (no
+	users) and FONT_FORMAT_INDEX (set by a few font drivers but never
+	really used).
+	(FONT_ENTITY_NOT_LOADABLE, FONT_ENTITY_SET_NOT_LOADABLE): Remove;
+	unused.
+	* ftfont.h (ftfont_font_format): Remove prototype.
+	* ftfont.c (ftfont_font_format): Remove; now unused.
+	(ftfont_open):
+	* nsfont.m (nsfont_open):
+	* w32font.c (w32font_open_internal):
+	* w32uniscribe.c (uniscribe_open):
+	* xfont.c (xfont_open):
+	* xftfont.c (xftfont_open): All users changed.
+
+	* coding.c (ALLOC_CONVERSION_WORK_AREA): Prefer ptrdiff_t to int and
+	so avoid integer overflow if decoded gap size exceeds INT_MAX bytes.
+
+2014-07-09  Eli Zaretskii  <eliz@gnu.org>
+
+	* xdisp.c (move_it_to): Adjust calculation of line_start_x to what
+	x_produce_glyphs does when it generates a stretch glyph that
+	represents a TAB.  (Bug#17969)
+
+	* xdisp.c (pos_visible_p): If CHARPOS is at beginning of window,
+	and there is a display property at that position, don't call
+	move_it_to to move to a position before window start.  (Bug#17942)
+	Fix condition for finding CHARPOS by the first call to move_it_to.
+	(Bug#17944)
+
+2014-07-09  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* syntax.c (find_defun_start): Try the cache even
+	if !open_paren_in_column_0_is_defun_start.
+	(back_comment): If find_defun_start was pessimistic, use the
+	scan_sexps_forward result to improve the cache (bug#16526).
+
+2014-07-09  Eli Zaretskii  <eliz@gnu.org>
+
+	* xdisp.c (redisplay_window): If redisplay of a window ends up
+	with point in a partially visible line at end of the window, make
+	sure the amended position of point actually has smaller Y
+	coordinate; if not, give up and scroll the display.  (Bug#17905)
+
+	* window.c (window_scroll_pixel_based): When point ends up at the
+	last fully visible line, don't let move_it_to stop at the left
+	edge of the line and dupe us into thinking point is inside the
+	scroll margin.
+
+	* w32.c (network_interface_info): Make sure the argument is a
+	Lisp string.
+
+2014-07-08  Paul Eggert  <eggert@cs.ucla.edu>
+
+	* process.c (read_and_dispose_of_process_output): Fix typo
+	in previous patch: we want nonnegative fds, not nonzero fds.
+
+2014-07-08  Dmitry Antipov  <dmantipov@yandex.ru>
+
+	* chartab.c (char_table_translate): Move to...
+	* character.h (char_table_translate): ... inline function here.
+	Avoid Faref and assume that args are always valid.  This helps to
+	speedup search, which is especially important for a huge buffers.
+	* lisp.h (char_table_translate): Remove prototype.
+
+	* nsfont.m (nsfont_close): Free glyphs and metrics arrays as well.
+	* font.c (font_build_object) [HAVE_XFT || HAVE_FREETYPE || HAVE_NS]:
+	New function, with an intention to avoid code duplication between
+	a few font drivers.
+	* font.h (font_build_object) [HAVE_XFT || HAVE_FREETYPE || HAVE_NS]:
+	Add prototype.
+	* ftfont.c (ftfont_open):
+	* macfont.m (macfont_open):
+	* xftfont.c (xftfont_open): Use it.
+
+2014-07-08  Paul Eggert  <eggert@cs.ucla.edu>
+
+	* process.c: Add sanity checks for file descriptors (Bug#17844).
+	(wait_reading_process_output, Fprocess_filter_multibyte_p):
+	Check that infd is nonnegative before using it as an fd.
+	(read_and_dispose_of_process_output, Fprocess_send_eof):
+	Likewise, for outfd.
+	(wait_reading_process_output): Omit unnecessary check of infd.
+
+2014-07-07  Paul Eggert  <eggert@cs.ucla.edu>
+
+	Minor fixups related to usage of the 'long' type.
+	* gnutls.c (emacs_gnutls_handshake):
+	* xfaces.c (dump_realized_face):
+	Work even if 'long' is narrower than 'void *'.
+	* termcap.c (scan_file):
+	* xselect.c (x_decline_selection_request)
+	(x_reply_selection_request, x_get_window_property):
+	* xterm.c (x_set_frame_alpha):
+	Remove unnecessary 'L' suffixes of integer constants.
+	* xfns.c (hack_wm_protocols):
+	* xselect.c (x_fill_property_data):
+	* xterm.c (x_set_offset, x_set_window_size_1, x_make_frame_invisible):
+	Remove unnecessary casts to 'long'.
+	(set_machine_and_pid_properties): Don't assume pid_t fits in 32 bits.
+
+	Minor ImageMagick safety fixes.
+	* image.c (imagemagick_compute_animated_image):
+	Remove useless assignment to local.  Avoid problems if dest_width is 0.
+	(imagemagick_load_image): Use int for pixel counts that can't
+	exceed INT_MAX.  Avoid problem if PixelGetNextIteratorRow returns
+	a row width greater than the image width (or greater than LONG_MAX!).
+
 2014-07-04  K. Handa  <handa@gnu.org>
 
 	* coding.c (MIN_CHARBUF_SIZE): Delete it.

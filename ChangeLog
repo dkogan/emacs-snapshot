@@ -1,3 +1,16 @@
+2014-07-12  Paul Eggert  <eggert@cs.ucla.edu>
+
+	Merge from gnulib, incorporating:
+	2014-06-27 mktime: merge #if/#ifdef usage from glibc
+	* lib/mktime.c: Update from gnulib.
+
+	* Makefile.in (install-arch-indep): Avoid readdir race (Bug#17971).
+
+2014-07-10  Dmitry Antipov  <dmantipov@yandex.ru>
+
+	* configure.ac: Check whether sys/sysinfo.h provides
+	Linux 'sysinfo' function and 'struct sysinfo' type.
+
 2014-06-28  Glenn Morris  <rgm@gnu.org>
 
 	* configure.ac (lwlib_deps_frag, oldxmenu_deps_frag): New output files.
