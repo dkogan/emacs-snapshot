@@ -41,4 +41,4 @@ git clean -ffdx; git reset --hard
 ./debian/rules debian/control
 ./debian/rules debian/copyright
 git-buildpackage --git-pbuilder --git-dist=wheezy  --git-ignore-new
-dput -u digitalocean  ../emacs-snapshot*.changes(om[1])
+dput -u digitalocean_emacs  ../emacs-snapshot*.changes(om[1])
