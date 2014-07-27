@@ -2952,8 +2952,64 @@ x_clear_frame (struct frame *f)
   unblock_input ();
 }
 
+/* RIF: Show hourglass cursor on frame F.  */
 
-
+static void
+x_show_hourglass (struct frame *f)
+{
+  Display *dpy = FRAME_X_DISPLAY (f);
+
+  if (dpy)
+    {
+      struct x_output *x = FRAME_X_OUTPUT (f);
+#ifdef USE_X_TOOLKIT
+      if (x->widget)
+#else
+      if (FRAME_OUTER_WINDOW (f))
+#endif
+       {
+         x->hourglass_p = 1;
+
+         if (!x->hourglass_window)
+           {
+	     unsigned long mask = CWCursor;
+	     XSetWindowAttributes attrs;
+#ifdef USE_GTK
+             Window parent = FRAME_X_WINDOW (f);
+#else
+             Window parent = FRAME_OUTER_WINDOW (f);
+#endif
+	     attrs.cursor = x->hourglass_cursor;
+
+             x->hourglass_window = XCreateWindow
+               (dpy, parent, 0, 0, 32000, 32000, 0, 0,
+                InputOnly, CopyFromParent, mask, &attrs);
+           }
+
+         XMapRaised (dpy, x->hourglass_window);
+         XFlush (dpy);
+       }
+    }
+}
+
+/* RIF: Cancel hourglass cursor on frame F.  */
+
+static void
+x_hide_hourglass (struct frame *f)
+{
+  struct x_output *x = FRAME_X_OUTPUT (f);
+
+  /* Watch out for newly created frames.  */
+  if (x->hourglass_window)
+    {
+      XUnmapWindow (FRAME_X_DISPLAY (f), x->hourglass_window);
+      /* Sync here because XTread_socket looks at the
+	 hourglass_p flag that is reset to zero below.  */
+      XSync (FRAME_X_DISPLAY (f), False);
+      x->hourglass_p = 0;
+    }
+}
+
 /* Invert the middle quarter of the frame for .15 sec.  */
 
 static void
@@ -6834,7 +6890,7 @@ handle_one_xevent (struct x_display_info *dpyinfo,
             && event->xbutton.x >= 0
             && event->xbutton.x < FRAME_PIXEL_WIDTH (f)
             && event->xbutton.y >= 0
-            && event->xbutton.y < f->output_data.x->menubar_height
+            && event->xbutton.y < FRAME_MENUBAR_HEIGHT (f)
             && event->xbutton.same_screen)
           {
 	    if (!f->output_data.x->saved_menu_event)
@@ -9245,6 +9301,9 @@ x_free_frame_resources (struct frame *f)
 	XDestroyWindow (FRAME_X_DISPLAY (f), FRAME_X_WINDOW (f));
 
       free_frame_menubar (f);
+
+      if (f->shell_position)
+	xfree (f->shell_position);
 #else  /* !USE_X_TOOLKIT */
 
 #ifdef USE_GTK
@@ -9266,13 +9325,13 @@ x_free_frame_resources (struct frame *f)
 	unload_color (f, f->output_data.x->scroll_bar_background_pixel);
       if (f->output_data.x->scroll_bar_foreground_pixel != -1)
 	unload_color (f, f->output_data.x->scroll_bar_foreground_pixel);
-#ifdef USE_TOOLKIT_SCROLL_BARS
+#if defined (USE_LUCID) && defined (USE_TOOLKIT_SCROLL_BARS)
       /* Scrollbar shadow colors.  */
       if (f->output_data.x->scroll_bar_top_shadow_pixel != -1)
 	unload_color (f, f->output_data.x->scroll_bar_top_shadow_pixel);
       if (f->output_data.x->scroll_bar_bottom_shadow_pixel != -1)
 	unload_color (f, f->output_data.x->scroll_bar_bottom_shadow_pixel);
-#endif /* USE_TOOLKIT_SCROLL_BARS */
+#endif /* USE_LUCID && USE_TOOLKIT_SCROLL_BARS */
       if (f->output_data.x->white_relief.pixel != -1)
 	unload_color (f, f->output_data.x->white_relief.pixel);
       if (f->output_data.x->black_relief.pixel != -1)
@@ -10428,7 +10487,9 @@ static struct redisplay_interface x_redisplay_interface =
     x_draw_window_cursor,
     x_draw_vertical_window_border,
     x_draw_window_divider,
-    x_shift_glyphs_for_insert
+    x_shift_glyphs_for_insert,
+    x_show_hourglass,
+    x_hide_hourglass
   };
 
 

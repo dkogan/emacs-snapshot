@@ -1221,7 +1221,7 @@ x_set_scroll_bar_background (struct frame *f, Lisp_Object value, Lisp_Object old
   if (f->output_data.x->scroll_bar_background_pixel != -1)
     unload_color (f, f->output_data.x->scroll_bar_background_pixel);
 
-#ifdef USE_TOOLKIT_SCROLL_BARS
+#if defined (USE_LUCID) && defined (USE_TOOLKIT_SCROLL_BARS)
   /* Scrollbar shadow colors.  */
   if (f->output_data.x->scroll_bar_top_shadow_pixel != -1)
     {
@@ -1233,7 +1233,7 @@ x_set_scroll_bar_background (struct frame *f, Lisp_Object value, Lisp_Object old
       unload_color (f, f->output_data.x->scroll_bar_bottom_shadow_pixel);
       f->output_data.x->scroll_bar_bottom_shadow_pixel = -1;
     }
-#endif /* USE_TOOLKIT_SCROLL_BARS */
+#endif /* USE_LUCID && USE_TOOLKIT_SCROLL_BARS */
 
   f->output_data.x->scroll_bar_background_pixel = pixel;
   if (FRAME_X_WINDOW (f) && FRAME_VISIBLE_P (f))
@@ -1260,10 +1260,6 @@ x_set_scroll_bar_background (struct frame *f, Lisp_Object value, Lisp_Object old
    CODING_SYSTEM, and return a newly allocated memory area which
    should be freed by `xfree' by a caller.
 
-   SELECTIONP non-zero means the string is being encoded for an X
-   selection, so it is safe to run pre-write conversions (which
-   may run Lisp code).
-
    Store the byte length of resulting text in *TEXT_BYTES.
 
    If the text contains only ASCII and Latin-1, store 1 in *STRING_P,
@@ -1272,8 +1268,8 @@ x_set_scroll_bar_background (struct frame *f, Lisp_Object value, Lisp_Object old
    the result should be `COMPOUND_TEXT'.  */
 
 static unsigned char *
-x_encode_text (Lisp_Object string, Lisp_Object coding_system, int selectionp,
-	       ptrdiff_t *text_bytes, int *stringp, int *freep)
+x_encode_text (Lisp_Object string, Lisp_Object coding_system,
+	       ptrdiff_t *text_bytes, int *stringp, bool *freep)
 {
   int result = string_xstring_p (string);
   struct coding_system coding;
@@ -1316,7 +1312,7 @@ x_set_name_internal (struct frame *f, Lisp_Object name)
 	XTextProperty text, icon;
 	ptrdiff_t bytes;
 	int stringp;
-        int do_free_icon_value = 0, do_free_text_value = 0;
+	bool do_free_icon_value = 0, do_free_text_value = 0;
 	Lisp_Object coding_system;
 	Lisp_Object encoded_name;
 	Lisp_Object encoded_icon_name;
@@ -1348,14 +1344,12 @@ x_set_name_internal (struct frame *f, Lisp_Object name)
 	   properties.  Per the EWMH specification, those two properties
 	   are always UTF8_STRING.  This matches what gtk_window_set_title()
 	   does in the USE_GTK case. */
-	text.value = x_encode_text (name, coding_system, 0, &bytes, &stringp,
-				    &do_free_text_value);
+	text.value = x_encode_text (name, coding_system, &bytes,
+				    &stringp, &do_free_text_value);
 	text.encoding = (stringp ? XA_STRING
 			 : FRAME_DISPLAY_INFO (f)->Xatom_COMPOUND_TEXT);
 	text.format = 8;
 	text.nitems = bytes;
-	if (text.nitems != bytes)
-	  error ("Window name too large");
 
 	if (!STRINGP (f->icon_name))
 	  {
@@ -1365,14 +1359,12 @@ x_set_name_internal (struct frame *f, Lisp_Object name)
 	else
 	  {
 	    /* See the above comment "Note: Encoding strategy".  */
-	    icon.value = x_encode_text (f->icon_name, coding_system, 0,
-					&bytes, &stringp, &do_free_icon_value);
+	    icon.value = x_encode_text (f->icon_name, coding_system, &bytes,
+					&stringp, &do_free_icon_value);
 	    icon.encoding = (stringp ? XA_STRING
 			     : FRAME_DISPLAY_INFO (f)->Xatom_COMPOUND_TEXT);
 	    icon.format = 8;
 	    icon.nitems = bytes;
-	    if (icon.nitems != bytes)
-	      error ("Icon name too large");
 
 	    encoded_icon_name = ENCODE_UTF_8 (f->icon_name);
 	  }
@@ -1410,16 +1402,16 @@ x_set_name_internal (struct frame *f, Lisp_Object name)
 /* Change the name of frame F to NAME.  If NAME is nil, set F's name to
        x_id_name.
 
-   If EXPLICIT is non-zero, that indicates that lisp code is setting the
+   If EXPLICIT is true, that indicates that lisp code is setting the
        name; if NAME is a string, set F's name to NAME and set
        F->explicit_name; if NAME is Qnil, then clear F->explicit_name.
 
-   If EXPLICIT is zero, that indicates that Emacs redisplay code is
+   If EXPLICIT is false, that indicates that Emacs redisplay code is
        suggesting a new name, which lisp code should override; if
        F->explicit_name is set, ignore the new name; otherwise, set it.  */
 
 static void
-x_set_name (struct frame *f, Lisp_Object name, int explicit)
+x_set_name (struct frame *f, Lisp_Object name, bool explicit)
 {
   /* Make sure that requests from lisp code override requests from
      Emacs redisplay code.  */
@@ -2263,8 +2255,7 @@ x_window (struct frame *f, long window_prompting, int minibuffer_only)
 
   /* Do some needed geometry management.  */
   {
-    char *tem, shell_position[sizeof "=x++" + 4 * INT_STRLEN_BOUND (int)];
-    Arg gal[10];
+    Arg gal[3];
     int gac = 0;
     int extra_borders = 0;
     int menubar_size
@@ -2283,7 +2274,7 @@ x_window (struct frame *f, long window_prompting, int minibuffer_only)
       }
 #endif
 
-    f->output_data.x->menubar_height = menubar_size;
+    FRAME_MENUBAR_HEIGHT (f) = menubar_size;
 
 #ifndef USE_LUCID
     /* Motif seems to need this amount added to the sizes
@@ -2293,6 +2284,8 @@ x_window (struct frame *f, long window_prompting, int minibuffer_only)
 		   &extra_borders, NULL);
     extra_borders *= 2;
 #endif
+
+    f->shell_position = xmalloc (sizeof "=x++" + 4 * INT_STRLEN_BOUND (int));
 
     /* Convert our geometry parameters into a geometry string
        and specify it.
@@ -2310,14 +2303,14 @@ x_window (struct frame *f, long window_prompting, int minibuffer_only)
 	top = -top;
 
       if (window_prompting & USPosition)
-	sprintf (shell_position, "=%dx%d%c%d%c%d",
+	sprintf (f->shell_position, "=%dx%d%c%d%c%d",
 		 FRAME_PIXEL_WIDTH (f) + extra_borders,
 		 FRAME_PIXEL_HEIGHT (f) + menubar_size + extra_borders,
 		 (xneg ? '-' : '+'), left,
 		 (yneg ? '-' : '+'), top);
       else
         {
-          sprintf (shell_position, "=%dx%d",
+          sprintf (f->shell_position, "=%dx%d",
                    FRAME_PIXEL_WIDTH (f) + extra_borders,
                    FRAME_PIXEL_HEIGHT (f) + menubar_size + extra_borders);
 
@@ -2331,12 +2324,7 @@ x_window (struct frame *f, long window_prompting, int minibuffer_only)
         }
     }
 
-    /* We don't free this because we don't know whether
-       it is safe to free it while the frame exists.
-       It isn't worth the trouble of arranging to free it
-       when the frame is deleted.  */
-    tem = xstrdup (shell_position);
-    XtSetArg (gal[gac], XtNgeometry, tem); gac++;
+    XtSetArg (gal[gac], XtNgeometry, f->shell_position); gac++;
     XtSetValues (shell_widget, gal, gac);
   }
 
@@ -2405,7 +2393,7 @@ x_window (struct frame *f, long window_prompting, int minibuffer_only)
      the X server hasn't been told.  */
   {
     Lisp_Object name;
-    int explicit = f->explicit_name;
+    bool explicit = f->explicit_name;
 
     f->explicit_name = 0;
     name = f->name;
@@ -2519,10 +2507,6 @@ x_window (struct frame *f)
   class_hints.res_class = SSDATA (Vx_resource_class);
   XSetClassHint (FRAME_X_DISPLAY (f), FRAME_X_WINDOW (f), &class_hints);
 
-  /* The menubar is part of the ordinary display;
-     it does not count in addition to the height of the window.  */
-  f->output_data.x->menubar_height = 0;
-
   /* This indicates that we use the "Passive Input" input model.
      Unless we do this, we don't get the Focus{In,Out} events that we
      need to draw the cursor correctly.  Accursed bureaucrats.
@@ -2548,7 +2532,7 @@ x_window (struct frame *f)
      the X server hasn't been told.  */
   {
     Lisp_Object name;
-    int explicit = f->explicit_name;
+    bool explicit = f->explicit_name;
 
     f->explicit_name = 0;
     name = f->name;
@@ -2966,10 +2950,10 @@ This function is an internal primitive--use `make-frame' instead.  */)
   FRAME_FONTSET (f) = -1;
   f->output_data.x->scroll_bar_foreground_pixel = -1;
   f->output_data.x->scroll_bar_background_pixel = -1;
-#ifdef USE_TOOLKIT_SCROLL_BARS
+#if defined (USE_LUCID) && defined (USE_TOOLKIT_SCROLL_BARS)
   f->output_data.x->scroll_bar_top_shadow_pixel = -1;
   f->output_data.x->scroll_bar_bottom_shadow_pixel = -1;
-#endif /* USE_TOOLKIT_SCROLL_BARS */
+#endif /* USE_LUCID && USE_TOOLKIT_SCROLL_BARS */
   f->output_data.x->white_relief.pixel = -1;
   f->output_data.x->black_relief.pixel = -1;
 
@@ -4751,116 +4735,6 @@ no value of TYPE (always string in the MS Windows case).  */)
   return prop_value;
 }
 
-
-
-/***********************************************************************
-				Busy cursor
- ***********************************************************************/
-
-/* Timer function of hourglass_atimer.  TIMER is equal to
-   hourglass_atimer.
-
-   Display an hourglass pointer on all frames by mapping the frames'
-   hourglass_window.  Set the hourglass_p flag in the frames'
-   output_data.x structure to indicate that an hourglass cursor is
-   shown on the frames.  */
-
-void
-show_hourglass (struct atimer *timer)
-{
-  /* The timer implementation will cancel this timer automatically
-     after this function has run.  Set hourglass_atimer to null
-     so that we know the timer doesn't have to be canceled.  */
-  hourglass_atimer = NULL;
-
-  if (!hourglass_shown_p)
-    {
-      Lisp_Object rest, frame;
-
-      block_input ();
-
-      FOR_EACH_FRAME (rest, frame)
-	{
-	  struct frame *f = XFRAME (frame);
-
-	  if (FRAME_LIVE_P (f) && FRAME_X_P (f) && FRAME_X_DISPLAY (f))
-	    {
-	      Display *dpy = FRAME_X_DISPLAY (f);
-
-#ifdef USE_X_TOOLKIT
-	      if (f->output_data.x->widget)
-#else
-	      if (FRAME_OUTER_WINDOW (f))
-#endif
-		{
-		  f->output_data.x->hourglass_p = 1;
-
-		  if (!f->output_data.x->hourglass_window)
-		    {
-		      unsigned long mask = CWCursor;
-		      XSetWindowAttributes attrs;
-#ifdef USE_GTK
-                      Window parent = FRAME_X_WINDOW (f);
-#else
-                      Window parent = FRAME_OUTER_WINDOW (f);
-#endif
-		      attrs.cursor = f->output_data.x->hourglass_cursor;
-
-		      f->output_data.x->hourglass_window
-			= XCreateWindow (dpy, parent,
-					 0, 0, 32000, 32000, 0, 0,
-					 InputOnly,
-					 CopyFromParent,
-					 mask, &attrs);
-		    }
-
-		  XMapRaised (dpy, f->output_data.x->hourglass_window);
-		  XFlush (dpy);
-		}
-	    }
-	}
-
-      hourglass_shown_p = 1;
-      unblock_input ();
-    }
-}
-
-
-/* Hide the hourglass pointer on all frames, if it is currently
-   shown.  */
-
-void
-hide_hourglass (void)
-{
-  if (hourglass_shown_p)
-    {
-      Lisp_Object rest, frame;
-
-      block_input ();
-      FOR_EACH_FRAME (rest, frame)
-	{
-	  struct frame *f = XFRAME (frame);
-
-	  if (FRAME_X_P (f)
-	      /* Watch out for newly created frames.  */
-	      && f->output_data.x->hourglass_window)
-	    {
-	      XUnmapWindow (FRAME_X_DISPLAY (f),
-			    f->output_data.x->hourglass_window);
-	      /* Sync here because XTread_socket looks at the
-		 hourglass_p flag that is reset to zero below.  */
-	      XSync (FRAME_X_DISPLAY (f), False);
-	      f->output_data.x->hourglass_p = 0;
-	    }
-	}
-
-      hourglass_shown_p = 0;
-      unblock_input ();
-    }
-}
-
-
-
 /***********************************************************************
 				Tool tips
  ***********************************************************************/
@@ -4968,10 +4842,10 @@ x_create_tip_frame (struct x_display_info *dpyinfo,
   FRAME_FONTSET (f) = -1;
   f->output_data.x->scroll_bar_foreground_pixel = -1;
   f->output_data.x->scroll_bar_background_pixel = -1;
-#ifdef USE_TOOLKIT_SCROLL_BARS
+#if defined (USE_LUCID) && defined (USE_TOOLKIT_SCROLL_BARS)
   f->output_data.x->scroll_bar_top_shadow_pixel = -1;
   f->output_data.x->scroll_bar_bottom_shadow_pixel = -1;
-#endif /* USE_TOOLKIT_SCROLL_BARS */
+#endif /* USE_LUCID && USE_TOOLKIT_SCROLL_BARS */
   f->output_data.x->white_relief.pixel = -1;
   f->output_data.x->black_relief.pixel = -1;
 
@@ -6091,7 +5965,11 @@ present and mapped to the usual X keysyms.  */)
 	  XkbFreeNames (kb, 0, True);
 	}
 
-      XkbFreeClientMap (kb, 0, True);
+      /* As of libX11-1.6.2, XkbGetMap manual says that you should use
+	 XkbFreeClientMap to free the data returned by XkbGetMap.  But
+	 this function just frees the data referenced from KB and not
+	 KB itself.  To free KB as well, call XkbFreeKeyboard.  */
+      XkbFreeKeyboard (kb, XkbAllMapComponentsMask, True);
 
       if (delete_keycode
 	  && backspace_keycode

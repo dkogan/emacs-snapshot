@@ -1,3 +1,163 @@
+2014-07-27  Fabián Ezequiel Gallina  <fgallina@gnu.org>
+
+	Cleanup error signals.  (Bug#18067)
+	* progmodes/python.el
+	(python-indent-shift-left): Use user-error instead.
+	(python-shell-prompt-detect): Use lwarn with python group.
+	(python-completion-complete-at-point)
+	(python-eldoc--get-doc-at-point): Don't signal error.
+
+2014-07-27  Fabián Ezequiel Gallina  <fgallina@gnu.org>
+
+	Support for packages in Python shell.  (Bug#13570)
+	* progmodes/python.el (python-shell--package-depth): New var.
+	(python-shell-package-enable): New command.
+	(python-util-list-directories, python-util-list-files)
+	(python-util-list-packages): New functions.
+
+2014-07-27  Fabián Ezequiel Gallina  <fgallina@gnu.org>
+
+	Faster comint output.  (Bug#16875)
+	* progmodes/python.el:
+	(python-comint-output-filter-function): Make obsolete.
+	(python-comint-postoutput-scroll-to-bottom): New function.
+	(inferior-python-mode): Set comint-output-filter-functions to a
+	minimum.
+
+2014-07-27  Fabián Ezequiel Gallina  <fgallina@gnu.org>
+
+	* progmodes/python.el (python-shell-font-lock-post-command-hook):
+	Safeguard current point and undo history.
+
+2014-07-26  Fabián Ezequiel Gallina  <fgallina@gnu.org>
+
+	Robust shell syntax highlighting.  (Bug#18084, Bug#16875)
+	* progmodes/python.el:
+	(python-shell-prompt-input-regexps): Add iPython block prompt.
+	(python-shell-output-syntax-table): Delete var.
+	(python-shell-font-lock-with-font-lock-buffer): New macro.
+	(python-shell-font-lock-get-or-create-buffer)
+	(python-shell-font-lock-kill-buffer)
+	(python-shell-font-lock-cleanup-buffer)
+	(python-shell-font-lock-post-command-hook)
+	(python-shell-font-lock-turn-off): New functions.
+	(python-shell-font-lock-turn-on): New function.
+	(inferior-python-mode): Use it.
+	(python-shell-font-lock-toggle): New command.
+	(python-shell-font-lock-enable): Rename from
+	python-shell-enable-font-lock.
+	(run-python-internal): Use it.
+	(python-shell-font-lock-comint-output-filter-function): New function.
+	(python-shell-comint-end-of-output-p): New function.
+	(python-shell-output-filter): Use it.
+	(python-util-comint-last-prompt): New function.
+	(python-util-text-properties-replace-name): New function.
+
+2014-07-25  Glenn Morris  <rgm@gnu.org>
+
+	* vc/ediff-init.el (ediff-toggle-read-only-function):
+	* vc/ediff-util.el (ediff-toggle-read-only):
+	Replace obsolete toggle-read-only with read-only-mode.
+
+2014-07-24  Michael Albinus  <michael.albinus@gmx.de>
+
+	* net/tramp-cache.el (tramp-flush-file-function): Wrap the code
+	with `save-match-data'.  (Bug#18095)
+
+2014-07-21  Vincent Belaïche  <vincentb1@users.sourceforge.net>
+
+	* ses.el (ses-truncate-cell): Use cl-progv instead of eval in
+	order to ensure that row and col are lexically bound inside the
+	evaluated sexp.
+
+2014-07-21  Glenn Morris  <rgm@gnu.org>
+
+	* progmodes/hideif.el (hide-ifdef-mode-submap):
+	Also substitute read-only-mode.
+	* bindings.el (mode-line-toggle-read-only):
+	* bs.el (bs-toggle-readonly):
+	* buff-menu.el (Buffer-menu-toggle-read-only):
+	* dired.el (dired-toggle-read-only):
+	* files.el (view-read-only, find-file-read-only)
+	(find-file-read-only-other-window)
+	(find-file-read-only-other-frame):
+	* progmodes/hideif.el (hide-ifdef-toggle-outside-read-only):
+	Doc fixes re toggle-read-only.
+
+2014-07-21  Fabián Ezequiel Gallina  <fgallina@gnu.org>
+
+	* progmodes/python.el: Add comment about pipe buffering and
+	solutions for missing/delayed output in inferior Python shells.
+	(Bug#17304)
+
+	* progmodes/python.el (python-mode): Don't set
+	mode-require-final-newline.  (Bug#17990)
+
+	Make python.el work with IPython automatically.  (Bug#15510)
+	* progmodes/python.el:
+	(python-shell-completion-setup-code): New value supporting iPython.
+	(python-shell-completion-string-code): New value supporting iPython.
+	(python-shell-completion-get-completions): Use them.
+	(python-shell-completion-module-string-code): Make obsolete.
+	(python-shell-prompt-input-regexps)
+	(python-shell-prompt-output-regexps): Add safeguard for ipdb.
+	(python-shell-output-filter): Fix comment typo.
+
+	Fix Python shell prompts detection for remote hosts.
+	* progmodes/python.el (python-shell-prompt-detect): Replace
+	call-process with process-file and make it more robust.
+
+	Autodetect Python shell prompts.  (Bug#17370)
+	* progmodes/python.el:
+	(python-shell-interpreter-interactive-arg)
+	(python-shell-prompt-detect-enabled)
+	(python-shell-prompt-detect-failure-warning)
+	(python-shell-prompt-input-regexps)
+	(python-shell-prompt-output-regexps): New vars.
+	(python-shell-prompt-calculated-input-regexp)
+	(python-shell-prompt-calculated-output-regexp): New vars.
+	(python-shell-get-process-name)
+	(python-shell-internal-get-process-name)
+	(python-shell-output-filter)
+	(python-shell-completion-get-completions): Use them.
+	(python-shell-prompt-detect)
+	(python-shell-prompt-validate-regexps): New functions.
+	(python-shell-prompt-set-calculated-regexps): New function.
+	(inferior-python-mode): Use it.  Also honor overriden
+	python-shell-interpreter and python-shell-interpreter-args.
+	(python-shell-make-comint): Honor overriden
+	python-shell-interpreter and python-shell-interpreter-args.
+	(python-shell-get-or-create-process): Make it testable by allowing
+	to call run-python non-interactively.
+	(python-util-valid-regexp-p): New function.
+	(python-shell-prompt-regexp, python-shell-prompt-block-regexp)
+	(python-shell-prompt-output-regexp)
+	(python-shell-prompt-pdb-regexp): Use it as defcustom :safe.
+
+2014-07-21  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* emacs-lisp/smie.el (smie-config--guess-1): Split from
+	smie-config--guess.
+	(smie-config--guess): Use it.
+
+	* emacs-lisp/edebug.el: Use nadvice.
+	(edebug-original-read): Remove.
+	(edebug--read): Rename from edebug-read and add `orig' arg.
+	(edebug-uninstall-read-eval-functions)
+	(edebug-install-read-eval-functions): Use nadvice.
+	(edebug-read-sexp, edebug-read-storing-offsets, edebug-read-symbol)
+	(edebug-read-and-maybe-wrap-form1, edebug-instrument-callee)
+	(edebug-read-string, edebug-read-function): Use just `read'.
+	(edebug-original-debug-on-entry): Remove.
+	(edebug--debug-on-entry): Rename from edebug-debug-on-entry and add
+	`orig' arg.
+	(debug-on-entry): Override with nadvice.
+
+	* mouse.el (tear-off-window): Rename from mouse-tear-off-window since
+	it also makes sense to bind it to a non-mouse event.
+
+	* vc/vc-bzr.el (vc-bzr-shelve): Make it operate on fileset.
+
 2014-07-19  Stefan Monnier  <monnier@iro.umontreal.ca>
 
 	* xt-mouse.el (xterm-mouse-event): Don't assume last-click is non-nil

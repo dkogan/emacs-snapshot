@@ -1,3 +1,149 @@
+2014-07-26  Paul Eggert  <eggert@cs.ucla.edu>
+
+	Revert previous change.
+	There is certainly nothing wrong with writing code like 'lo <= i
+	&& i <= hi', even if LO happens to a constant.  There isn't even
+	anything wrong in general with writing 'a <= b' if A happens to
+	be a constant.  At any rate stylistic changes shouldn't
+	be done like this without discussion.
+
+2014-07-26  Andreas Schwab  <schwab@linux-m68k.org>
+
+	* alloc.c (xnmalloc, xnrealloc, xpalloc, make_save_value)
+	(Fgarbage_collect): Reorder conditions that are written backwards.
+	* data.c (cons_to_unsigned): Likewise.
+	* dispnew.c (update_frame_1, sit_for): Likewise.
+	* fileio.c (file_offset): Likewise.
+	* filelock.c (read_lock_data, lock_file): Likewise.
+	* fns.c (larger_vector, make_hash_table, Fmake_hash_table):
+	Likewise.
+	* font.c (font_intern_prop, font_style_symbolic): Likewise.
+	* lisp.h (FIXNUM_OVERFLOW_P): Likewise.
+	* lread.c (read1): Likewise.
+	* minibuf.c (read_minibuf_noninteractive): Likewise.
+	* nsterm.m (x_set_frame_alpha): Likewise.
+	* process.c (wait_reading_process_output): Likewise.
+	* region-cache.c (delete_cache_boundaries): Likewise.
+	* xterm.c (x_set_frame_alpha): Likewise.
+
+2014-07-25  Paul Eggert  <eggert@cs.ucla.edu>
+
+	* dispextern.h, xdisp.c (hourglass_shown_p, hourglass_atimer):
+	Now static.
+
+2014-07-26  Dmitry Antipov  <dmantipov@yandex.ru>
+
+	* atimer.c (set_alarm) [HAVE_ITIMERSPEC]: Use TIMER_ABSTIME
+	because atimer expiration is absolute rather than relative.
+
+2014-07-25  Eli Zaretskii  <eliz@gnu.org>
+
+	* w32term.h (current_popup_menu, menubar_in_use): Move
+	declarations from w32term.c.
+
+2014-07-25  Martin Rudalics  <rudalics@gmx.at>
+
+	* w32fns.c (menubar_in_use): No more static.
+	* w32term.c (current_popup_menu, menubar_in_use): Declare.
+
+2014-07-25  Dmitry Antipov  <dmantipov@yandex.ru>
+
+	Move hourglass machinery to RIF.
+	* dispextern.h (struct redisplay_interface): New members
+	show_hourglass and hide_hourglass.  Indent comments.
+	(show_hourglass, hide_hourglass): Remove prototypes.
+	* nsterm.m (show_hourgass, hide_hourglass): Refactor to ...
+	(ns_show_hourglass, ns_hide_hourglass): ... new no-ops.
+	(ns_redisplay_interface): Add them.
+	* w32fns.c (show_hourglass, hide_hourglass): Refactor to ...
+	* w32term.c (w32_show_hourglass, w32_hide_hourglass): ... these.
+	(w32_arrow_cursor): New function to hack around non-GUI frames.
+	(w32_redisplay_interface): Add new functions.
+	* w32term.h (w32_arror_cursor): Add prototype.
+	* xdisp.c (show_hourglass): New function, refactored out from
+	platform-dependent code.
+	(cancel_hourglass): Now call to RIF function.
+	* xfns.c (show_hourglass, hide_hourglass): Refactor to ...
+	* xterm.c (x_show_hourglass, x_hide_hourglass): ... these.
+	(x_redisplay_interface): Add new functions.
+
+2014-07-24  Dmitry Antipov  <dmantipov@yandex.ru>
+
+	Fix error reported by Angelo Graziosi <angelo.graziosi@alice.it> in
+	<http://lists.gnu.org/archive/html/emacs-devel/2014-07/msg00274.html>
+	and complete previous change.
+	* frame.c (adjust_frame_height): New function.
+	(Fset_frame_height, Fset_frame_size): Use it.
+	(x_set_frame_parameters): Take frame top margin into account.
+
+2014-07-23  Dmitry Antipov  <dmantipov@yandex.ru>
+
+	* frame.c (Fset_frame_height): Take frame top margin into account.
+	Incorrect behavior was reported by Martin Rudalics <rudalics@gmx.at> in
+	<http://lists.gnu.org/archive/html/emacs-devel/2014-07/msg00258.html>
+
+2014-07-22  Dmitry Antipov  <dmantipov@yandex.ru>
+
+	* xterm.h (struct x_output) [USE_X_TOOLKIT || USE_GTK]: Define
+	menubar_height as such.  Tweak comment.
+	[USE_LUCID && USE_TOOLKIT_SCROLL_BARS]: Likewise for
+	scroll_bar_top_shadow_pixel and scroll_bar_bottom_shadow_pixel.
+	All related users changed.
+	(FRAME_MENUBAR_HEIGHT) [!USE_X_TOOLKIT && !USE_GTK]: No-op.
+	* xterm.c (handle_one_xevent):
+	* gtkutil.c (xg_event_is_for_menubar):
+	* xfns.c (x_window) [USE_X_TOOLKIT]:
+	* xmenu.c (set_frame_menubar, free_frame_menubar): Prefer
+	to use FRAME_MENUBAR_HEIGHT.
+
+2014-07-21  Dmitry Antipov  <dmantipov@yandex.ru>
+
+	* frame.c (Fframe_parameters): Always report frame height without
+	menu and tool bar lines.
+
+2014-07-21  Jan Djärv  <jan.h.d@swipnet.se>
+
+	* nsterm.m (applicationDidFinishLaunching:): Call
+	antialiasThresholdDidChange, register for antialias changes (Bug#17534).
+	(antialiasThresholdDidChange:): New method for EmacsApp.
+
+	* nsterm.h (EmacsApp): Add antialiasThresholdDidChange.
+
+	* macfont.m (macfont_update_antialias_threshold): Remove static.
+
+	* macfont.h (macfont_update_antialias_threshold): Declare.
+
+2014-07-21  Eli Zaretskii  <eliz@gnu.org>
+
+	* w32select.c (setup_windows_coding_system): Apply
+	CODING_ANNOTATION_MASK to the common_flags member of struct
+	coding_system.  Reported by martin rudalics <rudalics@gmx.at>.
+
+	* w16select.c (Fw16_get_clipboard_data): Apply
+	CODING_ANNOTATION_MASK to the common_flags member of struct
+	coding_system.
+
+	* xdisp.c (init_iterator): Initialize it->stop_charpos to the
+	buffer position where we are to start the iteration.
+	(handle_invisible_prop): Record in it->stop_charpos the position
+	where the invisible text ends.  (Bug#18035)
+	(hscroll_window_tree): Don't try hscrolling windows whose cursor
+	row has zero buffer position as their start position.  Reported by
+	martin rudalics <rudalics@gmx.at>.
+
+	* xdisp.c (move_it_vertically_backward, move_it_by_lines): Prevent
+	infinite looping in redisplay when display lines don't have enough
+	space to display even a single character.  (Bug#18036)
+
+2014-07-20  Dmitry Antipov  <dmantipov@yandex.ru>
+
+	* frame.h (struct frame) [USE_X_TOOLKIT]: New member shell_position.
+	* xfns.c (x_window): Use it to allow xfree later.
+	(x_encode_text): Drop 3rd arg; unused.  Tweak comment and adjust users
+	where appropriate.  Use bool for booleans and remove redundant checks.
+	(Fx_backspace_delete_keys_p): Use XkbFreeKeyboard; explain why.
+	* xterm.c (x_free_frame_resources): Free shell_position.
+
 2014-07-19  K. Handa  <handa@gnu.org>
 
 	* xfaces.c (realize_x_face): Call font_load_for_lface with no
