@@ -1033,7 +1033,10 @@ comment at the start of cc-engine.el for more info."
 			 ;; Just gone back over a brace block?
 			 ((and
 			   (eq (char-after) ?{)
-			   (not (c-looking-at-inexpr-block lim nil t)))
+			   (not (c-looking-at-inexpr-block lim nil t))
+			   (save-excursion
+			     (c-backward-token-2 1 t nil)
+			     (not (looking-at "=\\([^=]\\|$\\)"))))
 			  (save-excursion
 			    (c-forward-sexp) (point)))
 			 ;; Just gone back over some paren block?
@@ -4245,16 +4248,18 @@ comment at the start of cc-engine.el for more info."
 	  ;; loops when it hasn't succeeded.
 	  (while
 	      (and
-	       (< (skip-chars-backward skip-chars limit) 0)
+	       (let ((pos (point)))
+		 (while (and
+			 (< (skip-chars-backward skip-chars limit) 0)
+			 ;; Don't stop inside a literal.
+			 (when (setq lit-beg (c-ssb-lit-begin))
+			   (goto-char lit-beg)
+			   t)))
+		 (< (point) pos))
 
 	       (let ((pos (point)) state-2 pps-end-pos)
 
 		 (cond
-		  ;; Don't stop inside a literal
-		  ((setq lit-beg (c-ssb-lit-begin))
-		   (goto-char lit-beg)
-		   t)
-
 		  ((and paren-level
 			(save-excursion
 			  (setq state-2 (parse-partial-sexp
@@ -10474,7 +10479,7 @@ comment at the start of cc-engine.el for more info."
 	  (if (eq (point) (c-point 'boi))
 	      (c-add-syntax 'brace-list-close (point))
 	    (setq lim (c-most-enclosing-brace c-state-cache (point)))
-	    (c-beginning-of-statement-1 lim)
+	    (c-beginning-of-statement-1 lim nil nil t)
 	    (c-add-stmt-syntax 'brace-list-close nil t lim paren-state)))
 
 	 (t

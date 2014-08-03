@@ -1,3 +1,222 @@
+2014-08-02  Fabián Ezequiel Gallina  <fgallina@gnu.org>
+
+	* progmodes/python.el: Completion code cleanups.
+	(python-shell-completion-get-completions): Detect and send import
+	statements directly to completion function.
+	(python-shell-completion-at-point): Simplify prompt calculation
+	and import vs input completion logic.
+
+2014-08-02  Alan Mackenzie  <acm@muc.de>
+
+	Fix confusion in C++ file caused by comma in "= {1,2},".  Bug
+	#17756.
+	* progmodes/cc-engine.el (c-beginning-of-statement-1): In checking
+	for a statement boundary marked by "}", check there's no "="
+	before the "{".
+	(c-guess-basic-syntax CASE 9B): Call c-beginning-of-statement with
+	non-nil `comma-delim' argument.
+	* progmodes/cc-fonts.el (c-font-lock-declarators): Parse an
+	initializer expression more accurately.
+
+	Correct loop termination condition in c-syntactic-skip-backward.
+	* progmodes/cc-engine.el (c-syntactic-skip-backward): Correct for
+	the situation where, after moving back out of a literal,
+	skip-chars-backward doesn't move further, yet checks have still to
+	be done.
+
+2014-08-01  Eli Zaretskii  <eliz@gnu.org>
+
+	* tutorial.el (tutorial--display-changes): Accept punctuation
+	characters before the key binding.  (Bug#18146)
+
+2014-07-31  Fabián Ezequiel Gallina  <fgallina@gnu.org>
+
+	* progmodes/python.el: Shell output capture enhancements.
+	(python-shell-accept-process-output): New function.
+	(inferior-python-mode)
+	(python-shell-send-setup-code): Use it.
+
+2014-07-30  Christophe Deleuze  <christophe.deleuze@free.fr>  (tiny change)
+
+	* calendar/icalendar.el (icalendar--decode-isodatetime): Use
+	actual current-time-zone when converting to local time. (Bug#15408)
+
+2014-07-29  Martin Rudalics  <rudalics@gmx.at>
+
+	* window.el (window--state-put-2): Handle horizontal scroll
+	bars, if present.
+
+2014-07-29  Rüdiger Sonderfeld  <ruediger@c-plusplus.de>
+
+	* menu-bar.el (menu-bar-update-buffers): Update item list format
+	in `buffers-menu' to confirm with changes to `get_keyelt'
+	(r117463).  (Bug#18016)
+
+2014-07-28  Fabián Ezequiel Gallina  <fgallina@gnu.org>
+
+	* progmodes/python.el (inferior-python-mode): Make input prompts
+	read-only.
+
+2014-07-28  Emilio C. Lopes  <eclig@gmx.net>
+
+	* net/tramp-sh.el (tramp-get-remote-python): Also search for
+	executables named "python2" or "python3".
+	(tramp-get-remote-uid-with-python): Use parentheses around
+	arguments to `print' to make it compatible with Python 3.
+	(tramp-get-remote-gid-with-python): Ditto.  (Bug#18118)
+
+2014-07-28  Eli Zaretskii  <eliz@gnu.org>
+
+	* window.el (window--pixel-to-total): Use FRAME's root window, not
+	that of the selected frame.  (Bug#18112, Bug#16674)
+
+2014-07-28  Andreas Schwab  <schwab@linux-m68k.org>
+
+	* textmodes/tex-mode.el (tex-font-lock-verb): Doc fix.
+	(Bug#18117)
+
+2014-07-28  Fabián Ezequiel Gallina  <fgallina@gnu.org>
+
+	* progmodes/python.el (inferior-python-mode): Doc fix.
+
+2014-07-28  Stephen Berman  <stephen.berman@gmx.net>
+
+	* calendar/todo-mode.el (todo-edit-item--next-key): If next key is
+	not a character, ignore it instead of raising an error.
+
+	* calendar/todo-mode.el: Fix handling of marked items and make
+	minor code improvements.
+	(todo-edit-item): If there are marked items, ensure user can only
+	invoke editing commands that work with marked items.
+	(todo-edit-item--text): When there are marked items, make it a
+	noop if invoked with point not on an item; otherwise, ensure it
+	applies only to item at point.
+	(todo-item-undone): If there are marked not-done items, return
+	point to its original position before signaling user error.
+	(todo--user-error-if-marked-done-item): New function.
+	(todo-edit-item--header, todo-edit-item--diary-inclusion)
+	(todo-item-done): Use it.
+
+2014-07-28  Glenn Morris  <rgm@gnu.org>
+
+	* files.el (toggle-read-only): Re-add basic doc-string.
+	* vc/vc-hooks.el (vc-toggle-read-only): Tweak obsolescence mesage.
+
+	* progmodes/prolog.el (prolog-mode-keybindings-edit):
+	Replace missing `switch-to-prolog' with `run-prolog'.
+	(switch-to-prolog): Define as (obsolete) alias, as in 23.4.
+
+2014-07-28  Stephen Berman  <stephen.berman@gmx.net>
+
+	* calendar/todo-mode.el (todo-set-top-priorities): Fix overwriting
+	of file-wide setting when changing category-wide setting.
+
+2014-07-28  Stephen Berman  <stephen.berman@gmx.net>
+
+	* doc-view.el (doc-view-open-text): Don't require that the
+	document is saved in a file (e.g., email attachment).
+
+2014-07-28  Fabián Ezequiel Gallina  <fgallina@gnu.org>
+
+	Parse completion input in a iPython friendly way.  (Bug#18084)
+	* progmodes/python.el
+	(python-shell-completion-at-point): Rename from
+	python-shell-completion-complete-at-point.
+	(inferior-python-mode): Use it.
+	(python-completion-at-point): Rename from
+	python-completion-complete-at-point.  Parse input up to first
+	backward occurrence of whitespace, open-paren, close-paren or
+	string delimiter.
+	(python-mode): Use it.
+
+2014-07-28  Fabián Ezequiel Gallina  <fgallina@gnu.org>
+
+	Prevent Python process shell buffer to pop twice.
+	* progmodes/python.el (python-shell-switch-to-shell): Do not call
+	pop-to-buffer.
+
+2014-07-28  Fabián Ezequiel Gallina  <fgallina@gnu.org>
+
+	* progmodes/python.el
+	(python-shell-with-shell-buffer): New macro.
+	(python-shell-font-lock-get-or-create-buffer)
+	(python-shell-font-lock-kill-buffer)
+	(python-shell-font-lock-with-font-lock-buffer)
+	(python-shell-font-lock-cleanup-buffer)
+	(python-shell-font-lock-toggle): Use it.
+	(python-shell-font-lock-turn-on)
+	(python-shell-font-lock-turn-off): Use it.  Make command.
+
+2014-07-28  Fabián Ezequiel Gallina  <fgallina@gnu.org>
+
+	Grab all Python process output before inferior-python-mode hooks.
+	* progmodes/python.el (inferior-python-mode): Call
+	accept-process-output and sit-for to ensure all output for process
+	has been received before running hooks.
+	(python-shell-internal-get-or-create-process): Cleanup
+	accept-process-output and sit-for calls.
+
+2014-07-28  Fabián Ezequiel Gallina  <fgallina@gnu.org>
+
+	More robust shell startup and code setup.
+	* progmodes/python.el (python-shell-make-comint): Remove
+	accept-process-output call.
+	(python-shell-get-buffer): Return current buffer if major-mode is
+	inferior-python-mode.
+	(python-shell-get-or-create-process): Use it.
+	(python-shell-send-setup-code): Send all setup code in one string,
+	output success message and accept-process-output.
+
+2014-07-27  Eli Zaretskii  <eliz@gnu.org>
+
+	* scroll-bar.el (scroll-bar-toolkit-horizontal-scroll): Add
+	rudimentary support for bidirectional text.
+
+2014-07-27  Martin Rudalics  <rudalics@gmx.at>
+
+	* frame.el (frame-notice-user-settings): Rewrite using
+	frame-initial-frame-tool-bar-height.
+	* menu-bar.el (menu-bar-horizontal-scroll-bar)
+	(menu-bar-no-horizontal-scroll-bar): New functions.
+	(menu-bar-showhide-scroll-bar-menu): Add bindings for horizontal
+	scroll bars.
+	* scroll-bar.el (scroll-bar-lines)
+	(set-horizontal-scroll-bar-mode)
+	(get-horizontal-scroll-bar-mode, horizontal-scroll-bar-mode)
+	(scroll-bar-horizontal-drag-1, scroll-bar-horizontal-drag)
+	(scroll-bar-toolkit-horizontal-scroll): New functions.
+	(horizontal-scroll-bar-mode)
+	(previous-horizontal-scroll-bar-mode)
+	(horizontal-scroll-bar-mode-explicit): New variables.
+	(horizontal-scroll-bar-mode): New option.
+	(toggle-horizontal-scroll-bar): Do something.
+	(top-level): Bind horizontal-scroll-bar mouse-1.
+	* startup.el (tool-bar-originally-present): Remove variable.
+	(command-line): Don't set tool-bar-originally-present.
+	* window.el (window-min-height): Update doc-string.
+	(window--dump-frame): Dump horizontal scroll bar values.
+	(window--min-size-1): Handle minibuffer window separately.
+	Count in margins and horizontal scroll bar.  Return safe value
+	iff IGNORE equals 'safe.
+	(frame-windows-min-size): New function (used by frame resizing
+	routines).
+	(fit-frame-to-buffer, fit-window-to-buffer): Count in horizontal
+	scroll bars.
+	(window--sanitize-window-sizes): New function.
+	(window-split-min-size): Remove.
+	(split-window): Count divider-width.  Don't use
+	`window-split-min-size' any more.  Reword error messages.
+	Sanitize windows sizes after splitting.
+
+2014-07-27  Thien-Thi Nguyen  <ttn@gnu.org>
+
+	Use `defvar-local' more.
+	* progmodes/hideshow.el
+	(hs-c-start-regexp, hs-block-start-regexp)
+	(hs-block-start-mdata-select, hs-block-end-regexp)
+	(hs-forward-sexp-func, hs-adjust-block-beginning): ...here;
+	remove corresponding `make-variable-buffer-local' top-level calls.
+
 2014-07-27  Fabián Ezequiel Gallina  <fgallina@gnu.org>
 
 	Cleanup error signals.  (Bug#18067)

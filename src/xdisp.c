@@ -1024,6 +1024,8 @@ window_text_bottom_y (struct window *w)
   if (WINDOW_WANTS_MODELINE_P (w))
     height -= CURRENT_MODE_LINE_HEIGHT (w);
 
+  height -= WINDOW_SCROLL_BAR_AREA_HEIGHT (w);
+
   return height;
 }
 
@@ -1068,6 +1070,7 @@ window_box_height (struct window *w)
   eassert (height >= 0);
 
   height -= WINDOW_BOTTOM_DIVIDER_WIDTH (w);
+  height -= WINDOW_SCROLL_BAR_AREA_HEIGHT (w);
 
   /* Note: the code below that determines the mode-line/header-line
      height is essentially the same as that contained in the macro
@@ -1954,8 +1957,8 @@ pixel_to_glyph_coords (struct frame *f, register int pix_x, register int pix_y,
 
 	  if (pix_y < 0)
 	    pix_y = 0;
-	  else if (pix_y > FRAME_LINES (f))
-	    pix_y = FRAME_LINES (f);
+	  else if (pix_y > FRAME_TOTAL_LINES (f))
+	    pix_y = FRAME_TOTAL_LINES (f);
 	}
     }
 #endif
@@ -2498,7 +2501,7 @@ remember_mouse_glyph (struct frame *f, int gx, int gy, NativeRectangle *rect)
       gx = WINDOW_PIXEL_WIDTH (w) - width;
       goto row_glyph;
 
-    case ON_SCROLL_BAR:
+    case ON_VERTICAL_SCROLL_BAR:
       gx = (WINDOW_HAS_VERTICAL_SCROLL_BAR_ON_LEFT (w)
 	    ? 0
 	    : (window_box_right_offset (w, RIGHT_MARGIN_AREA)
@@ -10521,6 +10524,7 @@ with_echo_area_buffer (struct window *w, int which,
     {
       wset_buffer (w, buffer);
       set_marker_both (w->pointm, buffer, BEG, BEG_BYTE);
+      set_marker_both (w->old_pointm, buffer, BEG, BEG_BYTE);
     }
 
   bset_undo_list (current_buffer, Qt);
@@ -10559,7 +10563,7 @@ with_echo_area_buffer_unwind_data (struct window *w)
   Vwith_echo_area_save_vector = Qnil;
 
   if (NILP (vector))
-    vector = Fmake_vector (make_number (9), Qnil);
+    vector = Fmake_vector (make_number (11), Qnil);
 
   XSETBUFFER (tmp, current_buffer); ASET (vector, i, tmp); ++i;
   ASET (vector, i, Vdeactivate_mark); ++i;
@@ -10571,12 +10575,14 @@ with_echo_area_buffer_unwind_data (struct window *w)
       ASET (vector, i, w->contents); ++i;
       ASET (vector, i, make_number (marker_position (w->pointm))); ++i;
       ASET (vector, i, make_number (marker_byte_position (w->pointm))); ++i;
+      ASET (vector, i, make_number (marker_position (w->old_pointm))); ++i;
+      ASET (vector, i, make_number (marker_byte_position (w->old_pointm))); ++i;
       ASET (vector, i, make_number (marker_position (w->start))); ++i;
       ASET (vector, i, make_number (marker_byte_position (w->start))); ++i;
     }
   else
     {
-      int end = i + 6;
+      int end = i + 8;
       for (; i < end; ++i)
 	ASET (vector, i, Qnil);
     }
@@ -10608,9 +10614,12 @@ unwind_with_echo_area_buffer (Lisp_Object vector)
       set_marker_both (w->pointm, buffer,
 		       XFASTINT (AREF (vector, 5)),
 		       XFASTINT (AREF (vector, 6)));
-      set_marker_both (w->start, buffer,
+      set_marker_both (w->old_pointm, buffer,
 		       XFASTINT (AREF (vector, 7)),
 		       XFASTINT (AREF (vector, 8)));
+      set_marker_both (w->start, buffer,
+		       XFASTINT (AREF (vector, 9)),
+		       XFASTINT (AREF (vector, 10)));
     }
 
   Vwith_echo_area_save_vector = vector;
@@ -11885,7 +11894,7 @@ update_tool_bar (struct frame *f, int save_match_data)
   int do_update = FRAME_EXTERNAL_TOOL_BAR (f);
 #else
   int do_update = (WINDOWP (f->tool_bar_window)
-		   && WINDOW_PIXEL_HEIGHT (XWINDOW (f->tool_bar_window)) > 0);
+		   && WINDOW_TOTAL_LINES (XWINDOW (f->tool_bar_window)) > 0);
 #endif
 
   if (do_update)
@@ -12269,16 +12278,9 @@ display_tool_bar_line (struct it *it, int height)
 }
 
 
-/* Max tool-bar height.  Basically, this is what makes all other windows
-   disappear when the frame gets too small.  Rethink this!  */
-
-#define MAX_FRAME_TOOL_BAR_HEIGHT(f) \
-  ((FRAME_LINE_HEIGHT (f) * FRAME_LINES (f)))
-
 /* Value is the number of pixels needed to make all tool-bar items of
    frame F visible.  The actual number of glyph rows needed is
    returned in *N_ROWS if non-NULL.  */
-
 static int
 tool_bar_height (struct frame *f, int *n_rows, bool pixelwise)
 {
@@ -12347,7 +12349,6 @@ PIXELWISE non-nil means return the height of the tool bar in pixels.  */)
 
 /* Display the tool-bar of frame F.  Value is non-zero if tool-bar's
    height should be changed.  */
-
 static int
 redisplay_tool_bar (struct frame *f)
 {
@@ -12369,7 +12370,7 @@ redisplay_tool_bar (struct frame *f)
      can turn off tool-bars by specifying tool-bar-lines zero.  */
   if (!WINDOWP (f->tool_bar_window)
       || (w = XWINDOW (f->tool_bar_window),
-          WINDOW_PIXEL_HEIGHT (w) == 0))
+          WINDOW_TOTAL_LINES (w) == 0))
     return 0;
 
   /* Set up an iterator for the tool-bar window.  */
@@ -12396,14 +12397,7 @@ redisplay_tool_bar (struct frame *f)
 
       if (new_height != WINDOW_PIXEL_HEIGHT (w))
 	{
-	  Lisp_Object frame;
-	  int new_lines = ((new_height + FRAME_LINE_HEIGHT (f) - 1)
-			   / FRAME_LINE_HEIGHT (f));
-
-	  XSETFRAME (frame, f);
-	  Fmodify_frame_parameters (frame,
-				    list1 (Fcons (Qtool_bar_lines,
-						  make_number (new_lines))));
+	  x_change_tool_bar_height (f, new_height);
 	  /* Always do that now.  */
 	  clear_glyph_matrix (w->desired_matrix);
 	  f->fonts_changed = 1;
@@ -12456,14 +12450,11 @@ redisplay_tool_bar (struct frame *f)
 
   if (!NILP (Vauto_resize_tool_bars))
     {
-      /* Do we really allow the toolbar to occupy the whole frame?  */
-      int max_tool_bar_height = MAX_FRAME_TOOL_BAR_HEIGHT (f);
       int change_height_p = 0;
 
       /* If we couldn't display everything, change the tool-bar's
 	 height if there is room for more.  */
-      if (IT_STRING_CHARPOS (it) < it.end_charpos
-	  && it.current_y < max_tool_bar_height)
+      if (IT_STRING_CHARPOS (it) < it.end_charpos)
 	change_height_p = 1;
 
       /* We subtract 1 because display_tool_bar_line advances the
@@ -12482,15 +12473,13 @@ redisplay_tool_bar (struct frame *f)
       /* If row displays tool-bar items, but is partially visible,
 	 change the tool-bar's height.  */
       if (MATRIX_ROW_DISPLAYS_TEXT_P (row)
-	  && MATRIX_ROW_BOTTOM_Y (row) > it.last_visible_y
-	  && MATRIX_ROW_BOTTOM_Y (row) < max_tool_bar_height)
+	  && MATRIX_ROW_BOTTOM_Y (row) > it.last_visible_y)
 	change_height_p = 1;
 
       /* Resize windows as needed by changing the `tool-bar-lines'
 	 frame parameter.  */
       if (change_height_p)
 	{
-	  Lisp_Object frame;
 	  int nrows;
 	  int new_height = tool_bar_height (f, &nrows, 1);
 
@@ -12502,35 +12491,12 @@ redisplay_tool_bar (struct frame *f)
 
 	  if (change_height_p)
 	    {
-	      /* Current size of the tool-bar window in canonical line
-		 units.  */
-	      int old_lines = WINDOW_TOTAL_LINES (w);
-	      /* Required size of the tool-bar window in canonical
-		 line units. */
-	      int new_lines = ((new_height + FRAME_LINE_HEIGHT (f) - 1)
-			       / FRAME_LINE_HEIGHT (f));
-	      /* Maximum size of the tool-bar window in canonical line
-		 units that this frame can allow. */
-	      int max_lines =
-		WINDOW_TOTAL_LINES (XWINDOW (FRAME_ROOT_WINDOW (f))) - 1;
+	      x_change_tool_bar_height (f, new_height);
+	      clear_glyph_matrix (w->desired_matrix);
+	      f->n_tool_bar_rows = nrows;
+	      f->fonts_changed = 1;
 
-	      /* Don't try to change the tool-bar window size and set
-		 the fonts_changed flag unless really necessary.  That
-		 flag causes redisplay to give up and retry
-		 redisplaying the frame from scratch, so setting it
-		 unnecessarily can lead to nasty redisplay loops.  */
-	      if (new_lines <= max_lines
-		  && eabs (new_lines - old_lines) >= 1)
-		{
-		  XSETFRAME (frame, f);
-		  Fmodify_frame_parameters (frame,
-					    list1 (Fcons (Qtool_bar_lines,
-							  make_number (new_lines))));
-		  clear_glyph_matrix (w->desired_matrix);
-		  f->n_tool_bar_rows = nrows;
-		  f->fonts_changed = 1;
-		  return 1;
-		}
+	      return 1;
 	    }
 	}
     }
@@ -12864,7 +12830,20 @@ hscroll_window_tree (Lisp_Object window)
 	  /* Scroll when cursor is inside this scroll margin.  */
 	  h_margin = hscroll_margin * WINDOW_FRAME_COLUMN_WIDTH (w);
 
+	  /* If the position of this window's point has explicitly
+	     changed, no more suspend auto hscrolling.  */
+	  if (NILP (Fequal (Fwindow_point (window), Fwindow_old_point (window))))
+	    w->suspend_auto_hscroll = 0;
+
+	  /* Remember window point.  */
+	  Fset_marker (w->old_pointm,
+		       ((w == XWINDOW (selected_window))
+			? make_number (BUF_PT (XBUFFER (w->contents)))
+			: Fmarker_position (w->pointm)),
+		       w->contents);
+
 	  if (!NILP (Fbuffer_local_value (Qauto_hscroll_mode, w->contents))
+	      && w->suspend_auto_hscroll == 0
 	      /* In some pathological cases, like restoring a window
 		 configuration into a frame that is much smaller than
 		 the one from which the configuration was saved, we
@@ -12877,8 +12856,7 @@ hscroll_window_tree (Lisp_Object window)
 		 inside the left margin and the window is already
 		 hscrolled.  */
 	      && ((!row_r2l_p
-		   && ((w->hscroll
-			&& w->cursor.x <= h_margin)
+		   && ((w->hscroll && w->cursor.x <= h_margin)
 		       || (cursor_row->enabled_p
 			   && cursor_row->truncated_on_right_p
 			   && (w->cursor.x >= text_area_width - h_margin))))
@@ -15759,6 +15737,7 @@ try_cursor_movement (Lisp_Object window, struct text_pos startp, int *scroll_ste
   return rc;
 }
 
+
 void
 set_vertical_scroll_bar (struct window *w)
 {
@@ -15793,6 +15772,60 @@ set_vertical_scroll_bar (struct window *w)
   /* Indicate what this scroll bar ought to be displaying now.  */
   if (FRAME_TERMINAL (XFRAME (w->frame))->set_vertical_scroll_bar_hook)
     (*FRAME_TERMINAL (XFRAME (w->frame))->set_vertical_scroll_bar_hook)
+      (w, end - start, whole, start);
+}
+
+
+void
+set_horizontal_scroll_bar (struct window *w)
+{
+  int start, end, whole, box_width;
+
+  if (!MINI_WINDOW_P (w)
+      || (w == XWINDOW (minibuf_window)
+	  && NILP (echo_area_buffer[0])))
+    {
+      struct buffer *b = XBUFFER (w->contents);
+      struct buffer *old_buffer = NULL;
+      struct it it;
+      struct text_pos startp;
+
+      if (b != current_buffer)
+	{
+	  old_buffer = current_buffer;
+	  set_buffer_internal (b);
+	}
+
+      SET_TEXT_POS_FROM_MARKER (startp, w->start);
+      start_display (&it, w, startp);
+      it.last_visible_x = INT_MAX;
+      whole = move_it_to (&it, -1, INT_MAX, window_box_height (w), -1,
+			  MOVE_TO_X | MOVE_TO_Y);
+      /* whole = move_it_to (&it, w->window_end_pos, INT_MAX,
+			  window_box_height (w), -1,
+			  MOVE_TO_POS | MOVE_TO_X | MOVE_TO_Y); */
+
+      start = w->hscroll * FRAME_COLUMN_WIDTH (WINDOW_XFRAME (w));
+      box_width = window_box_width (w, TEXT_AREA);
+      end = start + box_width;
+
+      /* The following is needed to ensure that if after maximizing a
+	 window we get hscroll > 0, we can still drag the thumb to the
+	 left.  */
+      whole = max (whole, w->hscroll + box_width);
+      whole = max (whole, end - start);
+
+      if (old_buffer)
+	set_buffer_internal (old_buffer);
+    }
+  else
+    start = end = whole = 0;
+
+  w->hscroll_whole = whole;
+
+  /* Indicate what this scroll bar ought to be displaying now.  */
+  if (FRAME_TERMINAL (XFRAME (w->frame))->set_horizontal_scroll_bar_hook)
+    (*FRAME_TERMINAL (XFRAME (w->frame))->set_horizontal_scroll_bar_hook)
       (w, end - start, whole, start);
 }
 
@@ -16010,6 +16043,7 @@ redisplay_window (Lisp_Object window, bool just_this_one_p)
     {
       ptrdiff_t new_pt = marker_position (w->pointm);
       ptrdiff_t new_pt_byte = marker_byte_position (w->pointm);
+
       if (new_pt < BEGV)
 	{
 	  new_pt = BEGV;
@@ -16749,7 +16783,7 @@ redisplay_window (Lisp_Object window, bool just_this_one_p)
 	    redisplay_tool_bar (f);
 #else
 	  if (WINDOWP (f->tool_bar_window)
-	      && (FRAME_TOOL_BAR_HEIGHT (f) > 0
+	      && (FRAME_TOOL_BAR_LINES (f) > 0
 		  || !NILP (Vauto_resize_tool_bars))
 	      && redisplay_tool_bar (f))
 	    ignore_mouse_drag_p = 1;
@@ -16789,10 +16823,15 @@ redisplay_window (Lisp_Object window, bool just_this_one_p)
   ;
  finish_scroll_bars:
 
-  if (WINDOW_HAS_VERTICAL_SCROLL_BAR (w))
+   if (WINDOW_HAS_VERTICAL_SCROLL_BAR (w) || WINDOW_HAS_HORIZONTAL_SCROLL_BAR (w))
     {
-      /* Set the thumb's position and size.  */
-      set_vertical_scroll_bar (w);
+      if (WINDOW_HAS_VERTICAL_SCROLL_BAR (w))
+	/* Set the thumb's position and size.  */
+	set_vertical_scroll_bar (w);
+
+      if (WINDOW_HAS_HORIZONTAL_SCROLL_BAR (w))
+	/* Set the thumb's position and size.  */
+	set_horizontal_scroll_bar (w);
 
       /* Note that we actually used the scroll bar attached to this
 	 window, so it shouldn't be deleted at the end of redisplay.  */
@@ -19298,6 +19337,12 @@ extend_face_to_end_of_line (struct it *it)
 	      it->face_id = saved_face_id;
 	      it->start_of_box_run_p = saved_box_start;
 	    }
+	  /* If stretch_width comes out negative, it means that the
+	     last glyph is only partially visible.  In R2L rows, we
+	     want the leftmost glyph to be partially visible, so we
+	     need to give the row the corresponding left offset.  */
+	  if (stretch_width < 0)
+	    it->glyph_row->x = stretch_width;
 	}
 #endif	/* HAVE_WINDOW_SYSTEM */
     }
@@ -19924,6 +19969,7 @@ display_line (struct it *it)
   int cvpos;
   ptrdiff_t min_pos = ZV + 1, max_pos = 0;
   ptrdiff_t min_bpos IF_LINT (= 0), max_bpos IF_LINT (= 0);
+  bool pending_handle_line_prefix = false;
 
   /* We always start displaying at hpos zero even if hscrolled.  */
   eassert (it->hpos == 0 && it->current_x == 0);
@@ -19984,12 +20030,22 @@ display_line (struct it *it)
       min_pos = CHARPOS (this_line_min_pos);
       min_bpos = BYTEPOS (this_line_min_pos);
     }
+  else if (it->area == TEXT_AREA)
+    {
+      /* We only do this when not calling move_it_in_display_line_to
+	 above, because that function calls itself handle_line_prefix.  */
+      handle_line_prefix (it);
+    }
   else
     {
-      /* We only do this when not calling `move_it_in_display_line_to'
-	 above, because move_it_in_display_line_to calls
-	 handle_line_prefix itself.  */
-      handle_line_prefix (it);
+      /* Line-prefix and wrap-prefix are always displayed in the text
+	 area.  But if this is the first call to display_line after
+	 init_iterator, the iterator might have been set up to write
+	 into a marginal area, e.g. if the line begins with some
+	 display property that writes to the margins.  So we need to
+	 wait with the call to handle_line_prefix until whatever
+	 writes to the margin has done its job.  */
+      pending_handle_line_prefix = true;
     }
 
   /* Get the initial row height.  This is either the height of the
@@ -20122,6 +20178,14 @@ display_line (struct it *it)
 	  row->extra_line_spacing = max (row->extra_line_spacing,
 					 it->max_extra_line_spacing);
 	  set_iterator_to_next (it, 1);
+	  /* If we didn't handle the line/wrap prefix above, and the
+	     call to set_iterator_to_next just switched to TEXT_AREA,
+	     process the prefix now.  */
+	  if (it->area == TEXT_AREA && pending_handle_line_prefix)
+	    {
+	      pending_handle_line_prefix = false;
+	      handle_line_prefix (it);
+	    }
 	  continue;
 	}
 
@@ -20151,7 +20215,12 @@ display_line (struct it *it)
 				  it->max_phys_ascent + it->max_phys_descent);
 	  row->extra_line_spacing = max (row->extra_line_spacing,
 					 it->max_extra_line_spacing);
-	  if (it->current_x - it->pixel_width < it->first_visible_x)
+	  if (it->current_x - it->pixel_width < it->first_visible_x
+	      /* In R2L rows, we arrange in extend_face_to_end_of_line
+		 to add a right offset to the line, by a suitable
+		 change to the stretch glyph that is the leftmost
+		 glyph of the line.  */
+	      && !row->reversed_p)
 	    row->x = x - it->first_visible_x;
 	  /* Record the maximum and minimum buffer positions seen so
 	     far in glyphs that will be displayed by this row.  */
@@ -20165,7 +20234,13 @@ display_line (struct it *it)
 
 	  for (i = 0; i < nglyphs; ++i, x = new_x)
 	    {
-	      glyph = row->glyphs[TEXT_AREA] + n_glyphs_before + i;
+	      /* Identify the glyphs added by the last call to
+		 PRODUCE_GLYPHS.  In R2L rows, they are prepended to
+		 the previous glyphs.  */
+	      if (!row->reversed_p)
+		glyph = row->glyphs[TEXT_AREA] + n_glyphs_before + i;
+	      else
+		glyph = row->glyphs[TEXT_AREA] + nglyphs - 1 - i;
 	      new_x = x + glyph->pixel_width;
 
 	      if (/* Lines are continued.  */
@@ -20365,10 +20440,20 @@ display_line (struct it *it)
 		  if (it->bidi_p)
 		    RECORD_MAX_MIN_POS (it);
 
-		  if (x < it->first_visible_x)
+		  if (x < it->first_visible_x && !row->reversed_p)
 		    /* Glyph is partially visible, i.e. row starts at
-		       negative X position.  */
+		       negative X position.  Don't do that in R2L
+		       rows, where we arrange to add a right offset to
+		       the line in extend_face_to_end_of_line, by a
+		       suitable change to the stretch glyph that is
+		       the leftmost glyph of the line.  */
 		    row->x = x - it->first_visible_x;
+		  /* When the last glyph of an R2L row only fits
+		     partially on the line, we need to set row->x to a
+		     negative offset, so that the leftmost glyph is
+		     the one that is partially visible.  */
+		  if (row->reversed_p && new_x > it->last_visible_x)
+		    row->x = it->last_visible_x - new_x;
 		}
 	      else
 		{
@@ -25266,6 +25351,24 @@ append_stretch_glyph (struct it *it, Lisp_Object object,
 	  for (g = glyph - 1; g >= it->glyph_row->glyphs[area]; g--)
 	    g[1] = *g;
 	  glyph = it->glyph_row->glyphs[area];
+
+	  /* Decrease the width of the first glyph of the row that
+	     begins before first_visible_x (e.g., due to hscroll).
+	     This is so the overall width of the row becomes smaller
+	     by the scroll amount, and the stretch glyph appended by
+	     extend_face_to_end_of_line will be wider, to shift the
+	     row glyphs to the right.  (In L2R rows, the corresponding
+	     left-shift effect is accomplished by setting row->x to a
+	     negative value, which won't work with R2L rows.)
+
+	     This must leave us with a positive value of WIDTH, since
+	     otherwise the call to move_it_in_display_line_to at the
+	     beginning of display_line would have got past the entire
+	     first glyph, and then it->current_x would have been
+	     greater or equal to it->first_visible_x.  */
+	  if (it->current_x < it->first_visible_x)
+	    width -= it->first_visible_x - it->current_x;
+	  eassert (width > 0);
 	}
       glyph->charpos = CHARPOS (it->position);
       glyph->object = object;
@@ -28990,7 +29093,8 @@ note_mouse_highlight (struct frame *f, int x, int y)
     else
       cursor = FRAME_X_OUTPUT (f)->nontext_cursor;
   else if (part == ON_LEFT_FRINGE || part == ON_RIGHT_FRINGE
-	   || part == ON_SCROLL_BAR)
+	   || part == ON_VERTICAL_SCROLL_BAR
+	   || part == ON_HORIZONTAL_SCROLL_BAR)
     cursor = FRAME_X_OUTPUT (f)->nontext_cursor;
   else
     cursor = FRAME_X_OUTPUT (f)->text_cursor;
@@ -29911,8 +30015,10 @@ expose_frame (struct frame *f, int x, int y, int w, int h)
   if (w == 0 || h == 0)
     {
       r.x = r.y = 0;
-      r.width = FRAME_COLUMN_WIDTH (f) * FRAME_COLS (f);
-      r.height = FRAME_LINE_HEIGHT (f) * FRAME_LINES (f);
+      r.width = FRAME_TEXT_WIDTH (f);
+      r.height = FRAME_TEXT_HEIGHT (f);
+/**       r.width = FRAME_COLUMN_WIDTH (f) * FRAME_COLS (f); **/
+/**       r.height = FRAME_LINE_HEIGHT (f) * FRAME_LINES (f); **/
     }
   else
     {
@@ -30198,8 +30304,9 @@ A value of nil means no special handling of these characters.  */);
 
   DEFVAR_LISP ("void-text-area-pointer", Vvoid_text_area_pointer,
     doc: /* The pointer shape to show in void text areas.
-A value of nil means to show the text pointer.  Other options are `arrow',
-`text', `hand', `vdrag', `hdrag', `modeline', and `hourglass'.  */);
+A value of nil means to show the text pointer.  Other options are
+`arrow', `text', `hand', `vdrag', `hdrag', `nhdrag', `modeline', and
+`hourglass'.  */);
   Vvoid_text_area_pointer = Qarrow;
 
   DEFVAR_LISP ("inhibit-redisplay", Vinhibit_redisplay,
@@ -30694,10 +30801,10 @@ init_xdisp (void)
       r->pixel_top = r->top_line * FRAME_LINE_HEIGHT (f);
       r->total_cols = FRAME_COLS (f);
       r->pixel_width = r->total_cols * FRAME_COLUMN_WIDTH (f);
-      r->total_lines = FRAME_LINES (f) - 1 - FRAME_TOP_MARGIN (f);
+      r->total_lines = FRAME_TOTAL_LINES (f) - 1 - FRAME_TOP_MARGIN (f);
       r->pixel_height = r->total_lines * FRAME_LINE_HEIGHT (f);
 
-      m->top_line = FRAME_LINES (f) - 1;
+      m->top_line = FRAME_TOTAL_LINES (f) - 1;
       m->pixel_top = m->top_line * FRAME_LINE_HEIGHT (f);
       m->total_cols = FRAME_COLS (f);
       m->pixel_width = m->total_cols * FRAME_COLUMN_WIDTH (f);

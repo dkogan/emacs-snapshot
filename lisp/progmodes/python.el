@@ -2129,6 +2129,27 @@ uniqueness for different types of configurations."
     directory package package)
    (python-shell-get-process)))
 
+(defun python-shell-accept-process-output (process &optional timeout regexp)
+  "Accept PROCESS output with TIMEOUT until REGEXP is found.
+Optional argument TIMEOUT is the timeout argument to
+`accept-process-output' calls.  Optional argument REGEXP
+overrides the regexp to match the end of output, defaults to
+`comint-prompt-regexp.'.  Returns non-nil when output was
+properly captured.
+
+This utility is useful in situations where the output may be
+received in chunks, since `accept-process-output' gives no
+guarantees they will be grabbed in a single call.  An example use
+case for this would be the CPython shell start-up, where the
+banner and the initial prompt are received separetely."
+  (let ((regexp (or regexp comint-prompt-regexp)))
+    (catch 'found
+      (while t
+        (when (not (accept-process-output process timeout))
+          (throw 'found nil))
+        (when (looking-back regexp)
+          (throw 'found t))))))
+
 (defun python-shell-comint-end-of-output-p (output)
   "Return non-nil if OUTPUT is ends with input prompt."
   (string-match
@@ -2159,51 +2180,64 @@ Avoids `recenter' calls until OUTPUT is completely sent."
 
 (defvar python-shell--parent-buffer nil)
 
+(defmacro python-shell-with-shell-buffer (&rest body)
+  "Execute the forms in BODY with the shell buffer temporarily current.
+Signals an error if no shell buffer is available for current buffer."
+  (declare (indent 0) (debug t))
+  (let ((shell-buffer (make-symbol "shell-buffer")))
+    `(let ((,shell-buffer (python-shell-get-buffer)))
+       (when (not ,shell-buffer)
+         (error "No inferior Python buffer available."))
+       (with-current-buffer ,shell-buffer
+         ,@body))))
+
 (defvar python-shell--font-lock-buffer nil)
 
 (defun python-shell-font-lock-get-or-create-buffer ()
   "Get or create a font-lock buffer for current inferior process."
-  (if python-shell--font-lock-buffer
-      python-shell--font-lock-buffer
-    (let ((process-name
-           (process-name (get-buffer-process (current-buffer)))))
-      (generate-new-buffer
-       (format "*%s-font-lock*" process-name)))))
+  (python-shell-with-shell-buffer
+    (if python-shell--font-lock-buffer
+        python-shell--font-lock-buffer
+      (let ((process-name
+             (process-name (get-buffer-process (current-buffer)))))
+        (generate-new-buffer
+         (format "*%s-font-lock*" process-name))))))
 
 (defun python-shell-font-lock-kill-buffer ()
   "Kill the font-lock buffer safely."
-  (when (and python-shell--font-lock-buffer
-             (buffer-live-p python-shell--font-lock-buffer))
-    (kill-buffer python-shell--font-lock-buffer)
-    (when (eq major-mode 'inferior-python-mode)
-      (setq python-shell--font-lock-buffer nil))))
+  (python-shell-with-shell-buffer
+    (when (and python-shell--font-lock-buffer
+               (buffer-live-p python-shell--font-lock-buffer))
+      (kill-buffer python-shell--font-lock-buffer)
+      (when (eq major-mode 'inferior-python-mode)
+        (setq python-shell--font-lock-buffer nil)))))
 
 (defmacro python-shell-font-lock-with-font-lock-buffer (&rest body)
   "Execute the forms in BODY in the font-lock buffer.
 The value returned is the value of the last form in BODY.  See
 also `with-current-buffer'."
   (declare (indent 0) (debug t))
-  `(save-current-buffer
-     (when (not (eq major-mode 'inferior-python-mode))
-       (error "Current buffer is not in `inferior-python-mode'."))
-     (when (not (and python-shell--font-lock-buffer
-                     (get-buffer python-shell--font-lock-buffer)))
-       (setq python-shell--font-lock-buffer
-             (python-shell-font-lock-get-or-create-buffer)))
-     (set-buffer python-shell--font-lock-buffer)
-     (set (make-local-variable 'delay-mode-hooks) t)
-     (let ((python-indent-guess-indent-offset nil))
-       (when (not (eq major-mode 'python-mode))
-         (python-mode))
-       ,@body)))
+  `(python-shell-with-shell-buffer
+     (save-current-buffer
+       (when (not (and python-shell--font-lock-buffer
+                       (get-buffer python-shell--font-lock-buffer)))
+         (setq python-shell--font-lock-buffer
+               (python-shell-font-lock-get-or-create-buffer)))
+       (set-buffer python-shell--font-lock-buffer)
+       (set (make-local-variable 'delay-mode-hooks) t)
+       (let ((python-indent-guess-indent-offset nil))
+         (when (not (eq major-mode 'python-mode))
+           (python-mode))
+         ,@body))))
 
 (defun python-shell-font-lock-cleanup-buffer ()
   "Cleanup the font-lock buffer.
 Provided as a command because this might be handy if something
 goes wrong and syntax highlighting in the shell gets messed up."
   (interactive)
-  (python-shell-font-lock-with-font-lock-buffer
-    (delete-region (point-min) (point-max))))
+  (python-shell-with-shell-buffer
+    (python-shell-font-lock-with-font-lock-buffer
+      (delete-region (point-min) (point-max)))))
 
 (defun python-shell-font-lock-comint-output-filter-function (output)
   "Clean up the font-lock buffer after any OUTPUT."
@@ -2258,49 +2292,54 @@ goes wrong and syntax highlighting in the shell gets messed up."
 (defun python-shell-font-lock-turn-on (&optional msg)
   "Turn on shell font-lock.
 With argument MSG show activation message."
-  (python-shell-font-lock-kill-buffer)
-  (set (make-local-variable 'python-shell--font-lock-buffer) nil)
-  (add-hook 'post-command-hook
-            #'python-shell-font-lock-post-command-hook nil 'local)
-  (add-hook 'kill-buffer-hook
-            #'python-shell-font-lock-kill-buffer nil 'local)
-  (add-hook 'comint-output-filter-functions
-            #'python-shell-font-lock-comint-output-filter-function
-            'append 'local)
-  (when msg
-    (message "Shell font-lock is enabled")))
+  (interactive "p")
+  (python-shell-with-shell-buffer
+    (python-shell-font-lock-kill-buffer)
+    (set (make-local-variable 'python-shell--font-lock-buffer) nil)
+    (add-hook 'post-command-hook
+              #'python-shell-font-lock-post-command-hook nil 'local)
+    (add-hook 'kill-buffer-hook
+              #'python-shell-font-lock-kill-buffer nil 'local)
+    (add-hook 'comint-output-filter-functions
+              #'python-shell-font-lock-comint-output-filter-function
+              'append 'local)
+    (when msg
+      (message "Shell font-lock is enabled"))))
 
 (defun python-shell-font-lock-turn-off (&optional msg)
   "Turn off shell font-lock.
 With argument MSG show deactivation message."
-  (python-shell-font-lock-kill-buffer)
-  (when (python-util-comint-last-prompt)
-    ;; Cleanup current fontification
-    (remove-text-properties
-     (cdr (python-util-comint-last-prompt))
-     (line-end-position)
-     '(face nil font-lock-face nil)))
-  (set (make-local-variable 'python-shell--font-lock-buffer) nil)
-  (remove-hook 'post-command-hook
-               #'python-shell-font-lock-post-command-hook'local)
-  (remove-hook 'kill-buffer-hook
-               #'python-shell-font-lock-kill-buffer 'local)
-  (remove-hook 'comint-output-filter-functions
-               #'python-shell-font-lock-comint-output-filter-function
-               'local)
-  (when msg
-    (message "Shell font-lock is disabled")))
+  (interactive "p")
+  (python-shell-with-shell-buffer
+    (python-shell-font-lock-kill-buffer)
+    (when (python-util-comint-last-prompt)
+      ;; Cleanup current fontification
+      (remove-text-properties
+       (cdr (python-util-comint-last-prompt))
+       (line-end-position)
+       '(face nil font-lock-face nil)))
+    (set (make-local-variable 'python-shell--font-lock-buffer) nil)
+    (remove-hook 'post-command-hook
+                 #'python-shell-font-lock-post-command-hook'local)
+    (remove-hook 'kill-buffer-hook
+                 #'python-shell-font-lock-kill-buffer 'local)
+    (remove-hook 'comint-output-filter-functions
+                 #'python-shell-font-lock-comint-output-filter-function
+                 'local)
+    (when msg
+      (message "Shell font-lock is disabled"))))
 
 (defun python-shell-font-lock-toggle (&optional msg)
   "Toggle font-lock for shell.
 With argument MSG show activation/deactivation message."
   (interactive "p")
-  (set (make-local-variable 'python-shell-font-lock-enable)
-       (not python-shell-font-lock-enable))
-  (if python-shell-font-lock-enable
-      (python-shell-font-lock-turn-on msg)
-    (python-shell-font-lock-turn-off msg))
-  python-shell-font-lock-enable)
+  (python-shell-with-shell-buffer
+    (set (make-local-variable 'python-shell-font-lock-enable)
+         (not python-shell-font-lock-enable))
+    (if python-shell-font-lock-enable
+        (python-shell-font-lock-turn-on msg)
+      (python-shell-font-lock-turn-off msg))
+    python-shell-font-lock-enable))
 
 (define-derived-mode inferior-python-mode comint-mode "Inferior Python"
   "Major mode for Python inferior process.
@@ -2314,7 +2353,6 @@ interpreter is run.  Variables
 `python-shell-font-lock-enable',
 `python-shell-completion-setup-code',
 `python-shell-completion-string-code',
-`python-shell-completion-module-string-code',
 `python-eldoc-setup-code', `python-eldoc-string-code',
 `python-ffap-setup-code' and `python-ffap-string-code' can
 customize this mode for different Python interpreters.
@@ -2340,7 +2378,8 @@ variable.
   (set (make-local-variable 'python-shell--prompt-calculated-input-regexp) nil)
   (set (make-local-variable 'python-shell--prompt-calculated-output-regexp) nil)
   (python-shell-prompt-set-calculated-regexps)
-  (setq comint-prompt-regexp python-shell--prompt-calculated-input-regexp)
+  (setq comint-prompt-regexp python-shell--prompt-calculated-input-regexp
+        comint-prompt-read-only t)
   (setq mode-line-process '(":%s"))
   (set (make-local-variable 'comint-output-filter-functions)
        '(ansi-color-process-output
@@ -2351,9 +2390,9 @@ variable.
   (define-key inferior-python-mode-map [remap complete-symbol]
     'completion-at-point)
   (add-hook 'completion-at-point-functions
-            'python-shell-completion-complete-at-point nil 'local)
+            'python-shell-completion-at-point nil 'local)
   (add-to-list (make-local-variable 'comint-dynamic-complete-functions)
-               'python-shell-completion-complete-at-point)
+               'python-shell-completion-at-point)
   (define-key inferior-python-mode-map "\t"
     'python-shell-completion-complete-or-indent)
   (make-local-variable 'python-pdbtrack-buffers-to-kill)
@@ -2361,7 +2400,9 @@ variable.
   (make-local-variable 'python-shell-internal-last-output)
   (when python-shell-font-lock-enable
     (python-shell-font-lock-turn-on))
-  (compilation-shell-minor-mode 1))
+  (compilation-shell-minor-mode 1)
+  (python-shell-accept-process-output
+   (get-buffer-process (current-buffer))))
 
 (defun python-shell-make-comint (cmd proc-name &optional pop internal)
   "Create a Python shell comint buffer.
@@ -2387,7 +2428,7 @@ killed."
                               interpreter nil args))
                (python-shell--parent-buffer (current-buffer))
                (process (get-buffer-process buffer))
-               ;; As the user may have overriden default values for
+               ;; As the user may have overridden default values for
                ;; these vars on `run-python', let-binding them allows
                ;; to have the new right values in all setup code
                ;; that's is done in `inferior-python-mode', which is
@@ -2397,7 +2438,6 @@ killed."
                 (mapconcat #'identity args " ")))
           (with-current-buffer buffer
             (inferior-python-mode))
-          (accept-process-output process)
           (and pop (pop-to-buffer buffer t))
           (and internal (set-process-query-on-exit-flag process nil))))
       proc-buffer-name)))
@@ -2451,16 +2491,19 @@ startup."
       (python-shell-internal-get-process-name) nil t))))
 
 (defun python-shell-get-buffer ()
-  "Return inferior Python buffer for current buffer."
-  (let* ((dedicated-proc-name (python-shell-get-process-name t))
-         (dedicated-proc-buffer-name (format "*%s*" dedicated-proc-name))
-         (global-proc-name  (python-shell-get-process-name nil))
-         (global-proc-buffer-name (format "*%s*" global-proc-name))
-         (dedicated-running (comint-check-proc dedicated-proc-buffer-name))
-         (global-running (comint-check-proc global-proc-buffer-name)))
-    ;; Always prefer dedicated
-    (or (and dedicated-running dedicated-proc-buffer-name)
-        (and global-running global-proc-buffer-name))))
+  "Return inferior Python buffer for current buffer.
+If current buffer is in `inferior-python-mode', return it."
+  (if (eq major-mode 'inferior-python-mode)
+      (current-buffer)
+    (let* ((dedicated-proc-name (python-shell-get-process-name t))
+           (dedicated-proc-buffer-name (format "*%s*" dedicated-proc-name))
+           (global-proc-name  (python-shell-get-process-name nil))
+           (global-proc-buffer-name (format "*%s*" global-proc-name))
+           (dedicated-running (comint-check-proc dedicated-proc-buffer-name))
+           (global-running (comint-check-proc global-proc-buffer-name)))
+      ;; Always prefer dedicated
+      (or (and dedicated-running dedicated-proc-buffer-name)
+          (and global-running global-proc-buffer-name)))))
 
 (defun python-shell-get-process ()
   "Return inferior Python process for current buffer."
@@ -2472,24 +2515,14 @@ Arguments CMD, DEDICATED and SHOW are those of `run-python' and
 are used to start the shell.  If those arguments are not
 provided, `run-python' is called interactively and the user will
 be asked for their values."
-  (let* ((dedicated-proc-name (python-shell-get-process-name t))
-         (dedicated-proc-buffer-name (format "*%s*" dedicated-proc-name))
-         (global-proc-name  (python-shell-get-process-name nil))
-         (global-proc-buffer-name (format "*%s*" global-proc-name))
-         (dedicated-running (comint-check-proc dedicated-proc-buffer-name))
-         (global-running (comint-check-proc global-proc-buffer-name)))
-    (when (and (not dedicated-running) (not global-running))
-      (if (if (not cmd)
-              ;; XXX: Refactor code such that calling `run-python'
-              ;; interactively is not needed anymore.
-              (call-interactively 'run-python)
-            (run-python cmd dedicated show))
-          (setq dedicated-running t)
-        (setq global-running t)))
-    ;; Always prefer dedicated
-    (get-buffer-process (if dedicated-running
-                            dedicated-proc-buffer-name
-                          global-proc-buffer-name))))
+  (let ((shell-process (python-shell-get-process)))
+    (when (not shell-process)
+      (if (not cmd)
+          ;; XXX: Refactor code such that calling `run-python'
+          ;; interactively is not needed anymore.
+          (call-interactively 'run-python)
+        (run-python cmd dedicated show)))
+    (or shell-process (python-shell-get-process))))
 
 (defvar python-shell-internal-buffer nil
   "Current internal shell buffer for the current buffer.
@@ -2507,13 +2540,7 @@ there for compatibility with CEDET.")
          (proc-buffer-name (format " *%s*" proc-name)))
     (when (not (process-live-p proc-name))
       (run-python-internal)
-      (setq python-shell-internal-buffer proc-buffer-name)
-      ;; XXX: Why is this `sit-for' needed?
-      ;; `python-shell-make-comint' calls `accept-process-output'
-      ;; already but it is not helping to get proper output on
-      ;; 'gnu/linux when the internal shell process is not running and
-      ;; a call to `python-shell-internal-send-string' is issued.
-      (sit-for 0.1 t))
+      (setq python-shell-internal-buffer proc-buffer-name))
     (get-buffer-process proc-buffer-name)))
 
 (define-obsolete-function-alias
@@ -2763,18 +2790,24 @@ If DELETE is non-nil, delete the file afterwards."
 (defun python-shell-switch-to-shell ()
   "Switch to inferior Python process buffer."
   (interactive)
-  (pop-to-buffer (process-buffer (python-shell-get-or-create-process)) t))
+  (process-buffer (python-shell-get-or-create-process)) t)
 
 (defun python-shell-send-setup-code ()
   "Send all setup code for shell.
 This function takes the list of setup code to send from the
 `python-shell-setup-codes' list."
-  (let ((process (get-buffer-process (current-buffer))))
-    (dolist (code python-shell-setup-codes)
-      (when code
-        (message "Sent %s" code)
-        (python-shell-send-string
-         (symbol-value code) process)))))
+  (let ((process (python-shell-get-process))
+        (code (concat
+               (mapconcat
+                (lambda (elt)
+                  (cond ((stringp elt) elt)
+                        ((symbolp elt) (symbol-value elt))
+                        (t "")))
+                python-shell-setup-codes
+                "\n\n")
+               "\n\nprint ('python.el: sent setup code')")))
+    (python-shell-send-string code process)
+    (python-shell-accept-process-output process)))
 
 (add-hook 'inferior-python-mode-hook
           #'python-shell-send-setup-code)
@@ -2839,21 +2872,15 @@ the full statement in the case of imports."
   :type 'string
   :group 'python)
 
-(defun python-shell-completion-get-completions (process line input)
-  "Do completion at point for PROCESS.
-LINE is used to detect the context on how to complete given INPUT."
+(defun python-shell-completion-get-completions (process import input)
+  "Do completion at point using PROCESS for IMPORT or INPUT.
+When IMPORT is non-nil takes precedence over INPUT for
+completion."
   (let* ((prompt
-          ;; Get last prompt of the inferior process buffer (this
-          ;; intentionally avoids using `comint-last-prompt' because
-          ;; of incompatibilities with Emacs 24.x).
           (with-current-buffer (process-buffer process)
-            (save-excursion
+            (let ((prompt-boundaries (python-util-comint-last-prompt)))
               (buffer-substring-no-properties
-               (- (point) (length line))
-               (progn
-                 (re-search-backward "^")
-                 (python-util-forward-comment)
-                 (point))))))
+               (car prompt-boundaries) (cdr prompt-boundaries)))))
          (completion-code
           ;; Check whether a prompt matches a pdb string, an import
           ;; statement or just the standard prompt and use the
@@ -2866,56 +2893,50 @@ LINE is used to detect the context on how to complete given INPUT."
                   python-shell--prompt-calculated-input-regexp prompt)
                  python-shell-completion-string-code)
                 (t nil)))
-         (input
-          (if (string-match
-               (python-rx (+ space) (or "from" "import") space)
-               line)
-              line
-            input)))
+         (subject (or import input)))
     (and completion-code
          (> (length input) 0)
          (with-current-buffer (process-buffer process)
            (let ((completions
                   (python-util-strip-string
                    (python-shell-send-string-no-output
-                    (format completion-code input) process))))
+                    (format completion-code subject) process))))
              (and (> (length completions) 2)
                   (split-string completions
                                 "^'\\|^\"\\|;\\|'$\\|\"$" t)))))))
 
-(defun python-shell-completion-complete-at-point (&optional process)
-  "Perform completion at point in inferior Python.
+(defun python-shell-completion-at-point (&optional process)
+  "Function for `completion-at-point-functions' in `inferior-python-mode'.
 Optional argument PROCESS forces completions to be retrieved
 using that one instead of current buffer's process."
   (setq process (or process (get-buffer-process (current-buffer))))
-  (let* ((start
+  (let* ((last-prompt-end (cdr (python-util-comint-last-prompt)))
+         (import-statement
+          (when (string-match-p
+                 (rx (* space) word-start (or "from" "import") word-end space)
+                 (buffer-substring-no-properties last-prompt-end (point)))
+            (buffer-substring-no-properties last-prompt-end (point))))
+         (start
           (save-excursion
-            (with-syntax-table python-dotty-syntax-table
-              (let* ((paren-depth (car (syntax-ppss)))
-                     (syntax-string "w_")
-                     (syntax-list (string-to-syntax syntax-string)))
-                ;; Stop scanning for the beginning of the completion
-                ;; subject after the char before point matches a
-                ;; delimiter
-                (while (member
-                        (car (syntax-after (1- (point)))) syntax-list)
-                  (skip-syntax-backward syntax-string)
-                  (when (or (equal (char-before) ?\))
-                            (equal (char-before) ?\"))
-                    (forward-char -1))
-                  (while (or
-                          ;; honor initial paren depth
-                          (> (car (syntax-ppss)) paren-depth)
-                          (python-syntax-context 'string))
-                    (forward-char -1)))
-                (point)))))
+            (if (not (re-search-backward
+                      (python-rx
+                       (or whitespace open-paren close-paren string-delimiter))
+                      last-prompt-end
+                      t 1))
+                last-prompt-end
+              (forward-char (length (match-string-no-properties 0)))
+              (point))))
          (end (point)))
     (list start end
           (completion-table-dynamic
            (apply-partially
             #'python-shell-completion-get-completions
-            process (buffer-substring-no-properties
-                     (line-beginning-position) end))))))
+            process import-statement)))))
+
+(define-obsolete-function-alias
+  'python-shell-completion-complete-at-point
+  'python-shell-completion-at-point
+  "24.5")
 
 (defun python-shell-completion-complete-or-indent ()
   "Complete or indent depending on the context.
@@ -3023,14 +3044,19 @@ Argument OUTPUT is a string with the output from the comint process."
 
 ;;; Symbol completion
 
-(defun python-completion-complete-at-point ()
-  "Complete current symbol at point.
+(defun python-completion-at-point ()
+  "Function for `completion-at-point-functions' in `python-mode'.
 For this to work as best as possible you should call
 `python-shell-send-buffer' from time to time so context in
 inferior Python process is updated properly."
   (let ((process (python-shell-get-process)))
     (when process
-      (python-shell-completion-complete-at-point process))))
+      (python-shell-completion-at-point process))))
+
+(define-obsolete-function-alias
+  'python-completion-complete-at-point
+  'python-completion-at-point
+  "24.5")
 
 
 ;;; Fill paragraph
@@ -4255,7 +4281,7 @@ Arguments START and END narrow the buffer region to work on."
        #'python-nav-end-of-defun)
 
   (add-hook 'completion-at-point-functions
-            #'python-completion-complete-at-point nil 'local)
+            #'python-completion-at-point nil 'local)
 
   (add-hook 'post-self-insert-hook
             #'python-indent-post-self-insert-function 'append 'local)
