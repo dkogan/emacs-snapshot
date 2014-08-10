@@ -4,7 +4,7 @@
 ;; Inc.
 
 ;; Author: Morten Welinder <terra@gnu.org>
-;; Keywords: files archives msdog editing major-mode
+;; Keywords: files archives ms-dos editing major-mode
 ;; Favorite-brand-of-beer: None, I hate beer.
 
 ;; This file is part of GNU Emacs.
@@ -31,7 +31,7 @@
 ;; understand the directory level of the archives.  For this reason,
 ;; you should expect this code to need more fiddling than tar-mode.el
 ;; (although it at present has fewer bugs :-)  In particular, I have
-;; not tested this under Ms-Dog myself.
+;; not tested this under MS-DOS myself.
 ;; -------------------------------------
 ;; INTERACTION: arc-mode.el should play together with
 ;;

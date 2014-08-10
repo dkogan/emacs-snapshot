@@ -1852,30 +1852,32 @@ adjust_point_for_property (ptrdiff_t last_pt, bool modified)
     }
 }
 
-/* Subroutine for safe_run_hooks: run the hook HOOK.  */
+/* Subroutine for safe_run_hooks: run the hook, which is ARGS[1].  */
 
 static Lisp_Object
-safe_run_hooks_1 (void)
+safe_run_hooks_1 (ptrdiff_t nargs, Lisp_Object *args)
 {
-  eassert (CONSP (Vinhibit_quit));
-  return call0 (XCDR (Vinhibit_quit));
+  eassert (nargs == 2);
+  return call0 (args[1]);
 }
 
 /* Subroutine for safe_run_hooks: handle an error by clearing out the function
    from the hook.  */
 
 static Lisp_Object
-safe_run_hooks_error (Lisp_Object error_data)
+safe_run_hooks_error (Lisp_Object error, ptrdiff_t nargs, Lisp_Object *args)
 {
-  Lisp_Object hook
-    = CONSP (Vinhibit_quit) ? XCAR (Vinhibit_quit) : Vinhibit_quit;
-  Lisp_Object fun = CONSP (Vinhibit_quit) ? XCDR (Vinhibit_quit) : Qnil;
-  Lisp_Object args[4];
-  args[0] = build_string ("Error in %s (%S): %S");
-  args[1] = hook;
-  args[2] = fun;
-  args[3] = error_data;
-  Fmessage (4, args);
+  Lisp_Object hook, fun, msgargs[4];
+  
+  eassert (nargs == 2);
+  hook = args[0];
+  fun = args[1];
+  msgargs[0] = build_string ("Error in %s (%S): %S");
+  msgargs[1] = hook;
+  msgargs[2] = fun;
+  msgargs[3] = error;
+  Fmessage (4, msgargs);
+
   if (SYMBOLP (hook))
     {
       Lisp_Object val;
@@ -1907,13 +1909,14 @@ safe_run_hooks_error (Lisp_Object error_data)
 static Lisp_Object
 safe_run_hook_funcall (ptrdiff_t nargs, Lisp_Object *args)
 {
-  eassert (nargs == 1);
-  if (CONSP (Vinhibit_quit))
-    XSETCDR (Vinhibit_quit, args[0]);
-  else
-    Vinhibit_quit = Fcons (Vinhibit_quit, args[0]);
+  Lisp_Object iargs[2];
 
-  internal_condition_case (safe_run_hooks_1, Qt, safe_run_hooks_error);
+  eassert (nargs == 2);
+  /* Yes, run_hook_with_args works this way.  */
+  iargs[0] = args[1];
+  iargs[1] = args[0];
+  internal_condition_case_n (safe_run_hooks_1, 2, iargs,
+			     Qt, safe_run_hooks_error);
   return Qnil;
 }
 
@@ -1924,15 +1927,18 @@ safe_run_hook_funcall (ptrdiff_t nargs, Lisp_Object *args)
 void
 safe_run_hooks (Lisp_Object hook)
 {
-  /* FIXME: our `internal_condition_case' does not provide any way to pass data
-     to its body or to its handlers other than via globals such as
-     dynamically-bound variables ;-)  */
+  Lisp_Object args[2];
+  struct gcpro gcpro1;
   ptrdiff_t count = SPECPDL_INDEX ();
-  specbind (Qinhibit_quit, hook);
 
-  run_hook_with_args (1, &hook, safe_run_hook_funcall);
+  args[0] = hook;
+  args[1] = hook;
 
+  GCPRO1 (hook);
+  specbind (Qinhibit_quit, Qt);
+  run_hook_with_args (2, args, safe_run_hook_funcall);
   unbind_to (count, Qnil);
+  UNGCPRO;
 }
 
 
@@ -4370,8 +4376,9 @@ decode_timer (Lisp_Object timer, struct timespec *result)
   if (! NILP (vector[0]))
     return 0;
 
-  return decode_time_components (vector[1], vector[2], vector[3], vector[8],
-				 result, 0);
+  return (decode_time_components (vector[1], vector[2], vector[3], vector[8],
+				  result, 0)
+	  && timespec_valid_p (*result));
 }
 
 

@@ -1,3 +1,102 @@
+2014-08-09  Reuben Thomas  <rrt@sc3d.org>
+
+	* alloc.c (Fmemory_info): Remove a stray brace.
+	* process.c: Fix a comment typo.
+	* msdos.c:
+	* dosfns.c (init_dosfns): Remove support for DJGPP < 2.02.
+
+2014-08-09  Jan Djärv  <jan.h.d@swipnet.se>
+
+	* widgetprv.h (EmacsFramePart): Remove font.
+
+	* widget.c (DEFAULT_FACE_FONT, EmacsFrameSetValues, setup_frame_gcs)
+	(resources, setup_frame_cursor_bits): Remove unused variables and
+	functions, esp. wrt. font (Bug#18227).
+
+2014-08-07  Paul Eggert  <eggert@cs.ucla.edu>
+
+	* xterm.c (x_delete_terminal): Plug file descriptor leak (Bug#17691).
+
+2014-08-07  Reuben Thomas  <rrt@sc3d.org>
+
+	Refer to MS-DOS using the same name everywhere.
+
+	* editfns.c: Fix a couple of ``MS-DOG''s missed in the previous
+	commit.
+	* xfaces.c: ditto.
+
+2014-08-05  Martin Rudalics  <rudalics@gmx.at>
+
+	* w32term.c (w32_redeem_scroll_bar):
+	* xterm.c (XTredeem_scroll_bar): Revert part of last change by
+	not redeeming scroll bars that have been turned off.
+
+2014-08-05 Dmitry Antipov  <dmantipov@yandex.ru>
+
+	* keyboard.c (safe_run_hooks): Follow the convenient style to bind
+	inhibit-quit to t and pass 2 args to safe_run_hook_funcall.  See
+	<http://lists.gnu.org/archive/html/emacs-devel/2014-08/msg00077.html>.
+	(safe_run_hook_funcall): Adjust accordingly.
+
+2014-08-04  Martin Rudalics  <rudalics@gmx.at>
+
+	* frame.h (FRAME_HAS_HORIZONTAL_SCROLL_BARS): Condition
+	correctly according to toolkit used.
+	* frame.c (make_initial_frame, make_terminal_frame)
+	(x_set_horizontal_scroll_bars, x_set_scroll_bar_height)
+	(Vdefault_frame_horizontal_scroll_bars): Correctly condition
+	assignments according to presence of toolkit scrollbars.
+	* window.h (WINDOW_HAS_HORIZONTAL_SCROLL_BAR): Condition
+	correctly according to toolkit used.
+	* window.c (set_window_scroll_bars): Set horizontal scroll bar
+	only if toolkit supports it.
+	* w32term.c (w32_redeem_scroll_bar): Always redeem scroll bar if
+	present.
+	* xterm.c (x_scroll_bar_create): Initialize horizontal slot for
+	non-toolkit builds.
+	(XTredeem_scroll_bar): Always redeem scroll bar if present.
+
+2014-08-04 Dmitry Antipov  <dmantipov@yandex.ru>
+
+	* keyboard.c (safe_run_hook_funcall): Avoid consing around
+	Vinhibit_quit and prefer internal_condition_case_n to pass args.
+	(safe_run_hooks_error, safe_run_hooks_1): Adjust accordingly.
+	(safe_run_hooks): Remove comment which is not relevant any more.
+
+2014-08-03  Paul Eggert  <eggert@cs.ucla.edu>
+
+	Don't let big frames overrun the stack.
+	* dispnew.c (mirrored_line_dance, mirror_line_dance, scrolling):
+	Use SAFE_NALLOCA, not alloca.
+
+	Fix bug with clang + directory_files_internal + GC (Bug#16986).
+	* dired.c (directory_files_internal): Use a volatile variable
+	to prevent the compiler from optimizing away all copies of a local.
+	I wonder how many other GC-related bugs like this lurk elsewhere?
+
+	Avoid 100% CPU utilization on ssh session exit (Bug#17691).
+	* xterm.h (struct x_display_info): New member 'connection'.
+	* xterm.c (x_term_init, x_delete_terminal): Set and use it,
+	so that x_delete_terminal has a file descriptor to pass to
+	delete_keyboard_wait_descriptor.
+
+	Don't mishandle year-9999 dates (Bug#18176).
+	* editfns.c (decode_time_components): Store an invalid timespec
+	on overflow, instead of returning false, so that the caller can
+	distinguish overflow from other errors.
+	(lisp_time_argument, lisp_seconds_argument): If the time is out
+	of range, signal a time overflow instead of an invalid time spec.
+	* keyboard.c (decode_timer): Treat time overflow like other
+	timespec errors.
+
+	Avoid undefined behavior with signed left shift.
+	Caught by 'gcc -fsanitize=undefined'.
+	* dispextern.h, scroll.c (scrolling_max_lines_saved, scrolling_1):
+	* dispnew.c (line_hash_code, scrolling):
+	* scroll.c (calculate_scrolling, calculate_direct_scrolling):
+	Use 'unsigned', not 'int', for line hashes.
+	(scrolling_max_lines_saved): Avoid mystery constants for hash sizes.
+
 2014-08-02  Paul Eggert  <eggert@cs.ucla.edu>
 
 	Make compare-strings more compatible with old behavior (Bug#17903).

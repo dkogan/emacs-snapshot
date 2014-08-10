@@ -5474,6 +5474,7 @@ x_scroll_bar_create (struct window *w, int top, int left, int width, int height,
   bar->start = 0;
   bar->end = 0;
   bar->dragging = -1;
+  bar->horizontal = horizontal;
 #if defined (USE_TOOLKIT_SCROLL_BARS) && defined (USE_LUCID)
   bar->last_seen_part = scroll_bar_nowhere;
 #endif
@@ -10815,6 +10816,7 @@ x_term_init (Lisp_Object display_name, char *xrm_option, char *resource_name)
 
   dpyinfo->name_list_element = Fcons (display_name, Qnil);
   dpyinfo->display = dpy;
+  dpyinfo->connection = ConnectionNumber (dpyinfo->display);
 
   /* Set the name of the terminal. */
   terminal->name = xlispstrdup (display_name);
@@ -11267,7 +11269,6 @@ void
 x_delete_terminal (struct terminal *terminal)
 {
   struct x_display_info *dpyinfo = terminal->display_info.x;
-  int connection = -1;
 
   /* Protect against recursive calls.  delete_frame in
      delete_terminal calls us back when it deletes our last frame.  */
@@ -11286,8 +11287,6 @@ x_delete_terminal (struct terminal *terminal)
      and dpyinfo->display was set to 0 to indicate that.  */
   if (dpyinfo->display)
     {
-      connection = ConnectionNumber (dpyinfo->display);
-
       x_destroy_all_bitmaps (dpyinfo);
       XSetCloseDownMode (dpyinfo->display, DestroyAll);
 
@@ -11329,11 +11328,15 @@ x_delete_terminal (struct terminal *terminal)
     }
 
   /* No more input on this descriptor.  */
-  if (connection != -1)
-    delete_keyboard_wait_descriptor (connection);
+  if (0 <= dpyinfo->connection)
+    {
+      delete_keyboard_wait_descriptor (dpyinfo->connection);
+      emacs_close (dpyinfo->connection);
+    }
 
   /* Mark as dead. */
   dpyinfo->display = NULL;
+  dpyinfo->connection = -1;
   x_delete_display (dpyinfo);
   unblock_input ();
 }
