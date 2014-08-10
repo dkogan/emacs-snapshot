@@ -13,10 +13,10 @@ Signed-off-by: Julien Danjou <julien@danjou.info>
  1 file changed, 2 insertions(+), 1 deletion(-)
 
 diff --git a/lisp/help.el b/lisp/help.el
-index 63a658f..89568eb 100644
+index 2da43d3..c5c0eb7 100644
 --- a/lisp/help.el
 +++ b/lisp/help.el
-@@ -290,7 +290,8 @@ If that doesn't give a function, return nil."
+@@ -294,7 +294,8 @@ If that doesn't give a function, return nil."
  (defun describe-copying ()
    "Display info on how you may redistribute copies of GNU Emacs."
    (interactive)
