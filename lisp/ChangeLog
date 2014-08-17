@@ -1,3 +1,154 @@
+2014-08-16  Andreas Schwab  <schwab@linux-m68k.org>
+
+	* vc/diff-mode.el (diff-fixup-modifs): Handle empty line in
+	context of unified diff.
+
+2014-08-16  Paul Eggert  <eggert@cs.ucla.edu>
+
+	Add dependencies to fix loaddefs race during parallel builds.
+	Without this, for example, 'make -j bootstrap' can fail and report
+	"Opening input file: no such file or directory,
+	.../lisp/calendar/diary-loaddefs.el ... recipe for target
+	'calendar/hol-loaddefs.el' failed", where the hol-loaddefs.el rule
+	got confused because diary-loaddefs.el was being built in parallel.
+	* Makefile.in ($(CAL_DIR)/diary-loaddefs.el):
+	Depend on $(CAL_DIR)/cal-loaddefs.el.
+	($(CAL_DIR)/hol-loaddefs.el): Depend on $(CAL_DIR)/diary-loaddefs.el.
+
+2014-08-16  Martin Rudalics  <rudalics@gmx.at>
+
+	* scroll-bar.el (scroll-bar-horizontal-drag-1): Use cdr of
+	portion-whole for scrolling right-to-left text.
+
+2014-08-15  Leo Liu  <sdl.web@gmail.com>
+
+	* speedbar.el (speedbar-generic-list-tag-p): Allow special
+	elements from imenu.
+
+2014-08-15  Glenn Morris  <rgm@gnu.org>
+
+	* subr.el (with-output-to-temp-buffer): Doc fix; from elisp manual.
+
+2014-08-13  Jan Nieuwenhuizen  <janneke@gnu.org>
+
+	* progmodes/compile.el (compilation-error-regexp-alist-alist):
+	Add Guile regexpses.
+
+2014-08-13  Jan Nieuwenhuizen  <janneke@gnu.org>
+
+	* progmodes/gud.el (guiler): New function.  Starts the Guile REPL;
+	add Guile debugger support for GUD.
+
+2014-08-13  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* obsolete/mouse-sel.el (mouse-sel-mode): Use add/remove-function.
+	(mouse-sel--ignore): New function.
+	(mouse-sel-has-been-enabled, mouse-sel-original-bindings)
+	(mouse-sel-original-interprogram-cut-function)
+	(mouse-sel-original-interprogram-paste-function): Remove.
+
+2014-08-13  Eric S. Raymond  <esr@thyrsus.com>
+
+	* vc/vc.git.el (vc-git-find-file-hook): New function.
+	Adds support for calling smerge on a conflicted file, and calling
+	"git add" when there are no longer conflict markers in a saved file.
+	This is a completed version of Rüdiger Sonderfeld's proposal.
+	(vc-git-conflicted-files): New function.
+	Integrate Rüdiger Sonderfeld's code for detecting conflicted files
+	using a status listing.  Useful in itself and a step towards better
+	smerge support.
+
+2014-08-12  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* mpc.el (mpc-reorder): Don't bother splitting the "active"s elements
+	to the first part if they're the same as the selection.
+
+2014-08-12  Lars Magne Ingebrigtsen  <larsi@gnus.org>
+
+	* image-mode.el (image-transform-reset): New command and menu item.
+	(image-mode-map): Rearrange the menu items to put presumably more
+	obscure items at the end.
+
+2014-08-12  Juri Linkov  <juri@jurta.org>
+
+	* vc/vc-annotate.el (vc-annotate-background-mode):
+	Use `with-demoted-errors' instead of `ignore-errors'.  (Bug#18189)
+
+2014-08-12  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* files.el (out-of-memory-warning-percentage): Turn it off by default.
+
+2014-08-11  Sam Steingold  <sds@gnu.org>
+
+	* textmodes/sgml-mode.el (sgml-validate-command): Set depending on
+	the presence of known validators (tidy, (o)nsgmls).
+
+2014-08-11  Ulf Jasper  <ulf.jasper@web.de>
+
+	Newsticker: introduce `newsticker-treeview-date-format'. (Bug#17227)
+
+	* net/newst-treeview.el (newsticker-treeview-date-format): New.
+	(newsticker--treeview-list-add-item): Use `newsticker-treeview-date-format'.
+
+2014-08-11  Glenn Morris  <rgm@gnu.org>
+
+	* files.el (basic-save-buffer-2): Revert 2013-01-31 change, which
+	chose coding system for writing before backing up, since it causes
+	a more serious problem than the one it solves.  (Closes Bug#18141,
+	reopens Bug#13522.)
+
+2014-08-11  Martin Rudalics  <rudalics@gmx.at>
+
+	* window.el (window-total-size): Make doc-string more self-contained.
+
+	* window.el (display-buffer-below-selected): Restore original
+	behavior if buffer is already displayed in the window below the
+	selected one (Bug#18181).
+
+2014-08-11  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* mouse.el (mouse--down-1-maybe-follows-link): Don't convert the down
+	event (bug#18212).
+
+2014-08-11  Eli Zaretskii  <eliz@gnu.org>
+
+	* info.el (info): Doc fix.
+
+2014-08-11  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* info.el (Info-mode-map): Override a global down-mouse-2 binding
+	(bug#18212).
+
+2014-08-11  Eli Zaretskii  <eliz@gnu.org>
+
+	* simple.el (default-line-height): A floating-point value of
+	line-spacing means a fraction of the default frame font's height,
+	not of the font currently used by the 'default' face.
+	Truncate the pixel value, like the display engine does.
+	(window-screen-lines): Use window-inside-pixel-edges for
+	determining the window height in pixels.  (Bug#18195)
+
+2014-08-11  Grégoire Jadi  <daimrod@gmail.com>
+
+	* leim/quail/latin-post.el: Transform " __" into " _".  (Bug#18023)
+
+2014-08-10  Ulf Jasper  <ulf.jasper@web.de>
+
+	Enumerate evaluated sexp diary entries (Bug#7911).
+	* calendar/icalendar.el (icalendar-export-sexp-enumerate-all)
+	(icalendar-export-sexp-enumeration-days): New.
+	(icalendar-export-region): Now `icalendar--convert-to-ical'
+	returns a cons cell or a list of cons cells.
+	(icalendar--convert-to-ical): Take care of
+	`icalendar-export-sexp-enumerate-all'.  Return (a list of) cons cells.
+	(icalendar--convert-ordinary-to-ical)
+	(icalendar--convert-weekly-to-ical, icalendar--convert-yearly-to-ical)
+	(icalendar--convert-block-to-ical, icalendar--convert-block-to-ical)
+	(icalendar--convert-float-to-ical, icalendar--convert-cyclic-to-ical)
+	(icalendar--convert-anniversary-to-ical): Return cons cell.
+	(icalendar--convert-sexp-to-ical): Enumerate evaluated sexp
+	entries.  Return (list of) cons cells.
+
 2014-08-09  Juri Linkov  <juri@jurta.org>
 
 	* vc/vc-annotate.el (vc-annotate-background-mode): Add :set
@@ -69,7 +220,7 @@
 
 2014-08-06  Ulf Jasper  <ulf.jasper@web.de>
 
-	* calendar/icalendar.el (icalendar--diarytime-to-isotime):
+	* calendar/icalendar.el (icalendar--diarytime-to-isotime)
 	(icalendar--convert-ordinary-to-ical): Allow for missing minutes
 	(Bug#13750).
 
@@ -441,8 +592,8 @@
 	(python-shell-output-filter): Fix comment typo.
 
 	Fix Python shell prompts detection for remote hosts.
-	* progmodes/python.el (python-shell-prompt-detect): Replace
-	call-process with process-file and make it more robust.
+	* progmodes/python.el (python-shell-prompt-detect):
+	Replace call-process with process-file and make it more robust.
 
 	Autodetect Python shell prompts.  (Bug#17370)
 	* progmodes/python.el:
@@ -1994,9 +2145,9 @@
 2014-05-30  Alan Mackenzie  <acm@muc.de>
 
 	Guard (looking-at "\\s!") from XEmacs.
-	* progmodes/cc-engine.el (c-state-pp-to-literal): add guard form.
+	* progmodes/cc-engine.el (c-state-pp-to-literal): Add guard form.
 
-2014-05-30    Ken Olum  <kdo@cosmos.phy.tufts.edu>  (tiny change)
+2014-05-30    Ken Olum  <kdo@cosmos.phy.tufts.edu>
 
 	* mail/rmail.el (rmail-delete-forward, rmail-delete-backward):
 	The argument COUNT is now optional, to be more backward-compatible.

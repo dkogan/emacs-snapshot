@@ -1786,12 +1786,13 @@ When nil, never request confirmation."
   :version "22.1"
   :type '(choice integer (const :tag "Never request confirmation" nil)))
 
-(defcustom out-of-memory-warning-percentage 50
+(defcustom out-of-memory-warning-percentage nil
   "Warn if file size exceeds this percentage of available free memory.
-When nil, never issue warning."
+When nil, never issue warning.  Beware: This probably doesn't do what you
+think it does, because \"free\" is pretty hard to define in practice."
   :group 'files
   :group 'find-file
-  :version "24.4"
+  :version "24.5"
   :type '(choice integer (const :tag "Never issue warning" nil)))
 
 (defun abort-if-file-too-large (size op-type filename)
@@ -4759,7 +4760,7 @@ Before and after saving the buffer, this function runs
 ;; This returns a value (MODES EXTENDED-ATTRIBUTES BACKUPNAME), like
 ;; backup-buffer.
 (defun basic-save-buffer-2 ()
-  (let (tempsetmodes setmodes writecoding)
+  (let (tempsetmodes setmodes)
     (if (not (file-writable-p buffer-file-name))
 	(let ((dir (file-name-directory buffer-file-name)))
 	  (if (not (file-directory-p dir))
@@ -4775,14 +4776,6 @@ Before and after saving the buffer, this function runs
 		     buffer-file-name)))
 		  (setq tempsetmodes t)
 		(error "Attempt to save to a file which you aren't allowed to write"))))))
-    ;; This may involve prompting, so do it now before backing up the file.
-    ;; Otherwise there can be a delay while the user answers the
-    ;; prompt during which the original file has been renamed.  (Bug#13522)
-    (setq writecoding
-	  ;; Args here should match write-region call below around
-	  ;; which we use writecoding.
-	  (choose-write-coding-system nil nil buffer-file-name nil t
-				      buffer-file-truename))
     (or buffer-backed-up
 	(setq setmodes (backup-buffer)))
     (let* ((dir (file-name-directory buffer-file-name))
@@ -4864,11 +4857,10 @@ Before and after saving the buffer, this function runs
 				 (logior (car setmodes) 128))))))
 	(let (success)
 	  (unwind-protect
+	      (progn
                 ;; Pass in nil&nil rather than point-min&max to indicate
                 ;; we're saving the buffer rather than just a region.
                 ;; write-region-annotate-functions may make us of it.
-	      (let ((coding-system-for-write writecoding)
-		    (coding-system-require-warning nil))
 		(write-region nil nil
 			      buffer-file-name nil t buffer-file-truename)
 		(setq success t))

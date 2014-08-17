@@ -1,3 +1,13 @@
+2014-08-14  Alan Schmitt  <alan.schmitt@polytechnique.org>
+
+	* gnus-sum.el (gnus-summary-expire-articles): Functions registered to
+	the gnus-summary-article-expire-hook should be told where the function
+	is going. In particular, the Gnus registry might want to know.
+
+2014-08-12  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* gnus-art.el (gnus-hidden-properties): Drop the evil `intangible'.
+
 2014-08-06  Katsumi Yamaoka  <yamaoka@jpl.org>
 
 	* gnus-sum.el (gnus-summary-expire-articles): Revert.
@@ -412,7 +422,7 @@
 	* gnus-setup.el (gnus-use-sendmail): We never use sendmail for mail
 	reading.
 
-2014-01-09  Ken Olum  <kdo@cosmos.phy.tufts.edu>  (tiny change)
+2014-01-09  Ken Olum  <kdo@cosmos.phy.tufts.edu>
 
 	* message.el (message-bury): Call bury-buffer with no argument
 	in the message-return-action case too.

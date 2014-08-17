@@ -1,11 +1,32 @@
+2014-08-13  Jan Nieuwenhuizen  <janneke@gnu.org>
+
+	* automated/compile-tests.el (compile--test-error-line): Grok FILE
+	being nil.  Allows for Guile tests to pass.
+	(compile-tests--test-regexps-data): Add Guile tests.
+
+2014-08-11  Glenn Morris  <rgm@gnu.org>
+
+	* automated/data/files-bug18141.el.gz: New file.
+	* automated/files.el (files-test-bug-18141-file):
+	New variable and test.  (Bug#18141)
+
+2014-08-10  Ulf Jasper  <ulf.jasper@web.de>
+
+	Enumerate evaluated sexp diary entries (Bug#7911).
+	* automated/icalendar-tests.el (icalendar--convert-anniversary-to-ical)
+	(icalendar--convert-cyclic-to-ical, icalendar--convert-block-to-ical)
+	(icalendar--convert-yearly-to-ical, icalendar--convert-weekly-to-ical)
+	(icalendar--convert-ordinary-to-ical): Returns cons cell now.
+	(icalendar--convert-to-ical, icalendar--convert-sexp-to-ical):
+	New tests.
+
 2014-08-07  Glenn Morris  <rgm@gnu.org>
 
 	* automated/Makefile.in (check-tar): Remove, hydra recipe does it now.
 
 2014-08-06  Ulf Jasper  <ulf.jasper@web.de>
 
-	* automated/icalendar-tests.el
-	(icalendar--convert-ordinary-to-ical),
+	* automated/icalendar-tests.el (icalendar--convert-ordinary-to-ical)
 	(icalendar--diarytime-to-isotime): More testcases (Bug#13750).
 
 2014-08-03  Glenn Morris  <rgm@gnu.org>

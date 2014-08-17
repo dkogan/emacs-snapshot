@@ -215,7 +215,8 @@ frame_inhibit_resize (struct frame *f, bool horizontal)
 {
 
   return (frame_inhibit_implied_resize
-	  || !NILP (get_frame_param (f, Qfullscreen)));
+	  || !NILP (get_frame_param (f, Qfullscreen))
+	  || FRAME_TERMCAP_P (f) || FRAME_MSDOS_P (f));
 }
 
 #if 0
@@ -232,29 +233,6 @@ frame_inhibit_resize (struct frame *f, bool horizontal)
 	  || (!horizontal && EQ (fullscreen, Qfullheight)));
 }
 #endif
-
-static void
-set_menu_bar_lines_1 (Lisp_Object window, int n)
-{
-  struct window *w = XWINDOW (window);
-  struct frame *f = XFRAME (WINDOW_FRAME (w));
-
-  w->top_line += n;
-  w->pixel_top += n * FRAME_LINE_HEIGHT (f);
-  w->total_lines -= n;
-  w->pixel_height -= n * FRAME_LINE_HEIGHT (f);
-
-  /* Handle just the top child in a vertical split.  */
-  if (WINDOW_VERTICAL_COMBINATION_P (w))
-    set_menu_bar_lines_1 (w->contents, n);
-  else if (WINDOW_HORIZONTAL_COMBINATION_P (w))
-    /* Adjust all children in a horizontal split.  */
-    for (window = w->contents; !NILP (window); window = w->next)
-      {
-	w = XWINDOW (window);
-	set_menu_bar_lines_1 (window, n);
-      }
-}
 
 static void
 set_menu_bar_lines (struct frame *f, Lisp_Object value, Lisp_Object oldval)
@@ -277,11 +255,11 @@ set_menu_bar_lines (struct frame *f, Lisp_Object value, Lisp_Object oldval)
   if (nlines != olines)
     {
       windows_or_buffers_changed = 14;
-      FRAME_WINDOW_SIZES_CHANGED (f) = 1;
       FRAME_MENU_BAR_LINES (f) = nlines;
       FRAME_MENU_BAR_HEIGHT (f) = nlines * FRAME_LINE_HEIGHT (f);
-      set_menu_bar_lines_1 (f->root_window, nlines - olines);
-      adjust_frame_glyphs (f);
+      change_frame_size (f, FRAME_COLS (f),
+			 FRAME_LINES (f) + olines - nlines,
+			 0, 1, 0, 0);
     }
 }
 
@@ -563,7 +541,7 @@ adjust_frame_size (struct frame *f, int new_width, int new_height, int inhibit, 
       /* MSDOS frames cannot PRETEND, as they change frame size by
 	 manipulating video hardware.  */
       if ((FRAME_TERMCAP_P (f) && !pretend) || FRAME_MSDOS_P (f))
-	FrameRows (FRAME_TTY (f)) = new_lines;
+	FrameRows (FRAME_TTY (f)) = new_lines + FRAME_TOP_MARGIN (f);
     }
 
   /* Assign new sizes.  */
@@ -917,7 +895,9 @@ make_terminal_frame (struct terminal *terminal)
 #endif
 
   FRAME_MENU_BAR_LINES (f) = NILP (Vmenu_bar_mode) ? 0 : 1;
+  FRAME_LINES (f) = FRAME_LINES (f) - FRAME_MENU_BAR_LINES (f);
   FRAME_MENU_BAR_HEIGHT (f) = FRAME_MENU_BAR_LINES (f) * FRAME_LINE_HEIGHT (f);
+  FRAME_TEXT_HEIGHT (f) = FRAME_TEXT_HEIGHT (f) - FRAME_MENU_BAR_HEIGHT (f);
 
   /* Set the top frame to the newly created frame.  */
   if (FRAMEP (FRAME_TTY (f)->top_frame)
@@ -1037,7 +1017,7 @@ affects all frames on the same terminal device.  */)
   {
     int width, height;
     get_tty_size (fileno (FRAME_TTY (f)->input), &width, &height);
-    adjust_frame_size (f, width, height, 5, 0);
+    adjust_frame_size (f, width, height - FRAME_MENU_BAR_LINES (f), 5, 0);
   }
 
   adjust_frame_glyphs (f);
@@ -1168,8 +1148,8 @@ do_switch_frame (Lisp_Object frame, int track, int for_deletion, Lisp_Object nor
 	     frame's data.  */
 	  if (FRAME_COLS (f) != FrameCols (tty))
 	    FrameCols (tty) = FRAME_COLS (f);
-	  if (FRAME_LINES (f) != FrameRows (tty))
-	    FrameRows (tty) = FRAME_LINES (f);
+	  if (FRAME_TOTAL_LINES (f) != FrameRows (tty))
+	    FrameRows (tty) = FRAME_TOTAL_LINES (f);
 	}
       tty->top_frame = frame;
     }
@@ -2733,7 +2713,7 @@ to `frame-height'). */)
     return make_number (FRAME_PIXEL_HEIGHT (f));
   else
 #endif
-    return make_number (FRAME_LINES (f));
+    return make_number (FRAME_TOTAL_LINES (f));
 }
 
 DEFUN ("frame-pixel-width", Fframe_pixel_width,
@@ -2750,7 +2730,7 @@ If FRAME is omitted or nil, the selected frame is used.  */)
     return make_number (FRAME_PIXEL_WIDTH (f));
   else
 #endif
-    return make_number (FRAME_COLS (f));
+    return make_number (FRAME_TOTAL_COLS (f));
 }
 
 DEFUN ("tool-bar-pixel-width", Ftool_bar_pixel_width,
