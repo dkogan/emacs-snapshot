@@ -1,3 +1,43 @@
+2014-08-23  Karol Ostrovsky  <karol.ostrovsky@gmail.com>  (tiny change)
+
+	* Makefile.in (emacs$(EXEEXT)): Retry deletion of bootstrap-emacs
+	if the initial "rm -f" fails.  This is for MinGW builds, where
+	MS-Windows will not allow deleting the executable file of a
+	running program.
+
+2014-08-20  Eli Zaretskii  <eliz@gnu.org>
+
+	* w32term.c (w32_scroll_bar_handle_click)
+	(w32_horizontal_scroll_bar_handle_click)
+	(x_scroll_bar_report_motion)
+	(x_horizontal_scroll_bar_report_motion): For SB_THUMBPOSITION and
+	SB_THUMBTRACK, use the 32-bit position information returned by
+	GetScrollInfo, not the 16-bit information returned in the Windows
+	message sent to us.
+
+2014-08-19  Eli Zaretskii  <eliz@gnu.org>
+
+	* w32term.c (w32_horizontal_scroll_bar_handle_click): Fix the
+	second coordinate ('y') reported for dragging the horizontal
+	scroll bar thumb.
+
+2014-08-19  YAMAMOTO Mitsuharu  <mituharu@math.s.chiba-u.ac.jp>
+
+	* xdisp.c (erase_phys_cursor): Fix confusion between window-relative
+	and text area-relative x-coordinates.
+
+2014-08-17  Eli Zaretskii  <eliz@gnu.org>
+
+	Avoid overwriting the reversed_p flags in the glyph matrices when
+	init_iterator or start_display are called.
+	* xdisp.c (init_iterator): Don't initialize the reversed_p flag of
+	the glyph row here.
+	(tool_bar_height, redisplay_tool_bar, try_window)
+	(try_window_reusing_current_matrix, try_window_id)
+	(get_overlay_arrow_glyph_row, display_menu_bar): Initialize the
+	reversed_p flag of the iterator's glyph row where the glyph row
+	is going to be redrawn.
+
 2014-08-16  Paul Eggert  <eggert@cs.ucla.edu>
 
 	* xdisp.c (set_horizontal_scroll_bar): Don't use uninitialized local.

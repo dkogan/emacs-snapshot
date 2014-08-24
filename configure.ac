@@ -139,7 +139,7 @@ AC_CANONICAL_HOST
 canonical=$host
 configuration=${host_alias-${build_alias-$host}}
 
-dnl We get MINGW64 with MSYS2.
+dnl We get MINGW64 with MSYS2, MINGW32 with MSYS.
 case $canonical in
  *-mingw*)
   . $srcdir/nt/mingw-cfg.site
@@ -650,7 +650,7 @@ case "${canonical}" in
   i[3456]86-*-* )
     case "${canonical}" in
       *-darwin* )               opsys=darwin ;;
-      *-mingw32 )
+      *-mingw* )
 		opsys=mingw32
 		# MinGW overrides and adds some system headers in nt/inc.
 		GCC_TEST_OPTIONS="-I $srcdir/nt/inc"
@@ -665,7 +665,7 @@ case "${canonical}" in
   # MinGW64
   x86_64-*-* )
     case "${canonical}" in
-      *-mingw32 )
+      *-mingw* )
 		opsys=mingw32
 		# MinGW overrides and adds some system headers in nt/inc.
 		GCC_TEST_OPTIONS="-I $srcdir/nt/inc"
@@ -1323,7 +1323,7 @@ test "$opsys" = "aix4.2" && test "x$GCC" != "xyes" && \
   C_SWITCH_SYSTEM="-ma -qmaxmem=4000"
 if test "$opsys" = "mingw32"; then
   case "$canonical" in
-    x86_64-*-mingw32) C_SWITCH_SYSTEM="-mtune=generic" ;;
+    x86_64-*-mingw*) C_SWITCH_SYSTEM="-mtune=generic" ;;
     *) C_SWITCH_SYSTEM="-mtune=pentium4" ;;
   esac
 fi
@@ -2991,6 +2991,9 @@ AC_SUBST(M17N_FLT_LIBS)
 
 ### Use -lXpm if available, unless `--with-xpm=no'.
 ### mingw32 doesn't use -lXpm, since it loads the library dynamically.
+### In the Cygwin-w32 build, we need to use /usr/include/noX/X11/xpm.h
+### rather than /usr/include/X11/xpm.h, so we set CPPFLAGS (and
+### LDFLAGS) accordingly.
 HAVE_XPM=no
 LIBXPM=
 if test "${HAVE_W32}" = "yes" && test "${opsys}" = "cygwin"; then

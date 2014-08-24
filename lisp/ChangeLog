@@ -1,3 +1,50 @@
+2014-08-23  Alan Mackenzie  <acm@muc.de>
+
+	* progmodes/cc-fonts.el (c-font-lock-declarators): Fix infinite
+	loop, bug #18306.  The bug was introduced on 2014-08-02.
+
+2014-08-21  Eli Zaretskii  <eliz@gnu.org>
+
+	* textmodes/texnfo-upd.el (texinfo-specific-section-type): Don't
+	recognize a Top node if there are other sectioning commands
+	earlier in the Texinfo file.  This fixes a bug in
+	texinfo-make-menu and avoids inflooping in
+	texinfo-all-menus-update when they are invoked on texinfo.texi.
+
+2014-08-21  Martin Rudalics  <rudalics@gmx.at>
+
+	* window.el (window--side-window-p): New function.
+	(split-window, window-splittable-p): Use window--side-window-p to
+	determine whether WINDOW can be split (Bug#18304).
+	* calendar/calendar.el (calendar-basic-setup): Fix one call of
+	`window-splittable-p' and add another (Bug#18304).
+
+2014-08-20  Sam Steingold  <sds@gnu.org>
+
+	* progmodes/python.el (python-new-pythonpath): Extract from
+	`python-shell-calculate-process-environment'.
+
+2014-08-18  Thierry Volpiatto  <thierry.volpiatto@gmail.com>
+
+	* emacs-lisp/eldoc.el (eldoc-highlight-function-argument): Add support
+	for &key args (bug#18048).
+
+2014-08-18  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* emacs-lisp/eldoc.el (eldoc-argument-case): Obsolete and change default.
+	(eldoc-function-argstring-format): Remove.
+	(eldoc-function-argstring): Always return upcase args.
+	Use help-make-usage.  Don't add parens.
+	(eldoc-get-fnsym-args-string): Don't obey eldoc-argument-case since
+	it's too late to do it right (bug#18048).
+
+2014-08-18  Eli Zaretskii  <eliz@gnu.org>
+
+	* scroll-bar.el (scroll-bar-horizontal-drag-1)
+	(scroll-bar-toolkit-horizontal-scroll): When determining the
+	paragraph direction, use the buffer of the window designated in
+	the event.
+
 2014-08-16  Andreas Schwab  <schwab@linux-m68k.org>
 
 	* vc/diff-mode.el (diff-fixup-modifs): Handle empty line in
@@ -49,14 +96,15 @@
 
 2014-08-13  Eric S. Raymond  <esr@thyrsus.com>
 
+	* vc/vc.git.el (vc-git-resolve-when-done): New function.
+	Call "git add" when there are no longer conflict markers.
+
+2014-08-13  Rüdiger Sonderfeld  <ruediger@c-plusplus.de>
+
 	* vc/vc.git.el (vc-git-find-file-hook): New function.
-	Adds support for calling smerge on a conflicted file, and calling
-	"git add" when there are no longer conflict markers in a saved file.
-	This is a completed version of Rüdiger Sonderfeld's proposal.
+	Adds support for calling smerge (and resolve) on a conflicted file.
 	(vc-git-conflicted-files): New function.
-	Integrate Rüdiger Sonderfeld's code for detecting conflicted files
-	using a status listing.  Useful in itself and a step towards better
-	smerge support.
+	Useful in itself and a step towards better smerge support.
 
 2014-08-12  Stefan Monnier  <monnier@iro.umontreal.ca>
 
