@@ -88,7 +88,8 @@ DEFINE_GDB_SYMBOL_END (GCTYPEBITS)
    2.  We know malloc returns a multiple of 8.  */
 #if (defined alignas \
      && (defined GNU_MALLOC || defined DOUG_LEA_MALLOC || defined __GLIBC__ \
-	 || defined DARWIN_OS || defined __sun || defined __MINGW32__))
+	 || defined DARWIN_OS || defined __sun || defined __MINGW32__ \
+	 || defined CYGWIN))
 # define NONPOINTER_BITS 0
 #else
 # define NONPOINTER_BITS GCTYPEBITS
@@ -1988,6 +1989,7 @@ enum Lisp_Save_Type
     SAVE_TYPE_OBJ_OBJ_OBJ_OBJ
       = SAVE_OBJECT + (SAVE_TYPE_OBJ_OBJ_OBJ << SAVE_SLOT_BITS),
     SAVE_TYPE_PTR_INT = SAVE_POINTER + (SAVE_INTEGER << SAVE_SLOT_BITS),
+    SAVE_TYPE_INT_OBJ = SAVE_INTEGER + (SAVE_OBJECT << SAVE_SLOT_BITS),
     SAVE_TYPE_PTR_OBJ = SAVE_POINTER + (SAVE_OBJECT << SAVE_SLOT_BITS),
     SAVE_TYPE_PTR_PTR = SAVE_POINTER + (SAVE_POINTER << SAVE_SLOT_BITS),
     SAVE_TYPE_FUNCPTR_PTR_OBJ
@@ -3629,7 +3631,7 @@ extern _Noreturn void memory_full (size_t);
 extern _Noreturn void buffer_memory_full (ptrdiff_t);
 extern bool survives_gc_p (Lisp_Object);
 extern void mark_object (Lisp_Object);
-#if defined REL_ALLOC && !defined SYSTEM_MALLOC
+#if defined REL_ALLOC && !defined SYSTEM_MALLOC && !defined HYBRID_MALLOC
 extern void refill_memory_reserve (void);
 #endif
 extern const char *pending_malloc_warning;
@@ -3772,6 +3774,7 @@ extern Lisp_Object make_save_obj_obj_obj_obj (Lisp_Object, Lisp_Object,
 extern Lisp_Object make_save_ptr (void *);
 extern Lisp_Object make_save_ptr_int (void *, ptrdiff_t);
 extern Lisp_Object make_save_ptr_ptr (void *, void *);
+extern Lisp_Object make_save_int_obj (ptrdiff_t, Lisp_Object);
 extern Lisp_Object make_save_funcptr_ptr_obj (void (*) (void), void *,
 					      Lisp_Object);
 extern Lisp_Object make_save_memory (Lisp_Object *, ptrdiff_t);
@@ -4093,6 +4096,9 @@ extern Lisp_Object Qdisabled, QCfilter;
 extern Lisp_Object Qup, Qdown;
 extern Lisp_Object last_undo_boundary;
 extern bool input_pending;
+#ifdef HAVE_STACK_OVERFLOW_HANDLING
+extern sigjmp_buf return_to_command_loop;
+#endif
 extern Lisp_Object menu_bar_items (Lisp_Object);
 extern Lisp_Object tool_bar_items (Lisp_Object, int *);
 extern void discard_mouse_events (void);
@@ -4295,6 +4301,7 @@ extern void lock_file (Lisp_Object);
 extern void unlock_file (Lisp_Object);
 extern void unlock_buffer (struct buffer *);
 extern void syms_of_filelock (void);
+extern int str_collate (Lisp_Object, Lisp_Object, Lisp_Object, Lisp_Object);
 
 /* Defined in sound.c.  */
 extern void syms_of_sound (void);

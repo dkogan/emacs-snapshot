@@ -1,3 +1,28 @@
+2014-08-30  Paul Eggert  <eggert@cs.ucla.edu>
+
+	Vector-sorting fixes (Bug#18361).
+	* merge-gnulib (GNULIB_MODULES): Add vla.
+
+2014-08-30  Eli Zaretskii  <eliz@gnu.org>
+
+	* authors.el (authors): Fix last change so it works for MS-Windows
+	as well.
+
+2014-08-29  Michael Albinus  <michael.albinus@gmx.de>
+
+	* authors.el (authors): Use LOCALE argument of `string-collate-lessp'.
+
+2014-08-28  Michael Albinus  <michael.albinus@gmx.de>
+
+	* authors.el (authors-aliases): Addition.
+
+2014-08-26  Glenn Morris  <rgm@gnu.org>
+
+	* authors.el (authors-ignored-files, authors-valid-file-names)
+	(authors-renamed-files-alist): Additions.
+	(authors-renamed-files-alist): Revert 2014-08-09 change.
+	(authors): Sort authors in utf-8 order.  (Bug#2263)
+
 2014-08-09  Reuben Thomas  <rrt@sc3d.org>
 
 	* notes/copyright: Remove mention of msdos/is_exec.c and

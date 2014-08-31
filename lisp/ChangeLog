@@ -1,3 +1,118 @@
+2014-08-29  Michael Heerdegen  <michael_heerdegen@web.de>
+
+	* emacs-lisp/easy-mmode.el (define-minor-mode): Use mode function
+	name instead of variable name in hook docstring.  (Bug#18349)
+
+2014-08-29  Martin Rudalics  <rudalics@gmx.at>
+
+	* window.el (display-buffer-at-bottom): Prefer bottom-left
+	window to other bottom windows.  Reuse a bottom window if it
+	shows the buffer already.  Suggested by Juri Linkov
+	<juri@jurta.org> in discussion of (Bug#18181).
+
+2014-08-29  Leo Liu  <sdl.web@gmail.com>
+
+	* files.el (minibuffer-with-setup-hook): Allow (:append FUN) to
+	append to minibuffer-setup-hook.  (Bug#18341)
+
+2014-08-28  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* progmodes/cc-defs.el: Expose c-lanf-defconst's expressions to the
+	byte-compiler.
+	(lookup-syntax-properties): Silence byte-compiler.
+	(c-lang-defconst): Quote the code with `lambda' rather than with
+	`quote'.
+	(c-lang-const): Avoid unneeded setq.
+	(c-lang-constants-under-evaluation): Add docstring.
+	(c-lang--novalue): New constant.
+	(c-find-assignment-for-mode): Use it instead of c-lang-constants.
+	(c-get-lang-constant): Same here.
+	Get the mode's value using `funcall' now that the code is quoted
+	with `lambda'.
+
+2014-08-28  Michael Albinus  <michael.albinus@gmx.de>
+
+	* net/tramp.el (tramp-handle-shell-command): Use `display-buffer'.
+	(Bug#18326)
+
+2014-08-28  Martin Rudalics  <rudalics@gmx.at>
+
+	* scroll-bar.el (scroll-bar-horizontal-drag-1): Handle new
+	interpretation of `portion-whole'.
+
+2014-08-28  Michael Albinus  <michael.albinus@gmx.de>
+
+	* net/tramp-adb.el: Spell author name correctly.
+
+2014-08-28  João Távora  <joaotavora@gmail.com>
+
+	* net/shr.el (shr-expand-url): Plain expand-file-name is not enough;
+	use url-expand-file-name.  (Bug#18310)
+
+2014-08-28  Glenn Morris  <rgm@gnu.org>
+
+	* emulation/cua-rect.el (cua--highlight-rectangle):
+	Avoid error at point-min.  (Bug#18309)
+
+2014-08-28  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* progmodes/python.el (python-shell-prompt-detect): Remove redundant
+	executable-find (bug#18244).
+
+	* simple.el (self-insert-uses-region-functions): Defvar.
+
+2014-08-28  Glenn Morris  <rgm@gnu.org>
+
+	* subr.el (remq): Revert 2014-08-25 doc change (not always true).
+
+2014-08-27  Dmitry Antipov  <dmantipov@yandex.ru>
+
+	* startup.el (normal-top-level): Now use internal--top-level-message.
+
+2014-08-26  Dmitry Antipov  <dmantipov@yandex.ru>
+
+	* startup.el (normal-top-level): Use top-level-message.
+
+2014-08-25  Lars Magne Ingebrigtsen  <larsi@gnus.org>
+
+	* net/shr.el (shr-copy-url): Encode copied URL to avoid getting
+	URLs containing spaces and the like.
+
+2014-08-25  Christoph Scholtes  <cschol2112@gmail.com>
+
+	* subr.el (remq): Fix docstring (Bug#18253).
+
+2014-08-25  Christoph Scholtes  <cschol2112@gmail.com>
+
+	* replace.el (query-replace): Fix typo in docstring (Bug#18320).
+
+2014-08-24  Alan Mackenzie  <acm@muc.de>
+
+	Handle C++11's "auto" and "decltype" constructions.
+        * progmodes/cc-engine.el (c-forward-type): Enhance to recognise
+	and return 'decltype.
+        (c-forward-decl-or-cast-1): New let variables backup-kwd-sym,
+	prev-kwd-sym, new-style-auto.  Enhance to handle the new "auto"
+	keyword.
+        * progmodes/cc-fonts.el (c-font-lock-declarations): Handle the
+	"decltype" keyword.
+        (c-font-lock-c++-new): Handle "decltype" constructions.
+        * progmodes/cc-langs.el (c-auto-ops, c-auto-ops-re):
+	New c-lang-defconsts/defvars.
+        (c-haskell-op, c-haskell-op-re): New c-lang-defconsts/defvars.
+        (c-typeof-kwds, c-typeof-key): New c-lang-defconsts/defvars.
+        (c-typeless-decl-kwds): Append "auto" onto the C++ value.
+        (c-not-decl-init-keywords): Also exclude c-typeof-kwds from value.
+
+	Make ">>" act as double template ender in C++ Mode.
+        * progmodes/cc-langs.el (c->-op-cont-tokens): New lang-const split
+	off from c->-op-cont-re.
+        (c->-op-cont-tokens): Change to use the above.
+        (c->-op-without->-cont-regexp): New lang-const.
+        * progmodes/cc-engine.el (c-forward-<>-arglist-recur):
+	Use c->-op-without->-cont-regexp in place of c->-op-cont-tokens.
+
+
 2014-08-23  Alan Mackenzie  <acm@muc.de>
 
 	* progmodes/cc-fonts.el (c-font-lock-declarators): Fix infinite
@@ -5,8 +120,8 @@
 
 2014-08-21  Eli Zaretskii  <eliz@gnu.org>
 
-	* textmodes/texnfo-upd.el (texinfo-specific-section-type): Don't
-	recognize a Top node if there are other sectioning commands
+	* textmodes/texnfo-upd.el (texinfo-specific-section-type):
+	Don't recognize a Top node if there are other sectioning commands
 	earlier in the Texinfo file.  This fixes a bug in
 	texinfo-make-menu and avoids inflooping in
 	texinfo-all-menus-update when they are invoked on texinfo.texi.
@@ -96,19 +211,19 @@
 
 2014-08-13  Eric S. Raymond  <esr@thyrsus.com>
 
-	* vc/vc.git.el (vc-git-resolve-when-done): New function.
+	* vc/vc-git.el (vc-git-resolve-when-done): New function.
 	Call "git add" when there are no longer conflict markers.
 
 2014-08-13  Rüdiger Sonderfeld  <ruediger@c-plusplus.de>
 
-	* vc/vc.git.el (vc-git-find-file-hook): New function.
+	* vc/vc-git.el (vc-git-find-file-hook): New function.
 	Adds support for calling smerge (and resolve) on a conflicted file.
 	(vc-git-conflicted-files): New function.
 	Useful in itself and a step towards better smerge support.
 
 2014-08-12  Stefan Monnier  <monnier@iro.umontreal.ca>
 
-	* mpc.el (mpc-reorder): Don't bother splitting the "active"s elements
+	* mpc.el (mpc-reorder): Don't bother splitting the "active" elements
 	to the first part if they're the same as the selection.
 
 2014-08-12  Lars Magne Ingebrigtsen  <larsi@gnus.org>
@@ -237,24 +352,13 @@
 
 2014-08-07  Eli Zaretskii  <eliz@gnu.org>
 
-	* files.el (auto-mode-alist): Remove support for VMS from a
-	pattern.
+	* files.el (auto-mode-alist): Remove support for VMS from a pattern.
 
 2014-08-07  Reuben Thomas  <rrt@sc3d.org>
 
 	Refer to MS-DOS using the same name everywhere.
-
-	* arc-mode.el: Fix a couple of ``MS-DOG''s missed in the previous
-	commit.
-	* file-mode.el: ditto.
-
-2014-08-07  Reuben Thomas  <rrt@sc3d.org>
-
-	Refer to MS-DOS using the same name everywhere.
-
-	* arc-mode.el: ``MS-DOG'', ``MSDOG'' and ``msdog'' become
-	``MS-DOS''.
-	* frame.el: ditto.
+	* arc-mode.el, files.el, frame.el: ``MS-DOG'', ``MSDOG'' and
+	``msdog'' become ``MS-DOS''.
 
 2014-08-07  Michael Albinus  <michael.albinus@gmx.de>
 
@@ -263,8 +367,8 @@
 
 2014-08-07  Leo Liu  <sdl.web@gmail.com>
 
-	* help.el (temp-buffer-setup-hook,temp-buffer-show-hook): Revert
-	change on 2014-03-22.
+	* help.el (temp-buffer-setup-hook,temp-buffer-show-hook):
+	Revert change on 2014-03-22.
 
 2014-08-06  Ulf Jasper  <ulf.jasper@web.de>
 
@@ -297,8 +401,8 @@
 
 	* progmodes/python.el: Fix completions inside (i)pdb.
 	(python-shell-completion-pdb-string-code): Make obsolete.
-	(python-shell-completion-get-completions): Use
-	python-shell-completion-string-code resending setup code
+	(python-shell-completion-get-completions):
+	Use python-shell-completion-string-code resending setup code
 	continuously for (i)pdb.
 
 2014-08-04  Paul Eggert  <eggert@cs.ucla.edu>
@@ -325,8 +429,8 @@
 
 2014-08-02  Alan Mackenzie  <acm@muc.de>
 
-	Fix confusion in C++ file caused by comma in "= {1,2},".  Bug
-	#17756.
+	Fix confusion in C++ file caused by comma in "= {1,2},".
+	Bug #17756.
 	* progmodes/cc-engine.el (c-beginning-of-statement-1): In checking
 	for a statement boundary marked by "}", check there's no "="
 	before the "{".
@@ -355,8 +459,8 @@
 
 2014-07-30  Christophe Deleuze  <christophe.deleuze@free.fr>  (tiny change)
 
-	* calendar/icalendar.el (icalendar--decode-isodatetime): Use
-	actual current-time-zone when converting to local time. (Bug#15408)
+	* calendar/icalendar.el (icalendar--decode-isodatetime):
+	Use actual current-time-zone when converting to local time. (Bug#15408)
 
 2014-07-29  Martin Rudalics  <rudalics@gmx.at>
 
@@ -467,17 +571,17 @@
 2014-07-28  Fabián Ezequiel Gallina  <fgallina@gnu.org>
 
 	Grab all Python process output before inferior-python-mode hooks.
-	* progmodes/python.el (inferior-python-mode): Call
-	accept-process-output and sit-for to ensure all output for process
+	* progmodes/python.el (inferior-python-mode):
+	Call accept-process-output and sit-for to ensure all output for process
 	has been received before running hooks.
-	(python-shell-internal-get-or-create-process): Cleanup
-	accept-process-output and sit-for calls.
+	(python-shell-internal-get-or-create-process):
+	Cleanup accept-process-output and sit-for calls.
 
 2014-07-28  Fabián Ezequiel Gallina  <fgallina@gnu.org>
 
 	More robust shell startup and code setup.
-	* progmodes/python.el (python-shell-make-comint): Remove
-	accept-process-output call.
+	* progmodes/python.el (python-shell-make-comint):
+	Remove accept-process-output call.
 	(python-shell-get-buffer): Return current buffer if major-mode is
 	inferior-python-mode.
 	(python-shell-get-or-create-process): Use it.
@@ -486,8 +590,8 @@
 
 2014-07-27  Eli Zaretskii  <eliz@gnu.org>
 
-	* scroll-bar.el (scroll-bar-toolkit-horizontal-scroll): Add
-	rudimentary support for bidirectional text.
+	* scroll-bar.el (scroll-bar-toolkit-horizontal-scroll):
+	Add rudimentary support for bidirectional text.
 
 2014-07-27  Martin Rudalics  <rudalics@gmx.at>
 
@@ -861,8 +965,8 @@
 	(linum-update-window): Use it to adjust margin to linum's width.
 
 	* leim/quail/sisheng.el (sisheng-list): Don't bother with-case-table.
-	* eshell/em-smart.el (eshell-smart-scroll-window): Use
-	with-selected-window.
+	* eshell/em-smart.el (eshell-smart-scroll-window):
+	Use with-selected-window.
 
 	* xt-mouse.el (xterm-mouse-translate-1): Intern drag event (bug#17894).
 	Remove also pointless window&mark manipulation.
@@ -3894,7 +3998,7 @@
 2014-03-23  Lars Ingebrigtsen  <larsi@gnus.org>
 
 	* calendar/parse-time.el (parse-time-iso8601-regexp)
-	(parse-iso8601-time-string): Copied from `url-dav' so that we can use
+	(parse-iso8601-time-string): Copy from `url-dav' so that we can use
 	it more generally.
 
 2014-03-23  Lars Ingebrigtsen  <larsi@gnus.org>
@@ -3914,9 +4018,7 @@
 2014-03-23  Daniel Colascione  <dancol@dancol.org>
 
 	Change subword-mode to use `find-word-boundary-function-table' and
-	replace `capitalized-words-mode'.  Also, convert to lexical
-	binding.
-
+	replace `capitalized-words-mode'.  Also, convert to lexical binding.
 	* progmodes/cap-words.el: Delete now-obsolete file.
 	* progmodes/subword.el: Reimplement using
 	`find-word-boundary-function-table'.
@@ -5498,7 +5600,7 @@
 	* help-at-pt.el (help-at-pt-string, help-at-pt-maybe-display):
 	Also try to display local help from just before point.
 
-2014-02-02  Alan Mackenzie  <bug-cc-mode@gnu.org>
+2014-02-02  Alan Mackenzie  <acm@muc.de>
 
 	c-parse-state.  Don't "append-lower-brace-pair" in certain
 	circumstances.  Also fix an obscure bug where "\\s!" shouldn't be
@@ -5992,8 +6094,8 @@
 
 2014-01-14  Agustín Martín Domingo  <agustin.martin@hispalinux.es>
 
-	* ispell.el (ispell-region): Reset `in-comment' for new line
-	instead of wrongly reset `add-coment' (bug#13577).
+	* textmodes/ispell.el (ispell-region): Reset `in-comment' for new
+	line instead of wrongly reset `add-coment' (bug#13577).
 
 2014-01-14  Daiki Ueno  <ueno@gnu.org>
 

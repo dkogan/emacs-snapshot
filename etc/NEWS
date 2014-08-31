@@ -66,6 +66,19 @@ for use in Emacs bug reports.
 hiding character but the default `.' can be used by let-binding the
 variable `read-hide-char'.
 
+** The new functions `string-collate-lessp' and `string-collate-equalp'
+preserve the collation order as defined by the system's locale(1)
+environment.  For the time being this is implemented for modern POSIX
+systems and for MS-Windows, for other systems they fall back to their
+counterparts `string-lessp' and `string-equal'.
+
+*** The MS-Windows specific variable `w32-collate-ignore-punctuation',
+if set to a non-nil value, causes the above 2 functions to ignore
+symbol and punctuation characters when collating strings.  This
+emulates the behavior of modern Posix platforms when the locale's
+codeset is "UTF-8" (as in "en_US.UTF-8").  This is needed because
+MS-Windows doesn't support UTF-8 as codeset in its locales.
+
 
 * Editing Changes in Emacs 24.5
 
@@ -89,6 +102,9 @@ performance improvements when pasting large amounts of text.
 
 ** New font-lock functions font-lock-ensure and font-lock-flush, which
 should be used instead of font-lock-fontify-buffer when called from Elisp.
+
+** Macro `minibuffer-with-setup-hook' takes (:append FUN) to mean
+appending FUN to `minibuffer-setup-hook'.
 
 ** Calendar and diary
 
@@ -198,6 +214,8 @@ permissions set to temporary values (e.g., for creating private files).
 
 ** Functions `rmail-delete-forward' and `rmail-delete-backward' take an
 optional repeat-count argument.
+
+** Function `sort' can deal with vectors.
 
 ---
 ** New utilities in subr-x.el:

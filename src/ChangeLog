@@ -1,3 +1,279 @@
+2014-08-31  Ken Brown  <kbrown@cornell.edu>
+
+	* gmalloc.c: Don't include <stdlib.h>.  Declare system malloc and
+	friends before defining hybrid_malloc and friends if HYBRID_MALLOC
+	is defined.  (Bug#18368)
+
+2014-08-30  Paul Eggert  <eggert@cs.ucla.edu>
+
+	Vector-sorting fixes (Bug#18361).
+	It's not safe to call qsort or qsort_r, since they have undefined
+	behavior if the user-specified predicate is not a total order.
+	Also, watch out for garbage-collection while sorting vectors.
+	* fns.c: Include <vla.h>.
+	(sort_vector_predicate) [!HAVE_QSORT_R]: Remove.
+	(sort_vector_compare): Remove, replacing with ....
+	(inorder, merge_vectors, sort_vector_inplace, sort_vector_copy):
+	... these new functions.
+	(sort_vector): Rewrite to use the new functions.
+	GCPRO locals, since the predicate can invoke the GC.
+	Since it's in-place return void; caller changed.
+	(merge): Use 'inorder', for clarity.
+
+	* sysdep.c (str_collate): Clear errno just before wcscoll(_l).
+	One can't hoist this out of the 'if', because intervening calls to
+	newlocale, twolower, etc. can change errno.
+
+2014-08-30  Eli Zaretskii  <eliz@gnu.org>
+
+	* sysdep.c (str_collate) [__STDC_ISO_10646__]: Improve the
+	wording of the error messages.
+	(str_collate) [WINDOWSNT]: Signal an error if w32_compare_strings
+	sets errno.
+
+	* w32proc.c (get_lcid_callback): Accept locale specifications
+	without the country part, as in "enu" vs "enu_USA".
+	(w32_compare_strings): Signal an error if a locale was specified,
+	but couldn't be translated into a valid LCID.
+
+2014-08-29  Michael Albinus  <michael.albinus@gmx.de>
+
+	* sysdep.c (str_collate) [__STDC_ISO_10646__]: Move up setting errno.
+
+2014-08-29  Paul Eggert  <eggert@cs.ucla.edu>
+
+	* sysdep.c (str_collate) [__STDC_ISO_10646__]: Do not look at
+	errno after towlower_l.  errno's value is not specified after
+	towlower_l.  Instead, assume that towlower_l returns its argument
+	on failure, which is portable in practice.
+
+2014-08-29  Eli Zaretskii  <eliz@gnu.org>
+
+	* fns.c (Fstring_collate_lessp, Fstring_collate_equalp): Doc fix.
+
+	* w32proc.c (w32_compare_strings): Accept additional argument
+	IGNORE_CASE.  Set up the flags for CompareStringW to ignore case
+	if requested.  If w32-collate-ignore-punctuation is non-nil, add
+	NORM_IGNORESYMBOLS to the flags.
+	(LINGUISTIC_IGNORECASE): Define if not already defined.
+	(syms_of_ntproc) <Vw32_collate_ignore_punctuation>: New variable.
+
+	* sysdep.c (str_collate) [WINDOWSNT]: Adapt to the interface
+	change.
+
+2014-08-29  Michael Albinus  <michael.albinus@gmx.de>
+
+	* sysdep.c (LC_CTYPE, LC_CTYPE_MASK, towlower_l):
+	Define substitutes for platforms that lack them.
+	(str_collate): Add arguments locale and ignore_case.
+
+	* fns.c (Fstring_collate_lessp, Fstring_collate_equalp):
+	Add optional arguments LOCALE and IGNORE-CASE.
+
+	* lisp.h (str_collate): Adapt argument list.
+
+2014-08-29  Dmitry Antipov  <dmantipov@yandex.ru>
+
+	Add vectors support to Fsort.
+	* fns.c (sort_vector, sort_vector_compare): New functions.
+	(sort_list): Likewise, refactored out of ...
+	(Fsort): ... adjusted user.  Mention vectors in docstring.
+	(sort_vector_predicate) [!HAVE_QSORT_R]: New variable.
+	* alloc.c (make_save_int_obj): New function.
+	* lisp.h (enum Lisp_Save_Type): New member SAVE_TYPE_INT_OBJ.
+	(make_save_int_obj): Add prototype.
+
+	Fix last change to support Darwin/OSX and FreeBSD (Bug#18354).
+	* sysdep.c (sort_vector_compare) [DARWIN_OS || __FreeBSD__]:
+	Conditionally define to match system's qsort_r signature.
+	(sort_vector) [DARWIN_OS || __FreeBSD__]: Likewise in call to qsort_r.
+
+2014-08-28  Ken Brown  <kbrown@cornell.edu>
+
+	Add support for HYBRID_MALLOC, allowing the use of gmalloc before
+	dumping and the system malloc after dumping.  (Bug#18222)
+
+	* conf_post.h (malloc, realloc, calloc, free) [HYBRID_MALLOC]:
+	Define as macros, expanding to hybrid_malloc, etc.
+	(HYBRID_GET_CURRENT_DIR_NAME): New macro.
+	(get_current_dir_name) [HYBRID_GET_CURRENT_DIR_NAME]: Define as
+	macro.
+	* gmalloc.c: Set up the infrastructure for HYBRID_MALLOC, with a
+	full implementation on Cygwin.  Remove Cygwin-specific code that
+	is no longer needed.
+	(malloc, realloc, calloc, free, aligned_alloc) [HYBRID_MALLOC]:
+	Redefine as macros expanding to gmalloc, grealloc, etc.
+	(DUMPED, ALLOCATED_BEFORE_DUMPING) [CYGWIN]: New macros.
+	(get_current_dir_name) [HYBRID_GET_CURRENT_DIR_NAME]: Undefine.
+	(USE_PTHREAD, posix_memalign) [HYBRID_MALLOC]: Don't define.
+	(hybrid_malloc, hybrid_calloc, hybrid_free, hybrid_realloc)
+	[HYBRID_MALLOC]:
+	(hybrid_get_current_dir_name) [HYBRID_GET_CURRENT_DIR_NAME]:
+	(hybrid_aligned_alloc) [HYBRID_MALLOC && (HAVE_ALIGNED_ALLOC ||
+	HAVE_POSIX_MEMALIGN)]: New functions.
+	* alloc.c (aligned_alloc) [HYBRID_MALLOC && (ALIGNED_ALLOC ||
+	HAVE_POSIX_MEMALIGN)]: Define as macro expanding to
+	hybrid_aligned_alloc; declare.
+	(USE_ALIGNED_ALLOC) [HYBRID_MALLOC && (ALIGNED_ALLOC ||
+	HAVE_POSIX_MEMALIGN)]: Define.
+	(refill_memory_reserve) [HYBRID_MALLOC]: Do nothing.
+	* sysdep.c (get_current_dir_name) [HYBRID_GET_CURRENT_DIR_NAME]:
+	Define as macro, expanding to gget_current_dir_name, and define
+	the latter.
+	* emacs.c (main) [HYBRID_MALLOC]: Don't call memory_warnings() or
+	malloc_enable_thread().  Don't initialize malloc.
+	* lisp.h (NONPOINTER_BITS) [CYGWIN]: Define (because GNU_MALLOC is
+	no longer defined on Cygwin).
+	(refill_memory_reserve) [HYBRID_MALLOC]: Don't declare.
+	* sheap.c (bss_sbrk_buffer_end): New variable.
+	* unexcw.c (__malloc_initialized): Remove variable.
+	* ralloc.c: Throughout, treat HYBRID_MALLOC the same as
+	SYSTEM_MALLOC.
+	* xdisp.c (decode_mode_spec) [HYBRID_MALLOC]: Don't check
+	Vmemory_full.
+
+2014-08-28  Martin Rudalics  <rudalics@gmx.at>
+
+	* w32term.c (w32_horizontal_scroll_bar_handle_click): In
+	`event->y' return entire range (the size of the scroll bar minus
+	that of the thumb).
+	* xterm.c (xm_scroll_callback, xaw_jump_callback): In `whole'
+	return entire range (the scaled size of the scroll bar minus
+	that of the slider).  In `portion' return the scaled position of
+	the slider.
+	(xaw_jump_callback): Restore part of code for vertical scroll
+	bar broken in change from 2014-07-27.
+	(xaw_scroll_callback): Provide incremental scrolling with
+	horizontal scroll bars.
+
+2014-08-28  Eli Zaretskii  <eliz@gnu.org>
+
+	* conf_post.h (_GL_EXECINFO_INLINE) [MSDOS]: Don't define.
+
+	* indent.c (Fvertical_motion): Fix vertical motion up through a
+	display property after a newline.  (Bug#18276)
+
+	* xdisp.c (display_line): Don't assume that the call to
+	reseat_at_next_visible_line_start ends up at a character
+	immediately following the newline on the previous line.  Avoids
+	setting the ends_at_zv_p flag on screen lines that are not at or
+	beyond ZV, which causes infloop in redisplay.  For the details, see
+	http://lists.gnu.org/archive/html/emacs-devel/2014-08/msg00368.html.
+
+	* dispnew.c (buffer_posn_from_coords): Fix mirroring of X
+	coordinate for hscrolled R2L screen lines.  (Bug#18277)
+
+2014-08-28  Paul Eggert  <eggert@cs.ucla.edu>
+
+	* sysdep.c (LC_COLLATE, LC_COLLATE_MASK): Give individual defaults
+	(Bug#18051).
+
+2014-08-27  Eli Zaretskii  <eliz@gnu.org>
+
+	* syntax.c (scan_lists): Don't examine positions before BEGV.
+	(Bug#18339)
+
+2014-08-27  Paul Eggert  <eggert@cs.ucla.edu>
+
+	Improve robustness of new string-collation code (Bug#18051).
+	* sysdep.c (LC_COLLATE, LC_COLLATE_MASK, freelocale, locale_t)
+	(newlocale, wcscoll_l): Define substitutes for platforms that
+	lack them, so as to simplify the mainline code.
+	(str_collate): Simplify the code by assuming the above definitions.
+	Use wcscoll_l, not uselocale, as uselocale is too fragile.  For
+	example, the old version left the Emacs in the wrong locale if
+	wcscoll reported an error.  Use 'int', not ptrdiff_t, for the int
+	result.  Report an error if newlocale fails.
+
+2014-08-27  Michael Albinus  <michael.albinus@gmx.de>
+
+	* lisp.h (str_collate):
+	* sysdep.c (str_collate): Return int.
+	(str_collate) [__STDC_ISO_10646__]: Propagate error of wcscoll.
+
+2014-08-27  Dmitry Antipov  <dmantipov@yandex.ru>
+
+	Fix some glitches in previous change.
+	* sysdep.c (stack_direction): Replace stack_grows_down
+	to simplify calculation of stack boundaries.
+	(handle_sigsegv): Check whether we really crash somewhere near
+	to stack boundary, and handle fatal signal as usual if not.
+	(init_sigsegv): Adjust accordingly.
+	* keyboard.c (Vtop_level_message): Rename to
+	Vinternal__top_level_message, as suggested by Stefan Monnier in
+	http://lists.gnu.org/archive/html/emacs-devel/2014-08/msg00493.html
+	All related users changed.
+
+2014-08-26  Dmitry Antipov  <dmantipov@yandex.ru>
+
+	Handle C stack overflow caused by too nested Lisp evaluation.
+	* lisp.h (toplevel) [HAVE_STACK_OVERFLOW_HANDLING]: Declare
+	siglongjmp point to transfer control from SIGSEGV handler.
+	* keyboard.c (return_to_command_loop, recover_top_level_message)
+	[HAVE_STACK_OVERFLOW_HANDLING]: New variables.
+	(regular_top_level_message): New variable.
+	(command_loop) [HAVE_STACK_OVERFLOW_HANDLING]: Handle non-local
+	exit from SIGSEGV handler and adjust message displayed by Vtop_level
+	if appropriate.
+	(syms_of_keyboard): DEFVAR Vtop_level_message and initialize
+	new variables described above.
+	* sysdep.c [HAVE_SYS_RESOURCE_H]: Include sys/resource.h as such.
+	(stack_grows_down, sigsegv_stack, handle_sigsegv)
+	[HAVE_STACK_OVERFLOW_HANDLING]: New variables and function.
+	(init_sigsegv): New function.
+	(init_signals): Use it.
+
+2014-08-25  Ken Brown  <kbrown@cornell.edu>
+
+	* emacs.c (main): Remove use of obsolete macro
+	G_SLICE_ALWAYS_MALLOC.
+
+2014-08-25  Eli Zaretskii  <eliz@gnu.org>
+
+	Implement locale-sensitive string collation for MS-Windows.
+	* w32proc.c (get_lcid_callback, get_lcid, w32_compare_strings):
+	New functions.  (Bug#18051)
+
+	* w32.h (w32_compare_strings): Add prototype.
+
+	* w32.c <g_b_init_compare_string_w>: New global flag.
+	(globals_of_w32): Initialize it.
+
+	* sysdep.c (str_collate) [WINDOWSNT]: Implementation for MS-Windows.
+
+	* fns.c (Fstring_collate_lessp, Fstring_collate_equalp)
+	[WINDOWSNT]: Call str_collate on MS-Windows.
+
+2014-08-25  Dmitry Antipov  <dmantipov@yandex.ru>
+
+	One more minor cleanup of font subsystem.
+	* font.h (struct font_driver): Convert text_extents to
+	return void because returned value is never actually used.
+	* macfont.m (macfont_text_extents):
+	* w32font.c (w32font_text_extents):
+	* xftfont.c (xftfont_text_extents): Adjust to return void
+	and assume that 'metrics' argument is always non-NULL.
+	* ftfont.c (ftfont_text_extents):
+	* xfont.c (xfont_text_extents): Likewise.  Avoid redundant memset.
+
+2014-08-25  Paul Eggert  <eggert@cs.ucla.edu>
+
+	Minor cleanups of str_collate fix (Bug#18051).
+	* fns.c (str_collate): Move decl from here ...
+	* lisp.h (str_collate): ... to here.
+	* sysdep.c (str_collate): Prune away some of the forest of ifdefs.
+	Remove unnecessary casts.  Use SAFE_NALLOCA to avoid
+	potential problems with integer overflow.  Don't assume
+	setlocale succeeds.  Remove unnecessary test before restoring
+	locale via setlocale, and free the copied setlocale string
+	when done with it.
+
+2014-08-24  Michael Albinus  <michael.albinus@gmx.de>
+
+	* fns.c (Fstring_collate_lessp, Fstring_collate_equalp): New DEFUNs.
+
+	* sysdep.c (str_collate): New function.  (Bug#18051)
+
 2014-08-23  Karol Ostrovsky  <karol.ostrovsky@gmail.com>  (tiny change)
 
 	* Makefile.in (emacs$(EXEEXT)): Retry deletion of bootstrap-emacs
@@ -136,9 +412,10 @@
 2014-08-09  Reuben Thomas  <rrt@sc3d.org>
 
 	* alloc.c (Fmemory_info): Remove a stray brace.
+
 	* process.c: Fix a comment typo.
-	* msdos.c:
-	* dosfns.c (init_dosfns): Remove support for DJGPP < 2.02.
+
+	* msdos.c, dosfns.c (init_dosfns): Remove support for DJGPP < 2.02.
 
 2014-08-09  Jan Djärv  <jan.h.d@swipnet.se>
 
@@ -1681,7 +1958,7 @@
 
 	* dispextern.h (struct face) [HAVE_XFT]: Ifdef 'extra' member.
 	* font.c (font_done_for_face):
-	* xface.c (realize_non_ascii_face): Adjust user.
+	* xfaces.c (realize_non_ascii_face): Adjust user.
 	* font.h (struct font_driver): Convert 'prepare_face' to return
 	void because its return value is never used anyway.
 	* xfont.c (xfont_prepare_face): Return void.

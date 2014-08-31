@@ -130,6 +130,7 @@ If you have it installed under another name, configure with 'MAKE=...'.
 For example, run '$0 MAKE=gnu-make'.]])
 }
 MAKE=$ac_cv_path_MAKE
+export MAKE
 
 dnl Fairly arbitrary, older versions might work too.
 AM_INIT_AUTOMAKE(1.11)
@@ -1526,10 +1527,15 @@ if test $emacs_cv_personality_linux32 = yes; then
             [Define to 1 if personality LINUX32 can be set.])
 fi
 
+# Note that Solaris has sys/sysinfo.h which defines struct
+# sysinfo as well.  To make sure that we're using GNU/Linux
+# sysinfo, we explicitly set one of its fields.
 if test "$ac_cv_header_sys_sysinfo_h" = yes; then
   AC_MSG_CHECKING([if Linux sysinfo may be used])
   AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <sys/sysinfo.h>]],
-                                     [[struct sysinfo si; sysinfo (&si)]])],
+                                     [[struct sysinfo si;
+                                       si.totalram = 0;
+                                       sysinfo (&si)]])],
     emacs_cv_linux_sysinfo=yes, emacs_cv_linux_sysinfo=no)
   AC_MSG_RESULT($emacs_cv_linux_sysinfo)
   if test $emacs_cv_linux_sysinfo = yes; then
@@ -2028,9 +2034,13 @@ AC_CACHE_CHECK(
 doug_lea_malloc=$emacs_cv_var_doug_lea_malloc
 
 system_malloc=$emacs_cv_sanitize_address
+
+hybrid_malloc=
+
 case "$opsys" in
   ## darwin ld insists on the use of malloc routines in the System framework.
   darwin|mingw32|sol2-10) system_malloc=yes ;;
+  cygwin) hybrid_malloc=yes;;
 esac
 
 GMALLOC_OBJ=
@@ -2041,6 +2051,13 @@ if test "${system_malloc}" = "yes"; then
   GNU_MALLOC=no
   GNU_MALLOC_reason="
     (The GNU allocators don't work with this system configuration.)"
+  VMLIMIT_OBJ=
+elif test "$hybrid_malloc" = yes; then
+  AC_DEFINE(HYBRID_MALLOC, 1,
+    [Define to use gmalloc before dumping and the system malloc after.])
+  GNU_MALLOC=
+  GNU_MALLOC_reason="only before dumping"
+  GMALLOC_OBJ=gmalloc.o
   VMLIMIT_OBJ=
 else
   test "$doug_lea_malloc" != "yes" && GMALLOC_OBJ=gmalloc.o
@@ -3553,7 +3570,7 @@ LIBS="$LIB_PTHREAD $LIB_MATH $LIBS"
 AC_CHECK_FUNCS(accept4 fchdir gethostname \
 getrusage get_current_dir_name \
 lrand48 random rint \
-select getpagesize setlocale \
+select getpagesize setlocale newlocale \
 getrlimit setrlimit shutdown getaddrinfo \
 pthread_sigmask strsignal setitimer \
 sendto recvfrom getsockname getpeername getifaddrs freeifaddrs \
@@ -3563,9 +3580,11 @@ cfmakeraw cfsetspeed copysign __executable_start log2)
 LIBS=$OLD_LIBS
 
 dnl No need to check for aligned_alloc and posix_memalign if using
-dnl gmalloc.o, as it supplies them.  Don't use these functions on
-dnl Darwin as they are incompatible with unexmacosx.c.
-if test -z "$GMALLOC_OBJ" && test "$opsys" != darwin; then
+dnl gmalloc.o, as it supplies them, unless we're using hybrid_malloc.
+dnl Don't use these functions on Darwin as they are incompatible with
+dnl unexmacosx.c.
+if (test -z "$GMALLOC_OBJ" || test "$hybrid_malloc" = yes) \
+  && test "$opsys" != darwin; then
   AC_CHECK_FUNCS([aligned_alloc posix_memalign], [break])
 fi
 
@@ -3727,6 +3746,22 @@ if test "$emacs_cv_have_timerfd" = yes; then
   AC_DEFINE([HAVE_TIMERFD], 1,
     [Define to 1 if timerfd functions are supported as in GNU/Linux.])
 fi
+
+# Alternate stack for signal handlers.
+AC_CACHE_CHECK([whether signals can be handled on alternate stack],
+	       [emacs_cv_alternate_stack],
+  [AC_COMPILE_IFELSE(
+     [AC_LANG_PROGRAM([[#include <signal.h>
+		      ]],
+		      [[stack_t ss;
+			struct sigaction sa;
+			ss.ss_sp = malloc (SIGSTKSZ);
+			ss.ss_size = SIGSTKSZ;
+			sa.sa_flags = SA_SIGINFO | SA_ONSTACK;
+			sigaltstack (&ss, 0);
+			sigaction (SIGSEGV, &sa, 0);]])],
+     [emacs_cv_alternate_stack=yes],
+     [emacs_cv_alternate_stack=no])])
 
 # Do we have res_init, for detecting changes in /etc/resolv.conf?
 # On Darwin, res_init appears not to be useful: see bug#562 and
@@ -3969,15 +4004,6 @@ if test $emacs_cv_langinfo_codeset = yes; then
 fi
 
 AC_TYPE_MBSTATE_T
-
-AC_CACHE_CHECK([for C restricted array declarations], emacs_cv_c_restrict_arr,
-  [AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[void fred (int x[__restrict]);]], [[]])],
-                  emacs_cv_c_restrict_arr=yes, emacs_cv_c_restrict_arr=no)])
-if test "$emacs_cv_c_restrict_arr" = yes; then
-  AC_DEFINE(__restrict_arr, __restrict,
-    [Define to compiler's equivalent of C99 restrict keyword in array
-     declarations.  Define as empty for no equivalent.])
-fi
 
 dnl Fixme: AC_SYS_POSIX_TERMIOS should probably be used, but it's not clear
 dnl how the tty code is related to POSIX and/or other versions of termios.
@@ -4447,22 +4473,31 @@ AC_CACHE_CHECK([for _setjmp], [emacs_cv_func__setjmp],
      [emacs_cv_func__setjmp=no])])
 if test $emacs_cv_func__setjmp = yes; then
   AC_DEFINE([HAVE__SETJMP], 1, [Define to 1 if _setjmp and _longjmp work.])
-else
-  AC_CACHE_CHECK([for sigsetjmp], [emacs_cv_func_sigsetjmp],
-    [AC_LINK_IFELSE(
-       [AC_LANG_PROGRAM(
-	 [[#include <setjmp.h>
-	 ]],
-	 [[sigjmp_buf j;
-	   if (! sigsetjmp (j, 1))
-	     siglongjmp (j, 1);]])],
-       [emacs_cv_func_sigsetjmp=yes],
-       [emacs_cv_func_sigsetjmp=no])])
-  if test $emacs_cv_func_sigsetjmp = yes; then
-    AC_DEFINE([HAVE_SIGSETJMP], 1,
-      [Define to 1 if sigsetjmp and siglongjmp work.
-       The value of this symbol is irrelevant if HAVE__SETJMP is defined.])
-  fi
+fi
+
+# We need to preserve signal mask to handle C stack overflows.
+AC_CACHE_CHECK([for sigsetjmp], [emacs_cv_func_sigsetjmp],
+  [AC_LINK_IFELSE(
+     [AC_LANG_PROGRAM(
+       [[#include <setjmp.h>
+       ]],
+       [[sigjmp_buf j;
+         if (! sigsetjmp (j, 1))
+	   siglongjmp (j, 1);]])],
+     [emacs_cv_func_sigsetjmp=yes],
+     [emacs_cv_func_sigsetjmp=no])])
+if test $emacs_cv_func_sigsetjmp = yes; then
+  AC_DEFINE([HAVE_SIGSETJMP], 1,
+    [Define to 1 if sigsetjmp and siglongjmp work.])
+fi
+
+# We need all of these features to handle C stack overflows.
+if test "$ac_cv_header_sys_resource_h" = "yes" -a \
+	"$ac_cv_func_getrlimit" = "yes" -a \
+	"$emacs_cv_func_sigsetjmp" = "yes" -a \
+	"$emacs_cv_alternate_stack" = yes; then
+  AC_DEFINE([HAVE_STACK_OVERFLOW_HANDLING], 1,
+    [Define to 1 if C stack overflow can be handled in some cases.])
 fi
 
 case $opsys in
@@ -4593,20 +4628,7 @@ if test $emacs_cv_usable_FIONREAD = yes; then
   fi
 fi
 
-
 case $opsys in
-  dnl Emacs supplies its own malloc, but glib calls posix_memalign,
-  dnl and on Cygwin prior to version 1.7.24 that becomes the
-  dnl Cygwin-supplied posix_memalign.  As malloc is not the Cygwin
-  dnl malloc, the Cygwin posix_memalign always returns ENOSYS.  A
-  dnl workaround is to set G_SLICE=always-malloc.  This is no longer
-  dnl needed starting with cygwin-1.7.24, and it is no longer
-  dnl effective starting with glib-2.36. */
-  cygwin)
-    AC_DEFINE(G_SLICE_ALWAYS_MALLOC, 1, [Define to set the
-      G_SLICE environment variable to "always-malloc" at startup.])
-    ;;
-
   hpux11)
     dnl It works to open the pty's tty in the parent (Emacs), then
     dnl close and reopen it in the child.
