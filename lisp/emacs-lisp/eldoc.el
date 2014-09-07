@@ -1,4 +1,4 @@
-;;; eldoc.el --- show function arglist or variable docstring in echo area  -*- lexical-binding: t; -*-
+;;; eldoc.el --- Show function arglist or variable docstring in echo area  -*- lexical-binding:t; -*-
 
 ;; Copyright (C) 1996-2014 Free Software Foundation, Inc.
 
@@ -344,34 +344,43 @@ Emacs Lisp mode) that support ElDoc.")
   "Return a string containing the parameter list of the function SYM.
 If SYM is a subr and no arglist is obtainable from the docstring
 or elsewhere, return a 1-line docstring."
-  (let (args doc advertised)
-    (cond ((not (and sym (symbolp sym) (fboundp sym))))
+  (let ((argstring
+	 (cond
+	  ((not (and sym (symbolp sym) (fboundp sym))) nil)
 	  ((and (eq sym (aref eldoc-last-data 0))
 		(eq 'function (aref eldoc-last-data 2)))
-	   (setq doc (aref eldoc-last-data 1)))
-	  ((listp (setq advertised (gethash (indirect-function sym)
-					    advertised-signature-table t)))
-	   (setq args advertised))
-	  ((setq doc (help-split-fundoc (documentation sym t) sym))
-	   (setq args (car doc)))
+	   (aref eldoc-last-data 1))
 	  (t
-	   (setq args (help-function-arglist sym))))
-    (if args
-	;; Stringify, and store before highlighting, downcasing, etc.
-	;; FIXME should truncate before storing.
-	(eldoc-last-data-store sym (setq args (eldoc-function-argstring args))
-			       'function)
-      (setq args doc))		  ; use stored value
-    ;; Change case, highlight, truncate.
-    (if args
-	(eldoc-highlight-function-argument sym args index))))
+	   (let* ((advertised (gethash (indirect-function sym)
+                                       advertised-signature-table t))
+                  doc
+		  (args
+		   (cond
+		    ((listp advertised) advertised)
+		    ((setq doc (help-split-fundoc (documentation sym t) sym))
+		     (car doc))
+		    (t (help-function-arglist sym)))))
+             ;; Stringify, and store before highlighting, downcasing, etc.
+             ;; FIXME should truncate before storing.
+	     (eldoc-last-data-store sym (eldoc-function-argstring args)
+                                    'function))))))
+    ;; Highlight, truncate.
+    (if argstring
+	(eldoc-highlight-function-argument sym argstring index))))
 
 (defun eldoc-highlight-function-argument (sym args index)
   "Highlight argument INDEX in ARGS list for function SYM.
 In the absence of INDEX, just call `eldoc-docstring-format-sym-doc'."
+  ;; FIXME: This should probably work on the list representation of `args'
+  ;; rather than its string representation.
+  ;; FIXME: This function is much too long, we need to split it up!
   (let ((start          nil)
 	(end            0)
-	(argument-face  'eldoc-highlight-function-argument))
+	(argument-face  'eldoc-highlight-function-argument)
+        (args-lst (mapcar (lambda (x)
+                            (replace-regexp-in-string
+                             "\\`[(]\\|[)]\\'" "" x))
+                          (split-string args))))
     ;; Find the current argument in the argument string.  We need to
     ;; handle `&rest' and informal `...' properly.
     ;;
@@ -385,23 +394,53 @@ In the absence of INDEX, just call `eldoc-docstring-format-sym-doc'."
     ;; position in ARGS based on this current arg.
     (when (string-match "&key" args)
       (let* (case-fold-search
+             key-have-value
+             (sym-name (symbol-name sym))
              (cur-w (current-word))
+             (args-lst-ak (cdr (member "&key" args-lst)))
              (limit (save-excursion
-                      (when (re-search-backward (symbol-name sym) nil t)
+                      (when (re-search-backward sym-name nil t)
                         (match-end 0))))
-             (cur-a (if (string-match ":\\([^ ()]*\\)" cur-w)
+             (cur-a (if (and cur-w (string-match ":\\([^ ()]*\\)" cur-w))
                         (substring cur-w 1)
                       (save-excursion
-                        (when (re-search-backward ":\\([^ ()\n]*\\)" limit t)
-                            (match-string 1))))))
-        ;; If `cur-a' is nil probably cursor is on a positional arg
-        ;; before `&key', in this case, exit this block and determine
-        ;; position with `index'.
-        (when (and cur-a
-                   (string-match (concat "\\_<" (upcase cur-a) "\\_>") args))
-          (setq index nil ; Skip next block based on positional args.
-                start (match-beginning 0)
-                end   (match-end 0)))))
+                        (let (split)
+                          (when (re-search-backward ":\\([^()\n]*\\)" limit t)
+                            (setq split (split-string (match-string 1) " " t))
+                            (prog1 (car split)
+                              (when (cdr split)
+                                (setq key-have-value t))))))))
+             ;; If `cur-a' is not one of `args-lst-ak'
+             ;; assume user is entering an unknow key
+             ;; referenced in last position in signature.
+             (other-key-arg (and (stringp cur-a)
+                                 args-lst-ak
+                                 (not (member (upcase cur-a) args-lst-ak))
+                                 (upcase (car (last args-lst-ak))))))
+        (unless (string= cur-w sym-name)
+          ;; The last keyword have already a value
+          ;; i.e :foo a b and cursor is at b.
+          ;; If signature have also `&rest'
+          ;; (assume it is after the `&key' section)
+          ;; go to the arg after `&rest'.
+          (if (and key-have-value
+                   (save-excursion
+                     (not (re-search-forward ":.*" (point-at-eol) t)))
+                   (string-match "&rest \\([^ ()]*\\)" args))
+              (setq index nil ; Skip next block based on positional args.
+                    start (match-beginning 1)
+                    end   (match-end 1))
+            ;; If `cur-a' is nil probably cursor is on a positional arg
+            ;; before `&key', in this case, exit this block and determine
+            ;; position with `index'.
+            (when (and cur-a     ; A keyword arg (dot removed) or nil.
+                       (or (string-match
+                            (concat "\\_<" (upcase cur-a) "\\_>") args)
+                           (string-match
+                            (concat "\\_<" other-key-arg "\\_>") args)))
+              (setq index nil ; Skip next block based on positional args.
+                    start (match-beginning 0)
+                    end   (match-end 0)))))))
     ;; Handle now positional arguments.
     (while (and index (>= index 1))
       (if (string-match "[^ ()]+" args end)
@@ -412,12 +451,15 @@ In the absence of INDEX, just call `eldoc-docstring-format-sym-doc'."
 	      (cond ((string= argument "&rest")
 		     ;; All the rest arguments are the same.
 		     (setq index 1))
-		    ((string= argument "&optional")) ; Skip.
+		    ((string= argument "&optional"))         ; Skip.
                     ((string= argument "&allow-other-keys")) ; Skip.
                     ;; Back to index 0 in ARG1 ARG2 ARG2 ARG3 etc...
                     ;; like in `setq'.
-		    ((or (string-match-p "\\.\\.\\.$" argument)
-                         (and (string-match-p "\\.\\.\\.)?$" args)
+		    ((or (and (string-match-p "\\.\\.\\.$" argument)
+                              (string= argument (car (last args-lst))))
+                         (and (string-match-p "\\.\\.\\.$"
+                                              (substring args 1 (1- (length args))))
+                              (= (length (remove "..." args-lst)) 2)
                               (> index 1) (cl-oddp index)))
                      (setq index 0))
 		    (t
@@ -438,23 +480,23 @@ In the absence of INDEX, just call `eldoc-docstring-format-sym-doc'."
 ;; Return a string containing a brief (one-line) documentation string for
 ;; the variable.
 (defun eldoc-get-var-docstring (sym)
-  (when sym
-    (cond ((and (eq sym (aref eldoc-last-data 0))
-		(eq 'variable (aref eldoc-last-data 2)))
-	   (aref eldoc-last-data 1))
-	  (t
-	   (let ((doc (documentation-property sym 'variable-documentation t)))
-	     (cond (doc
-		    (setq doc (eldoc-docstring-format-sym-doc
-			       sym (eldoc-docstring-first-line doc)
-			       'font-lock-variable-name-face))
-		    (eldoc-last-data-store sym doc 'variable)))
-	     doc)))))
+  (cond ((not sym) nil)
+        ((and (eq sym (aref eldoc-last-data 0))
+              (eq 'variable (aref eldoc-last-data 2)))
+         (aref eldoc-last-data 1))
+        (t
+         (let ((doc (documentation-property sym 'variable-documentation t)))
+           (when doc
+             (let ((doc (eldoc-docstring-format-sym-doc
+                         sym (eldoc-docstring-first-line doc)
+                         'font-lock-variable-name-face)))
+               (eldoc-last-data-store sym doc 'variable)))))))
 
 (defun eldoc-last-data-store (symbol doc type)
   (aset eldoc-last-data 0 symbol)
   (aset eldoc-last-data 1 doc)
-  (aset eldoc-last-data 2 type))
+  (aset eldoc-last-data 2 type)
+  doc)
 
 ;; Note that any leading `*' in the docstring (which indicates the variable
 ;; is a user option) is removed.
@@ -556,7 +598,7 @@ ARGLIST is either a string, or a list of strings or symbols."
   (let ((str (cond ((stringp arglist) arglist)
                    ((not (listp arglist)) nil)
                    (t (format "%S" (help-make-usage 'toto arglist))))))
-    (if (and str (string-match "\\`([^ ]+ ?" str))
+    (if (and str (string-match "\\`([^ )]+ ?" str))
         (replace-match "(" t t str)
       str)))
 

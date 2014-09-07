@@ -1,3 +1,152 @@
+2014-09-06  Leo Liu  <sdl.web@gmail.com>
+
+	* emacs-lisp/pcase.el (pcase): Doc fix.
+	(pcase--split-vector): New function.
+	(pcase--q1): Support vector qpattern.  (Bug#18327)
+
+2014-09-05  Sam Steingold  <sds@gnu.org>
+
+	* textmodes/tex-mode.el (tex-print-file-extension): New user
+	option.
+	(tex-print): Use it instead of the hard-coded string.
+
+2014-09-05  Michael Albinus  <michael.albinus@gmx.de>
+
+	* net/tramp-sh.el (tramp-sh-handle-start-file-process):
+	Expand `default-directory'.
+
+2014-09-05  Martin Rudalics  <rudalics@gmx.at>
+
+	* scroll-bar.el (horizontal-scroll-bars-available-p): New
+	function.
+	(horizontal-scroll-bar-mode): Rewrite using
+	horizontal-scroll-bars-available-p.
+	* menu-bar.el (menu-bar-showhide-scroll-bar-menu): Rewrite using
+	horizontal-scroll-bars-available-p.
+
+2014-09-05  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* subr.el (call-process-shell-command, process-file-shell-command):
+	Make the `args' obsolete (bug#18409).
+	(start-process-shell-command, start-file-process-shell-command):
+	Use `declare'.
+
+2014-09-05  Jay Belanger  <jay.p.belanger@gmail.com>
+
+	* calc/calc-forms.el (math-normalize-hms): Do a better check for
+	"negative" hms forms.
+
+2014-09-04  Rasmus Pank Roulund  <emacs@pank.eu>
+
+	* vc/vc-git.el (vc-git-conflicted-files): Fix bug when git status
+	returns nil (bug#18391).
+
+2014-09-04  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* emacs-lisp/eldoc.el (eldoc-function-argstring): Don't strip
+	terminating paren (bug#18352).
+	(eldoc-last-data-store): Return cached data.
+	(eldoc-get-var-docstring): Avoid setq.
+	(eldoc-get-fnsym-args-string): Clarify data flow.
+
+2014-09-04  Thierry Volpiatto  <thierry.volpiatto@gmail.com>
+
+	* emacs-lisp/eldoc.el (eldoc-highlight-function-argument): Handle the
+	case where we're currently providing part of the &rest arg after some
+	&key args, as in define-ibuffer-op (bug#18048).
+
+2014-09-03  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* progmodes/which-func.el (which-func-ff-hook): Obey pre-existing
+	buffer-local setting of which-func-mode.
+	(which-func-mode): Use defvar-local.
+	(which-function-mode): Don't reset which-func-mode in each buffer since
+	it might have been set by someone else.
+	(which-func-update-ediff-windows): Check which-function-mode.
+
+2014-09-03  Martin Rudalics  <rudalics@gmx.at>
+
+	* frame.el (frame-initialize): Remove horizontal-scroll-bars
+	from frame-initial-frame-alist.
+	* scroll-bar.el (previous-horizontal-scroll-bar-mode)
+	(horizontal-scroll-bar-mode-explicit)
+	(set-horizontal-scroll-bar-mode, get-horizontal-scroll-bar-mode)
+	(toggle-horizontal-scroll-bar): Remove.
+	(horizontal-scroll-bar-mode): Remove defcustom.
+	(horizontal-scroll-bar-mode): Fix doc-string.
+	(scroll-bar-toolkit-scroll)
+	(scroll-bar-toolkit-horizontal-scroll): Add doc-strings stubs.
+
+2014-09-03  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* emacs-lisp/package.el (package-generate-description-file):
+	Properly quote the arguments (bug#18332).  Change second arg.
+	(package--alist-to-plist-args): Rename from package--alist-to-plist and
+	quote the elements.
+	(package--make-autoloads-and-stuff): Fix the test for pre-existence of
+	the *-pkg.el file.  Adjust to new calling convention of
+	package-generate-description-file.
+
+	* progmodes/gud.el (gud-gdb-completion-at-point): Add hack (bug#18282).
+	(gud-gdb-completions): Remove obsolete workaround.
+
+2014-09-03  Eli Zaretskii  <eliz@gnu.org>
+
+	* subr.el (posn-col-row): Revert the change from commit
+	r99634.2.576 eliz@gnu.org-20101113210758-8ml5kibjtza5ysmb, which
+	was inadvertently merged from emacs-23 release branch in r102428
+	monnier@iro.umontreal.ca-20101118035414-yvlg7k7dk4k4l3q, and
+	introduced an off-by-one error in the reported row when there is a
+	header line.  (Bug#18384)
+
+2014-09-03  Fabián Ezequiel Gallina  <fgallina@gnu.org>
+
+	* progmodes/python.el (python-indent-post-self-insert-function):
+	Avoid electric colon at beginning-of-defun.  (Bug#18228)
+
+2014-09-03  Glenn Morris  <rgm@gnu.org>
+
+	* tutorial.el (tutorial--display-changes):
+	Fix 2014-08-01 change.  (Bug#18382)
+
+2014-09-03  Ken Brown  <kbrown@cornell.edu>
+
+	* startup.el (fancy-splash-frame): Extend the fix for Bug#16014 to
+	the Cygwin-w32 build.  (Bug#18347)
+
+2014-09-03  Glenn Morris  <rgm@gnu.org>
+
+	* tar-mode.el (tar--extract, tar-extract):
+	Avoid permanently disabling undo in extracted buffers.  (Bug#18344)
+
+2014-09-03  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* progmodes/sh-script.el (sh-font-lock-quoted-subshell): Try to better
+	handle multiline elements (bug#18380).
+
+2014-09-01  Eli Zaretskii  <eliz@gnu.org>
+
+	* ls-lisp.el (ls-lisp-use-string-collate)
+	(ls-lisp-UCA-like-collation): New defcustoms.
+	(ls-lisp-string-lessp): Use them to control sorting by file
+	names.  (Bug#18051)
+	(ls-lisp-version-lessp): New function.
+	(ls-lisp-handle-switches): Use it to implement the -v switch of
+	GNU ls.
+	(ls-lisp--insert-directory): Mention the -v switch in the doc string.
+
+2014-08-31  Christoph Scholtes  <cschol2112@gmail.com>
+
+	* ibuffer.el: Replace mode-specific quit function with
+	`quit-window' via `special-mode'.
+	(ibuffer-mode-map): Use keybindings from special-mode-map instead
+	of local overrides.
+	(ibuffer): Don't store previous windows configuration.
+	Let `quit-window' handle restoring.
+	(ibuffer-quit): Remove function. Use `quit-window' instead.
+	(ibuffer-restore-window-config-on-quit): Remove variable.
+	(ibuffer-prev-window-config): Remove variable.
+
 2014-08-29  Michael Heerdegen  <michael_heerdegen@web.de>
 
 	* emacs-lisp/easy-mmode.el (define-minor-mode): Use mode function
@@ -89,27 +238,27 @@
 2014-08-24  Alan Mackenzie  <acm@muc.de>
 
 	Handle C++11's "auto" and "decltype" constructions.
-        * progmodes/cc-engine.el (c-forward-type): Enhance to recognise
+	* progmodes/cc-engine.el (c-forward-type): Enhance to recognise
 	and return 'decltype.
-        (c-forward-decl-or-cast-1): New let variables backup-kwd-sym,
+	(c-forward-decl-or-cast-1): New let variables backup-kwd-sym,
 	prev-kwd-sym, new-style-auto.  Enhance to handle the new "auto"
 	keyword.
-        * progmodes/cc-fonts.el (c-font-lock-declarations): Handle the
+	* progmodes/cc-fonts.el (c-font-lock-declarations): Handle the
 	"decltype" keyword.
-        (c-font-lock-c++-new): Handle "decltype" constructions.
-        * progmodes/cc-langs.el (c-auto-ops, c-auto-ops-re):
+	(c-font-lock-c++-new): Handle "decltype" constructions.
+	* progmodes/cc-langs.el (c-auto-ops, c-auto-ops-re):
 	New c-lang-defconsts/defvars.
-        (c-haskell-op, c-haskell-op-re): New c-lang-defconsts/defvars.
-        (c-typeof-kwds, c-typeof-key): New c-lang-defconsts/defvars.
-        (c-typeless-decl-kwds): Append "auto" onto the C++ value.
-        (c-not-decl-init-keywords): Also exclude c-typeof-kwds from value.
+	(c-haskell-op, c-haskell-op-re): New c-lang-defconsts/defvars.
+	(c-typeof-kwds, c-typeof-key): New c-lang-defconsts/defvars.
+	(c-typeless-decl-kwds): Append "auto" onto the C++ value.
+	(c-not-decl-init-keywords): Also exclude c-typeof-kwds from value.
 
 	Make ">>" act as double template ender in C++ Mode.
-        * progmodes/cc-langs.el (c->-op-cont-tokens): New lang-const split
+	* progmodes/cc-langs.el (c->-op-cont-tokens): New lang-const split
 	off from c->-op-cont-re.
-        (c->-op-cont-tokens): Change to use the above.
-        (c->-op-without->-cont-regexp): New lang-const.
-        * progmodes/cc-engine.el (c-forward-<>-arglist-recur):
+	(c->-op-cont-tokens): Change to use the above.
+	(c->-op-without->-cont-regexp): New lang-const.
+	* progmodes/cc-engine.el (c-forward-<>-arglist-recur):
 	Use c->-op-without->-cont-regexp in place of c->-op-cont-tokens.
 
 

@@ -1,3 +1,25 @@
+2014-09-04  Paul Eggert  <eggert@cs.ucla.edu>
+
+	* configure.ac (MAKEINFO): Clean up some configuration bitrot.
+	MAKEINFO is already set before we get here, so no need to call AC_PATH_PROG.
+	Bypass $am_missing_run.  Simplify version-number checking.
+
+2014-09-02  Paul Eggert  <eggert@cs.ucla.edu>
+
+	Merge from gnulib, incorporating:
+	2014-09-02 gnulib-common.m4: port to GCC 4.2.1 and Sun Studio 12 C++
+	2014-09-01 manywarnings: add GCC 4.9 warnings
+	* m4/gnulib-common.m4, m4/manywarnings.m4: Update from gnulib.
+
+2014-09-01  Paul Eggert  <eggert@cs.ucla.edu>
+
+	--enable-silent-rules now suppresses more chatter.
+	* INSTALL: Document this.
+
+	Clean up extern decls a bit.
+	* configure.ac (WERROR_CFLAGS): Don't disable -Wnested-externs.
+	While we're at it, don't disable -Wlogical-op either.
+
 2014-08-31  Paul Eggert  <eggert@cs.ucla.edu>
 
 	* configure.ac (MAKE): Export it, for config.status.
@@ -346,6 +368,7 @@
 	dumped heap size depending on 32/64bits arch on Windows.
 	Don't check for pthreads.h on MinGW32/64, it gets in the way.
 	Use mmap(2) for buffers and system malloc for MinGW32/64.
+	(EMACS_HEAPSIZE): Remove.
 
 2014-05-27  Paul Eggert  <eggert@cs.ucla.edu>
 

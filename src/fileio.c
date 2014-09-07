@@ -396,13 +396,6 @@ Otherwise return a directory name.
 Given a Unix syntax file name, returns a string ending in slash.  */)
   (Lisp_Object filename)
 {
-#ifndef DOS_NT
-  register const char *beg;
-#else
-  register char *beg;
-  Lisp_Object tem_fn;
-#endif
-  register const char *p;
   Lisp_Object handler;
 
   CHECK_STRING (filename);
@@ -417,12 +410,8 @@ Given a Unix syntax file name, returns a string ending in slash.  */)
       return STRINGP (handled_name) ? handled_name : Qnil;
     }
 
-#ifdef DOS_NT
-  beg = xlispstrdupa (filename);
-#else
-  beg = SSDATA (filename);
-#endif
-  p = beg + SBYTES (filename);
+  char *beg = SSDATA (filename);
+  char const *p = beg + SBYTES (filename);
 
   while (p != beg && !IS_DIRECTORY_SEP (p[-1])
 #ifdef DOS_NT
@@ -438,6 +427,11 @@ Given a Unix syntax file name, returns a string ending in slash.  */)
     return Qnil;
 #ifdef DOS_NT
   /* Expansion of "c:" to drive and default directory.  */
+  Lisp_Object tem_fn;
+  USE_SAFE_ALLOCA;
+  SAFE_ALLOCA_STRING (beg, filename);
+  p = beg + (p - SSDATA (filename));
+
   if (p[-1] == ':')
     {
       /* MAXPATHLEN+1 is guaranteed to be enough space for getdefdir.  */
@@ -481,6 +475,7 @@ Given a Unix syntax file name, returns a string ending in slash.  */)
       dostounix_filename (beg);
       tem_fn = make_specified_string (beg, -1, p - beg, 0);
     }
+  SAFE_FREE ();
   return tem_fn;
 #else  /* DOS_NT */
   return make_specified_string (beg, -1, p - beg, STRING_MULTIBYTE (filename));
@@ -847,8 +842,6 @@ probably use `make-temp-file' instead, except in three circumstances:
   return make_temp_name (prefix, 0);
 }
 
-
-
 DEFUN ("expand-file-name", Fexpand_file_name, Sexpand_file_name, 1, 2, 0,
        doc: /* Convert filename NAME to absolute, and canonicalize it.
 Second arg DEFAULT-DIRECTORY is directory to start with if NAME is relative
@@ -878,7 +871,9 @@ filesystem tree, not (expand-file-name ".."  dirname).  */)
   /* These point to SDATA and need to be careful with string-relocation
      during GC (via DECODE_FILE).  */
   char *nm;
+  char *nmlim;
   const char *newdir;
+  const char *newdirlim;
   /* This should only point to alloca'd data.  */
   char *target;
 
@@ -886,10 +881,10 @@ filesystem tree, not (expand-file-name ".."  dirname).  */)
   struct passwd *pw;
 #ifdef DOS_NT
   int drive = 0;
-  bool collapse_newdir = 1;
+  bool collapse_newdir = true;
   bool is_escaped = 0;
 #endif /* DOS_NT */
-  ptrdiff_t length;
+  ptrdiff_t length, nbytes;
   Lisp_Object handler, result, handled_name;
   bool multibyte;
   Lisp_Object hdir;
@@ -1018,8 +1013,9 @@ filesystem tree, not (expand-file-name ".."  dirname).  */)
     default_directory = Fdowncase (default_directory);
 #endif
 
-  /* Make a local copy of nm[] to protect it from GC in DECODE_FILE below.  */
-  nm = xlispstrdupa (name);
+  /* Make a local copy of NAME to protect it from GC in DECODE_FILE below.  */
+  SAFE_ALLOCA_STRING (nm, name);
+  nmlim = nm + SBYTES (name);
 
 #ifdef DOS_NT
   /* Note if special escape prefix is present, but remove for now.  */
@@ -1104,7 +1100,7 @@ filesystem tree, not (expand-file-name ".."  dirname).  */)
 	  if (IS_DIRECTORY_SEP (nm[1]))
 	    {
 	      if (strcmp (nm, SSDATA (name)) != 0)
-		name = make_specified_string (nm, -1, strlen (nm), multibyte);
+		name = make_specified_string (nm, -1, nmlim - nm, multibyte);
 	    }
 	  else
 #endif
@@ -1121,12 +1117,12 @@ filesystem tree, not (expand-file-name ".."  dirname).  */)
 	  if (!NILP (Vw32_downcase_file_names))
 	    name = Fdowncase (name);
 #endif
-	  return name;
 #else /* not DOS_NT */
-	  if (strcmp (nm, SSDATA (name)) == 0)
-	    return name;
-	  return make_specified_string (nm, -1, strlen (nm), multibyte);
+	  if (strcmp (nm, SSDATA (name)) != 0)
+	    name = make_specified_string (nm, -1, nmlim - nm, multibyte);
 #endif /* not DOS_NT */
+	  SAFE_FREE ();
+	  return name;
 	}
     }
 
@@ -1146,7 +1142,7 @@ filesystem tree, not (expand-file-name ".."  dirname).  */)
      return an absolute name, if the final prefix is not absolute we
      append it to the current working directory.  */
 
-  newdir = 0;
+  newdir = newdirlim = 0;
 
   if (nm[0] == '~')		/* prefix ~ */
     {
@@ -1156,7 +1152,7 @@ filesystem tree, not (expand-file-name ".."  dirname).  */)
 	  Lisp_Object tem;
 
 	  if (!(newdir = egetenv ("HOME")))
-	    newdir = "";
+	    newdir = newdirlim = "";
 	  nm++;
 	  /* `egetenv' may return a unibyte string, which will bite us since
 	     we expect the directory to be multibyte.  */
@@ -1171,13 +1167,15 @@ filesystem tree, not (expand-file-name ".."  dirname).  */)
 	  else
 #endif
 	    tem = build_string (newdir);
+	  newdirlim = newdir + SBYTES (tem);
 	  if (multibyte && !STRING_MULTIBYTE (tem))
 	    {
 	      hdir = DECODE_FILE (tem);
 	      newdir = SSDATA (hdir);
+	      newdirlim = newdir + SBYTES (hdir);
 	    }
 #ifdef DOS_NT
-	  collapse_newdir = 0;
+	  collapse_newdir = false;
 #endif
 	}
       else			/* ~user/filename */
@@ -1201,14 +1199,16 @@ filesystem tree, not (expand-file-name ".."  dirname).  */)
 		 bite us since we expect the directory to be
 		 multibyte.  */
 	      tem = build_string (newdir);
+	      newdirlim = newdir + SBYTES (tem);
 	      if (multibyte && !STRING_MULTIBYTE (tem))
 		{
 		  hdir = DECODE_FILE (tem);
 		  newdir = SSDATA (hdir);
+		  newdirlim = newdir + SBYTES (hdir);
 		}
 	      nm = p;
 #ifdef DOS_NT
-	      collapse_newdir = 0;
+	      collapse_newdir = false;
 #endif
 	    }
 
@@ -1234,6 +1234,7 @@ filesystem tree, not (expand-file-name ".."  dirname).  */)
 	      Lisp_Object tem = build_string (adir);
 
 	      tem = DECODE_FILE (tem);
+	      newdirlim = adir + SBYTES (tem);
 	      memcpy (adir, SSDATA (tem), SBYTES (tem) + 1);
 	    }
 	}
@@ -1245,6 +1246,7 @@ filesystem tree, not (expand-file-name ".."  dirname).  */)
 	  adir[1] = ':';
 	  adir[2] = '/';
 	  adir[3] = 0;
+	  newdirlim = adir + 3;
 	}
       newdir = adir;
     }
@@ -1265,6 +1267,7 @@ filesystem tree, not (expand-file-name ".."  dirname).  */)
       && !newdir)
     {
       newdir = SSDATA (default_directory);
+      newdirlim = newdir + SBYTES (default_directory);
 #ifdef DOS_NT
       /* Note if special escape prefix is present, but remove for now.  */
       if (newdir[0] == '/' && newdir[1] == ':')
@@ -1309,12 +1312,15 @@ filesystem tree, not (expand-file-name ".."  dirname).  */)
 	    }
 	  if (!IS_DIRECTORY_SEP (nm[0]))
 	    {
-	      ptrdiff_t newlen = strlen (newdir);
-	      char *tmp = alloca (newlen + file_name_as_directory_slop
-				  + strlen (nm) + 1);
-	      file_name_as_directory (tmp, newdir, newlen, multibyte);
-	      strcat (tmp, nm);
+	      ptrdiff_t nmlen = nmlim - nm;
+	      ptrdiff_t newdirlen = newdirlim - newdir;
+	      char *tmp = alloca (newdirlen + file_name_as_directory_slop
+				  + nmlen + 1);
+	      ptrdiff_t dlen = file_name_as_directory (tmp, newdir, newdirlen,
+						       multibyte);
+	      memcpy (tmp + dlen, nm, nmlen + 1);
 	      nm = tmp;
+	      nmlim = nm + dlen + nmlen;
 	    }
 	  adir = alloca (adir_size);
 	  if (drive)
@@ -1329,8 +1335,11 @@ filesystem tree, not (expand-file-name ".."  dirname).  */)
 	      Lisp_Object tem = build_string (adir);
 
 	      tem = DECODE_FILE (tem);
+	      newdirlim = adir + SBYTES (tem);
 	      memcpy (adir, SSDATA (tem), SBYTES (tem) + 1);
 	    }
+	  else
+	    newdirlim = adir + strlen (adir);
 	  newdir = adir;
 	}
 
@@ -1349,35 +1358,31 @@ filesystem tree, not (expand-file-name ".."  dirname).  */)
 	  if (IS_DIRECTORY_SEP (newdir[0]) && IS_DIRECTORY_SEP (newdir[1])
 	      && !IS_DIRECTORY_SEP (newdir[2]))
 	    {
-	      char *adir = strcpy (alloca (strlen (newdir) + 1), newdir);
+	      char *adir = strcpy (alloca (newdirlim - newdir + 1), newdir);
 	      char *p = adir + 2;
 	      while (*p && !IS_DIRECTORY_SEP (*p)) p++;
 	      p++;
 	      while (*p && !IS_DIRECTORY_SEP (*p)) p++;
 	      *p = 0;
 	      newdir = adir;
+	      newdirlim = newdir + strlen (adir);
 	    }
 	  else
 #endif
-	    newdir = "";
+	    newdir = newdirlim = "";
 	}
     }
 #endif /* DOS_NT */
 
-  if (newdir)
-    {
-      /* Ignore any slash at the end of newdir, unless newdir is
-	 just "/" or "//".  */
-      length = strlen (newdir);
-      while (length > 1 && IS_DIRECTORY_SEP (newdir[length - 1])
-	     && ! (length == 2 && IS_DIRECTORY_SEP (newdir[0])))
-	length--;
-    }
-  else
-    length = 0;
+  /* Ignore any slash at the end of newdir, unless newdir is
+     just "/" or "//".  */
+  length = newdirlim - newdir;
+  while (length > 1 && IS_DIRECTORY_SEP (newdir[length - 1])
+	 && ! (length == 2 && IS_DIRECTORY_SEP (newdir[0])))
+    length--;
 
   /* Now concatenate the directory and name to new space in the stack frame.  */
-  tlen = length + file_name_as_directory_slop + strlen (nm) + 1;
+  tlen = length + file_name_as_directory_slop + (nmlim - nm) + 1;
 #ifdef DOS_NT
   /* Reserve space for drive specifier and escape prefix, since either
      or both may need to be inserted.  (The Microsoft x86 compiler
@@ -1388,6 +1393,7 @@ filesystem tree, not (expand-file-name ".."  dirname).  */)
   target = SAFE_ALLOCA (tlen);
 #endif /* not DOS_NT */
   *target = 0;
+  nbytes = 0;
 
   if (newdir)
     {
@@ -1405,13 +1411,14 @@ filesystem tree, not (expand-file-name ".."  dirname).  */)
 	    {
 	      memcpy (target, newdir, length);
 	      target[length] = 0;
+	      nbytes = length;
 	    }
 	}
       else
-	file_name_as_directory (target, newdir, length, multibyte);
+	nbytes = file_name_as_directory (target, newdir, length, multibyte);
     }
 
-  strcat (target, nm);
+  memcpy (target + nbytes, nm, nmlim - nm + 1);
 
   /* Now canonicalize by removing `//', `/.' and `/foo/..' if they
      appear.  */
@@ -1717,7 +1724,8 @@ search_embedded_absfilename (char *nm, char *endp)
 	  for (s = p; *s && !IS_DIRECTORY_SEP (*s); s++);
 	  if (p[0] == '~' && s > p + 1)	/* We've got "/~something/".  */
 	    {
-	      char *o = alloca (s - p + 1);
+	      USE_SAFE_ALLOCA;
+	      char *o = SAFE_ALLOCA (s - p + 1);
 	      struct passwd *pw;
 	      memcpy (o, p, s - p);
 	      o [s - p] = 0;
@@ -1728,6 +1736,7 @@ search_embedded_absfilename (char *nm, char *endp)
 	      block_input ();
 	      pw = getpwnam (o + 1);
 	      unblock_input ();
+	      SAFE_FREE ();
 	      if (pw)
 		return p;
 	    }
@@ -1776,7 +1785,8 @@ those `/' is discarded.  */)
   /* Always work on a copy of the string, in case GC happens during
      decode of environment variables, causing the original Lisp_String
      data to be relocated.  */
-  nm = xlispstrdupa (filename);
+  USE_SAFE_ALLOCA;
+  SAFE_ALLOCA_STRING (nm, filename);
 
 #ifdef DOS_NT
   dostounix_filename (nm);
@@ -1790,8 +1800,13 @@ those `/' is discarded.  */)
     /* Start over with the new string, so we check the file-name-handler
        again.  Important with filenames like "/home/foo//:/hello///there"
        which would substitute to "/:/hello///there" rather than "/there".  */
-    return Fsubstitute_in_file_name
-      (make_specified_string (p, -1, endp - p, multibyte));
+    {
+      Lisp_Object result
+	= (Fsubstitute_in_file_name
+	   (make_specified_string (p, -1, endp - p, multibyte)));
+      SAFE_FREE ();
+      return result;
+    }
 
   /* See if any variables are substituted into the string.  */
 
@@ -1813,6 +1828,7 @@ those `/' is discarded.  */)
       if (!NILP (Vw32_downcase_file_names))
 	filename = Fdowncase (filename);
 #endif
+      SAFE_FREE ();
       return filename;
     }
 
@@ -1831,14 +1847,14 @@ those `/' is discarded.  */)
     {
       Lisp_Object xname = make_specified_string (xnm, -1, x - xnm, multibyte);
 
-      xname = Fdowncase (xname);
-      return xname;
+      filename = Fdowncase (xname);
     }
   else
 #endif
-  return (xnm == SSDATA (filename)
-	  ? filename
-	  : make_specified_string (xnm, -1, x - xnm, multibyte));
+  if (xnm != SSDATA (filename))
+    filename = make_specified_string (xnm, -1, x - xnm, multibyte);
+  SAFE_FREE ();
+  return filename;
 }
 
 /* A slightly faster and more convenient way to get
@@ -2765,23 +2781,24 @@ searchable directory.  */)
     }
 
   absname = ENCODE_FILE (absname);
-  return file_accessible_directory_p (SSDATA (absname)) ? Qt : Qnil;
+  return file_accessible_directory_p (absname) ? Qt : Qnil;
 }
 
 /* If FILE is a searchable directory or a symlink to a
    searchable directory, return true.  Otherwise return
    false and set errno to an error number.  */
 bool
-file_accessible_directory_p (char const *file)
+file_accessible_directory_p (Lisp_Object file)
 {
 #ifdef DOS_NT
   /* There's no need to test whether FILE is searchable, as the
      searchable/executable bit is invented on DOS_NT platforms.  */
-  return file_directory_p (file);
+  return file_directory_p (SSDATA (file));
 #else
   /* On POSIXish platforms, use just one system call; this avoids a
      race and is typically faster.  */
-  ptrdiff_t len = strlen (file);
+  const char *data = SSDATA (file);
+  ptrdiff_t len = SBYTES (file);
   char const *dir;
   bool ok;
   int saved_errno;
@@ -2793,15 +2810,15 @@ file_accessible_directory_p (char const *file)
      "/" and "//" are distinct on some platforms, whereas "/", "///",
      "////", etc. are all equivalent.  */
   if (! len)
-    dir = file;
+    dir = data;
   else
     {
       /* Just check for trailing '/' when deciding whether to append '/'.
 	 That's simpler than testing the two special cases "/" and "//",
 	 and it's a safe optimization here.  */
       char *buf = SAFE_ALLOCA (len + 3);
-      memcpy (buf, file, len);
-      strcpy (buf + len, &"/."[file[len - 1] == '/']);
+      memcpy (buf, data, len);
+      strcpy (buf + len, &"/."[data[len - 1] == '/']);
       dir = buf;
     }
 
@@ -5292,19 +5309,11 @@ If BUF is omitted or nil, it defaults to the current buffer.
 See Info node `(elisp)Modification Time' for more details.  */)
   (Lisp_Object buf)
 {
-  struct buffer *b;
+  struct buffer *b = decode_buffer (buf);
   struct stat st;
   Lisp_Object handler;
   Lisp_Object filename;
   struct timespec mtime;
-
-  if (NILP (buf))
-    b = current_buffer;
-  else
-    {
-      CHECK_BUFFER (buf);
-      b = XBUFFER (buf);
-    }
 
   if (!STRINGP (BVAR (b, filename))) return Qt;
   if (b->modtime.tv_nsec == UNKNOWN_MODTIME_NSECS) return Qt;

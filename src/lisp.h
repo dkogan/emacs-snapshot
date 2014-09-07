@@ -3885,6 +3885,7 @@ intern_c_string (const char *str)
 }
 
 /* Defined in eval.c.  */
+extern EMACS_INT lisp_eval_depth;
 extern Lisp_Object Qexit, Qinteractive, Qcommandp, Qmacro;
 extern Lisp_Object Qinhibit_quit, Qinternal_interpreter_environment, Qclosure;
 extern Lisp_Object Qand_rest;
@@ -4028,7 +4029,7 @@ extern _Noreturn void report_file_error (const char *, Lisp_Object);
 extern bool internal_delete_file (Lisp_Object);
 extern Lisp_Object emacs_readlinkat (int, const char *);
 extern bool file_directory_p (const char *);
-extern bool file_accessible_directory_p (const char *);
+extern bool file_accessible_directory_p (Lisp_Object);
 extern void init_fileio (void);
 extern void syms_of_fileio (void);
 extern Lisp_Object make_temp_name (Lisp_Object, bool);
@@ -4419,6 +4420,11 @@ extern void syms_of_profiler (void);
 extern char *emacs_root_dir (void);
 #endif /* DOS_NT */
 
+/* Defined in lastfile.c.  */
+extern char my_edata[];
+extern char my_endbss[];
+extern char *my_endbss_static;
+
 /* True means ^G can quit instantly.  */
 extern bool immediate_quit;
 
@@ -4436,13 +4442,14 @@ extern char *xlispstrdup (Lisp_Object) ATTRIBUTE_MALLOC;
 extern void dupstring (char **, char const *);
 extern void xputenv (const char *);
 
-extern char *egetenv (const char *);
+extern char *egetenv_internal (const char *, ptrdiff_t);
 
-/* Copy Lisp string to temporary (allocated on stack) C string.  */
-
-#define xlispstrdupa(string)			\
-  memcpy (alloca (SBYTES (string) + 1),		\
-	  SSDATA (string), SBYTES (string) + 1)
+INLINE char *
+egetenv (const char *var)
+{
+  /* When VAR is a string literal, strlen can be optimized away.  */
+  return egetenv_internal (var, strlen (var));
+}
 
 /* Set up the name of the machine we're running on.  */
 extern void init_system_name (void);
@@ -4471,7 +4478,7 @@ extern void *record_xmalloc (size_t) ATTRIBUTE_ALLOC_SIZE ((1));
 
 /* SAFE_ALLOCA allocates a simple buffer.  */
 
-#define SAFE_ALLOCA(size) ((size) < MAX_ALLOCA	\
+#define SAFE_ALLOCA(size) ((size) <= MAX_ALLOCA	\
 			   ? alloca (size)	\
 			   : (sa_must_free = true, record_xmalloc (size)))
 
@@ -4491,6 +4498,14 @@ extern void *record_xmalloc (size_t) ATTRIBUTE_ALLOC_SIZE ((1));
       }								 \
   } while (false)
 
+/* SAFE_ALLOCA_STRING allocates a C copy of a Lisp string.  */
+
+#define SAFE_ALLOCA_STRING(ptr, string)			\
+  do {							\
+    (ptr) = SAFE_ALLOCA (SBYTES (string) + 1);		\
+    memcpy (ptr, SDATA (string), SBYTES (string) + 1);	\
+  } while (false)
+
 /* SAFE_FREE frees xmalloced memory and enables GC as needed.  */
 
 #define SAFE_FREE()			\
@@ -4506,9 +4521,9 @@ extern void *record_xmalloc (size_t) ATTRIBUTE_ALLOC_SIZE ((1));
 
 #define SAFE_ALLOCA_LISP(buf, nelt)			       \
   do {							       \
-    if ((nelt) < MAX_ALLOCA / word_size)		       \
+    if ((nelt) <= MAX_ALLOCA / word_size)		       \
       (buf) = alloca ((nelt) * word_size);		       \
-    else if ((nelt) < min (PTRDIFF_MAX, SIZE_MAX) / word_size) \
+    else if ((nelt) <= min (PTRDIFF_MAX, SIZE_MAX) / word_size) \
       {							       \
 	Lisp_Object arg_;				       \
 	(buf) = xmalloc ((nelt) * word_size);		       \
