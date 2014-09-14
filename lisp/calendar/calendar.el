@@ -1443,9 +1443,14 @@ display the generated calendar."
       (calendar-generate-window month year)
       (if (and calendar-view-diary-initially-flag
                (calendar-date-is-visible-p date))
-          (diary-view-entries))))
+          ;; Do not clobber the calendar with the diary, if the diary
+          ;; has previously been shown in the window that now shows the
+          ;; calendar (bug#18381).
+          (let ((display-buffer-overriding-action
+                 '(nil . ((inhibit-same-window . t)))))
+            (diary-view-entries)))))
   (if calendar-view-holidays-initially-flag
-      (let* ((diary-buffer (get-file-buffer diary-file))
+      (let* ((diary-buffer (diary-live-p))
              (diary-window (if diary-buffer (get-buffer-window diary-buffer)))
              (split-height-threshold (if diary-window 2 1000)))
         ;; FIXME display buffer?
@@ -1799,14 +1804,18 @@ is COMMAND's keybinding, STRING describes the binding."
                               nil "today"))
    '(calendar-date-string (calendar-current-date) t)
    (calendar-mode-line-entry 'calendar-scroll-left "next month" ">"))
-  "The mode line of the calendar buffer.
+  "If non-nil, the mode line of the calendar buffer.
 This is a list of items that evaluate to strings.  The elements
 are evaluated and concatenated, evenly separated by blanks.
 During evaluation, the variable `date' is available as the date
 nearest the cursor (or today's date if that fails).  To update
-the mode-line as the cursor moves, add `calendar-update-mode-line'
-to `calendar-move-hook'.  Here is an example that has the Hebrew date,
-the day number/days remaining in the year, and the ISO week/year numbers:
+the mode-line as the cursor moves, add
+`calendar-update-mode-line' to `calendar-move-hook'.
+
+If nil, do not modify the mode line at all.
+
+Here is an example that has the Hebrew date, the day number/days
+remaining in the year, and the ISO week/year numbers:
 
   (list
    \"\"
@@ -1884,7 +1893,8 @@ the STRINGS are just concatenated and the result truncated."
 
 (defun calendar-update-mode-line ()
   "Update the calendar mode line with the current date and date style."
-  (if (bufferp (get-buffer calendar-buffer))
+  (if (and calendar-mode-line-format
+           (bufferp (get-buffer calendar-buffer)))
       (with-current-buffer calendar-buffer
         (let ((start (- calendar-left-margin 2))
               (date (condition-case nil

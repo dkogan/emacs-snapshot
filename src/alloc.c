@@ -453,7 +453,7 @@ mmap_lisp_allowed_p (void)
   /* If we can't store all memory addresses in our lisp objects, it's
      risky to let the heap use mmap and give us addresses from all
      over our address space.  We also can't use mmap for lisp objects
-     if we might dump: unexec doesn't preserve the contents of mmaped
+     if we might dump: unexec doesn't preserve the contents of mmapped
      regions.  */
   return pointers_fit_in_lispobj_p () && !might_dump;
 }
@@ -2226,6 +2226,32 @@ make_string (const char *contents, ptrdiff_t nbytes)
   return val;
 }
 
+#ifdef USE_LOCAL_ALLOCATORS
+
+/* Initialize the string S from DATA and SIZE.  S must be followed by
+   SIZE + 1 bytes of memory that can be used.  Return S tagged as a
+   Lisp object.  */
+
+Lisp_Object
+local_string_init (struct Lisp_String *s, char const *data, ptrdiff_t size)
+{
+  unsigned char *data_copy = (unsigned char *) (s + 1);
+  parse_str_as_multibyte ((unsigned char const *) data,
+			  size, &s->size, &s->size_byte);
+  if (size == s->size || size != s->size_byte)
+    {
+      s->size = size;
+      s->size_byte = -1;
+    }
+  s->intervals = NULL;
+  s->data = data_copy;
+  memcpy (data_copy, data, size);
+  data_copy[size] = '\0';
+  return make_lisp_ptr (s, Lisp_String);
+}
+
+#endif
+
 
 /* Make an unibyte string from LENGTH bytes at CONTENTS.  */
 
@@ -3287,6 +3313,22 @@ See also the function `vector'.  */)
   XSETVECTOR (vector, p);
   return vector;
 }
+
+#ifdef USE_LOCAL_ALLOCATORS
+
+/* Initialize V with LENGTH objects each with value INIT,
+   and return it tagged as a Lisp Object.  */
+
+INLINE Lisp_Object
+local_vector_init (struct Lisp_Vector *v, ptrdiff_t length, Lisp_Object init)
+{
+  v->header.size = length;
+  for (ptrdiff_t i = 0; i < length; i++)
+    v->contents[i] = init;
+  return make_lisp_ptr (v, Lisp_Vectorlike);
+}
+
+#endif
 
 
 DEFUN ("vector", Fvector, Svector, 0, MANY, 0,
@@ -7089,7 +7131,7 @@ detect_suspicious_free (void* ptr)
 
 DEFUN ("suspicious-object", Fsuspicious_object, Ssuspicious_object, 1, 1, 0,
        doc: /* Return OBJ, maybe marking it for extra scrutiny.
-If Emacs is compiled with suspicous object checking, capture
+If Emacs is compiled with suspicious object checking, capture
 a stack trace when OBJ is freed in order to help track down
 garbage collection bugs.  Otherwise, do nothing and return OBJ.   */)
    (Lisp_Object obj)
@@ -7117,8 +7159,33 @@ die (const char *msg, const char *file, int line)
 	   file, line, msg);
   terminate_due_to_signal (SIGABRT, INT_MAX);
 }
-#endif
-
+
+#endif /* ENABLE_CHECKING */
+
+#if defined (ENABLE_CHECKING) && defined (USE_STACK_LISP_OBJECTS)
+
+/* Stress alloca with inconveniently sized requests and check
+   whether all allocated areas may be used for Lisp_Object.  */
+
+NO_INLINE static void
+verify_alloca (void)
+{
+  int i;
+  enum { ALLOCA_CHECK_MAX = 256 };
+  /* Start from size of the smallest Lisp object.  */
+  for (i = sizeof (struct Lisp_Cons); i <= ALLOCA_CHECK_MAX; i++)
+    {
+      void *ptr = alloca (i);
+      make_lisp_ptr (ptr, Lisp_Cons);
+    }
+}
+
+#else /* not (ENABLE_CHECKING && USE_STACK_LISP_OBJECTS) */
+
+#define verify_alloca() ((void) 0)
+
+#endif /* ENABLE_CHECKING && USE_STACK_LISP_OBJECTS */
+
 /* Initialization.  */
 
 void
@@ -7127,6 +7194,8 @@ init_alloc_once (void)
   /* Used to do Vpurify_flag = Qt here, but Qt isn't set up yet!  */
   purebeg = PUREBEG;
   pure_size = PURESIZE;
+
+  verify_alloca ();
 
 #if GC_MARK_STACK || defined GC_MALLOC_CHECK
   mem_init ();

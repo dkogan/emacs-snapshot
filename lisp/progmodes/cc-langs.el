@@ -406,7 +406,7 @@ The syntax tables aren't stored directly since they're quite large."
   (and (c-lang-const c++-make-template-syntax-table)
        (funcall (c-lang-const c++-make-template-syntax-table))))
 
-(c-lang-defconst c-no-parens-syntax-table
+(c-lang-defconst c-make-no-parens-syntax-table
   ;; A variant of the standard syntax table which is used to find matching
   ;; "<"s and ">"s which have been marked as parens using syntax table
   ;; properties.  The other paren characters (e.g. "{", ")" "]") are given a
@@ -414,18 +414,20 @@ The syntax tables aren't stored directly since they're quite large."
   ;; even when there's unbalanced other parens inside them.
   ;;
   ;; This variable is nil for languages which don't have template stuff.
-  t  `(lambda ()
-	(if (c-lang-const c-recognize-<>-arglists)
-	    (let ((table (funcall ,(c-lang-const c-make-mode-syntax-table))))
-	      (modify-syntax-entry ?\( "." table)
-	      (modify-syntax-entry ?\) "." table)
-	      (modify-syntax-entry ?\[ "." table)
-	      (modify-syntax-entry ?\] "." table)
-	      (modify-syntax-entry ?\{ "." table)
-	      (modify-syntax-entry ?\} "." table)
-	      table))))
+  t  (if (c-lang-const c-recognize-<>-arglists)
+     `(lambda ()
+	;(if (c-lang-const c-recognize-<>-arglists)
+	(let ((table (funcall ,(c-lang-const c-make-mode-syntax-table))))
+	  (modify-syntax-entry ?\( "." table)
+	  (modify-syntax-entry ?\) "." table)
+	  (modify-syntax-entry ?\[ "." table)
+	  (modify-syntax-entry ?\] "." table)
+	  (modify-syntax-entry ?\{ "." table)
+	  (modify-syntax-entry ?\} "." table)
+	  table))))
 (c-lang-defvar c-no-parens-syntax-table
-	       (funcall (c-lang-const c-no-parens-syntax-table)))
+  (and (c-lang-const c-make-no-parens-syntax-table)
+       (funcall (c-lang-const c-make-no-parens-syntax-table))))
 
 (c-lang-defconst c-identifier-syntax-modifications
   "A list that describes the modifications that should be done to the

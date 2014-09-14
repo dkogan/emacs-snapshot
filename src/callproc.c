@@ -1154,6 +1154,9 @@ add_env (char **env, char **new_env, char *string)
 #ifndef DOS_NT
 
 /* 'exec' failed inside a child running NAME, with error number ERR.
+   Possibly a vforked child needed to allocate a large vector on the
+   stack; such a child cannot fall back on malloc because that might
+   mess up the allocator's data structures in the parent.
    Report the error and exit the child.  */
 
 static _Noreturn void
@@ -1168,6 +1171,17 @@ exec_failed (char const *name, int err)
   emacs_perror (name);
   _exit (err == ENOENT ? EXIT_ENOENT : EXIT_CANNOT_INVOKE);
 }
+
+#else
+
+/* Do nothing.  There is no need to fail, as DOS_NT platforms do not
+   fork and exec, and handle alloca exhaustion in a different way.  */
+
+static void
+exec_failed (char const *name, int err)
+{
+}
+
 #endif
 
 /* This is the last thing run in a newly forked inferior
@@ -1291,9 +1305,11 @@ child_setup (int in, int out, int err, char **new_argv, bool set_pgrp,
 
     if (STRINGP (display))
       {
+	char *vdata;
+
 	if (MAX_ALLOCA - sizeof "DISPLAY=" < SBYTES (display))
 	  exec_failed (new_argv[0], ENOMEM);
-	char *vdata = alloca (sizeof "DISPLAY=" + SBYTES (display));
+	vdata = alloca (sizeof "DISPLAY=" + SBYTES (display));
 	strcpy (vdata, "DISPLAY=");
 	strcat (vdata, SSDATA (display));
 	new_env = add_env (env, new_env, vdata);

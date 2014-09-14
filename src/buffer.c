@@ -5391,6 +5391,7 @@ syms_of_buffer (void)
   staticpro (&Qpermanent_local);
   staticpro (&Qkill_buffer_hook);
 
+  DEFSYM (Qchoice, "choice");
   DEFSYM (Qleft, "left");
   DEFSYM (Qright, "right");
   DEFSYM (Qrange, "range");
@@ -5943,7 +5944,7 @@ The value takes effect whenever you tell a window to display this buffer;
 for instance, with `set-window-buffer' or when `display-buffer' displays it.
 
 A value of `bottom' means put the horizontal scroll bar at the bottom of
-the window; a value of nil means don't show any horizonal scroll bars.
+the window; a value of nil means don't show any horizontal scroll bars.
 A value of t (the default) means do whatever the window's frame
 specifies.  */);
 

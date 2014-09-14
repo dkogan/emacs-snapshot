@@ -868,9 +868,7 @@ default_pixels_per_inch_y (void)
 #endif /* HAVE_WINDOW_SYSTEM */
 
 /* Whether horizontal scroll bars are currently enabled for frame F.  */
-#if (defined (HAVE_WINDOW_SYSTEM)					\
-     && ((defined (USE_TOOLKIT_SCROLL_BARS) && !defined (HAVE_NS))	\
-	 || defined (HAVE_NTGUI)))
+#if USE_HORIZONTAL_SCROLL_BARS
 #define FRAME_HAS_HORIZONTAL_SCROLL_BARS(f) \
   ((f)->horizontal_scroll_bars)
 #else
@@ -1290,7 +1288,7 @@ extern Lisp_Object Vframe_list;
    / FRAME_LINE_HEIGHT (f))
 
 /* Return the pixel width/height of frame F with a text size of
-   width/heigh.  */
+   width/height.  */
 #define FRAME_TEXT_TO_PIXEL_WIDTH(f, width)	  \
   ((width)					  \
    + FRAME_SCROLL_BAR_AREA_WIDTH (f)		  \
@@ -1500,5 +1498,12 @@ extern Lisp_Object make_monitor_attribute_list (struct MonitorInfo *monitors,
 
 
 INLINE_HEADER_END
+
+/* Suppress -Wsuggest-attribute=const if there are no scroll bars.
+   This is for functions like x_set_horizontal_scroll_bars that have
+   no effect in this case.  */
+#if ! USE_HORIZONTAL_SCROLL_BARS && 4 < __GNUC__ + (6 <= __GNUC_MINOR__)
+# pragma GCC diagnostic ignored "-Wsuggest-attribute=const"
+#endif
 
 #endif /* not EMACS_FRAME_H */

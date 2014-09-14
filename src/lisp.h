@@ -36,31 +36,15 @@ INLINE_HEADER_BEGIN
 
 /* Define a TYPE constant ID as an externally visible name.  Use like this:
 
-      #define ID_val (some integer preprocessor expression)
-      #if ENUMABLE (ID_val)
-      DEFINE_GDB_SYMBOL_ENUM (ID)
-      #else
       DEFINE_GDB_SYMBOL_BEGIN (TYPE, ID)
-      # define ID ID_val
+      # define ID (some integer preprocessor expression of type TYPE)
       DEFINE_GDB_SYMBOL_END (ID)
-      #endif
 
    This hack is for the benefit of compilers that do not make macro
-   definitions visible to the debugger.  It's used for symbols that
-   .gdbinit needs, symbols whose values may not fit in 'int' (where an
-   enum would suffice).
+   definitions or enums visible to the debugger.  It's used for symbols
+   that .gdbinit needs.  */
 
-   Some GCC versions before GCC 4.2 omit enums in debugging output;
-   see GCC bug 23336.  So don't use enums with older GCC.  */
-
-#if !defined __GNUC__ || 4 < __GNUC__ + (2 <= __GNUC_MINOR__)
-# define ENUMABLE(val) (INT_MIN <= (val) && (val) <= INT_MAX)
-#else
-# define ENUMABLE(val) 0
-#endif
-
-#define DEFINE_GDB_SYMBOL_ENUM(id) enum { id = id##_val };
-#if defined MAIN_PROGRAM
+#ifdef MAIN_PROGRAM
 # define DEFINE_GDB_SYMBOL_BEGIN(type, id) type const id EXTERNALLY_VISIBLE
 # define DEFINE_GDB_SYMBOL_END(id) = id;
 #else
@@ -298,6 +282,15 @@ error !;
 # endif
 #endif
 
+#ifndef USE_STACK_LISP_OBJECTS
+# define USE_STACK_LISP_OBJECTS false
+#endif
+
+#if defined HAVE_STRUCT_ATTRIBUTE_ALIGNED && USE_STACK_LISP_OBJECTS
+# define GCALIGNED __attribute__ ((aligned (GCALIGNMENT)))
+#else
+# define GCALIGNED /* empty */
+#endif
 
 /* Some operations are so commonly executed that they are implemented
    as macros, not functions, because otherwise runtime performance would
@@ -591,25 +584,15 @@ LISP_MACRO_DEFUN (XIL, Lisp_Object, (EMACS_INT i), (i))
 
 /* In the size word of a vector, this bit means the vector has been marked.  */
 
-#define ARRAY_MARK_FLAG_val PTRDIFF_MIN
-#if ENUMABLE (ARRAY_MARK_FLAG_val)
-DEFINE_GDB_SYMBOL_ENUM (ARRAY_MARK_FLAG)
-#else
 DEFINE_GDB_SYMBOL_BEGIN (ptrdiff_t, ARRAY_MARK_FLAG)
-# define ARRAY_MARK_FLAG ARRAY_MARK_FLAG_val
+# define ARRAY_MARK_FLAG PTRDIFF_MIN
 DEFINE_GDB_SYMBOL_END (ARRAY_MARK_FLAG)
-#endif
 
 /* In the size word of a struct Lisp_Vector, this bit means it's really
    some other vector-like object.  */
-#define PSEUDOVECTOR_FLAG_val (PTRDIFF_MAX - PTRDIFF_MAX / 2)
-#if ENUMABLE (PSEUDOVECTOR_FLAG_val)
-DEFINE_GDB_SYMBOL_ENUM (PSEUDOVECTOR_FLAG)
-#else
 DEFINE_GDB_SYMBOL_BEGIN (ptrdiff_t, PSEUDOVECTOR_FLAG)
-# define PSEUDOVECTOR_FLAG PSEUDOVECTOR_FLAG_val
+# define PSEUDOVECTOR_FLAG (PTRDIFF_MAX - PTRDIFF_MAX / 2)
 DEFINE_GDB_SYMBOL_END (PSEUDOVECTOR_FLAG)
-#endif
 
 /* In a pseudovector, the size field actually contains a word with one
    PSEUDOVECTOR_FLAG bit set, and one of the following values extracted
@@ -662,14 +645,9 @@ enum More_Lisp_Bits
    that cons.  */
 
 /* Mask for the value (as opposed to the type bits) of a Lisp object.  */
-#define VALMASK_val (USE_LSB_TAG ? - (1 << GCTYPEBITS) : VAL_MAX)
-#if ENUMABLE (VALMASK_val)
-DEFINE_GDB_SYMBOL_ENUM (VALMASK)
-#else
 DEFINE_GDB_SYMBOL_BEGIN (EMACS_INT, VALMASK)
-# define VALMASK VALMASK_val
+# define VALMASK (USE_LSB_TAG ? - (1 << GCTYPEBITS) : VAL_MAX)
 DEFINE_GDB_SYMBOL_END (VALMASK)
-#endif
 
 /* Largest and smallest representable fixnum values.  These are the C
    values.  They are macros for use in static initializers.  */
@@ -1016,7 +994,7 @@ LISP_MACRO_DEFUN_VOID (CHECK_TYPE,
 
 typedef struct interval *INTERVAL;
 
-struct Lisp_Cons
+struct GCALIGNED Lisp_Cons
   {
     /* Car of this cons cell.  */
     Lisp_Object car;
@@ -3038,6 +3016,16 @@ struct gcpro
   ptrdiff_t nvars;
 
 #ifdef DEBUG_GCPRO
+  /* File name where this record is used.  */
+  const char *name;
+
+  /* Line number in this file.  */
+  int lineno;
+
+  /* Index in the local chain of records.  */
+  int idx;
+
+  /* Nesting level.  */
   int level;
 #endif
 };
@@ -3093,122 +3081,150 @@ struct gcpro
 
 #ifndef DEBUG_GCPRO
 
-#define GCPRO1(varname) \
- {gcpro1.next = gcprolist; gcpro1.var = &varname; gcpro1.nvars = 1; \
-  gcprolist = &gcpro1; }
+#define GCPRO1(a)							\
+  { gcpro1.next = gcprolist; gcpro1.var = &(a); gcpro1.nvars = 1;	\
+    gcprolist = &gcpro1; }
 
-#define GCPRO2(varname1, varname2) \
- {gcpro1.next = gcprolist; gcpro1.var = &varname1; gcpro1.nvars = 1; \
-  gcpro2.next = &gcpro1; gcpro2.var = &varname2; gcpro2.nvars = 1; \
-  gcprolist = &gcpro2; }
+#define GCPRO2(a, b)							\
+  { gcpro1.next = gcprolist; gcpro1.var = &(a); gcpro1.nvars = 1;	\
+    gcpro2.next = &gcpro1; gcpro2.var = &(b); gcpro2.nvars = 1;		\
+    gcprolist = &gcpro2; }
 
-#define GCPRO3(varname1, varname2, varname3) \
- {gcpro1.next = gcprolist; gcpro1.var = &varname1; gcpro1.nvars = 1; \
-  gcpro2.next = &gcpro1; gcpro2.var = &varname2; gcpro2.nvars = 1; \
-  gcpro3.next = &gcpro2; gcpro3.var = &varname3; gcpro3.nvars = 1; \
-  gcprolist = &gcpro3; }
+#define GCPRO3(a, b, c)							\
+  { gcpro1.next = gcprolist; gcpro1.var = &(a); gcpro1.nvars = 1;	\
+    gcpro2.next = &gcpro1; gcpro2.var = &(b); gcpro2.nvars = 1;		\
+    gcpro3.next = &gcpro2; gcpro3.var = &(c); gcpro3.nvars = 1;		\
+    gcprolist = &gcpro3; }
 
-#define GCPRO4(varname1, varname2, varname3, varname4) \
- {gcpro1.next = gcprolist; gcpro1.var = &varname1; gcpro1.nvars = 1; \
-  gcpro2.next = &gcpro1; gcpro2.var = &varname2; gcpro2.nvars = 1; \
-  gcpro3.next = &gcpro2; gcpro3.var = &varname3; gcpro3.nvars = 1; \
-  gcpro4.next = &gcpro3; gcpro4.var = &varname4; gcpro4.nvars = 1; \
-  gcprolist = &gcpro4; }
+#define GCPRO4(a, b, c, d)						\
+  { gcpro1.next = gcprolist; gcpro1.var = &(a); gcpro1.nvars = 1;	\
+    gcpro2.next = &gcpro1; gcpro2.var = &(b); gcpro2.nvars = 1;		\
+    gcpro3.next = &gcpro2; gcpro3.var = &(c); gcpro3.nvars = 1;		\
+    gcpro4.next = &gcpro3; gcpro4.var = &(d); gcpro4.nvars = 1;		\
+    gcprolist = &gcpro4; }
 
-#define GCPRO5(varname1, varname2, varname3, varname4, varname5) \
- {gcpro1.next = gcprolist; gcpro1.var = &varname1; gcpro1.nvars = 1; \
-  gcpro2.next = &gcpro1; gcpro2.var = &varname2; gcpro2.nvars = 1; \
-  gcpro3.next = &gcpro2; gcpro3.var = &varname3; gcpro3.nvars = 1; \
-  gcpro4.next = &gcpro3; gcpro4.var = &varname4; gcpro4.nvars = 1; \
-  gcpro5.next = &gcpro4; gcpro5.var = &varname5; gcpro5.nvars = 1; \
-  gcprolist = &gcpro5; }
+#define GCPRO5(a, b, c, d, e)						\
+  { gcpro1.next = gcprolist; gcpro1.var = &(a); gcpro1.nvars = 1;	\
+    gcpro2.next = &gcpro1; gcpro2.var = &(b); gcpro2.nvars = 1;		\
+    gcpro3.next = &gcpro2; gcpro3.var = &(c); gcpro3.nvars = 1;		\
+    gcpro4.next = &gcpro3; gcpro4.var = &(d); gcpro4.nvars = 1;		\
+    gcpro5.next = &gcpro4; gcpro5.var = &(e); gcpro5.nvars = 1;		\
+    gcprolist = &gcpro5; }
 
-#define GCPRO6(varname1, varname2, varname3, varname4, varname5, varname6) \
- {gcpro1.next = gcprolist; gcpro1.var = &varname1; gcpro1.nvars = 1; \
-  gcpro2.next = &gcpro1; gcpro2.var = &varname2; gcpro2.nvars = 1; \
-  gcpro3.next = &gcpro2; gcpro3.var = &varname3; gcpro3.nvars = 1; \
-  gcpro4.next = &gcpro3; gcpro4.var = &varname4; gcpro4.nvars = 1; \
-  gcpro5.next = &gcpro4; gcpro5.var = &varname5; gcpro5.nvars = 1; \
-  gcpro6.next = &gcpro5; gcpro6.var = &varname6; gcpro6.nvars = 1; \
-  gcprolist = &gcpro6; }
+#define GCPRO6(a, b, c, d, e, f)					\
+  { gcpro1.next = gcprolist; gcpro1.var = &(a); gcpro1.nvars = 1;	\
+    gcpro2.next = &gcpro1; gcpro2.var = &(b); gcpro2.nvars = 1;		\
+    gcpro3.next = &gcpro2; gcpro3.var = &(c); gcpro3.nvars = 1;		\
+    gcpro4.next = &gcpro3; gcpro4.var = &(d); gcpro4.nvars = 1;		\
+    gcpro5.next = &gcpro4; gcpro5.var = &(e); gcpro5.nvars = 1;		\
+    gcpro6.next = &gcpro5; gcpro6.var = &(f); gcpro6.nvars = 1;		\
+    gcprolist = &gcpro6; }
 
-#define GCPRO7(a, b, c, d, e, f, g)				\
- {gcpro1.next = gcprolist; gcpro1.var = &(a); gcpro1.nvars = 1;	\
-  gcpro2.next = &gcpro1; gcpro2.var = &(b); gcpro2.nvars = 1;	\
-  gcpro3.next = &gcpro2; gcpro3.var = &(c); gcpro3.nvars = 1;	\
-  gcpro4.next = &gcpro3; gcpro4.var = &(d); gcpro4.nvars = 1;	\
-  gcpro5.next = &gcpro4; gcpro5.var = &(e); gcpro5.nvars = 1;	\
-  gcpro6.next = &gcpro5; gcpro6.var = &(f); gcpro6.nvars = 1;	\
-  gcpro7.next = &gcpro6; gcpro7.var = &(g); gcpro7.nvars = 1;	\
-  gcprolist = &gcpro7; }
+#define GCPRO7(a, b, c, d, e, f, g)					\
+  { gcpro1.next = gcprolist; gcpro1.var = &(a); gcpro1.nvars = 1;	\
+    gcpro2.next = &gcpro1; gcpro2.var = &(b); gcpro2.nvars = 1;		\
+    gcpro3.next = &gcpro2; gcpro3.var = &(c); gcpro3.nvars = 1;		\
+    gcpro4.next = &gcpro3; gcpro4.var = &(d); gcpro4.nvars = 1;		\
+    gcpro5.next = &gcpro4; gcpro5.var = &(e); gcpro5.nvars = 1;		\
+    gcpro6.next = &gcpro5; gcpro6.var = &(f); gcpro6.nvars = 1;		\
+    gcpro7.next = &gcpro6; gcpro7.var = &(g); gcpro7.nvars = 1;		\
+    gcprolist = &gcpro7; }
 
 #define UNGCPRO (gcprolist = gcpro1.next)
 
-#else
+#else /* !DEBUG_GCPRO */
 
 extern int gcpro_level;
 
-#define GCPRO1(varname) \
- {gcpro1.next = gcprolist; gcpro1.var = &varname; gcpro1.nvars = 1; \
-  gcpro1.level = gcpro_level++; \
-  gcprolist = &gcpro1; }
+#define GCPRO1(a)							\
+  { gcpro1.next = gcprolist; gcpro1.var = &(a); gcpro1.nvars = 1;	\
+    gcpro1.name = __FILE__; gcpro1.lineno = __LINE__; gcpro1.idx = 1;	\
+    gcpro1.level = gcpro_level++;					\
+    gcprolist = &gcpro1; }
 
-#define GCPRO2(varname1, varname2) \
- {gcpro1.next = gcprolist; gcpro1.var = &varname1; gcpro1.nvars = 1; \
-  gcpro1.level = gcpro_level; \
-  gcpro2.next = &gcpro1; gcpro2.var = &varname2; gcpro2.nvars = 1; \
-  gcpro2.level = gcpro_level++; \
-  gcprolist = &gcpro2; }
+#define GCPRO2(a, b)							\
+  { gcpro1.next = gcprolist; gcpro1.var = &(a); gcpro1.nvars = 1;	\
+    gcpro1.name = __FILE__; gcpro1.lineno = __LINE__; gcpro1.idx = 1;	\
+    gcpro1.level = gcpro_level;					   	\
+    gcpro2.next = &gcpro1; gcpro2.var = &(b); gcpro2.nvars = 1;		\
+    gcpro2.name = __FILE__; gcpro2.lineno = __LINE__; gcpro2.idx = 2;	\
+    gcpro2.level = gcpro_level++;					\
+    gcprolist = &gcpro2; }
 
-#define GCPRO3(varname1, varname2, varname3) \
- {gcpro1.next = gcprolist; gcpro1.var = &varname1; gcpro1.nvars = 1; \
-  gcpro1.level = gcpro_level; \
-  gcpro2.next = &gcpro1; gcpro2.var = &varname2; gcpro2.nvars = 1; \
-  gcpro3.next = &gcpro2; gcpro3.var = &varname3; gcpro3.nvars = 1; \
-  gcpro3.level = gcpro_level++; \
-  gcprolist = &gcpro3; }
+#define GCPRO3(a, b, c)							\
+  { gcpro1.next = gcprolist; gcpro1.var = &(a); gcpro1.nvars = 1;	\
+    gcpro1.name = __FILE__; gcpro1.lineno = __LINE__; gcpro1.idx = 1;	\
+    gcpro1.level = gcpro_level;						\
+    gcpro2.next = &gcpro1; gcpro2.var = &(b); gcpro2.nvars = 1;		\
+    gcpro2.name = __FILE__; gcpro2.lineno = __LINE__; gcpro2.idx = 2;	\
+    gcpro3.next = &gcpro2; gcpro3.var = &(c); gcpro3.nvars = 1;		\
+    gcpro3.name = __FILE__; gcpro3.lineno = __LINE__; gcpro3.idx = 3;	\
+    gcpro3.level = gcpro_level++;					\
+    gcprolist = &gcpro3; }
 
-#define GCPRO4(varname1, varname2, varname3, varname4) \
- {gcpro1.next = gcprolist; gcpro1.var = &varname1; gcpro1.nvars = 1; \
-  gcpro1.level = gcpro_level; \
-  gcpro2.next = &gcpro1; gcpro2.var = &varname2; gcpro2.nvars = 1; \
-  gcpro3.next = &gcpro2; gcpro3.var = &varname3; gcpro3.nvars = 1; \
-  gcpro4.next = &gcpro3; gcpro4.var = &varname4; gcpro4.nvars = 1; \
-  gcpro4.level = gcpro_level++; \
-  gcprolist = &gcpro4; }
+#define GCPRO4(a, b, c, d)						\
+  { gcpro1.next = gcprolist; gcpro1.var = &(a); gcpro1.nvars = 1;	\
+    gcpro1.name = __FILE__; gcpro1.lineno = __LINE__; gcpro1.idx = 1;	\
+    gcpro1.level = gcpro_level;						\
+    gcpro2.next = &gcpro1; gcpro2.var = &(b); gcpro2.nvars = 1;		\
+    gcpro2.name = __FILE__; gcpro2.lineno = __LINE__; gcpro2.idx = 2;	\
+    gcpro3.next = &gcpro2; gcpro3.var = &(c); gcpro3.nvars = 1;		\
+    gcpro3.name = __FILE__; gcpro3.lineno = __LINE__; gcpro3.idx = 3;	\
+    gcpro4.next = &gcpro3; gcpro4.var = &(d); gcpro4.nvars = 1;		\
+    gcpro4.name = __FILE__; gcpro4.lineno = __LINE__; gcpro4.idx = 4;	\
+    gcpro4.level = gcpro_level++;					\
+    gcprolist = &gcpro4; }
 
-#define GCPRO5(varname1, varname2, varname3, varname4, varname5) \
- {gcpro1.next = gcprolist; gcpro1.var = &varname1; gcpro1.nvars = 1; \
-  gcpro1.level = gcpro_level; \
-  gcpro2.next = &gcpro1; gcpro2.var = &varname2; gcpro2.nvars = 1; \
-  gcpro3.next = &gcpro2; gcpro3.var = &varname3; gcpro3.nvars = 1; \
-  gcpro4.next = &gcpro3; gcpro4.var = &varname4; gcpro4.nvars = 1; \
-  gcpro5.next = &gcpro4; gcpro5.var = &varname5; gcpro5.nvars = 1; \
-  gcpro5.level = gcpro_level++; \
-  gcprolist = &gcpro5; }
+#define GCPRO5(a, b, c, d, e)						\
+  { gcpro1.next = gcprolist; gcpro1.var = &(a); gcpro1.nvars = 1;	\
+    gcpro1.name = __FILE__; gcpro1.lineno = __LINE__; gcpro1.idx = 1;	\
+    gcpro1.level = gcpro_level;						\
+    gcpro2.next = &gcpro1; gcpro2.var = &(b); gcpro2.nvars = 1;		\
+    gcpro2.name = __FILE__; gcpro2.lineno = __LINE__; gcpro2.idx = 2;	\
+    gcpro3.next = &gcpro2; gcpro3.var = &(c); gcpro3.nvars = 1;		\
+    gcpro3.name = __FILE__; gcpro3.lineno = __LINE__; gcpro3.idx = 3;	\
+    gcpro4.next = &gcpro3; gcpro4.var = &(d); gcpro4.nvars = 1;		\
+    gcpro4.name = __FILE__; gcpro4.lineno = __LINE__; gcpro4.idx = 4;	\
+    gcpro5.next = &gcpro4; gcpro5.var = &(e); gcpro5.nvars = 1;		\
+    gcpro5.name = __FILE__; gcpro5.lineno = __LINE__; gcpro5.idx = 5;	\
+    gcpro5.level = gcpro_level++;					\
+    gcprolist = &gcpro5; }
 
-#define GCPRO6(varname1, varname2, varname3, varname4, varname5, varname6) \
- {gcpro1.next = gcprolist; gcpro1.var = &varname1; gcpro1.nvars = 1; \
-  gcpro1.level = gcpro_level; \
-  gcpro2.next = &gcpro1; gcpro2.var = &varname2; gcpro2.nvars = 1; \
-  gcpro3.next = &gcpro2; gcpro3.var = &varname3; gcpro3.nvars = 1; \
-  gcpro4.next = &gcpro3; gcpro4.var = &varname4; gcpro4.nvars = 1; \
-  gcpro5.next = &gcpro4; gcpro5.var = &varname5; gcpro5.nvars = 1; \
-  gcpro6.next = &gcpro5; gcpro6.var = &varname6; gcpro6.nvars = 1; \
-  gcpro6.level = gcpro_level++; \
-  gcprolist = &gcpro6; }
+#define GCPRO6(a, b, c, d, e, f)					\
+  { gcpro1.next = gcprolist; gcpro1.var = &(a); gcpro1.nvars = 1;	\
+    gcpro1.name = __FILE__; gcpro1.lineno = __LINE__; gcpro1.idx = 1;	\
+    gcpro1.level = gcpro_level;						\
+    gcpro2.next = &gcpro1; gcpro2.var = &(b); gcpro2.nvars = 1;		\
+    gcpro2.name = __FILE__; gcpro2.lineno = __LINE__; gcpro2.idx = 2;	\
+    gcpro3.next = &gcpro2; gcpro3.var = &(c); gcpro3.nvars = 1;		\
+    gcpro3.name = __FILE__; gcpro3.lineno = __LINE__; gcpro3.idx = 3;	\
+    gcpro4.next = &gcpro3; gcpro4.var = &(d); gcpro4.nvars = 1;		\
+    gcpro4.name = __FILE__; gcpro4.lineno = __LINE__; gcpro4.idx = 4;	\
+    gcpro5.next = &gcpro4; gcpro5.var = &(e); gcpro5.nvars = 1;		\
+    gcpro5.name = __FILE__; gcpro5.lineno = __LINE__; gcpro5.idx = 5;	\
+    gcpro6.next = &gcpro5; gcpro6.var = &(f); gcpro6.nvars = 1;		\
+    gcpro6.name = __FILE__; gcpro6.lineno = __LINE__; gcpro6.idx = 6;	\
+    gcpro6.level = gcpro_level++;					\
+    gcprolist = &gcpro6; }
 
 #define GCPRO7(a, b, c, d, e, f, g)					\
- {gcpro1.next = gcprolist; gcpro1.var = &(a); gcpro1.nvars = 1;		\
-  gcpro1.level = gcpro_level;						\
-  gcpro2.next = &gcpro1; gcpro2.var = &(b); gcpro2.nvars = 1;		\
-  gcpro3.next = &gcpro2; gcpro3.var = &(c); gcpro3.nvars = 1;		\
-  gcpro4.next = &gcpro3; gcpro4.var = &(d); gcpro4.nvars = 1;		\
-  gcpro5.next = &gcpro4; gcpro5.var = &(e); gcpro5.nvars = 1;		\
-  gcpro6.next = &gcpro5; gcpro6.var = &(f); gcpro6.nvars = 1;		\
-  gcpro7.next = &gcpro6; gcpro7.var = &(g); gcpro7.nvars = 1;		\
-  gcpro7.level = gcpro_level++;						\
-  gcprolist = &gcpro7; }
+  { gcpro1.next = gcprolist; gcpro1.var = &(a); gcpro1.nvars = 1;	\
+    gcpro1.name = __FILE__; gcpro1.lineno = __LINE__; gcpro1.idx = 1;	\
+    gcpro1.level = gcpro_level;						\
+    gcpro2.next = &gcpro1; gcpro2.var = &(b); gcpro2.nvars = 1;		\
+    gcpro2.name = __FILE__; gcpro2.lineno = __LINE__; gcpro2.idx = 2;	\
+    gcpro3.next = &gcpro2; gcpro3.var = &(c); gcpro3.nvars = 1;		\
+    gcpro3.name = __FILE__; gcpro3.lineno = __LINE__; gcpro3.idx = 3;	\
+    gcpro4.next = &gcpro3; gcpro4.var = &(d); gcpro4.nvars = 1;		\
+    gcpro4.name = __FILE__; gcpro4.lineno = __LINE__; gcpro4.idx = 4;	\
+    gcpro5.next = &gcpro4; gcpro5.var = &(e); gcpro5.nvars = 1;		\
+    gcpro5.name = __FILE__; gcpro5.lineno = __LINE__; gcpro5.idx = 5;	\
+    gcpro6.next = &gcpro5; gcpro6.var = &(f); gcpro6.nvars = 1;		\
+    gcpro6.name = __FILE__; gcpro6.lineno = __LINE__; gcpro6.idx = 6;	\
+    gcpro7.next = &gcpro6; gcpro7.var = &(g); gcpro7.nvars = 1;		\
+    gcpro7.name = __FILE__; gcpro7.lineno = __LINE__; gcpro7.idx = 7;	\
+    gcpro7.level = gcpro_level++;					\
+    gcprolist = &gcpro7; }
 
 #define UNGCPRO					\
   (--gcpro_level != gcpro1.level		\
@@ -3622,6 +3638,10 @@ extern void syms_of_xsettings (void);
 /* Defined in vm-limit.c.  */
 extern void memory_warnings (void *, void (*warnfun) (const char *));
 
+/* Defined in character.c.  */
+extern void parse_str_as_multibyte (const unsigned char *, ptrdiff_t,
+				    ptrdiff_t *, ptrdiff_t *);
+
 /* Defined in alloc.c.  */
 extern void check_pure_size (void);
 extern void free_misc (Lisp_Object);
@@ -3674,6 +3694,8 @@ extern Lisp_Object make_uninit_bool_vector (EMACS_INT);
 extern Lisp_Object bool_vector_fill (Lisp_Object, Lisp_Object);
 extern _Noreturn void string_overflow (void);
 extern Lisp_Object make_string (const char *, ptrdiff_t);
+extern Lisp_Object local_string_init (struct Lisp_String *, char const *,
+				      ptrdiff_t);
 extern Lisp_Object make_formatted_string (char *, const char *, ...)
   ATTRIBUTE_FORMAT_PRINTF (2, 3);
 extern Lisp_Object make_unibyte_string (const char *, ptrdiff_t);
@@ -3762,6 +3784,8 @@ extern struct Lisp_Hash_Table *allocate_hash_table (void);
 extern struct window *allocate_window (void);
 extern struct frame *allocate_frame (void);
 extern struct Lisp_Process *allocate_process (void);
+extern Lisp_Object local_vector_init (struct Lisp_Vector *, ptrdiff_t,
+				      Lisp_Object);
 extern struct terminal *allocate_terminal (void);
 extern bool gc_in_progress;
 extern bool abort_on_gc;
@@ -4534,6 +4558,102 @@ extern void *record_xmalloc (size_t) ATTRIBUTE_ALLOC_SIZE ((1));
     else						       \
       memory_full (SIZE_MAX);				       \
   } while (false)
+
+
+/* If USE_STACK_LISP_OBJECTS, define macros that and functions that
+   allocate block-scoped conses and function-scoped vectors and
+   strings.  These objects are not managed by the garbage collector,
+   so they are dangerous: passing them out of their scope (e.g., to
+   user code) results in undefined behavior.  Conversely, they have
+   better performance because GC is not involved.
+
+   This feature is experimental and requires careful debugging.
+   Brave users can compile with CPPFLAGS='-DUSE_STACK_LISP_OBJECTS'
+   to get into the game.  */
+
+/* A struct Lisp_Cons inside a union that is no larger and may be
+   better-aligned.  */
+
+union Aligned_Cons
+{
+  struct Lisp_Cons s;
+  double d; intmax_t i; void *p;
+};
+verify (sizeof (struct Lisp_Cons) == sizeof (union Aligned_Cons));
+
+/* Allocate a block-scoped cons.  */
+
+#define scoped_cons(car, cdr)						\
+   ((USE_STACK_LISP_OBJECTS						\
+     && alignof (union Aligned_Cons) % GCALIGNMENT == 0)		\
+    ? make_lisp_ptr (&((union Aligned_Cons) {{car, {cdr}}}).s, Lisp_Cons) \
+    : Fcons (car, cdr))
+
+/* Convenient utility macros similar to listX functions.  */
+
+#if USE_STACK_LISP_OBJECTS
+# define scoped_list1(x) scoped_cons (x, Qnil)
+# define scoped_list2(x, y) scoped_cons (x, scoped_list1 (y))
+# define scoped_list3(x, y, z) scoped_cons (x, scoped_list2 (y, z))
+#else
+# define scoped_list1(x) list1 (x)
+# define scoped_list2(x, y) list2 (x, y)
+# define scoped_list3(x, y, z) list3 (x, y, z)
+#endif
+
+#if USE_STACK_LISP_OBJECTS && HAVE_STATEMENT_EXPRESSIONS
+
+# define USE_LOCAL_ALLOCATORS
+
+/* Return a function-scoped vector of length SIZE, with each element
+   being INIT.  */
+
+# define make_local_vector(size, init)					\
+    ({									\
+       ptrdiff_t size_ = size;						\
+       Lisp_Object init_ = init;					\
+       Lisp_Object vec_;						\
+       if (size_ <= (MAX_ALLOCA - header_size) / word_size)		\
+	 {								\
+	   void *ptr_ = alloca (size_ * word_size + header_size);	\
+	   vec_ = local_vector_init (ptr_, size_, init_);		\
+	 }								\
+       else								\
+	 vec_ = Fmake_vector (make_number (size_), init_);		\
+       vec_;								\
+    })
+
+/* Return a function-scoped string with contents DATA and length NBYTES.  */
+
+# define make_local_string(data, nbytes) 				\
+    ({									\
+       char const *data_ = data;					\
+       ptrdiff_t nbytes_ = nbytes;					\
+       Lisp_Object string_;						\
+       if (nbytes_ <= MAX_ALLOCA - sizeof (struct Lisp_String) - 1)	\
+	 {								\
+	   struct Lisp_String *ptr_					\
+	     = alloca (sizeof (struct Lisp_String) + 1 + nbytes_);	\
+	   string_ = local_string_init (ptr_, data_, nbytes_);		\
+	 }								\
+       else								\
+	 string_ = make_string (data_, nbytes_);			\
+       string_;								\
+    })
+
+/* Return a function-scoped string with contents DATA.  */
+
+# define build_local_string(data) \
+    ({ char const *data_ = data; make_local_string (data_, strlen (data_)); })
+
+#else
+
+/* Safer but slower implementations.  */
+# define make_local_vector(size, init) Fmake_vector (make_number (size), init)
+# define make_local_string(data, nbytes) make_string (data, nbytes)
+# define build_local_string(data) build_string (data)
+#endif
+
 
 /* Loop over all tails of a list, checking for cycles.
    FIXME: Make tortoise and n internal declarations.

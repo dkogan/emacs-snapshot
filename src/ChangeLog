@@ -1,4 +1,200 @@
+2014-09-13  Dmitry Antipov  <dmantipov@yandex.ru>
+
+	Prefer ptrdiff_t to int and avoid integer overflows.
+	* fileio.c (make_temp_name):
+	* font.c (font_parse_family_registry): Avoid integer
+	overflow on string size calculation.
+	* data.c (Faset): Likewise for byte index.
+
+2014-09-12  Detlev Zundel  <dzu@member.fsf.org>
+
+	* buffer.c (syms_of_buffer): DEFSYM Qchoice (Bug#18337).
+
+2014-09-11  Dmitry Antipov  <dmantipov@yandex.ru>
+
+	* lisp.h (make_local_string): Nitpick indent.
+	* print.c (Fprin1_to_string): Remove unused GCPROs.
+
+	More debugging aids around GCPROs.
+	* lisp.h (struct gcpro) [DEBUG_GCPRO]: Add extra members.
+	(GCPRO1, GCPRO2, GCPRO3, GCPRO4, GCPRO5, GCPRO6, GCPRO7):
+	Minor restyle.  If DEBUG_GCPRO, initialize extra fields.
+
+	* lread.c (readevalloop_eager_expand_eval): Add GCPRO and fix
+	bootstrap broken if GC_MARK_STACK == GC_USE_GCPROS_AS_BEFORE.
+
+	Remove redundant GCPROs around Ffuncall and Fapply calls.  This
+	is safe because Ffuncall protects all of its arguments by itself.
+	* charset.c (map_charset_for_dump): Remove redundant GCPRO.
+	* eval.c (Fapply, apply1, call0, call1, call2, call3, call4, call5)
+	(call6, call7): Likewise.  Use compound literals where applicable.
+	(run_hook_with_args_2): Use compound literal.
+
+2014-09-11  Paul Eggert  <eggert@cs.ucla.edu>
+
+	Pacify --enable-gcc-warnings when no window system is used.
+	These warnings found that subscript error, so they seem worthwhile.
+	* composite.c (char_composable_p): Simplify a bit.
+	* frame.c (x_set_frame_parameters): Add an IF_LINT.
+	* frame.c (x_set_horizontal_scroll_bars, x_set_scroll_bar_height):
+	* frame.h (FRAME_HAS_HORIZONTAL_SCROLL_BARS):
+	* window.c (set_window_scroll_bars):
+	Use USE_HORIZONTAL_SCROLL_BARS for simplicity.
+	* frame.h [! USE_HORIZONTAL_SCROLL_BARS]:
+	Ignore -Wsuggest-attribute=const.
+	* window.h (USE_HORIZONTAL_SCROLL_BARS): New macro.
+	(WINDOW_HAS_HORIZONTAL_SCROLL_BAR): Use it.
+
+2014-09-10  Paul Eggert  <eggert@penguin.cs.ucla.edu>
+
+	* charset.c (Fget_unused_iso_final_char): Fix subscript error.
+	Use check_iso_charset_parameter instead of doing the checks by hand.
+	(check_iso_charset_parameter): Move up.  Check parameters a bit
+	more carefully, and return true for 96-char sets.  All callers changed.
+
+2014-09-10  Paul Eggert  <eggert@cs.ucla.edu>
+
+	Simplify lisp.h by removing the __COUNTER__ business.
+	Problem reported by Dmitry Antipov in:
+	http://lists.gnu.org/archive/html/emacs-devel/2014-09/msg00220.html
+	* lisp.h (make_local_vector, make_local_string)
+	(build_local_string): Simplify by not bothering with __COUNTER__.
+	The __COUNTER__ business wasn't working properly, and was needed
+	only for hypothetical future expansion anyway.
+
+2014-09-10  Alp Aker  <alp.tekin.aker@gmail.com>
+
+	* nsterm.m (ns_draw_fringe_bitmap): Use the same logic as other
+	terms to determine bitmap color.  (Bug#18437)
+
+2014-09-10  Eli Zaretskii  <eliz@gnu.org>
+
+	* w32.c (sys_write): Use SAFE_NALLOCA for the NL -> CRLF
+	translation buffer.
+
+2014-09-10  Paul Eggert  <eggert@cs.ucla.edu>
+
+	* xterm.c (handle_one_xevent): Add braces to pacify gcc -Wall.
+
+2014-09-10  Jan Djärv  <jan.h.d@swipnet.se>
+
+	* xterm.c (handle_one_xevent): Detect iconified by looking at
+	_NET_WM_STATE_HIDDEN.
+
+2014-09-10  Paul Eggert  <eggert@cs.ucla.edu>
+
+	* lisp.h (DEFINE_GDB_SYMBOL_ENUM): Remove.
+	These can generate a constant with the correct value but the wrong
+	width, which doesn't work as a printf argument.  All uses removed.
+	Problem reported by Dmitry Antipov in:
+	http://lists.gnu.org/archive/html/emacs-devel/2014-09/msg00213.html
+	(ENUMABLE): Remove; no longer needed.
+	(ARRAY_MARK_FLAG_val, PSEUDOVECTOR_FLAG_val, VALMASK_val):
+	Remove; no longer needed because of the above change.
+	Each definiens moved to the only use.
+
+	Improve the experimental local and scoped allocation.
+	* alloc.c (local_string_init, local_vector_init):
+	New functions, defined if USE_LOCAL_ALLOCATORS.
+	Mostly, these are moved here from lisp.h, as it's not
+	clear it's worth making them inline.
+	* lisp.h (USE_STACK_LISP_OBJECTS): Default to false.
+	(GCALIGNED): Depend on HAVE_STRUCT_ATTRIBUTE_ALIGNED and
+	USE_STACK_LISP_OBJECTS, not on a laundry list.
+	(local_string_init, local_vector_init): New decls.
+	(union Aligned_Cons): New type.
+	(scoped_cons): Use it.  Give up on the char trick, as it's a too
+	much of a maintenance hassle; if someone wants this speedup
+	they'll just need to convince their compiler to align properly.
+	Conversely, use the speedup if struct Lisp_Cons happens to
+	be aligned even without a directive.  Better yet, help it along
+	by using union Aligned_Cons rather than struct Lisp_Cons.
+	(pointer_valid_for_lisp_object): Remove.  This check is not
+	necessary, since make_lisp_ptr is already doing it.  All uses removed.
+	(local_vector_init, local_string_init): Move to alloc.c.
+	(build_local_vector): Remove this awkward macro, replacing with ...
+	(make_local_vector): New macro, which acts more like a function.
+	Use statement expressions and use __COUNTER__ to avoid macro
+	capture.  Fall back on functions if these features are not supported.
+	(build_local_string, make_local_string): Likewise.
+
+2014-09-09  Dmitry Antipov  <dmantipov@yandex.ru>
+
+	* xterm.c (x_term_init): Consolidate duplicated code.
+	[USE_LUCID]: Revert 2014-04-02 change (Bug#18403).  Add comment.
+	(x_delete_terminal): Do not close X connection fd (Bug#18403).
+	Add eassert and mark dpyinfo as dead only if it was alive.
+
+	Add macros to allocate temporary Lisp objects with alloca.
+	Respect MAX_ALLOCA and fall back to regular GC for large objects.
+	* character.h (parse_str_as_multibyte): Move prototype to ...
+	* lisp.h (parse_str_as_multibyte): ... here.
+	(struct Lisp_Cons): Add GCALIGNED attribute if supported.
+	(scoped_cons, scoped_list2, build_local_vector, build_local_string):
+	New macros.
+	(scoped_cons_init, pointer_valid_for_lisp_object, local_vector_init)
+	(local_string_init): New functions.
+	* alloc.c (verify_alloca) [ENABLE_CHECKING]: New function.
+	(init_alloc_once): Call it.
+
+	Cleanup last change and make all new stuff conditional.
+	* lisp.h (build_local_string): Rename to ...
+	(make_local_string): ... this macro.
+	(build_local_string, scoped_list1, scoped_list3): New macros.
+	(toplevel) [USE_STACK_LISP_OBJECTS]: Define all new macros
+	and functions as such, use regular fallbacks otherwise.
+	* alloc.c (verify_alloca) [USE_STACK_LISP_OBJECTS]: Define
+	conditionally.
+
+2014-09-08  Eli Zaretskii  <eliz@gnu.org>
+
+	* dispnew.c (prepare_desired_row): When MODE_LINE_P is zero,
+	always make sure the marginal areas of the row are in sync with
+	what the window wants.  (Bug#18419)
+
+	* data.c (set_internal): Use assq_no_quit, not Fassq, to find an
+	existing binding of a variable, to avoid silently aborting
+	commands that use specbind.  (Bug#18331)
+
 2014-09-07  Paul Eggert  <eggert@cs.ucla.edu>
+
+	Fix bug uncovered by changing alloca to auto buffer (Bug#18410).
+	* coding.c (growable_destination): New function.
+	(produce_chars): Use it for sanity checks.  Do not fiddle with
+	dst_end if the source and destination are both nil, as it's
+	the caller's responsibility to avoid overlap.
+	* keyboard.c (read_decoded_event_from_main_queue):
+	The destination must be MAX_MULTIBYTE_LENGTH times the max source
+	length, not 4 times, to prevent decode_coding_c_string from trying
+	to reallocate a destination.  This removes the need for the FIXME.
+
+	* callproc.c (exec_failed) [DOS_NT]: Define a dummy.
+	All callers simplified.  Add a comment about exec_failed, vfork,
+	and alloca.
+
+	Adjust drag-and-drop fix when window is above top (Bug#18303).
+	* xselect.c (x_fill_property_data): Don't let sign bit of negative
+	XCDR bleed into XCAR's encoded value.  Improve checks for
+	out-of-range data while we're at it.
+
+2014-09-07  Jan Djärv  <jan.h.d@swipnet.se>
+
+	* xselect.c (x_fill_property_data): Handle negative XCDR when data
+	is CONSP (Bug#18303).
+
+2014-09-07  Eli Zaretskii  <eliz@gnu.org>
+
+	* callproc.c (child_setup) [WINDOWSNT]: Don't call exec_failed if
+	'alloca' gets passed arguments larger than MAX_ALLOCA.
+
+	* font.c (MAX): Define if not defined elsewhere.
+
+2014-09-07  Paul Eggert  <eggert@cs.ucla.edu>
+
+	* keyboard.c (read_decoded_event_from_main_queue): Reinstitute alloca
+	here for destination buffer, to work around what appears to be a
+	bug in decode_coding_c_string when the source and destination are
+	both C strings.
 
 	Use SAFE_ALLOCA etc. to avoid unbounded stack allocation (Bug#18410).
 	This follows up on the recent thread in emacs-devel on alloca; see:
@@ -24,7 +220,8 @@
 	* ftfont.c (ftfont_get_charset, ftfont_check_otf, ftfont_drive_otf):
 	* ftxfont.c (ftxfont_draw):
 	* image.c (xbm_load, xpm_load, jpeg_load_body):
-	* keyboard.c (echo_add_key, menu_bar_items, tool_bar_items):
+	* keyboard.c (echo_add_key, menu_bar_items, tool_bar_items)
+
 	* keymap.c (Fdescribe_buffer_bindings, describe_map):
 	* lread.c (openp):
 	* menu.c (digest_single_submenu, find_and_call_menu_selection)
