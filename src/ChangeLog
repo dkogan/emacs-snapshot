@@ -1,3 +1,173 @@
+2014-09-18  Dmitry Antipov  <dmantipov@yandex.ru>
+
+	More and more stack-allocated Lisp objects if USE_LOCAL_ALLOCATORS.
+	* lisp.h (local_list4) [USE_LOCAL_ALLOCATORS]: New macro.
+	[!USE_LOCAL_ALLOCATORS]: Fall back to regular list4.
+	* frame.h (FRAME_PARAMETER): New macro.
+	* dispnew.c (init_display):
+	* fontset.c (Fset_fontset_font):
+	* frame.c (x_default_parameter):
+	* xfaces.c (set_font_frame_param, Finternal_merge_in_global_face):
+	* xfns.c (x_default_scroll_bar_color_parameter)
+	(x_default_font_parameter, x_create_tip_frame): Use it.
+	* editfns.c (Fpropertize): Use local_cons.
+	* process.c (status_message): Use build_local_string.
+	* xfont.c (xfont_open): Use make_local_string.
+	* xdisp.c (build_desired_tool_bar_string): Use local_list4.
+
+2014-09-18  Paul Eggert  <eggert@cs.ucla.edu>
+
+	Port USE_LOCAL_ALLOCATORS code to clang 3.4 x86-64.
+	* lisp.h (USE_LOCAL_ALLOCATORS): Define only if __GNUC__ &&
+	!__clang__.  This works with GCC and with clang and is safer for
+	compilers we don't know about.
+	(local_cons): Rename parameter to make capture less likely.
+
+2014-09-17  Samuel Bronson  <naesten@gmail.com>
+
+	* unexmacosx.c (copy_data_segment): Port to GCC 4.6+ (Bug#9927).
+
+2014-09-17  Paul Eggert  <eggert@cs.ucla.edu>
+
+	Fix minor problems found by static checking.
+	* alloc.c, lisp.h (SAVE_TYPE_INT_OBJ, make_save_int_obj):
+	Remove; now unused.
+	* buffer.h (decode_buffer): Doc and indentation fixes.
+	* fns.c (Qstring_collate_lessp, Qstring_collate_equalp): Now static.
+
+2014-09-17  Dmitry Antipov  <dmantipov@yandex.ru>
+
+	Avoid clang-specific warnings.
+	* buffer.c (init_buffer): Shut up -Wself-assign.
+	* process.c (server_accept_connection): Shut up -Wunsequenced.
+
+2014-09-16  Daniel Colascione  <dancol@dancol.org>
+
+	* fns.c (sxhash): For symbols, use address as hash code.
+
+2014-09-16  Dmitry Antipov  <dmantipov@yandex.ru>
+
+	If USE_LOCAL_ALLOCATORS, allocate even more Lisp objects on stack.
+	* charset.c (load_charset_map_from_file): Use scoped_list2
+	and build_local_string.
+	* buffer.c (Fother_buffer, other_buffer_safely, init_buffer):
+	* emacs.c (init_cmdargs, decode_env_path):
+	* fileio.c (Fexpand_file_name):
+	* fns.c (maybe_resize_hash_table) [ENABLE_CHECKING]:
+	* frame.c (x_get_arg):
+	* keyboard.c (safe_run_hooks_error):
+	* lread.c (load_warn_old_style_backquotes):
+	* xdisp.c (Fcurrent_bidi_paragraph_direction):
+	* xfns.c (x_default_scroll_bar_color_parameter, select_visual):
+	* xselect.c (x_clipboard_manager_error_1)
+	(x_clipboard_manager_save_all):
+	* xterm.c (x_term_init): Use build_local_string.
+
+	Avoid more integer overflows on string size calculations.
+	* category.c (Fmake_category_set):
+	* xdisp.c (get_overlay_arrow_glyph_row):
+	* w32font.c (intern_font_name): Prefer ptrdiff_t to int.
+
+2014-09-15  Eli Zaretskii  <eliz@gnu.org>
+
+	* sound.c [WINDOWSNT]: Include w32common.h and mbstring.h.
+	(SOUND_WARNING) [WINDOWSNT]: Include in do..while and improve the
+	error message format.  Use message_with_string to have non-ASCII
+	file names properly displayed.
+	(do_play_sound) [WINDOWSNT]: Use Unicode APIs to play sound files
+	when w32-unicode-filenames is non-nil, but not on Windows 9X,
+	where these APIs are not available even in UNICOWS.DLL.  Improve
+	the format of error messages and include the file name in them
+	where appropriate.
+	(Fplay_sound_internal) [WINDOWSNT]: Make the MS-Windows branch
+	call play-sound-functions, per documentation.
+
+	* w32.c (w32_get_long_filename, w32_get_short_filename): Constify
+	the input file name arguments.
+
+	* w32.h (w32_get_long_filename, w32_get_short_filename): Update
+	prototypes.
+
+2014-09-15  Dmitry Antipov  <dmantipov@yandex.ru>
+
+	If USE_LOCAL_ALLOCATORS, allocate some Lisp objects on stack.
+	* lisp.h (local_cons, local_list1, local_list2, local_list3)
+	[USE_LOCAL_ALLOCATORS]: New macros.
+	[!USE_LOCAL_ALLOCATORS]: Fall back to regular functions.
+	(build_local_string): Avoid argument name expansion clash with
+	make_local_string.
+	* alloc.c (toplevel)
+	[USE_LOCAL_ALLOCATORS && GC_MARK_STACK != GC_MAKE_GCPROS_NOOPS]:
+	Preprocessor guard to avoid impossible configuration.
+	* charset.c (Ffind_charset_region, Ffind_charset_string):
+	Use make_local_vector.
+	* lread.c (read1, substitute_object_recurse): Use scoped_cons.
+	* textprop.c (Fput_text_property, Fadd_face_text_property):
+	Use scoped_list2.
+	(copy_text_properties): Use local_cons and local_list3.
+	* chartab.c (uniprop_table):
+	* data.c (wrong_choice, wrong_range):
+	* doc.c (get_doc_string):
+	* editfns.c (format2):
+	* fileio.c (Fexpand_file_name, auto_save_error):
+	* fns.c (Fyes_or_no_p):
+	* font.c (font_parse_xlfd, font_parse_family_registry, font_add_log):
+	* fontset.c (Fset_fontset_font):
+	* keyboard.c (echo_add_key, echo_dash, parse_menu_item)
+	(read_char_minibuf_menu_prompt):
+	* keymap.c (silly_event_symbol_error, describe_vector):
+	* menu.c (single_menu_item):
+	* minibuf.c (Fread_buffer):
+	* process.c (status_message, Fformat_network_address)
+	(server_accept_connection): Use make_local_string and
+	build_local_string.  Prefer compound literals where appropriate.
+
+2014-09-15  Daniel Colascione  <dancol@dancol.org>
+
+	* fns.c (Fsort): Tweak sort docstring.
+
+2014-09-15  Eli Zaretskii  <eliz@gnu.org>
+
+	* w32.c (fcntl): Support O_NONBLOCK fcntl on the write side of pipes.
+	(sys_write): When a write to a non-blocking pipe returns ENOSPC,
+	set errno to EAGAIN instead, to allow the caller to retry the
+	write after some waiting.  Fixes deadlocks when Emacs exchanges a
+	lot of data through the pipe.  (Bug#18420)
+
+	* sound.c (Fplay_sound_internal): Encode the sound file name in
+	the ANSI codepage.  Expand it against data-directory, as per docs,
+	not against the current directory.  No need to make a local copy
+	of the file name; pass the encoded file name directly to
+	do_play_sound.  (Bug#18463)
+
+	* w32.c (ansi_encode_filename): If w32_get_short_filename returns
+	NULL, and the file name is not encodable in ANSI codepage, return
+	the string with "?" replacement characters, which will fail the
+	caller.  This avoids returning a random value in that case.
+
+2014-09-15  Martin Rudalics  <rudalics@gmx.at>
+
+	* window.c (Fresize_mini_window_internal): Set w->total_lines
+	from w->pixel_height (Bug#18422).
+
+2014-09-15  Jan Djärv  <jan.h.d@swipnet.se>
+
+	* nsterm.m (updateFrameSize:, initFrameFromEmacs:)
+	(toggleFullScreen:): Take frame_resize_pixelwise into account when
+	setting resize increments (Bug#18435).
+
+2014-09-15  Eli Zaretskii  <eliz@gnu.org>
+
+	* xdisp.c (pos_visible_p): Properly save and restore the iterator
+	state around the call to line_bottom, since it can move the
+	iterator to another screen line.  This fixes off-by-one errors in
+	the reported row in some rare cases.
+
+2014-09-14  Jan Djärv  <jan.h.d@swipnet.se>
+
+	* callproc.c (init_callproc): Fix bug introduced at
+	2014-09-07 (Bug#18474).
+
 2014-09-13  Dmitry Antipov  <dmantipov@yandex.ru>
 
 	Prefer ptrdiff_t to int and avoid integer overflows.

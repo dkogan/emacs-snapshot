@@ -566,14 +566,14 @@ echo_add_key (Lisp_Object c)
       if (XINT (last_char) == '-' && XINT (prev_char) != ' ')
 	Faset (echo_string, idx, make_number (' '));
       else
-	echo_string = concat2 (echo_string, build_string (" "));
+	echo_string = concat2 (echo_string, build_local_string (" "));
     }
   else if (STRINGP (echo_string) && SCHARS (echo_string) > 0)
-    echo_string = concat2 (echo_string, build_string (" "));
+    echo_string = concat2 (echo_string, build_local_string (" "));
 
   kset_echo_string
     (current_kboard,
-     concat2 (echo_string, make_string (buffer, ptr - buffer)));
+     concat2 (echo_string, make_local_string (buffer, ptr - buffer)));
   SAFE_FREE ();
 }
 
@@ -632,7 +632,7 @@ echo_dash (void)
      but make it go away when the next character is added.  */
   kset_echo_string
     (current_kboard,
-     concat2 (KVAR (current_kboard, echo_string), build_string ("-")));
+     concat2 (KVAR (current_kboard, echo_string), build_local_string ("-")));
   echo_now ();
 }
 
@@ -1894,16 +1894,13 @@ safe_run_hooks_1 (ptrdiff_t nargs, Lisp_Object *args)
 static Lisp_Object
 safe_run_hooks_error (Lisp_Object error, ptrdiff_t nargs, Lisp_Object *args)
 {
-  Lisp_Object hook, fun, msgargs[4];
+  Lisp_Object hook, fun;
 
   eassert (nargs == 2);
   hook = args[0];
   fun = args[1];
-  msgargs[0] = build_string ("Error in %s (%S): %S");
-  msgargs[1] = hook;
-  msgargs[2] = fun;
-  msgargs[3] = error;
-  Fmessage (4, msgargs);
+  Fmessage (4, ((Lisp_Object [])
+    { build_local_string ("Error in %s (%S): %S"), hook, fun, error }));
 
   if (SYMBOLP (hook))
     {
@@ -7883,7 +7880,8 @@ parse_menu_item (Lisp_Object item, int inmenubar)
     /* The previous code preferred :key-sequence to :keys, so we
        preserve this behavior.  */
     if (STRINGP (keyeq) && !CONSP (keyhint))
-      keyeq = concat2 (build_string ("  "), Fsubstitute_command_keys (keyeq));
+      keyeq = concat2 (build_local_string ("  "),
+		       Fsubstitute_command_keys (keyeq));
     else
       {
 	Lisp_Object prefix = keyeq;
@@ -7926,8 +7924,7 @@ parse_menu_item (Lisp_Object item, int inmenubar)
 		if (STRINGP (XCDR (prefix)))
 		  tem = concat2 (tem, XCDR (prefix));
 	      }
-	    keyeq = concat2 (build_string ("  "), tem);
-	    /* keyeq = concat3(build_string("  ("),tem,build_string(")")); */
+	    keyeq = concat2 (build_local_string ("  "), tem);
 	  }
 	else
 	  keyeq = Qnil;
@@ -8632,9 +8629,9 @@ read_char_minibuf_menu_prompt (int commandflag,
 		      Lisp_Object selected
 			= AREF (item_properties, ITEM_PROPERTY_SELECTED);
 		      if (EQ (tem, QCradio))
-			tem = build_string (NILP (selected) ? "(*) " : "( ) ");
+			tem = build_local_string (NILP (selected) ? "(*) " : "( ) ");
 		      else
-			tem = build_string (NILP (selected) ? "[X] " : "[ ] ");
+			tem = build_local_string (NILP (selected) ? "[X] " : "[ ] ");
 		      s = concat2 (tem, s);
 		    }
 

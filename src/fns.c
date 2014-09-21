@@ -41,7 +41,8 @@ along with GNU Emacs.  If not, see <http://www.gnu.org/licenses/>.  */
 #include "xterm.h"
 #endif
 
-Lisp_Object Qstring_lessp, Qstring_collate_lessp, Qstring_collate_equalp;
+Lisp_Object Qstring_lessp;
+static Lisp_Object Qstring_collate_lessp, Qstring_collate_equalp;
 static Lisp_Object Qprovide, Qrequire;
 static Lisp_Object Qyes_or_no_p_history;
 Lisp_Object Qcursor_in_echo_area;
@@ -2005,10 +2006,10 @@ sort_vector (Lisp_Object vector, Lisp_Object predicate)
 
 DEFUN ("sort", Fsort, Ssort, 2, 2, 0,
        doc: /* Sort SEQ, stably, comparing elements using PREDICATE.
-Returns the sorted sequence.  SEQ should be a list or vector.
-If SEQ is a list, it is modified by side effects.  PREDICATE
-is called with two elements of SEQ, and should return non-nil
-if the first element should sort before the second.  */)
+Returns the sorted sequence.  SEQ should be a list or vector.  SEQ is
+modified by side effects.  PREDICATE is called with two elements of
+SEQ, and should return non-nil if the first element should sort before
+the second.  */)
   (Lisp_Object seq, Lisp_Object predicate)
 {
   if (CONSP (seq))
@@ -2706,7 +2707,6 @@ if `last-nonmenu-event' is nil, and `use-dialog-box' is non-nil.  */)
   (Lisp_Object prompt)
 {
   register Lisp_Object ans;
-  Lisp_Object args[2];
   struct gcpro gcpro1;
 
   CHECK_STRING (prompt);
@@ -2725,10 +2725,8 @@ if `last-nonmenu-event' is nil, and `use-dialog-box' is non-nil.  */)
       return obj;
     }
 
-  args[0] = prompt;
-  args[1] = build_string ("(yes or no) ");
-  prompt = Fconcat (2, args);
-
+  prompt = Fconcat (2, ((Lisp_Object [])
+    { prompt, build_local_string ("(yes or no) ") }));
   GCPRO1 (prompt);
 
   while (1)
@@ -3997,12 +3995,9 @@ maybe_resize_hash_table (struct Lisp_Hash_Table *h)
 #ifdef ENABLE_CHECKING
       if (HASH_TABLE_P (Vpurify_flag)
 	  && XHASH_TABLE (Vpurify_flag) == h)
-	{
-	  Lisp_Object args[2];
-	  args[0] = build_string ("Growing hash table to: %d");
-	  args[1] = make_number (new_size);
-	  Fmessage (2, args);
-	}
+	Fmessage (2, ((Lisp_Object [])
+	  { build_local_string ("Growing hash table to: %d"),
+	    make_number (new_size) }));
 #endif
 
       set_hash_key_and_value (h, larger_vector (h->key_and_value,
@@ -4482,12 +4477,9 @@ sxhash (Lisp_Object obj, int depth)
       break;
 
     case Lisp_Misc:
+    case Lisp_Symbol:
       hash = XHASH (obj);
       break;
-
-    case Lisp_Symbol:
-      obj = SYMBOL_NAME (obj);
-      /* Fall through.  */
 
     case Lisp_String:
       hash = sxhash_string (SSDATA (obj), SBYTES (obj));

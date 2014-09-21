@@ -3547,7 +3547,7 @@ usage: (propertize STRING &rest PROPERTIES)  */)
   string = Fcopy_sequence (args[0]);
 
   for (i = 1; i < nargs; i += 2)
-    properties = Fcons (args[i], Fcons (args[i + 1], properties));
+    properties = local_cons (args[i], local_cons (args[i + 1], properties));
 
   Fadd_text_properties (make_number (0),
 			make_number (SCHARS (string)),
@@ -4362,11 +4362,8 @@ usage: (format STRING &rest OBJECTS)  */)
 Lisp_Object
 format2 (const char *string1, Lisp_Object arg0, Lisp_Object arg1)
 {
-  Lisp_Object args[3];
-  args[0] = build_string (string1);
-  args[1] = arg0;
-  args[2] = arg1;
-  return Fformat (3, args);
+  return Fformat (3, ((Lisp_Object [])
+    { build_local_string (string1), arg0, arg1 }));
 }
 
 DEFUN ("char-equal", Fchar_equal, Schar_equal, 2, 2, 0,

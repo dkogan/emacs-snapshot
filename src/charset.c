@@ -490,7 +490,8 @@ load_charset_map_from_file (struct charset *charset, Lisp_Object mapfile,
   int n_entries;
   ptrdiff_t count;
 
-  suffixes = list2 (build_string (".map"), build_string (".TXT"));
+  suffixes = scoped_list2 (build_local_string (".map"),
+			   build_local_string (".TXT"));
 
   count = SPECPDL_INDEX ();
   record_unwind_protect_nothing ();
@@ -1569,7 +1570,7 @@ only `ascii', `eight-bit-control', and `eight-bit-graphic'.  */)
 
   from_byte = CHAR_TO_BYTE (from);
 
-  charsets = Fmake_vector (make_number (charset_table_used), Qnil);
+  charsets = make_local_vector (charset_table_used, Qnil);
   while (1)
     {
       find_charsets_in_text (BYTE_POS_ADDR (from_byte), stop - from,
@@ -1606,7 +1607,7 @@ only `ascii', `eight-bit-control', and `eight-bit-graphic'. */)
 
   CHECK_STRING (str);
 
-  charsets = Fmake_vector (make_number (charset_table_used), Qnil);
+  charsets = make_local_vector (charset_table_used, Qnil);
   find_charsets_in_text (SDATA (str), SCHARS (str), SBYTES (str),
 			 charsets, table,
 			 STRING_MULTIBYTE (str));

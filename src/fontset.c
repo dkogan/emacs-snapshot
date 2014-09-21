@@ -1462,7 +1462,7 @@ appended.  By default, FONT-SPEC overrides the previous settings.  */)
       registry = AREF (font_spec, FONT_REGISTRY_INDEX);
       if (! NILP (registry))
 	registry = Fdowncase (SYMBOL_NAME (registry));
-      encoding = find_font_encoding (concat3 (family, build_string ("-"),
+      encoding = find_font_encoding (concat3 (family, build_local_string ("-"),
 					      registry));
       if (NILP (encoding))
 	encoding = Qascii;
@@ -1598,7 +1598,7 @@ appended.  By default, FONT-SPEC overrides the previous settings.  */)
 	  if (! NILP (font_object))
 	    {
 	      update_auto_fontset_alist (font_object, fontset);
-	      alist = list1 (Fcons (Qfont, Fcons (name, font_object)));
+	      alist = FRAME_PARAMETER (Qfont, Fcons (name, font_object));
 	      Fmodify_frame_parameters (fr, alist);
 	    }
 	}

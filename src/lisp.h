@@ -1967,7 +1967,6 @@ enum Lisp_Save_Type
     SAVE_TYPE_OBJ_OBJ_OBJ_OBJ
       = SAVE_OBJECT + (SAVE_TYPE_OBJ_OBJ_OBJ << SAVE_SLOT_BITS),
     SAVE_TYPE_PTR_INT = SAVE_POINTER + (SAVE_INTEGER << SAVE_SLOT_BITS),
-    SAVE_TYPE_INT_OBJ = SAVE_INTEGER + (SAVE_OBJECT << SAVE_SLOT_BITS),
     SAVE_TYPE_PTR_OBJ = SAVE_POINTER + (SAVE_OBJECT << SAVE_SLOT_BITS),
     SAVE_TYPE_PTR_PTR = SAVE_POINTER + (SAVE_POINTER << SAVE_SLOT_BITS),
     SAVE_TYPE_FUNCPTR_PTR_OBJ
@@ -3798,7 +3797,6 @@ extern Lisp_Object make_save_obj_obj_obj_obj (Lisp_Object, Lisp_Object,
 extern Lisp_Object make_save_ptr (void *);
 extern Lisp_Object make_save_ptr_int (void *, ptrdiff_t);
 extern Lisp_Object make_save_ptr_ptr (void *, void *);
-extern Lisp_Object make_save_int_obj (ptrdiff_t, Lisp_Object);
 extern Lisp_Object make_save_funcptr_ptr_obj (void (*) (void), void *,
 					      Lisp_Object);
 extern Lisp_Object make_save_memory (Lisp_Object *, ptrdiff_t);
@@ -4601,9 +4599,31 @@ verify (sizeof (struct Lisp_Cons) == sizeof (union Aligned_Cons));
 # define scoped_list3(x, y, z) list3 (x, y, z)
 #endif
 
-#if USE_STACK_LISP_OBJECTS && HAVE_STATEMENT_EXPRESSIONS
-
+/* Local allocators require both statement expressions and a
+   GCALIGNMENT-aligned alloca.  clang's alloca isn't properly aligned
+   in some cases.  In the absence of solid information, play it safe
+   for other non-GCC compilers.  */
+#if (USE_STACK_LISP_OBJECTS && HAVE_STATEMENT_EXPRESSIONS \
+     && __GNUC__ && !__clang__)
 # define USE_LOCAL_ALLOCATORS
+#endif
+
+#ifdef USE_LOCAL_ALLOCATORS
+
+/* Return a function-scoped cons whose car is X and cdr is Y.  */
+
+# define local_cons(x, y)						\
+    ({									\
+       struct Lisp_Cons *c_ = alloca (sizeof (struct Lisp_Cons));	\
+       c_->car = (x);							\
+       c_->u.cdr = (y);							\
+       make_lisp_ptr (c_, Lisp_Cons);					\
+    })
+
+# define local_list1(x) local_cons (x, Qnil)
+# define local_list2(x, y) local_cons (x, local_list1 (y))
+# define local_list3(x, y, z) local_cons (x, local_list2 (y, z))
+# define local_list4(x, y, z, t) local_cons (x, local_list3 (y, z, t))
 
 /* Return a function-scoped vector of length SIZE, with each element
    being INIT.  */
@@ -4643,12 +4663,18 @@ verify (sizeof (struct Lisp_Cons) == sizeof (union Aligned_Cons));
 
 /* Return a function-scoped string with contents DATA.  */
 
-# define build_local_string(data) \
-    ({ char const *data_ = data; make_local_string (data_, strlen (data_)); })
+# define build_local_string(data)			\
+    ({ char const *data1_ = (data);			\
+       make_local_string (data1_, strlen (data1_)); })
 
 #else
 
 /* Safer but slower implementations.  */
+# define local_cons(car, cdr) Fcons (car, cdr)
+# define local_list1(x) list1 (x)
+# define local_list2(x, y) list2 (x, y)
+# define local_list3(x, y, z) list3 (x, y, z)
+# define local_list4(x, y, z, t) list4 (x, y, z, t)
 # define make_local_vector(size, init) Fmake_vector (make_number (size), init)
 # define make_local_string(data, nbytes) make_string (data, nbytes)
 # define build_local_string(data) build_string (data)

@@ -969,12 +969,9 @@ static void
 load_warn_old_style_backquotes (Lisp_Object file)
 {
   if (!NILP (Vold_style_backquotes))
-    {
-      Lisp_Object args[2];
-      args[0] = build_string ("Loading `%s': old-style backquotes detected!");
-      args[1] = file;
-      Fmessage (2, args);
-    }
+    Fmessage (2, ((Lisp_Object [])
+      { build_local_string ("Loading `%s': old-style backquotes detected!"),
+	file }));
 }
 
 DEFUN ("get-load-suffixes", Fget_load_suffixes, Sget_load_suffixes, 0, 0, 0,
@@ -2894,7 +2891,7 @@ read1 (Lisp_Object readcharfun, int *pch, bool first_in_list)
 		      Lisp_Object placeholder;
 		      Lisp_Object cell;
 
-		      placeholder = Fcons (Qnil, Qnil);
+		      placeholder = scoped_cons (Qnil, Qnil);
 		      cell = Fcons (make_number (n), placeholder);
 		      read_objects = Fcons (cell, read_objects);
 
@@ -3374,7 +3371,7 @@ substitute_object_recurse (Lisp_Object object, Lisp_Object placeholder, Lisp_Obj
 	   substitute_in_interval contains part of the logic.  */
 
 	INTERVAL root_interval = string_intervals (subtree);
-	Lisp_Object arg = Fcons (object, placeholder);
+	Lisp_Object arg = scoped_cons (object, placeholder);
 
 	traverse_intervals_noorder (root_interval,
 				    &substitute_in_interval, arg);
@@ -3681,8 +3678,8 @@ read_list (bool flag, Lisp_Object readcharfun)
 	       in the installed Lisp directory.
 	       We don't use Fexpand_file_name because that would make
 	       the directory absolute now.  */
-	    elt = concat2 (build_string ("../lisp/"),
-			 Ffile_name_nondirectory (elt));
+	    elt = concat2 (build_local_string ("../lisp/"),
+			   Ffile_name_nondirectory (elt));
 	}
       else if (EQ (elt, Vload_file_name)
 	       && ! NILP (elt)

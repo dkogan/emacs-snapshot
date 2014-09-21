@@ -69,6 +69,12 @@ along with GNU Emacs.  If not, see <http://www.gnu.org/licenses/>.  */
 static bool valgrind_p;
 #endif
 
+#ifdef USE_LOCAL_ALLOCATORS
+# if GC_MARK_STACK != GC_MAKE_GCPROS_NOOPS
+#  error "Stack-allocated Lisp objects are not compatible with GCPROs"
+# endif
+#endif
+
 /* GC_CHECK_MARKED_OBJECTS means do sanity checks on allocated objects.
    Doable only if GC_MARK_STACK.  */
 #if ! GC_MARK_STACK
@@ -3319,7 +3325,7 @@ See also the function `vector'.  */)
 /* Initialize V with LENGTH objects each with value INIT,
    and return it tagged as a Lisp Object.  */
 
-INLINE Lisp_Object
+Lisp_Object
 local_vector_init (struct Lisp_Vector *v, ptrdiff_t length, Lisp_Object init)
 {
   v->header.size = length;
@@ -3648,17 +3654,6 @@ make_save_ptr_int (void *a, ptrdiff_t b)
   p->save_type = SAVE_TYPE_PTR_INT;
   p->data[0].pointer = a;
   p->data[1].integer = b;
-  return val;
-}
-
-Lisp_Object
-make_save_int_obj (ptrdiff_t a, Lisp_Object b)
-{
-  Lisp_Object val = allocate_misc (Lisp_Misc_Save_Value);
-  struct Lisp_Save_Value *p = XSAVE_VALUE (val);
-  p->save_type = SAVE_TYPE_INT_OBJ;
-  p->data[0].integer = a;
-  p->data[1].object = b;
   return val;
 }
 

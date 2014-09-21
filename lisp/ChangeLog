@@ -1,3 +1,98 @@
+2014-09-19  Dmitry Gutov  <dgutov@yandex.ru>
+
+	* emacs-lisp/lisp.el (lisp-completion-at-point): Only calculate
+	`table-etc' when `end' is non-nil.
+	(lisp-completion-at-point): Move `end' back if it's after quote.
+	If in comment or string, only complete when after backquote.
+	(Bug#18265)
+	(lisp-completion-at-point): Don't use
+	`lisp--local-variables-completion-table' in the
+	`lisp--form-quoted-p' case.
+
+2014-09-19  Dmitry Gutov  <dgutov@yandex.ru>
+
+	* emacs-lisp/lisp.el (lisp--expect-function-p)
+	(lisp--form-quoted-p): New functions.
+	(lisp-completion-at-point): Use them to see if we're completing a
+	variable reference, a function name, or just any symbol.
+	http://lists.gnu.org/archive/html/emacs-devel/2014-02/msg00229.html
+
+2014-09-18  Ivan Kanis  <ivan@kanis.fr>
+
+	* net/shr.el, net/eww.el: Don't override `shr-width', but
+	introduce a new variable `shr-internal-width'.  This allows users
+	to specify a width themselves.
+
+2014-09-18  Lars Magne Ingebrigtsen  <larsi@gnus.org>
+
+	* image-mode.el (image-toggle-display-image): If we have a
+	`fit-width' or a `fit-height', don't limit the size of the image
+	to the window size, because that doesn't preserve the aspect
+	ratio.
+	* image-mode.el: Move defvars earlier to avoid a byte-compilation
+	warning.
+
+2014-09-17  Reuben Thomas  <rrt@sc3d.org>
+
+	* progmodes/js.el: Add interpreter-mode-alist support for various
+	JavaScript interpreters.
+
+2014-09-17  Paul Eggert  <eggert@cs.ucla.edu>
+
+	Don't assume 'grep' supports GREP_OPTIONS.
+	The GREP_OPTIONS environment variable is planned to be marked
+	obsolescent in GNU grep, due to problems in its use, so stop
+	relying on it.
+	* progmodes/grep.el (grep-highlight-matches): Document this.
+	(grep-process-setup): Do not set GREP_OPTIONS.
+	(grep-compute-defaults): Use an explicit --color option if supported.
+
+2014-09-16  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* msb.el (msb--make-keymap-menu, msb-menu-bar-update-buffers):
+	Don't add outdated key-shortcut cache (bug#18482).
+
+2014-09-15  Glenn Morris  <rgm@gnu.org>
+
+	* image.el (image-multi-frame-p): Fix thinko - do not force
+	a delay if none was specified.  (Bug#18334)
+
+2014-09-15  Kan-Ru Chen  <kanru@kanru.info>
+
+	* window.el (fit-window-to-buffer): Doc fix.
+
+2014-09-15  Ivan Shmakov  <ivan@siamics.net>  (tiny change)
+
+	* desktop.el (desktop-create-buffer): Check that buffers are still live
+	before burying them (bug#18373).
+
+2014-09-15  Glenn Morris  <rgm@gnu.org>
+
+	* calendar/diary-lib.el (diary-list-entries):
+	Restore 24.3 display behavior.  (Bug#18381)
+
+2014-09-15  Eli Zaretskii  <eliz@gnu.org>
+
+	* mouse.el (mouse-drag-line): On text-mode frames, count the mode
+	line and header line as 1 pixel.  This fixes the 1-"pixel" (row)
+	discrepancy between window-pixel-edges and mouse events, and
+	avoids moving mode line up when the mouse click is on the modeline
+	and no drag is attempted.
+
+2014-09-14  Daniel Colascione  <dancol@dancol.org>
+
+	* register.el (insert-register): Change default interactive
+	insertion mode.
+
+2014-09-14  Michael Albinus  <michael.albinus@gmx.de>
+
+	* net/tramp-cache.el (tramp-flush-file-function): Simplify check.
+	Suppress debug messages.
+
+	* net/tramp.el (tramp-file-name-handler):
+	* net/tramp-gvfs.el (tramp-gvfs-url-file-name): Apply `cons' where
+	appropriate.
+
 2014-09-13  Christopher Schmidt  <ch@ristopher.com>
 
 	* calendar/calendar.el (calendar-update-mode-line):
