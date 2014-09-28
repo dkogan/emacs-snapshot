@@ -1647,7 +1647,7 @@ sys_spawnve (int mode, char *cmdname, char **argv, char **envp)
 	strcpy (cmdname, egetenv ("CMDPROXY"));
       else
 	{
-	  strcpy (cmdname, SDATA (Vinvocation_directory));
+	  lispstpcpy (cmdname, Vinvocation_directory);
 	  strcat (cmdname, "cmdproxy.exe");
 	}
 
@@ -2909,7 +2909,7 @@ int_from_hex (char * s)
    function isn't given a context pointer.  */
 Lisp_Object Vw32_valid_locale_ids;
 
-static BOOL CALLBACK
+static BOOL CALLBACK ALIGN_STACK
 enum_locale_fn (LPTSTR localeNum)
 {
   DWORD id = int_from_hex (localeNum);
@@ -2973,7 +2973,7 @@ If successful, the new locale id is returned, otherwise nil.  */)
    function isn't given a context pointer.  */
 Lisp_Object Vw32_valid_codepages;
 
-static BOOL CALLBACK
+static BOOL CALLBACK ALIGN_STACK
 enum_codepage_fn (LPTSTR codepageNum)
 {
   DWORD id = atoi (codepageNum);

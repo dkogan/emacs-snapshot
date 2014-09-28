@@ -1140,10 +1140,8 @@ x_change_tool_bar_height (struct frame *f, int height)
 
   adjust_frame_size (f, -1, -1, 4, 0);
 
-/** #if !defined USE_X_TOOLKIT **/
   if (FRAME_X_WINDOW (f))
     x_clear_under_internal_border (f);
-/** #endif **/
 
 #endif /* USE_GTK */
 }
@@ -1561,6 +1559,9 @@ x_default_scroll_bar_color_parameter (struct frame *f,
 				      const char *xprop, const char *xclass,
 				      int foreground_p)
 {
+#ifdef USE_TOOLKIT_SCROLL_BARS
+  USE_LOCAL_ALLOCA;
+#endif
   struct x_display_info *dpyinfo = FRAME_DISPLAY_INFO (f);
   Lisp_Object tem;
 
@@ -1786,7 +1787,7 @@ xic_create_fontsetname (const char *base_fontname, int motif)
 	  len = p - base_fontname + strlen (allcs) + 1;
 	  font_allcs = alloca (len);
 	  memcpy (font_allcs, base_fontname, p - base_fontname);
-	  strcat (font_allcs, allcs);
+	  strcpy (font_allcs + (p - base_fontname), allcs);
 
 	  /* Build the font spec that matches all families and
 	     add-styles.  */
@@ -1794,7 +1795,7 @@ xic_create_fontsetname (const char *base_fontname, int motif)
 	  font_allfamilies = alloca (len);
 	  strcpy (font_allfamilies, allfamilies);
 	  memcpy (font_allfamilies + strlen (allfamilies), p1, p - p1);
-	  strcat (font_allfamilies, allcs);
+	  strcpy (font_allfamilies + strlen (allfamilies) + (p - p1), allcs);
 
 	  /* Build the font spec that matches all.  */
 	  len = p - p2 + strlen (allcs) + strlen (all) + strlen (allfamilies) + 1;
@@ -1802,7 +1803,8 @@ xic_create_fontsetname (const char *base_fontname, int motif)
 	  strcpy (font_all, allfamilies);
 	  strcat (font_all, all);
 	  memcpy (font_all + strlen (all) + strlen (allfamilies), p2, p - p2);
-	  strcat (font_all, allcs);
+	  strcpy (font_all + strlen (all) + strlen (allfamilies) + (p - p2),
+		  allcs);
 
 	  /* Build the actual font set name.  */
 	  len = strlen (base_fontname) + strlen (font_allcs)
@@ -4271,6 +4273,7 @@ XScreenNumberOfScreen (scr)
 void
 select_visual (struct x_display_info *dpyinfo)
 {
+  USE_LOCAL_ALLOCA;
   Display *dpy = dpyinfo->display;
   Screen *screen = dpyinfo->screen;
 
@@ -4289,7 +4292,7 @@ select_visual (struct x_display_info *dpyinfo)
       int i, class = -1;
       XVisualInfo vinfo;
 
-      strcpy (s, SSDATA (value));
+      lispstpcpy (s, value);
       dash = strchr (s, '-');
       if (dash)
 	{

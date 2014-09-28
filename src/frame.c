@@ -219,21 +219,6 @@ frame_inhibit_resize (struct frame *f, bool horizontal)
 	  || FRAME_TERMCAP_P (f) || FRAME_MSDOS_P (f));
 }
 
-#if 0
-bool
-frame_inhibit_resize (struct frame *f, bool horizontal)
-{
-  Lisp_Object fullscreen = get_frame_param (f, Qfullscreen);
-
-  return (frame_inhibit_implied_resize
-	  || EQ (fullscreen, Qfullboth)
-	  || EQ (fullscreen, Qfullscreen)
-	  || EQ (fullscreen, Qmaximized)
-	  || (horizontal && EQ (fullscreen, Qfullwidth))
-	  || (!horizontal && EQ (fullscreen, Qfullheight)));
-}
-#endif
-
 static void
 set_menu_bar_lines (struct frame *f, Lisp_Object value, Lisp_Object oldval)
 {
@@ -1806,9 +1791,9 @@ The functions are run with one argument, the frame to be deleted.  */)
 
 DEFUN ("mouse-position", Fmouse_position, Smouse_position, 0, 0, 0,
        doc: /* Return a list (FRAME X . Y) giving the current mouse frame and position.
-The position is given in character cells, where (0, 0) is the
-upper-left corner of the frame, X is the horizontal offset, and Y is
-the vertical offset.
+The position is given in canonical character cells, where (0, 0) is the
+upper-left corner of the frame, X is the horizontal offset, and Y is the
+vertical offset, measured in units of the frame's default character size.
 If Emacs is running on a mouseless terminal or hasn't been programmed
 to read the mouse position, it returns the selected frame for FRAME
 and nil for X and Y.
@@ -1927,9 +1912,10 @@ Coordinates are relative to the frame, not a window,
 so the coordinates of the top left character in the frame
 may be nonzero due to left-hand scroll bars or the menu bar.
 
-The position is given in character cells, where (0, 0) is the
-upper-left corner of the frame, X is the horizontal offset, and Y is
-the vertical offset.
+The position is given in canonical character cells, where (0, 0) is
+the upper-left corner of the frame, X is the horizontal offset, and
+Y is the vertical offset, measured in units of the frame's default
+character size.
 
 This function is a no-op for an X frame that is not visible.
 If you have just created a frame, you must wait for it to become visible
@@ -4035,8 +4021,8 @@ xrdb_get_resource (XrmDatabase rdb, Lisp_Object attribute, Lisp_Object class, Li
 
   /* Start with emacs.FRAMENAME for the name (the specific one)
      and with `Emacs' for the class key (the general one).  */
-  strcpy (name_key, SSDATA (Vx_resource_name));
-  strcpy (class_key, SSDATA (Vx_resource_class));
+  lispstpcpy (name_key, Vx_resource_name);
+  lispstpcpy (class_key, Vx_resource_class);
 
   strcat (class_key, ".");
   strcat (class_key, SSDATA (class));
@@ -4136,7 +4122,8 @@ Lisp_Object
 x_get_arg (Display_Info *dpyinfo, Lisp_Object alist, Lisp_Object param,
 	   const char *attribute, const char *class, enum resource_types type)
 {
-  register Lisp_Object tem;
+  USE_LOCAL_ALLOCA;
+  Lisp_Object tem;
 
   tem = Fassq (param, alist);
 

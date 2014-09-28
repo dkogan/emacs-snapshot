@@ -2474,7 +2474,7 @@ x_draw_stretch_glyph_string (struct glyph_string *s)
 	{
 	  /* In R2L rows, draw the cursor on the right edge of the
 	     stretch glyph.  */
-	  int right_x = window_box_right_offset (s->w, TEXT_AREA);
+	  int right_x = window_box_right (s->w, TEXT_AREA);
 
 	  if (x + background_width > right_x)
 	    background_width -= x - right_x;
@@ -4157,7 +4157,7 @@ XTmouse_position (struct frame **fp, int insist, Lisp_Object *bar_window,
 	    dpyinfo->last_mouse_glyph_frame = f1;
 
 	    *bar_window = Qnil;
-	    *part = 0;
+	    *part = scroll_bar_above_handle;
 	    *fp = f1;
 	    XSETINT (*x, win_x);
 	    XSETINT (*y, win_y);
@@ -4250,7 +4250,8 @@ x_window_to_menu_bar (Window window)
 
 #ifdef USE_TOOLKIT_SCROLL_BARS
 
-static void x_send_scroll_bar_event (Lisp_Object, int, int, int, bool);
+static void x_send_scroll_bar_event (Lisp_Object, enum scroll_bar_part,
+				     int, int, bool);
 
 /* Lisp window being scrolled.  Set when starting to interact with
    a toolkit scroll bar, reset to nil when ending the interaction.  */
@@ -4371,7 +4372,8 @@ xt_horizontal_action_hook (Widget widget, XtPointer client_data, String action_n
    amount to scroll of a whole of WHOLE.  */
 
 static void
-x_send_scroll_bar_event (Lisp_Object window, int part, int portion, int whole, bool horizontal)
+x_send_scroll_bar_event (Lisp_Object window, enum scroll_bar_part part,
+			 int portion, int whole, bool horizontal)
 {
   XEvent event;
   XClientMessageEvent *ev = &event.xclient;
@@ -4504,8 +4506,8 @@ xm_scroll_callback (Widget widget, XtPointer client_data, XtPointer call_data)
 {
   struct scroll_bar *bar = client_data;
   XmScrollBarCallbackStruct *cs = call_data;
-  int part = -1, whole = 0, portion = 0;
-  int horizontal = bar->horizontal;
+  enum scroll_bar_part part = scroll_bar_nowhere;
+  int horizontal = bar->horizontal, whole = 0, portion = 0;
 
   switch (cs->reason)
     {
@@ -4569,7 +4571,7 @@ xm_scroll_callback (Widget widget, XtPointer client_data, XtPointer call_data)
       break;
     };
 
-  if (part >= 0)
+  if (part != scroll_bar_nowhere)
     {
       window_being_scrolled = bar->window;
       x_send_scroll_bar_event (bar->window, part, portion, whole, bar->horizontal);
@@ -4587,8 +4589,9 @@ xg_scroll_callback (GtkRange     *range,
                     gdouble       value,
                     gpointer      user_data)
 {
+  int whole = 0, portion = 0;
   struct scroll_bar *bar = user_data;
-  int part = -1, whole = 0, portion = 0;
+  enum scroll_bar_part part = scroll_bar_nowhere;
   GtkAdjustment *adj = GTK_ADJUSTMENT (gtk_range_get_adjustment (range));
   struct frame *f = g_object_get_data (G_OBJECT (range), XG_FRAME_DATA);
 
@@ -4641,7 +4644,7 @@ xg_scroll_callback (GtkRange     *range,
       break;
     }
 
-  if (part >= 0)
+  if (part != scroll_bar_nowhere)
     {
       window_being_scrolled = bar->window;
       x_send_scroll_bar_event (bar->window, part, portion, whole, bar->horizontal);
@@ -7557,9 +7560,6 @@ handle_one_xevent (struct x_display_info *dpyinfo,
 	      SET_FRAME_GARBAGED (f);
               cancel_mouse_face (f);
             }
-
-/**           FRAME_PIXEL_WIDTH (f) = event->xconfigure.width; **/
-/**           FRAME_PIXEL_HEIGHT (f) = event->xconfigure.height; **/
 #endif /* not USE_GTK */
 #endif
 
@@ -7977,6 +7977,15 @@ x_draw_hollow_cursor (struct window *w, struct glyph_row *row)
 					    GCForeground, &xgcv);
   gc = dpyinfo->scratch_cursor_gc;
 
+  /* When on R2L character, show cursor at the right edge of the
+     glyph, unless the cursor box is as wide as the glyph or wider
+     (the latter happens when x-stretch-cursor is non-nil).  */
+  if ((cursor_glyph->resolved_level & 1) != 0
+      && cursor_glyph->pixel_width > w->phys_cursor_width)
+    {
+      x += cursor_glyph->pixel_width - w->phys_cursor_width;
+      wd -= 1;
+    }
   /* Set clipping, draw the rectangle, and reset clipping again.  */
   x_clip_to_row (w, row, TEXT_AREA, gc);
   XDrawRectangle (dpy, FRAME_X_WINDOW (f), gc, x, y, wd, h - 1);
@@ -8062,9 +8071,10 @@ x_draw_bar_cursor (struct window *w, struct glyph_row *row, int width, enum text
 			  WINDOW_TO_FRAME_PIXEL_Y (w, w->phys_cursor.y),
 			  width, row->height);
 	}
-      else
+      else /* HBAR_CURSOR */
 	{
 	  int dummy_x, dummy_y, dummy_h;
+	  int x = WINDOW_TEXT_TO_FRAME_PIXEL_X (w, w->phys_cursor.x);
 
 	  if (width < 0)
 	    width = row->height;
@@ -8074,8 +8084,10 @@ x_draw_bar_cursor (struct window *w, struct glyph_row *row, int width, enum text
 	  get_phys_cursor_geometry (w, row, cursor_glyph, &dummy_x,
 				    &dummy_y, &dummy_h);
 
-	  XFillRectangle (dpy, window, gc,
-			  WINDOW_TEXT_TO_FRAME_PIXEL_X (w, w->phys_cursor.x),
+	  if ((cursor_glyph->resolved_level & 1) != 0
+	      && cursor_glyph->pixel_width > w->phys_cursor_width)
+	    x += cursor_glyph->pixel_width - w->phys_cursor_width;
+	  XFillRectangle (dpy, window, gc, x,
 			  WINDOW_TO_FRAME_PIXEL_Y (w, w->phys_cursor.y +
 						   row->height - width),
 			  w->phys_cursor_width, width);
@@ -8631,8 +8643,7 @@ x_new_font (struct frame *f, Lisp_Object font_object, int fontset)
   FRAME_COLUMN_WIDTH (f) = font->average_width;
   FRAME_LINE_HEIGHT (f) = FONT_HEIGHT (font);
 
-#ifndef USE_X_TOOLKIT							\
-/**   FRAME_TOOL_BAR_HEIGHT (f) = FRAME_TOOL_BAR_LINES (f) * FRAME_LINE_HEIGHT (f); **/
+#ifndef USE_X_TOOLKIT
   FRAME_MENU_BAR_HEIGHT (f) = FRAME_MENU_BAR_LINES (f) * FRAME_LINE_HEIGHT (f);
 #endif
 
@@ -9475,34 +9486,12 @@ x_set_window_size_1 (struct frame *f, int change_gravity, int width, int height,
 {
   int pixelwidth, pixelheight;
 
-/**   if (pixelwise) **/
-/**     { **/
-/**       pixelwidth = FRAME_TEXT_TO_PIXEL_WIDTH (f, width); **/
-/**       pixelheight = FRAME_TEXT_TO_PIXEL_HEIGHT (f, height); **/
-/**     } **/
-/**   else **/
-/**     { **/
-/**       pixelwidth = FRAME_TEXT_COLS_TO_PIXEL_WIDTH (f, width); **/
-/**       pixelheight = FRAME_TEXT_LINES_TO_PIXEL_HEIGHT (f, height); **/
-/**     } **/
-
-/**   FRAME_TOOL_BAR_HEIGHT (f) = FRAME_TOOLBAR_HEIGHT (f); **/
   pixelwidth = (pixelwise
 		? FRAME_TEXT_TO_PIXEL_WIDTH (f, width)
 		: FRAME_TEXT_COLS_TO_PIXEL_WIDTH (f, width));
   pixelheight = ((pixelwise
 		  ? FRAME_TEXT_TO_PIXEL_HEIGHT (f, height)
 		  : FRAME_TEXT_LINES_TO_PIXEL_HEIGHT (f, height)));
-
-/**   pixelwidth = ((pixelwise ? width : (width * FRAME_COLUMN_WIDTH (f))) **/
-/** 		+ FRAME_SCROLL_BAR_AREA_WIDTH (f) **/
-/** 		+ FRAME_TOTAL_FRINGE_WIDTH (f) **/
-/** 		+ 2 * FRAME_INTERNAL_BORDER_WIDTH (f)); **/
-
-/**   pixelheight = ((pixelwise ? height : (height * FRAME_LINE_HEIGHT (f))) **/
-/** 		 + FRAME_TOOLBAR_HEIGHT (f) **/
-/** 		 + FRAME_SCROLL_BAR_AREA_HEIGHT (f) **/
-/** 		 + 2 * FRAME_INTERNAL_BORDER_WIDTH (f)); **/
 
   if (change_gravity) f->win_gravity = NorthWestGravity;
   x_wm_set_size_hint (f, 0, 0);
@@ -10677,6 +10666,7 @@ static unsigned x_display_id;
 struct x_display_info *
 x_term_init (Lisp_Object display_name, char *xrm_option, char *resource_name)
 {
+  USE_LOCAL_ALLOCA;
   Display *dpy;
   struct terminal *terminal;
   struct x_display_info *dpyinfo;
@@ -10890,8 +10880,9 @@ x_term_init (Lisp_Object display_name, char *xrm_option, char *resource_name)
   dpyinfo->x_id = ++x_display_id;
   dpyinfo->x_id_name = xmalloc (SBYTES (Vinvocation_name)
 				+ SBYTES (Vsystem_name) + 2);
-  strcat (strcat (strcpy (dpyinfo->x_id_name, SSDATA (Vinvocation_name)), "@"),
-	  SSDATA (Vsystem_name));
+  char *nametail = lispstpcpy (dpyinfo->x_id_name, Vinvocation_name);
+  *nametail++ = '@';
+  lispstpcpy (nametail, Vsystem_name);
 
   /* Figure out which modifier bits mean what.  */
   x_find_modifier_meanings (dpyinfo);

@@ -1,3 +1,241 @@
+2014-09-28  Thien-Thi Nguyen  <ttn@gnu.org>
+
+	Font-lock `cl-flet*', too.
+	* emacs-lisp/lisp-mode.el (lisp-cl-font-lock-keywords-2):
+	Add "flet*" to intermediate var `cl-lib-kw'.
+
+2014-09-27  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* epg-config.el (epg-gpg-program): Use the plain program names rather
+	than their absolute file name.
+
+	* subr.el (track-mouse): New macro.
+	* emacs-lisp/cconv.el (cconv-convert, cconv-analyse-form):
+	Remove track-mouse case.
+	* emacs-lisp/bytecomp.el (byte-compile-track-mouse): Remove.
+
+2014-09-27  Leo Liu  <sdl.web@gmail.com>
+
+	* progmodes/elisp-mode.el (elisp--eldoc-last-data): Use defvar.
+
+	* emacs-lisp/eldoc.el (eldoc-mode): Fix thinko.
+
+2014-09-27  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* emacs-lisp/pcase.el (pcase--split-match, pcase--app-subst-match):
+	Handle the case where `match' is :pcase--succeed or :pcase--fail
+	(bug#18554).
+
+	Introduce global-eldoc-mode.  Move Elisp-specific code to elisp-mode.el.
+	* emacs-lisp/eldoc.el (global-eldoc-mode): New minor mode.
+	(eldoc-schedule-timer): Obey it.
+	(eldoc-documentation-function): Default to nil.
+	(eldoc-mode): Don't enable if eldoc-documentation-function is not set.
+	(eldoc-documentation-function-default, eldoc-get-fnsym-args-string)
+	(eldoc-highlight-function-argument, eldoc-get-var-docstring)
+	(eldoc-last-data-store, eldoc-docstring-first-line)
+	(eldoc-docstring-format-sym-doc, eldoc-fnsym-in-current-sexp)
+	(eldoc-beginning-of-sexp, eldoc-current-symbol)
+	(eldoc-function-argstring): Move to elisp-mode.el.
+	(eldoc-symbol-function): Remove, unused.
+	* progmodes/elisp-mode.el: New file.  Rename all "eldoc-*" to "elisp--*".
+	(elisp-completion-at-point): Rename from lisp-completion-at-point.
+	(elisp--preceding-sexp): Rename from preceding-sexp.
+	* loadup.el: Load new file progmodes/elisp-mode.
+	* ielm.el (inferior-emacs-lisp-mode): Set eldoc-documentation-function.
+	* emacs-lisp/lisp.el (lisp--local-variables-1, lisp--local-variables)
+	(lisp--local-variables-completion-table, lisp--expect-function-p)
+	(lisp--form-quoted-p, lisp--company-doc-buffer)
+	(lisp--company-doc-string, lisp--company-location)
+	(lisp-completion-at-point): Move to elisp-mode.el.
+	* emacs-lisp/lisp-mode.el (lisp--mode-syntax-table): New syntax-table,
+	extracted from emacs-lisp-mode-syntax-table.
+	(emacs-lisp-mode-abbrev-table, emacs-lisp-mode-syntax-table): Move to
+	elisp-mode.el.
+	(lisp-imenu-generic-expression): Add comments to document what comes
+	from which Lisp dialect.
+	(emacs-lisp-mode-map, emacs-lisp-byte-compile)
+	(emacs-lisp-byte-compile-and-load, emacs-lisp-mode-hook)
+	(emacs-lisp-mode, emacs-list-byte-code-comment-re)
+	(emacs-lisp-byte-code-comment)
+	(emacs-lisp-byte-code-syntax-propertize, emacs-lisp-byte-code-mode)
+	(lisp-interaction-mode-map, lisp-interaction-mode)
+	(eval-print-last-sexp, last-sexp-setup-props)
+	(last-sexp-toggle-display, prin1-char, preceding-sexp)
+	(eval-last-sexp-1, eval-last-sexp-print-value)
+	(eval-last-sexp-fake-value, eval-sexp-add-defvars, eval-last-sexp)
+	(eval-defun-1, eval-defun-2, eval-defun): Move to elisp-mode.el.
+
+2014-09-26  Paul Eggert  <eggert@cs.ucla.edu>
+
+	* progmodes/grep.el (grep-regexp-alist): Use more-accurate regexp.
+	Do not match file names that end in '/', as they cannot be 'grep'
+	hits nowadays.  This prevents confusion when 'grep -r' reports a
+	match in a file whose basename is ':12345:'.  Conversely, do not
+	require exactly the same sequence of spaces and tabs after both
+	colons, and allow spaces or tabs before the second colon, as per
+	the POSIX spec for 'grep' output.
+
+2014-09-26  Leo Liu  <sdl.web@gmail.com>
+
+	Add cl-parse-integer based on parse-integer (Bug#18557)
+	* calendar/parse-time.el (parse-time-digits): Remove.
+	(digit-char-p, parse-integer) Moved to cl-lib.el.
+	(parse-time-tokenize, parse-time-rules, parse-time-string):
+	Use cl-parse-integer.
+
+	* emacs-lisp/cl-extra.el (cl-parse-integer): New function.
+
+	* emacs-lisp/cl-lib.el (cl-digit-char-table): New var.
+	(cl-digit-char-p): New function.
+
+2014-09-25  Juri Linkov  <juri@jurta.org>
+
+	* vc/add-log.el (change-log-next-buffer): Don't create an empty
+	buffer "ChangeLog" when the current buffer doesn't match ChangeLog.[0-9].
+	Return the current buffer if no files match the default pattern
+	ChangeLog.[0-9].  Signal "end of multi" when file is nil. (Bug#18547)
+
+2014-09-25  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* net/tramp-sh.el (tramp-sh-handle-vc-registered): Don't modify
+	the global vc-handled-backends (bug#18535).
+
+2014-09-24  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* find-cmd.el (find-cmd): Use grep's `find-program' (bug#18518).
+	Suggested by <lompik@voila.fr>.
+
+2014-09-24  Ulf Jasper  <ulf.jasper@web.de>
+
+	* net/newst-treeview.el (newsticker--treeview-do-get-node-by-id):
+	Rename from `newsticker--treeview-do-get-node'.
+	(newsticker--treeview-get-node-by-id):
+	Rename from `newsticker--treeview-get-node'.
+	(newsticker--treeview-buffer-init)
+	(newsticker--treeview-buffer-init): Disable buffer undo.
+	(newsticker--treeview-unfold-node): Adapt to modified
+	`newsticker--group-find-parent-group'.
+	(newsticker--group-do-find-group):
+	Rename from `newsticker--group-do-find-group-for-feed'.
+	Now works for both, groups and feeds.
+	(newsticker--group-find-parent-group):
+	Rename from `newsticker--group-find-group-for-feed'.
+	Now works for both, groups and feeds.
+	(newsticker--group-do-get-parent-group)
+	(newsticker--group-get-parent-group): Remove.
+	(newsticker-group-add-group): Change interactive prompts.
+	(newsticker-group-add-group): Finally jump to added group.
+	(newsticker-group-delete-group): Finally jump to current feed.
+	(newsticker--group-do-rename-group, newsticker-group-rename-group)
+	(newsticker--get-group-names, newsticker--group-names): New.
+	(newsticker-group-move-feed): Finally jump to moved feed.
+	(newsticker-group-shift-feed-down, newsticker-group-shift-feed-up)
+	(newsticker-group-shift-group-down)
+	(newsticker-group-shift-group-up, newsticker--group-shift): New.
+	(newsticker-treeview-mode-map): New keybindings for new shift commands.
+
+	* net/newst-backend.el (newsticker--item-list)
+	(newsticker--item-position, newsticker--prev-message)
+	(newsticker--scrollable-text): Move to newst-ticker.el.
+
+	* net/newst-ticker.el (newsticker--item-list)
+	(newsticker--item-position, newsticker--prev-message)
+	(newsticker--scrollable-text): Move from newst-backend.el.
+
+2014-09-22  Kan-Ru Chen  <kanru@kanru.info>
+
+	* window.el (fit-window-to-buffer): When counting buffer width,
+	count the whole visible buffer.  Correctly convert the body-height
+	to pixel size for window-text-pixel-size (Bug#18498).
+
+2014-09-22  Sam Steingold  <sds@gnu.org>
+
+	* progmodes/sql.el (sql-product-alist): Improve the Vertica entry.
+	(sql-execute): Use `special-mode'.
+
+2014-09-22  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	Add pcase-defmacro, as well as `quote' and `app' patterns.
+	* loadup.el: Increase max-lisp-eval-depth when macroexpanding macroexp.
+	* emacs-lisp/pcase.el: Allow (F . ARGS) in `app' patterns.
+	(pcase--funcall, pcase--eval): New functions.
+	(pcase--u1): Use them for guard, pred, let, and app.
+	(\`): Use the new feature to generate better code for vector patterns.
+	* emacs-lisp/pcase.el: Use pcase-defmacro to handle backquote.
+	(pcase--upat): Remove.
+	(pcase--macroexpand): Don't hardcode handling of `.
+	(pcase--split-consp, pcase--split-vector): Remove.
+	(pcase--split-equal): Disregard ` since it's expanded away.
+	(pcase--split-member): Optimize for quote rather than for `.
+	(pcase--split-pred): Optimize for quote rather than for `.
+	(pcase--u1): Remove handling of ` (and of `or' and `and').
+	Quote non-selfquoting values when passing them to `eq'.
+	Drop `app's let-binding if the variable is not used.
+	(pcase--q1): Remove.
+	(`): Define as a pattern macro.
+	* emacs-lisp/pcase.el (pcase--match): New smart-constructor function.
+	(pcase--expand pcase--q1, pcase--app-subst-match): Use it.
+	(pcase--macroexpand): Handle self-quoting patterns here, expand them to
+	quote patterns.
+	(pcase--split-match): Don't hoist or/and here any more.
+	(pcase--split-equal): Optimize quote patterns as well as ` patterns.
+	(pcase--flip): New helper macro.
+	(pcase--u1): Optimize the memq case directly.
+	Don't handle neither self-quoting nor and/or patterns any more.
+	* emacs-lisp/pcase.el (pcase-defmacro): New macro.
+	(pcase--macroexpand): New function.
+	(pcase--expand): Use it.
+	* emacs-lisp/pcase.el (pcase--app-subst-match, pcase--app-subst-rest):
+	New optimization functions.
+	(pcase--u1): Add support for `quote' and `app'.
+	(pcase): Document them in the docstring.
+
+2014-09-22  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	Use lexical-bindin in Ibuffer.
+	* ibuffer.el (ibuffer-do-toggle-read-only): `arg' is unused.
+	(ibuffer-compile-format): Simplify.
+	(ibuffer-clear-summary-columns): Simplify.
+	* ibuf-ext.el (ibuffer-generate-filter-groups): Don't use the third
+	elem of dotimes when we don't refer to the iteration var from it.
+	(ibuffer-toggle-sorting-mode): Avoid add-to-list.
+	* ibuf-macs.el (define-ibuffer-column, define-ibuffer-op):
+	Silence byte-compiler.
+
+2014-09-22  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* font-lock.el (font-lock-compile-keyword): Don't confuse a lambda
+	expression for a list.
+
+	* emacs-lisp/bytecomp.el (byte-compile-lambda): Don't add fundoc usage
+	for functions with no arguments.
+
+	* mpc.el (mpc-data-directory): Use locate-user-emacs-file.
+	(mpc-volume-refresh): Make sure the corresponding header-line is updated.
+
+2014-09-17  Tom Willemse  <tom@ryuslash.org>  (tiny change)
+
+	* simple.el (clone-indirect-buffer): Mention the return value
+	(bug#18478).
+
+	* progmodes/prog-mode.el (prog-mode-hook): Replace reference to
+	Text mode in docstring (bug#18464).
+
+2014-09-21  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* progmodes/perl-mode.el (perl-syntax-propertize-function):
+	Accept underscores in identifiers after "sub" (bug#18502).
+
+2014-09-21  Tassilo Horn  <tsdh@gnu.org>
+
+	* textmodes/reftex-sel.el (reftex-select-label-mode)
+	(reftex-select-bib-mode, reftex-insert-docstruct): Derive modes
+	from special-mode (instead of fundamental-mode) and propertize
+	with font-lock-face instead of just face. (Bug#18496)
+
+	* textmodes/reftex-toc.el (reftex-toc-mode, reftex-toc): Ditto.
+
 2014-09-19  Dmitry Gutov  <dgutov@yandex.ru>
 
 	* emacs-lisp/lisp.el (lisp-completion-at-point): Only calculate
@@ -27,8 +265,7 @@
 
 	* image-mode.el (image-toggle-display-image): If we have a
 	`fit-width' or a `fit-height', don't limit the size of the image
-	to the window size, because that doesn't preserve the aspect
-	ratio.
+	to the window size, because that doesn't preserve the aspect ratio.
 	* image-mode.el: Move defvars earlier to avoid a byte-compilation
 	warning.
 
@@ -61,7 +298,7 @@
 
 	* window.el (fit-window-to-buffer): Doc fix.
 
-2014-09-15  Ivan Shmakov  <ivan@siamics.net>  (tiny change)
+2014-09-15  Ivan Shmakov  <ivan@siamics.net>
 
 	* desktop.el (desktop-create-buffer): Check that buffers are still live
 	before burying them (bug#18373).
@@ -105,8 +342,8 @@
 	(pcase--expand): Use it.
 	(pcase-exhaustive): New macro.  (Bug#16567)
 
-	* emacs-lisp/lisp-mode.el (lisp-el-font-lock-keywords-2): Add
-	pcase-exhaustive.
+	* emacs-lisp/lisp-mode.el (lisp-el-font-lock-keywords-2):
+	Add pcase-exhaustive.
 
 2014-09-13  Eli Zaretskii  <eliz@gnu.org>
 
@@ -263,8 +500,8 @@
 
 2014-09-05  Martin Rudalics  <rudalics@gmx.at>
 
-	* scroll-bar.el (horizontal-scroll-bars-available-p): New
-	function.
+	* scroll-bar.el (horizontal-scroll-bars-available-p):
+	New function.
 	(horizontal-scroll-bar-mode): Rewrite using
 	horizontal-scroll-bars-available-p.
 	* menu-bar.el (menu-bar-showhide-scroll-bar-menu): Rewrite using
@@ -1442,7 +1679,7 @@
 	(dbus-register-service): Register it.  (Bug#17858)
 	(dbus-managed-objects-handler): Fix docstring.
 
-2014-07-04  Phil Sainty  <psainty@orcon.net.nz>  (tiny change)
+2014-07-04  Phil Sainty  <psainty@orcon.net.nz>
 
 	* emacs-lisp/lisp.el (narrow-to-defun-include-comments): New var.
 	(narrow-to-defun): New arg include-comments, defaulting to it
@@ -6482,7 +6719,7 @@
 	COMMAND-alternatives variable, assign COMMAND as its definition
 	name so that `describe-variable' can relocate it.
 
-2014-01-14  Matthew Leach  <matthew@mattleach.net>  (tiny change)
+2014-01-14  Matthew Leach  <matthew@mattleach.net>
 
 	* font-lock.el (font-lock-keywords): Fix typo in docstring
 	(bug#16307).
@@ -8755,7 +8992,7 @@
 	Add option to delete file when done.  (Bug#15647)
 	(python-shell-send-string, python-shell-send-region): Use it.
 
-2013-11-23  Ivan Shmakov  <ivan@siamics.net>  (tiny change)
+2013-11-23  Ivan Shmakov  <ivan@siamics.net>
 
 	* vc/diff-mode.el (diff-mode): Only allow diff-default-read-only
 	to set buffer-read-only to t, never to nil.  (Bug#15938)

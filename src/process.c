@@ -592,6 +592,7 @@ decode_status (Lisp_Object l, Lisp_Object *symbol, int *code, bool *coredump)
 static Lisp_Object
 status_message (struct Lisp_Process *p)
 {
+  USE_LOCAL_ALLOCA;
   Lisp_Object status = p->status;
   Lisp_Object symbol;
   int code;
@@ -1290,6 +1291,8 @@ number in the string, even when present in ADDRESS.
 Returns nil if format of ADDRESS is invalid.  */)
   (Lisp_Object address, Lisp_Object omit_port)
 {
+  USE_LOCAL_ALLOCA;
+
   if (NILP (address))
     return Qnil;
 
@@ -2989,7 +2992,7 @@ usage: (make-network-process &rest ARGS)  */)
       address_un.sun_family = AF_LOCAL;
       if (sizeof address_un.sun_path <= SBYTES (service))
 	error ("Service name too long");
-      strcpy (address_un.sun_path, SSDATA (service));
+      lispstpcpy (address_un.sun_path, service);
       ai.ai_addr = (struct sockaddr *) &address_un;
       ai.ai_addrlen = sizeof address_un;
       goto open_socket;
@@ -3680,7 +3683,7 @@ network_interface_info (Lisp_Object ifname)
 
   if (sizeof rq.ifr_name <= SBYTES (ifname))
     error ("interface name too long");
-  strcpy (rq.ifr_name, SSDATA (ifname));
+  lispstpcpy (rq.ifr_name, ifname);
 
   s = socket (AF_INET, SOCK_STREAM | SOCK_CLOEXEC, 0);
   if (s < 0)
@@ -4003,6 +4006,7 @@ static EMACS_INT connect_counter = 0;
 static void
 server_accept_connection (Lisp_Object server, int channel)
 {
+  USE_LOCAL_ALLOCA;
   Lisp_Object proc, caller, name, buffer;
   Lisp_Object contact, host, service;
   struct Lisp_Process *ps= XPROCESS (server);

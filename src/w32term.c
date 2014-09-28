@@ -2228,7 +2228,7 @@ x_draw_stretch_glyph_string (struct glyph_string *s)
 	{
 	  /* In R2L rows, draw the cursor on the right edge of the
 	     stretch glyph.  */
-	  int right_x = window_box_right_offset (s->w, TEXT_AREA);
+	  int right_x = window_box_right (s->w, TEXT_AREA);
 
 	  if (x + background_width > right_x)
 	    background_width -= x - right_x;
@@ -3344,11 +3344,11 @@ static struct scroll_bar *x_window_to_scroll_bar (Window, int);
 static void x_scroll_bar_report_motion (struct frame **, Lisp_Object *,
 					enum scroll_bar_part *,
 					Lisp_Object *, Lisp_Object *,
-					unsigned long *);
+					Time *);
 static void x_horizontal_scroll_bar_report_motion (struct frame **, Lisp_Object *,
 						   enum scroll_bar_part *,
 						   Lisp_Object *, Lisp_Object *,
-						   unsigned long *);
+						   Time *);
 static void x_check_fullscreen (struct frame *);
 
 static void
@@ -3380,7 +3380,7 @@ w32_define_cursor (Window window, Cursor cursor)
 static void
 w32_mouse_position (struct frame **fp, int insist, Lisp_Object *bar_window,
 		    enum scroll_bar_part *part, Lisp_Object *x, Lisp_Object *y,
-		    unsigned long *time)
+		    Time *time)
 {
   struct frame *f1;
   struct w32_display_info *dpyinfo = FRAME_DISPLAY_INFO (*fp);
@@ -3448,7 +3448,7 @@ w32_mouse_position (struct frame **fp, int insist, Lisp_Object *bar_window,
 	    dpyinfo->last_mouse_glyph_frame = f1;
 
 	    *bar_window = Qnil;
-	    *part = 0;
+	    *part = scroll_bar_above_handle;
 	    *fp = f1;
 	    XSETINT (*x, pt.x);
 	    XSETINT (*y, pt.y);
@@ -4374,7 +4374,7 @@ static void
 x_scroll_bar_report_motion (struct frame **fp, Lisp_Object *bar_window,
 			    enum scroll_bar_part *part,
 			    Lisp_Object *x, Lisp_Object *y,
-			    unsigned long *time)
+			    Time *time)
 {
   struct w32_display_info *dpyinfo = FRAME_DISPLAY_INFO (*fp);
   struct scroll_bar *bar = dpyinfo->last_mouse_scroll_bar;
@@ -4424,7 +4424,7 @@ static void
 x_horizontal_scroll_bar_report_motion (struct frame **fp, Lisp_Object *bar_window,
 				       enum scroll_bar_part *part,
 				       Lisp_Object *x, Lisp_Object *y,
-				       unsigned long *time)
+				       Time *time)
 {
   struct w32_display_info *dpyinfo = FRAME_DISPLAY_INFO (*fp);
   struct scroll_bar *bar = dpyinfo->last_mouse_scroll_bar;
@@ -5472,6 +5472,12 @@ x_draw_hollow_cursor (struct window *w, struct glyph_row *row)
   /* Compute frame-relative coordinates for phys cursor.  */
   get_phys_cursor_geometry (w, row, cursor_glyph, &left, &top, &h);
   rect.left = left;
+  /* When on R2L character, show cursor at the right edge of the
+     glyph, unless the cursor box is as wide as the glyph or wider
+     (the latter happens when x-stretch-cursor is non-nil).  */
+  if ((cursor_glyph->resolved_level & 1) != 0
+      && cursor_glyph->pixel_width > w->phys_cursor_width)
+    rect.left += cursor_glyph->pixel_width - w->phys_cursor_width;
   rect.top = top;
   rect.bottom = rect.top + h;
   rect.right = rect.left + w->phys_cursor_width;
@@ -5553,7 +5559,7 @@ x_draw_bar_cursor (struct window *w, struct glyph_row *row,
 			 WINDOW_TO_FRAME_PIXEL_Y (w, w->phys_cursor.y),
 			 width, row->height);
 	}
-      else
+      else	/* HBAR_CURSOR */
 	{
 	  int dummy_x, dummy_y, dummy_h;
 
@@ -5564,6 +5570,9 @@ x_draw_bar_cursor (struct window *w, struct glyph_row *row,
 
 	  get_phys_cursor_geometry (w, row, cursor_glyph, &dummy_x,
 				    &dummy_y, &dummy_h);
+	  if ((cursor_glyph->resolved_level & 1) != 0
+	      && cursor_glyph->pixel_width > w->phys_cursor_width)
+	    x += cursor_glyph->pixel_width - w->phys_cursor_width;
 	  w32_fill_area (f, hdc, cursor_color, x,
 			 WINDOW_TO_FRAME_PIXEL_Y (w, w->phys_cursor.y +
 						  row->height - width),

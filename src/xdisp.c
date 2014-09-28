@@ -1144,7 +1144,7 @@ window_box_left_offset (struct window *w, enum glyph_row_area area)
    area AREA of window W.  ANY_AREA means return the right edge of the
    whole window, to the left of the right fringe of W.  */
 
-int
+static int
 window_box_right_offset (struct window *w, enum glyph_row_area area)
 {
   /* Don't return more than the window's pixel width.  */
@@ -2995,12 +2995,8 @@ init_iterator (struct it *it, struct window *w,
 
       /* If we truncate lines, leave room for the truncation glyph(s) at
 	 the right margin.  Otherwise, leave room for the continuation
-	 glyph(s).  Done only if the window has no fringes.  Since we
-	 don't know at this point whether there will be any R2L lines in
-	 the window, we reserve space for truncation/continuation glyphs
-	 even if only one of the fringes is absent.  */
-      if (WINDOW_RIGHT_FRINGE_WIDTH (it->w) == 0
-	  || (it->bidi_p && WINDOW_LEFT_FRINGE_WIDTH (it->w) == 0))
+	 glyph(s).  Done only if the window has no right fringe.  */
+      if (WINDOW_RIGHT_FRINGE_WIDTH (it->w) == 0)
 	{
 	  if (it->line_wrap == TRUNCATE)
 	    it->last_visible_x -= it->truncation_pixel_width;
@@ -3065,6 +3061,19 @@ init_iterator (struct it *it, struct window *w,
 	 iterator.  */
       if (it->bidi_p)
 	{
+	  /*  Since we don't know at this point whether there will be
+	      any R2L lines in the window, we reserve space for
+	      truncation/continuation glyphs even if only the left
+	      fringe is absent.  */
+	  if (base_face_id == DEFAULT_FACE_ID
+	      && WINDOW_LEFT_FRINGE_WIDTH (it->w) == 0
+	      && WINDOW_RIGHT_FRINGE_WIDTH (it->w) != 0)
+	    {
+	      if (it->line_wrap == TRUNCATE)
+		it->last_visible_x -= it->truncation_pixel_width;
+	      else
+		it->last_visible_x -= it->continuation_pixel_width;
+	    }
 	  /* Note the paragraph direction that this buffer wants to
 	     use.  */
 	  if (EQ (BVAR (current_buffer, bidi_paragraph_direction),
@@ -12038,11 +12047,11 @@ static void
 build_desired_tool_bar_string (struct frame *f)
 {
   int i, size, size_needed;
-  struct gcpro gcpro1, gcpro2, gcpro3;
-  Lisp_Object image, plist, props;
+  struct gcpro gcpro1, gcpro2;
+  Lisp_Object image, plist;
 
-  image = plist = props = Qnil;
-  GCPRO3 (image, plist, props);
+  image = plist = Qnil;
+  GCPRO2 (image, plist);
 
   /* Prepare F->desired_tool_bar_string.  If we can reuse it, do so.
      Otherwise, make a new string.  */
@@ -12061,9 +12070,12 @@ build_desired_tool_bar_string (struct frame *f)
       (f, Fmake_string (make_number (size_needed), make_number (' ')));
   else
     {
-      props = local_list4 (Qdisplay, Qnil, Qmenu_item, Qnil);
+      Lisp_Object props = scoped_list4 (Qdisplay, Qnil, Qmenu_item, Qnil);
+      struct gcpro gcpro1;
+      GCPRO1 (props);
       Fremove_text_properties (make_number (0), make_number (size),
 			       props, f->desired_tool_bar_string);
+      UNGCPRO;
     }
 
   /* Put a `display' property on the string for the images to display,
@@ -12174,8 +12186,11 @@ build_desired_tool_bar_string (struct frame *f)
 	 the start of this item's properties in the tool-bar items
 	 vector.  */
       image = Fcons (Qimage, plist);
-      props = local_list4 (Qdisplay, image, Qmenu_item,
-			   make_number (i * TOOL_BAR_ITEM_NSLOTS));
+      Lisp_Object props
+	= scoped_list4 (Qdisplay, image, Qmenu_item,
+			make_number (i * TOOL_BAR_ITEM_NSLOTS));
+      struct gcpro gcpro1;
+      GCPRO1 (props);
 
       /* Let the last image hide all remaining spaces in the tool bar
          string.  The string can be longer than needed when we reuse a
@@ -12186,6 +12201,7 @@ build_desired_tool_bar_string (struct frame *f)
 	end = i + 1;
       Fadd_text_properties (make_number (i), make_number (end),
 			    props, f->desired_tool_bar_string);
+      UNGCPRO;
 #undef PROP
     }
 
@@ -13557,6 +13573,12 @@ redisplay_internal (void)
 
       if (mode_line_update_needed (w))
 	w->update_mode_line = 1;
+
+      /* If reconsider_clip_changes above decided that the narrowing
+	 in the current buffer changed, make sure all other windows
+	 showing that buffer will be redisplayed.  */
+      if (current_buffer->clip_changed)
+	bset_update_mode_line (current_buffer);
     }
 
   /* Normally the message* functions will have already displayed and
@@ -19379,7 +19401,18 @@ extend_face_to_end_of_line (struct it *it)
 
 	  for (row_width = 0, g = row_start; g < row_end; g++)
 	    row_width += g->pixel_width;
-	  stretch_width = window_box_width (it->w, TEXT_AREA) - row_width;
+
+	  /* FIXME: There are various minor display glitches in R2L
+	     rows when only one of the fringes is missing.  The
+	     strange condition below produces the least bad effect.  */
+	  if ((WINDOW_LEFT_FRINGE_WIDTH (it->w) == 0)
+	      == (WINDOW_RIGHT_FRINGE_WIDTH (it->w) == 0)
+	      || WINDOW_RIGHT_FRINGE_WIDTH (it->w) != 0)
+	    stretch_width = window_box_width (it->w, TEXT_AREA);
+	  else
+	    stretch_width = it->last_visible_x - it->first_visible_x;
+	  stretch_width -= row_width;
+
 	  if (stretch_width > 0)
 	    {
 	      stretch_ascent =
@@ -20520,9 +20553,17 @@ display_line (struct it *it)
 		  /* When the last glyph of an R2L row only fits
 		     partially on the line, we need to set row->x to a
 		     negative offset, so that the leftmost glyph is
-		     the one that is partially visible.  */
-		  if (row->reversed_p && new_x > it->last_visible_x)
-		    row->x = it->last_visible_x - new_x;
+		     the one that is partially visible.  But if we are
+		     going to produce the truncation glyph, this will
+		     be taken care of in produce_special_glyphs.  */
+		  if (row->reversed_p
+		      && new_x > it->last_visible_x
+		      && !(it->line_wrap == TRUNCATE
+			   && WINDOW_LEFT_FRINGE_WIDTH (it->w) == 0))
+		    {
+		      eassert (FRAME_WINDOW_P (it->f));
+		      row->x = it->last_visible_x - new_x;
+		    }
 		}
 	      else
 		{
@@ -20596,7 +20637,10 @@ display_line (struct it *it)
 		  that they are cropped at the right edge of the
 		  window, so an image glyph will always end exactly at
 		  last_visible_x, even if there's no right fringe.  */
-	       && (WINDOW_RIGHT_FRINGE_WIDTH (it->w) || it->what == IT_IMAGE))
+	       && ((row->reversed_p
+		    ? WINDOW_LEFT_FRINGE_WIDTH (it->w)
+		    : WINDOW_RIGHT_FRINGE_WIDTH (it->w))
+		   || it->what == IT_IMAGE))
 	      ? (it->current_x >= it->last_visible_x)
 	      : (it->current_x > it->last_visible_x)))
 	{
@@ -20848,6 +20892,7 @@ paragraphs, text begins at the right margin and is read from right to left.
 See also `bidi-paragraph-direction'.  */)
   (Lisp_Object buffer)
 {
+  USE_LOCAL_ALLOCA;
   struct buffer *buf = current_buffer;
   struct buffer *old = buf;
 
@@ -25773,14 +25818,13 @@ produce_special_glyphs (struct it *it, enum display_element_type what)
 
   temp_it.dp = NULL;
   temp_it.what = IT_CHARACTER;
-  temp_it.len = 1;
   temp_it.c = temp_it.char_to_display = GLYPH_CHAR (glyph);
   temp_it.face_id = GLYPH_FACE (glyph);
   temp_it.len = CHAR_BYTES (temp_it.c);
 
   PRODUCE_GLYPHS (&temp_it);
   it->pixel_width = temp_it.pixel_width;
-  it->nglyphs = temp_it.pixel_width;
+  it->nglyphs = temp_it.nglyphs;
 }
 
 #ifdef HAVE_WINDOW_SYSTEM
@@ -30101,8 +30145,6 @@ expose_frame (struct frame *f, int x, int y, int w, int h)
       r.x = r.y = 0;
       r.width = FRAME_TEXT_WIDTH (f);
       r.height = FRAME_TEXT_HEIGHT (f);
-/**       r.width = FRAME_COLUMN_WIDTH (f) * FRAME_COLS (f); **/
-/**       r.height = FRAME_LINE_HEIGHT (f) * FRAME_LINES (f); **/
     }
   else
     {

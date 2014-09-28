@@ -968,6 +968,7 @@ load_error_handler (Lisp_Object data)
 static void
 load_warn_old_style_backquotes (Lisp_Object file)
 {
+  USE_LOCAL_ALLOCA;
   if (!NILP (Vold_style_backquotes))
     Fmessage (2, ((Lisp_Object [])
       { build_local_string ("Loading `%s': old-style backquotes detected!"),
@@ -3638,6 +3639,7 @@ read_vector (Lisp_Object readcharfun, bool bytecodeflag)
 static Lisp_Object
 read_list (bool flag, Lisp_Object readcharfun)
 {
+  USE_LOCAL_ALLOCA;
   Lisp_Object val, tail;
   Lisp_Object elt, tem;
   struct gcpro gcpro1, gcpro2;
@@ -3807,6 +3809,30 @@ check_obarray (Lisp_Object obarray)
   return obarray;
 }
 
+/* Intern a symbol with name STRING in OBARRAY using bucket INDEX.  */
+
+Lisp_Object
+intern_driver (Lisp_Object string, Lisp_Object obarray, ptrdiff_t index)
+{
+  Lisp_Object *ptr, sym = Fmake_symbol (string);
+
+  XSYMBOL (sym)->interned = (EQ (obarray, initial_obarray)
+			     ? SYMBOL_INTERNED_IN_INITIAL_OBARRAY
+			     : SYMBOL_INTERNED);
+
+  if ((SREF (string, 0) == ':') && EQ (obarray, initial_obarray))
+    {
+      XSYMBOL (sym)->constant = 1;
+      XSYMBOL (sym)->redirect = SYMBOL_PLAINVAL;
+      SET_SYMBOL_VAL (XSYMBOL (sym), sym);
+    }
+
+  ptr = aref_addr (obarray, index);
+  set_symbol_next (sym, SYMBOLP (*ptr) ? XSYMBOL (*ptr) : NULL);
+  *ptr = sym;
+  return sym;
+}
+
 /* Intern the C string STR: return a symbol with that name,
    interned in the current obarray.  */
 
@@ -3816,7 +3842,8 @@ intern_1 (const char *str, ptrdiff_t len)
   Lisp_Object obarray = check_obarray (Vobarray);
   Lisp_Object tem = oblookup (obarray, str, len, len);
 
-  return SYMBOLP (tem) ? tem : Fintern (make_string (str, len), obarray);
+  return SYMBOLP (tem) ? tem : intern_driver (make_string (str, len),
+					      obarray, XINT (tem));
 }
 
 Lisp_Object
@@ -3825,16 +3852,14 @@ intern_c_string_1 (const char *str, ptrdiff_t len)
   Lisp_Object obarray = check_obarray (Vobarray);
   Lisp_Object tem = oblookup (obarray, str, len, len);
 
-  if (SYMBOLP (tem))
-    return tem;
-
-  if (NILP (Vpurify_flag))
-    /* Creating a non-pure string from a string literal not
-       implemented yet.  We could just use make_string here and live
-       with the extra copy.  */
-    emacs_abort ();
-
-  return Fintern (make_pure_c_string (str, len), obarray);
+  if (!SYMBOLP (tem))
+    {
+      /* Creating a non-pure string from a string literal not implemented yet.
+	 We could just use make_string here and live with the extra copy.  */
+      eassert (!NILP (Vpurify_flag));
+      tem = intern_driver (make_pure_c_string (str, len), obarray, XINT (tem));
+    }
+  return tem;
 }
 
 DEFUN ("intern", Fintern, Sintern, 1, 2, 0,
@@ -3844,43 +3869,16 @@ A second optional argument specifies the obarray to use;
 it defaults to the value of `obarray'.  */)
   (Lisp_Object string, Lisp_Object obarray)
 {
-  register Lisp_Object tem, sym, *ptr;
+  Lisp_Object tem;
 
-  if (NILP (obarray)) obarray = Vobarray;
-  obarray = check_obarray (obarray);
-
+  obarray = check_obarray (NILP (obarray) ? Vobarray : obarray);
   CHECK_STRING (string);
 
-  tem = oblookup (obarray, SSDATA (string),
-		  SCHARS (string),
-		  SBYTES (string));
-  if (!INTEGERP (tem))
-    return tem;
-
-  if (!NILP (Vpurify_flag))
-    string = Fpurecopy (string);
-  sym = Fmake_symbol (string);
-
-  if (EQ (obarray, initial_obarray))
-    XSYMBOL (sym)->interned = SYMBOL_INTERNED_IN_INITIAL_OBARRAY;
-  else
-    XSYMBOL (sym)->interned = SYMBOL_INTERNED;
-
-  if ((SREF (string, 0) == ':')
-      && EQ (obarray, initial_obarray))
-    {
-      XSYMBOL (sym)->constant = 1;
-      XSYMBOL (sym)->redirect = SYMBOL_PLAINVAL;
-      SET_SYMBOL_VAL (XSYMBOL (sym), sym);
-    }
-
-  ptr = aref_addr (obarray, XINT (tem));
-  if (SYMBOLP (*ptr))
-    set_symbol_next (sym, XSYMBOL (*ptr));
-  else
-    set_symbol_next (sym, NULL);
-  *ptr = sym;
-  return sym;
+  tem = oblookup (obarray, SSDATA (string), SCHARS (string), SBYTES (string));
+  if (!SYMBOLP (tem))
+    tem = intern_driver (NILP (Vpurify_flag) ? string
+			 : Fpurecopy (string), obarray, XINT (tem));
+  return tem;
 }
 
 DEFUN ("intern-soft", Fintern_soft, Sintern_soft, 1, 2, 0,

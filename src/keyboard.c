@@ -597,6 +597,8 @@ echo_char (Lisp_Object c)
 static void
 echo_dash (void)
 {
+  USE_LOCAL_ALLOCA;
+
   /* Do nothing if not echoing at all.  */
   if (NILP (KVAR (current_kboard, echo_string)))
     return;
@@ -1285,13 +1287,9 @@ tracking_off (Lisp_Object old_value)
     }
 }
 
-DEFUN ("track-mouse", Ftrack_mouse, Strack_mouse, 0, UNEVALLED, 0,
-       doc: /* Evaluate BODY with mouse movement events enabled.
-Within a `track-mouse' form, mouse motion generates input events that
-you can read with `read-event'.
-Normally, mouse motion is ignored.
-usage: (track-mouse BODY...)  */)
-  (Lisp_Object args)
+DEFUN ("internal--track-mouse", Ftrack_mouse, Strack_mouse, 1, 1, 0,
+       doc: /* Call BODYFUN with mouse movement events enabled.  */)
+  (Lisp_Object bodyfun)
 {
   ptrdiff_t count = SPECPDL_INDEX ();
   Lisp_Object val;
@@ -1300,7 +1298,7 @@ usage: (track-mouse BODY...)  */)
 
   do_mouse_tracking = Qt;
 
-  val = Fprogn (args);
+  val = call0 (bodyfun);
   return unbind_to (count, val);
 }
 
@@ -1894,6 +1892,7 @@ safe_run_hooks_1 (ptrdiff_t nargs, Lisp_Object *args)
 static Lisp_Object
 safe_run_hooks_error (Lisp_Object error, ptrdiff_t nargs, Lisp_Object *args)
 {
+  USE_LOCAL_ALLOCA;
   Lisp_Object hook, fun;
 
   eassert (nargs == 2);
@@ -3729,6 +3728,34 @@ kbd_buffer_unget_event (register struct input_event *event)
     }
 }
 
+/* Limit help event positions to this range, to avoid overflow problems.  */
+#define INPUT_EVENT_POS_MAX \
+  ((ptrdiff_t) min (PTRDIFF_MAX, min (TYPE_MAXIMUM (Time) / 2, \
+				      MOST_POSITIVE_FIXNUM)))
+#define INPUT_EVENT_POS_MIN (-1 - INPUT_EVENT_POS_MAX)
+
+/* Return a Time that encodes position POS.  POS must be in range.  */
+
+static Time
+position_to_Time (ptrdiff_t pos)
+{
+  eassert (INPUT_EVENT_POS_MIN <= pos && pos <= INPUT_EVENT_POS_MAX);
+  return pos;
+}
+
+/* Return the position that ENCODED_POS encodes.
+   Avoid signed integer overflow.  */
+
+static ptrdiff_t
+Time_to_position (Time encoded_pos)
+{
+  if (encoded_pos <= INPUT_EVENT_POS_MAX)
+    return encoded_pos;
+  Time encoded_pos_min = INPUT_EVENT_POS_MIN;
+  eassert (encoded_pos_min <= encoded_pos);
+  ptrdiff_t notpos = -1 - encoded_pos;
+  return -1 - notpos;
+}
 
 /* Generate a HELP_EVENT input_event and store it in the keyboard
    buffer.
@@ -3747,14 +3774,12 @@ gen_help_event (Lisp_Object help, Lisp_Object frame, Lisp_Object window,
 {
   struct input_event event;
 
-  EVENT_INIT (event);
-
   event.kind = HELP_EVENT;
   event.frame_or_window = frame;
   event.arg = object;
   event.x = WINDOWP (window) ? window : frame;
   event.y = help;
-  event.code = pos;
+  event.timestamp = position_to_Time (pos);
   kbd_buffer_store_event (&event);
 }
 
@@ -3771,7 +3796,7 @@ kbd_buffer_store_help_event (Lisp_Object frame, Lisp_Object help)
   event.arg = Qnil;
   event.x = Qnil;
   event.y = help;
-  event.code = 0;
+  event.timestamp = 0;
   kbd_buffer_store_event (&event);
 }
 
@@ -4086,7 +4111,7 @@ kbd_buffer_get_event (KBOARD **kbp,
 
 	  frame = event->frame_or_window;
 	  object = event->arg;
-	  position = make_number (event->code);
+	  position = make_number (Time_to_position (event->timestamp));
 	  window = event->x;
 	  help = event->y;
 	  clear_event (event);
@@ -5201,9 +5226,11 @@ static Lisp_Object Qleftmost, Qrightmost;
 static Lisp_Object Qend_scroll;
 static Lisp_Object Qratio;
 
-/* An array of scroll bar parts, indexed by an enum scroll_bar_part value.  */
+/* An array of scroll bar parts, indexed by an enum scroll_bar_part value.
+   Note that Qnil corresponds to scroll_bar_nowhere and should not appear
+   in Lisp events.  */
 static Lisp_Object *const scroll_bar_parts[] = {
-  &Qabove_handle, &Qhandle, &Qbelow_handle,
+  &Qnil, &Qabove_handle, &Qhandle, &Qbelow_handle,
   &Qup, &Qdown, &Qtop, &Qbottom, &Qend_scroll, &Qratio,
   &Qbefore_handle, &Qhorizontal_handle, &Qafter_handle,
   &Qleft, &Qright, &Qleftmost, &Qrightmost, &Qend_scroll, &Qratio
@@ -5450,6 +5477,16 @@ toolkit_menubar_in_use (struct frame *f)
 #endif
 }
 
+/* Build the part of Lisp event which represents scroll bar state from
+   EV.  TYPE is one of Qvertical_scroll_bar or Qhorizontal_scroll_bar.  */
+
+static Lisp_Object
+make_scroll_bar_position (struct input_event *ev, Lisp_Object type)
+{
+  return list5 (ev->frame_or_window, type, Fcons (ev->x, ev->y),
+		make_number (ev->timestamp), *scroll_bar_parts[ev->part]);
+}
+
 /* Given a struct input_event, build the lisp event which represents
    it.  If EVENT is 0, build a mouse movement event from the mouse
    movement buffer, which should have a movement event in it.
@@ -5538,30 +5575,27 @@ make_lispy_event (struct input_event *event)
                                     ARRAYELTS (iso_lispy_function_keys));
 #endif
 
-      /* Handle system-specific or unknown keysyms.  */
-      if (event->code & (1 << 28)
-	  || event->code - FUNCTION_KEY_OFFSET < 0
-	  || (event->code - FUNCTION_KEY_OFFSET
-	      >= ARRAYELTS (lispy_function_keys))
-	  || !lispy_function_keys[event->code - FUNCTION_KEY_OFFSET])
-	{
-	  /* We need to use an alist rather than a vector as the cache
-	     since we can't make a vector long enough.  */
-	  if (NILP (KVAR (current_kboard, system_key_syms)))
-	    kset_system_key_syms (current_kboard, Fcons (Qnil, Qnil));
-	  return modify_event_symbol (event->code,
-				      event->modifiers,
-				      Qfunction_key,
-				      KVAR (current_kboard, Vsystem_key_alist),
-				      0, &KVAR (current_kboard, system_key_syms),
-				      PTRDIFF_MAX);
-	}
+      if ((FUNCTION_KEY_OFFSET <= event->code
+	   && (event->code
+	       < FUNCTION_KEY_OFFSET + ARRAYELTS (lispy_function_keys)))
+	  && lispy_function_keys[event->code - FUNCTION_KEY_OFFSET])
+	return modify_event_symbol (event->code - FUNCTION_KEY_OFFSET,
+				    event->modifiers,
+				    Qfunction_key, Qnil,
+				    lispy_function_keys, &func_key_syms,
+				    ARRAYELTS (lispy_function_keys));
 
-      return modify_event_symbol (event->code - FUNCTION_KEY_OFFSET,
+      /* Handle system-specific or unknown keysyms.
+	 We need to use an alist rather than a vector as the cache
+	 since we can't make a vector long enough.  */
+      if (NILP (KVAR (current_kboard, system_key_syms)))
+	kset_system_key_syms (current_kboard, Fcons (Qnil, Qnil));
+      return modify_event_symbol (event->code,
 				  event->modifiers,
-				  Qfunction_key, Qnil,
-				  lispy_function_keys, &func_key_syms,
-                                  ARRAYELTS (lispy_function_keys));
+				  Qfunction_key,
+				  KVAR (current_kboard, Vsystem_key_alist),
+				  0, &KVAR (current_kboard, system_key_syms),
+				  PTRDIFF_MAX);
 
 #ifdef HAVE_NTGUI
     case MULTIMEDIA_KEY_EVENT:
@@ -5667,20 +5701,8 @@ make_lispy_event (struct input_event *event)
 	  }
 #ifndef USE_TOOLKIT_SCROLL_BARS
 	else
-	  {
-	    /* It's a scrollbar click.  */
-	    Lisp_Object window;
-	    Lisp_Object portion_whole;
-	    Lisp_Object part;
-
-	    window = event->frame_or_window;
-	    portion_whole = Fcons (event->x, event->y);
-	    part = *scroll_bar_parts[(int) event->part];
-
-	    position = list5 (window, Qvertical_scroll_bar,
-			      portion_whole, make_number (event->timestamp),
-			      part);
-	  }
+	  /* It's a scrollbar click.  */
+	  position = make_scroll_bar_position (event, Qvertical_scroll_bar);
 #endif /* not USE_TOOLKIT_SCROLL_BARS */
 
 	if (button >= ASIZE (button_down_location))
@@ -5957,14 +5979,9 @@ make_lispy_event (struct input_event *event)
 
     case SCROLL_BAR_CLICK_EVENT:
       {
-	Lisp_Object position, head, window, portion_whole, part;
+	Lisp_Object position, head;
 
-	window = event->frame_or_window;
-	portion_whole = Fcons (event->x, event->y);
-	part = *scroll_bar_parts[(int) event->part];
-
-	position = list5 (window, Qvertical_scroll_bar, portion_whole,
-			  make_number (event->timestamp), part);
+	position = make_scroll_bar_position (event, Qvertical_scroll_bar);
 
 	/* Always treat scroll bar events as clicks.  */
 	event->modifiers |= click_modifier;
@@ -5987,14 +6004,9 @@ make_lispy_event (struct input_event *event)
 
     case HORIZONTAL_SCROLL_BAR_CLICK_EVENT:
       {
-	Lisp_Object position, head, window, portion_whole, part;
+	Lisp_Object position, head;
 
-	window = event->frame_or_window;
-	portion_whole = Fcons (event->x, event->y);
-	part = *scroll_bar_parts[(int) event->part];
-
-	position = list5 (window, Qhorizontal_scroll_bar, portion_whole,
-			  make_number (event->timestamp), part);
+	position = make_scroll_bar_position (event, Qhorizontal_scroll_bar);
 
 	/* Always treat scroll bar events as clicks.  */
 	event->modifiers |= click_modifier;
@@ -7687,6 +7699,7 @@ menu_item_eval_property (Lisp_Object sexpr)
 bool
 parse_menu_item (Lisp_Object item, int inmenubar)
 {
+  USE_LOCAL_ALLOCA;
   Lisp_Object def, tem, item_string, start;
   Lisp_Object filter;
   Lisp_Object keyhint;
@@ -8510,7 +8523,8 @@ static Lisp_Object
 read_char_minibuf_menu_prompt (int commandflag,
 			       Lisp_Object map)
 {
-  register Lisp_Object name;
+  USE_LOCAL_ALLOCA;
+  Lisp_Object name;
   ptrdiff_t nlength;
   /* FIXME: Use the minibuffer's frame width.  */
   ptrdiff_t width = FRAME_COLS (SELECTED_FRAME ()) - 4;

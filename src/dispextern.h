@@ -2523,7 +2523,9 @@ struct it
 
   /* First and last visible x-position in the display area.  If window
      is hscrolled by n columns, first_visible_x == n * FRAME_COLUMN_WIDTH
-     (f), and last_visible_x == pixel width of W + first_visible_x.  */
+     (f), and last_visible_x == pixel width of W + first_visible_x.
+     When truncation or continuation glyphs are produced due to lack of
+     fringes, last_visible_x excludes the space required for these glyphs.  */
   int first_visible_x, last_visible_x;
 
   /* Last visible y-position + 1 in the display area without a mode
@@ -3174,7 +3176,6 @@ int window_box_width (struct window *, enum glyph_row_area);
 int window_box_left (struct window *, enum glyph_row_area);
 int window_box_left_offset (struct window *, enum glyph_row_area);
 int window_box_right (struct window *, enum glyph_row_area);
-int window_box_right_offset (struct window *, enum glyph_row_area);
 int estimate_mode_line_height (struct frame *, enum face_id);
 int move_it_to (struct it *, ptrdiff_t, int, int, int, int);
 void pixel_to_glyph_coords (struct frame *, int, int, int *, int *,

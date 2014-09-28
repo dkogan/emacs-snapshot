@@ -277,10 +277,8 @@ static int num_font_drivers;
 Lisp_Object
 font_intern_prop (const char *str, ptrdiff_t len, bool force_symbol)
 {
-  ptrdiff_t i;
-  Lisp_Object tem;
-  Lisp_Object obarray;
-  ptrdiff_t nbytes, nchars;
+  ptrdiff_t i, nbytes, nchars;
+  Lisp_Object tem, name, obarray;
 
   if (len == 1 && *str == '*')
     return Qnil;
@@ -311,12 +309,11 @@ font_intern_prop (const char *str, ptrdiff_t len, bool force_symbol)
   parse_str_as_multibyte ((unsigned char *) str, len, &nchars, &nbytes);
   tem = oblookup (obarray, str,
 		  (len == nchars || len != nbytes) ? len : nchars, len);
-
   if (SYMBOLP (tem))
     return tem;
-  tem = make_specified_string (str, nchars, len,
-			       len != nchars && len == nbytes);
-  return Fintern (tem, obarray);
+  name = make_specified_string (str, nchars, len,
+				len != nchars && len == nbytes);
+  return intern_driver (name, obarray, XINT (tem));
 }
 
 /* Return a pixel size of font-spec SPEC on frame F.  */
@@ -360,6 +357,7 @@ int
 font_style_to_value (enum font_property_index prop, Lisp_Object val,
                      bool noerror)
 {
+  USE_LOCAL_ALLOCA;
   Lisp_Object table = AREF (font_style_table, prop - FONT_WEIGHT_INDEX);
   int len;
 
@@ -370,7 +368,7 @@ font_style_to_value (enum font_property_index prop, Lisp_Object val,
     {
       int i, j;
       char *s;
-      Lisp_Object args[2], elt;
+      Lisp_Object elt;
 
       /* At first try exact match.  */
       for (i = 0; i < len; i++)
@@ -402,9 +400,9 @@ font_style_to_value (enum font_property_index prop, Lisp_Object val,
       eassert (len < 255);
       elt = Fmake_vector (make_number (2), make_number (100));
       ASET (elt, 1, val);
-      args[0] = table;
-      args[1] = Fmake_vector (make_number (1), elt);
-      ASET (font_style_table, prop - FONT_WEIGHT_INDEX, Fvconcat (2, args));
+      ASET (font_style_table, prop - FONT_WEIGHT_INDEX,
+	    Fvconcat (2, ((Lisp_Object [])
+	      { table, make_local_vector (1, elt) })));
       return (100 << 8) | (i << 4);
     }
   else
@@ -1052,6 +1050,7 @@ font_expand_wildcards (Lisp_Object *field, int n)
 int
 font_parse_xlfd (char *name, ptrdiff_t len, Lisp_Object font)
 {
+  USE_LOCAL_ALLOCA;
   int i, j, n;
   char *f[XLFD_LAST_INDEX + 1];
   Lisp_Object val;
@@ -1761,6 +1760,7 @@ font_parse_name (char *name, ptrdiff_t namelen, Lisp_Object font)
 void
 font_parse_family_registry (Lisp_Object family, Lisp_Object registry, Lisp_Object font_spec)
 {
+  USE_LOCAL_ALLOCA;
   ptrdiff_t len;
   char *p0, *p1;
 
@@ -2686,9 +2686,10 @@ static Lisp_Object scratch_font_spec, scratch_font_prefer;
 static Lisp_Object
 font_delete_unmatched (Lisp_Object vec, Lisp_Object spec, int size)
 {
+  USE_LOCAL_ALLOCA;
   Lisp_Object entity, val;
   enum font_property_index prop;
-  int i;
+  ptrdiff_t i;
 
   for (val = Qnil, i = ASIZE (vec) - 1; i >= 0; i--)
     {
@@ -2716,7 +2717,7 @@ font_delete_unmatched (Lisp_Object vec, Lisp_Object spec, int size)
 	}
       if (NILP (spec))
 	{
-	  val = Fcons (entity, val);
+	  val = local_cons (entity, val);
 	  continue;
 	}
       for (prop = FONT_WEIGHT_INDEX; prop < FONT_SIZE_INDEX; prop++)
@@ -2747,7 +2748,7 @@ font_delete_unmatched (Lisp_Object vec, Lisp_Object spec, int size)
 		   AREF (entity, FONT_AVGWIDTH_INDEX)))
 	prop = FONT_SPEC_MAX;
       if (prop < FONT_SPEC_MAX)
-	val = Fcons (entity, val);
+	val = local_cons (entity, val);
     }
   return (Fvconcat (1, &val));
 }
@@ -4269,7 +4270,7 @@ the consecutive wildcards are folded into one.  */)
 	{
 	  if (NILP (fold_wildcards))
 	    return font_name;
-	  strcpy (name, SSDATA (font_name));
+	  lispstpcpy (name, font_name);
 	  namelen = SBYTES (font_name);
 	  goto done;
 	}
@@ -5005,6 +5006,7 @@ static Lisp_Object Vfont_log_deferred;
 void
 font_add_log (const char *action, Lisp_Object arg, Lisp_Object result)
 {
+  USE_LOCAL_ALLOCA;
   Lisp_Object val;
   int i;
 

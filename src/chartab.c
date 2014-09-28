@@ -1249,6 +1249,7 @@ uniprop_encode_value_run_length (Lisp_Object table, Lisp_Object value)
 static Lisp_Object
 uniprop_encode_value_numeric (Lisp_Object table, Lisp_Object value)
 {
+  USE_LOCAL_ALLOCA;
   Lisp_Object *value_table = XVECTOR (XCHAR_TABLE (table)->extras[4])->contents;
   int i, size = ASIZE (XCHAR_TABLE (table)->extras[4]);
 
@@ -1258,13 +1259,8 @@ uniprop_encode_value_numeric (Lisp_Object table, Lisp_Object value)
       break;
   value = make_number (i);
   if (i == size)
-    {
-      Lisp_Object args[2];
-
-      args[0] = XCHAR_TABLE (table)->extras[4];
-      args[1] = Fmake_vector (make_number (1), value);
-      set_char_table_extras (table, 4, Fvconcat (2, args));
-    }
+    set_char_table_extras (table, 4, Fvconcat (2, ((Lisp_Object []) {
+      XCHAR_TABLE (table)->extras[4], make_local_vector (1, value) })));
   return make_number (i);
 }
 
@@ -1297,6 +1293,7 @@ uniprop_get_encoder (Lisp_Object table)
 Lisp_Object
 uniprop_table (Lisp_Object prop)
 {
+  USE_LOCAL_ALLOCA;
   Lisp_Object val, table, result;
 
   val = Fassq (prop, Vchar_code_property_alist);

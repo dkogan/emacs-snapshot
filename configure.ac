@@ -254,7 +254,7 @@ AC_ARG_WITH([mailhost],[AS_HELP_STRING([--with-mailhost=HOSTNAME],
 
 AC_ARG_WITH([sound],[AS_HELP_STRING([--with-sound=VALUE],
   [compile with sound support (VALUE one of: yes, alsa, oss, bsd-ossaudio, no;
-default yes).  Only for GNU/Linux, FreeBSD, NetBSD, MinGW.])],
+default yes).  Only for GNU/Linux, FreeBSD, NetBSD, MinGW, Cygwin.])],
   [ case "${withval}" in
       yes|no|alsa|oss|bsd-ossaudio) val=$withval ;;
       *) AC_MSG_ERROR([`--with-sound=$withval' is invalid;
@@ -1103,10 +1103,10 @@ if test "$MAKEINFO" != "no"; then
     MAKEINFO=makeinfo
   fi
   case `($MAKEINFO --version) 2>/dev/null` in
-    'makeinfo (GNU texinfo) '4.[[7-9]]* | \
-    'makeinfo (GNU texinfo) '4.[[1-9][0-9]]* | \
-    'makeinfo (GNU texinfo) '[[5-9]]* | \
-    'makeinfo (GNU texinfo) '[[1-9][0-9]]* ) ;;
+    *' (GNU texinfo) '4.[[7-9]]* | \
+    *' (GNU texinfo) '4.[[1-9][0-9]]* | \
+    *' (GNU texinfo) '[[5-9]]* | \
+    *' (GNU texinfo) '[[1-9][0-9]]* ) ;;
     *) MAKEINFO=no;;
   esac
 fi
@@ -1442,7 +1442,7 @@ AC_DEFUN([EMACS_CHECK_MODULES],
 
 HAVE_SOUND=no
 if test "${with_sound}" != "no"; then
-  # Sound support for GNU/Linux, the free BSDs, and MinGW.
+  # Sound support for GNU/Linux, the free BSDs, MinGW, and Cygwin.
   AC_CHECK_HEADERS([machine/soundcard.h sys/soundcard.h soundcard.h mmsystem.h],
     have_sound_header=yes, [], [
     #ifdef __MINGW32__
@@ -1505,7 +1505,7 @@ if test "${with_sound}" != "no"; then
      case "$opsys" in
        dnl defined __FreeBSD__ || defined __NetBSD__ || defined __linux__
        dnl Adjust the --with-sound help text if you change this.
-       gnu-linux|freebsd|netbsd|mingw32)
+       gnu-linux|freebsd|netbsd|mingw32|cygwin)
          AC_DEFINE(HAVE_SOUND, 1, [Define to 1 if you have sound support.])
          HAVE_SOUND=yes
          ;;
@@ -4936,17 +4936,19 @@ case "$opsys" in
   darwin)
    ## The -headerpad option tells ld (see man page) to leave room at the
    ## end of the header for adding load commands.  Needed for dumping.
-   ## 0x690 is the total size of 30 segment load commands (at 56
-   ## each); under Cocoa 31 commands are required.
+   ## 0x1000 is enough for roughly 52 load commands on the x86_64
+   ## architecture (where they are 78 bytes each). The actual number of
+   ## load commands added is not consistent but normally ranges from
+   ## about 14 to about 34. Setting it high gets us plenty of slop and
+   ## only costs about 1.5K of wasted binary space.
+   headerpad_extra=1000
    if test "$HAVE_NS" = "yes"; then
      libs_nsgui="-framework AppKit"
      if test "$NS_IMPL_COCOA" = "yes"; then
         libs_nsgui="$libs_nsgui -framework IOKit"
      fi
-     headerpad_extra=6C8
    else
      libs_nsgui=
-     headerpad_extra=690
    fi
    LD_SWITCH_SYSTEM_TEMACS="-fno-pie -prebind $libs_nsgui -Xlinker -headerpad -Xlinker $headerpad_extra"
 

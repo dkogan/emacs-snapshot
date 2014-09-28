@@ -119,7 +119,8 @@
   (let ((macroexp--pending-eager-loads '(skip)))
     (load "emacs-lisp/pcase"))
   ;; Re-load macroexp so as to eagerly macro-expand its uses of pcase.
-  (load "emacs-lisp/macroexp"))
+  (let ((max-lisp-eval-depth (* 2 max-lisp-eval-depth)))
+    (load "emacs-lisp/macroexp")))
 
 (load "cus-face")
 (load "faces")  ; after here, `defface' may be used.
@@ -216,6 +217,7 @@
 (load "textmodes/paragraphs")
 (load "progmodes/prog-mode")
 (load "emacs-lisp/lisp-mode")
+(load "progmodes/elisp-mode")
 (load "textmodes/text-mode")
 (load "textmodes/fill")
 (load "newcomment")
