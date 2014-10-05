@@ -1,3 +1,28 @@
+2014-09-30  Bill Wohler	 <wohler@newt.com>
+
+	Release MH-E version 8.6
+
+	* NEWS, MH-E-NEWS: Update for MH-E release 8.6.
+
+2014-09-30  Fabrice Niessen  <fniessen@pirilampo.org>
+
+	* themes/leuven-theme.el: Updates.
+
+2014-09-30  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* package-keyring.gpg: New file.
+
+2014-09-30  Paul Eggert  <eggert@cs.ucla.edu>
+
+	* TODO: Remove char/unsigned char, long long, IRIX unexelf.c.
+	The first two are done, and IRIX support has been dropped.
+
+2014-09-29  Eli Zaretskii  <eliz@gnu.org>
+
+	* refcards/ru-refcard.tex: Bump version to 25.0.50.
+
+	* refcards/emacsver.tex: Bump version to 25.0.50.
+
 2014-09-14  Daniel Colascione  <dancol@dancol.org>
 
 	* NEWS: Mention changes to `insert-register'

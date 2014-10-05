@@ -75,11 +75,11 @@ extern void emacs_abort (void);
 #ifdef CYGWIN
 extern void *bss_sbrk (ptrdiff_t size);
 extern int bss_sbrk_did_unexec;
-extern void *bss_sbrk_buffer_beg;
+extern char bss_sbrk_buffer[];
 extern void *bss_sbrk_buffer_end;
 #define DUMPED bss_sbrk_did_unexec
 #define ALLOCATED_BEFORE_DUMPING(P) \
-  ((P) < bss_sbrk_buffer_end && (P) >= bss_sbrk_buffer_beg)
+  ((P) < bss_sbrk_buffer_end && (P) >= (void *) bss_sbrk_buffer)
 #endif
 
 #ifdef	__cplusplus
@@ -1303,7 +1303,7 @@ License along with this library.  If not, see <http://www.gnu.org/licenses/>.
    or (US mail) as Mike Haertel c/o Free Software Foundation.  */
 
 #ifndef min
-#define min(A, B) ((A) < (B) ? (A) : (B))
+#define min(a, b) ((a) < (b) ? (a) : (b))
 #endif
 
 /* Debugging hook for realloc.  */

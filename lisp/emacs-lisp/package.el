@@ -289,7 +289,11 @@ contrast, `package-user-dir' contains packages for personal use."
   :group 'package
   :version "24.1")
 
-(defcustom package-check-signature 'allow-unsigned
+(defvar epg-gpg-program)
+
+(defcustom package-check-signature
+  (if (progn (require 'epg-config) (executable-find epg-gpg-program))
+      'allow-unsigned)
   "Non-nil means to check package signatures when installing.
 The value `allow-unsigned' means to still install a package even if
 it is unsigned.
@@ -1297,7 +1301,8 @@ similar to an entry in `package-alist'.  Save the cached copy to
   (setq file (expand-file-name file))
   (let ((context (epg-make-context 'OpenPGP))
 	(homedir (expand-file-name "gnupg" package-user-dir)))
-    (make-directory homedir t)
+    (with-file-modes 448
+      (make-directory homedir t))
     (epg-context-set-home-directory context homedir)
     (message "Importing %s..." (file-name-nondirectory file))
     (epg-import-keys-from-file context file)
@@ -1314,12 +1319,12 @@ makes them available for download."
     (make-directory package-user-dir t))
   (let ((default-keyring (expand-file-name "package-keyring.gpg"
 					   data-directory)))
-    (if (file-exists-p default-keyring)
-	(condition-case-unless-debug error
-	    (progn
-	      (epg-check-configuration (epg-configuration))
-	      (package-import-keyring default-keyring))
-	  (error (message "Cannot import default keyring: %S" (cdr error))))))
+    (when (and package-check-signature (file-exists-p default-keyring))
+      (condition-case-unless-debug error
+	  (progn
+	    (epg-check-configuration (epg-configuration))
+	    (package-import-keyring default-keyring))
+	(error (message "Cannot import default keyring: %S" (cdr error))))))
   (dolist (archive package-archives)
     (condition-case-unless-debug nil
 	(package--download-one-archive archive "archive-contents")

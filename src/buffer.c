@@ -1511,7 +1511,6 @@ list first, followed by the list of all buffers.  If no other buffer
 exists, return the buffer `*scratch*' (creating it if necessary).  */)
   (Lisp_Object buffer, Lisp_Object visible_ok, Lisp_Object frame)
 {
-  USE_LOCAL_ALLOCA;
   struct frame *f = decode_any_frame (frame);
   Lisp_Object tail = f->buffer_list, pred = f->buffer_predicate;
   Lisp_Object buf, notsogood = Qnil;
@@ -1553,10 +1552,11 @@ exists, return the buffer `*scratch*' (creating it if necessary).  */)
     return notsogood;
   else
     {
-      buf = Fget_buffer (build_local_string ("*scratch*"));
+      AUTO_STRING (scratch, "*scratch*");
+      buf = Fget_buffer (scratch);
       if (NILP (buf))
 	{
-	  buf = Fget_buffer_create (build_local_string ("*scratch*"));
+	  buf = Fget_buffer_create (scratch);
 	  Fset_buffer_major_mode (buf);
 	}
       return buf;
@@ -1570,17 +1570,17 @@ exists, return the buffer `*scratch*' (creating it if necessary).  */)
 Lisp_Object
 other_buffer_safely (Lisp_Object buffer)
 {
-  USE_LOCAL_ALLOCA;
   Lisp_Object tail, buf;
 
   FOR_EACH_LIVE_BUFFER (tail, buf)
     if (candidate_buffer (buf, buffer))
       return buf;
 
-  buf = Fget_buffer (build_local_string ("*scratch*"));
+  AUTO_STRING (scratch, "*scratch*");
+  buf = Fget_buffer (scratch);
   if (NILP (buf))
     {
-      buf = Fget_buffer_create (build_local_string ("*scratch*"));
+      buf = Fget_buffer_create (scratch);
       Fset_buffer_major_mode (buf);
     }
 
@@ -5240,7 +5240,6 @@ init_buffer_once (void)
 void
 init_buffer (int initialized)
 {
-  USE_LOCAL_ALLOCA;
   char *pwd;
   Lisp_Object temp;
   ptrdiff_t len;
@@ -5292,7 +5291,8 @@ init_buffer (int initialized)
   (void) initialized;
 #endif /* USE_MMAP_FOR_BUFFERS */
 
-  Fset_buffer (Fget_buffer_create (build_local_string ("*scratch*")));
+  AUTO_STRING (scratch, "*scratch*");
+  Fset_buffer (Fget_buffer_create (scratch));
   if (NILP (BVAR (&buffer_defaults, enable_multibyte_characters)))
     Fset_buffer_multibyte (Qnil);
 
@@ -5329,9 +5329,12 @@ init_buffer (int initialized)
 	 However, it is not necessary to turn / into /:/.
 	 So avoid doing that.  */
       && strcmp ("/", SSDATA (BVAR (current_buffer, directory))))
-    bset_directory
-      (current_buffer,
-       concat2 (build_local_string ("/:"), BVAR (current_buffer, directory)));
+    {
+      AUTO_STRING (slash_colon, "/:");
+      bset_directory (current_buffer,
+		      concat2 (slash_colon,
+			       BVAR (current_buffer, directory)));
+    }
 
   temp = get_minibuffer (0);
   bset_directory (XBUFFER (temp), BVAR (current_buffer, directory));
@@ -5922,12 +5925,12 @@ in a window.  To make the change take effect, call `set-window-buffer'.  */);
 
   DEFVAR_PER_BUFFER ("scroll-bar-width", &BVAR (current_buffer, scroll_bar_width),
 		     Qintegerp,
-		     doc: /* Width of this buffer's scroll bars in pixels.
+		     doc: /* Width of this buffer's vertical scroll bars in pixels.
 A value of nil means to use the scroll bar width from the window's frame.  */);
 
   DEFVAR_PER_BUFFER ("scroll-bar-height", &BVAR (current_buffer, scroll_bar_height),
 		     Qintegerp,
-		     doc: /* Height of this buffer's scroll bars in pixels.
+		     doc: /* Height of this buffer's horizontal scroll bars in pixels.
 A value of nil means to use the scroll bar height from the window's frame.  */);
 
   DEFVAR_PER_BUFFER ("vertical-scroll-bar", &BVAR (current_buffer, vertical_scroll_bar_type),

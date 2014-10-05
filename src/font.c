@@ -41,10 +41,6 @@ along with GNU Emacs.  If not, see <http://www.gnu.org/licenses/>.  */
 #include TERM_HEADER
 #endif /* HAVE_WINDOW_SYSTEM */
 
-#ifndef MAX
-# define MAX(a, b) ((a) > (b) ? (a) : (b))
-#endif
-
 Lisp_Object Qopentype;
 
 /* Important character set strings.  */
@@ -357,7 +353,6 @@ int
 font_style_to_value (enum font_property_index prop, Lisp_Object val,
                      bool noerror)
 {
-  USE_LOCAL_ALLOCA;
   Lisp_Object table = AREF (font_style_table, prop - FONT_WEIGHT_INDEX);
   int len;
 
@@ -402,7 +397,7 @@ font_style_to_value (enum font_property_index prop, Lisp_Object val,
       ASET (elt, 1, val);
       ASET (font_style_table, prop - FONT_WEIGHT_INDEX,
 	    Fvconcat (2, ((Lisp_Object [])
-	      { table, make_local_vector (1, elt) })));
+	      { table, Fmake_vector (make_number (1), elt) })));
       return (100 << 8) | (i << 4);
     }
   else
@@ -1050,7 +1045,6 @@ font_expand_wildcards (Lisp_Object *field, int n)
 int
 font_parse_xlfd (char *name, ptrdiff_t len, Lisp_Object font)
 {
-  USE_LOCAL_ALLOCA;
   int i, j, n;
   char *f[XLFD_LAST_INDEX + 1];
   Lisp_Object val;
@@ -1189,13 +1183,22 @@ font_parse_xlfd (char *name, ptrdiff_t len, Lisp_Object font)
 	{
 	  val = prop[XLFD_ENCODING_INDEX];
 	  if (! NILP (val))
-	    val = concat2 (build_local_string ("*-"), SYMBOL_NAME (val));
+	    {
+	      AUTO_STRING (stardash, "*-");
+	      val = concat2 (stardash, SYMBOL_NAME (val));
+	    }
 	}
       else if (NILP (prop[XLFD_ENCODING_INDEX]))
-	val = concat2 (SYMBOL_NAME (val), build_local_string ("-*"));
+	{
+	  AUTO_STRING (dashstar, "-*");
+	  val = concat2 (SYMBOL_NAME (val), dashstar);
+	}
       else
-	val = concat3 (SYMBOL_NAME (val), build_local_string ("-"),
-		       SYMBOL_NAME (prop[XLFD_ENCODING_INDEX]));
+	{
+	  AUTO_STRING (dash, "-");
+	  val = concat3 (SYMBOL_NAME (val), dash,
+			 SYMBOL_NAME (prop[XLFD_ENCODING_INDEX]));
+	}
       if (! NILP (val))
 	ASET (font, FONT_REGISTRY_INDEX, Fintern (val, Qnil));
 
@@ -1303,7 +1306,7 @@ font_unparse_xlfd (Lisp_Object font, int pixel_size, char *name, int nbytes)
   val = AREF (font, FONT_SIZE_INDEX);
   eassert (NUMBERP (val) || NILP (val));
   char font_size_index_buf[sizeof "-*"
-			   + MAX (INT_STRLEN_BOUND (EMACS_INT),
+			   + max (INT_STRLEN_BOUND (EMACS_INT),
 				  1 + DBL_MAX_10_EXP + 1)];
   if (INTEGERP (val))
     {
@@ -1760,7 +1763,6 @@ font_parse_name (char *name, ptrdiff_t namelen, Lisp_Object font)
 void
 font_parse_family_registry (Lisp_Object family, Lisp_Object registry, Lisp_Object font_spec)
 {
-  USE_LOCAL_ALLOCA;
   ptrdiff_t len;
   char *p0, *p1;
 
@@ -1792,10 +1794,8 @@ font_parse_family_registry (Lisp_Object family, Lisp_Object registry, Lisp_Objec
       p1 = strchr (p0, '-');
       if (! p1)
 	{
-	  if (SDATA (registry)[len - 1] == '*')
-	    registry = concat2 (registry, build_local_string ("-*"));
-	  else
-	    registry = concat2 (registry, build_local_string ("*-*"));
+	  AUTO_STRING (extra, ("*-*" + (len && p0[len - 1] == '*')));
+	  registry = concat2 (registry, extra);
 	}
       registry = Fdowncase (registry);
       ASET (font_spec, FONT_REGISTRY_INDEX, Fintern (registry, Qnil));
@@ -2686,7 +2686,6 @@ static Lisp_Object scratch_font_spec, scratch_font_prefer;
 static Lisp_Object
 font_delete_unmatched (Lisp_Object vec, Lisp_Object spec, int size)
 {
-  USE_LOCAL_ALLOCA;
   Lisp_Object entity, val;
   enum font_property_index prop;
   ptrdiff_t i;
@@ -2717,7 +2716,7 @@ font_delete_unmatched (Lisp_Object vec, Lisp_Object spec, int size)
 	}
       if (NILP (spec))
 	{
-	  val = local_cons (entity, val);
+	  val = Fcons (entity, val);
 	  continue;
 	}
       for (prop = FONT_WEIGHT_INDEX; prop < FONT_SIZE_INDEX; prop++)
@@ -2748,7 +2747,7 @@ font_delete_unmatched (Lisp_Object vec, Lisp_Object spec, int size)
 		   AREF (entity, FONT_AVGWIDTH_INDEX)))
 	prop = FONT_SPEC_MAX;
       if (prop < FONT_SPEC_MAX)
-	val = local_cons (entity, val);
+	val = Fcons (entity, val);
     }
   return (Fvconcat (1, &val));
 }
@@ -5006,7 +5005,6 @@ static Lisp_Object Vfont_log_deferred;
 void
 font_add_log (const char *action, Lisp_Object arg, Lisp_Object result)
 {
-  USE_LOCAL_ALLOCA;
   Lisp_Object val;
   int i;
 
@@ -5024,7 +5022,7 @@ font_add_log (const char *action, Lisp_Object arg, Lisp_Object result)
   if (FONTP (arg))
     {
       Lisp_Object tail, elt;
-      Lisp_Object equalstr = build_local_string ("=");
+      AUTO_STRING (equalstr, "=");
 
       val = Ffont_xlfd_name (arg, Qt);
       for (tail = AREF (arg, FONT_EXTRA_INDEX); CONSP (tail);
@@ -5057,8 +5055,11 @@ font_add_log (const char *action, Lisp_Object arg, Lisp_Object result)
     {
       val = Ffont_xlfd_name (result, Qt);
       if (! FONT_SPEC_P (result))
-	val = concat3 (SYMBOL_NAME (AREF (result, FONT_TYPE_INDEX)),
-		       build_local_string (":"), val);
+	{
+	  AUTO_STRING (colon, ":");
+	  val = concat3 (SYMBOL_NAME (AREF (result, FONT_TYPE_INDEX)),
+			 colon, val);
+	}
       result = val;
     }
   else if (CONSP (result))

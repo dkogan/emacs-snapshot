@@ -979,18 +979,21 @@ wrong_choice (Lisp_Object choice, Lisp_Object wrong)
 {
   ptrdiff_t i = 0, len = XINT (Flength (choice));
   Lisp_Object obj, *args;
+  AUTO_STRING (one_of, "One of ");
+  AUTO_STRING (comma, ", ");
+  AUTO_STRING (or, " or ");
+  AUTO_STRING (should_be_specified, " should be specified");
 
   USE_SAFE_ALLOCA;
   SAFE_ALLOCA_LISP (args, len * 2 + 1);
 
-  args[i++] = build_local_string ("One of ");
+  args[i++] = one_of;
 
   for (obj = choice; !NILP (obj); obj = XCDR (obj))
     {
       args[i++] = SYMBOL_NAME (XCAR (obj));
-      args[i++] = build_local_string
-	(NILP (XCDR (obj)) ? " should be specified"
-	 : (NILP (XCDR (XCDR (obj))) ? " or " : ", "));
+      args[i++] = (NILP (XCDR (obj)) ? should_be_specified
+		   : NILP (XCDR (XCDR (obj))) ? or : comma);
     }
 
   obj = Fconcat (i, args);
@@ -1004,12 +1007,13 @@ wrong_choice (Lisp_Object choice, Lisp_Object wrong)
 static void
 wrong_range (Lisp_Object min, Lisp_Object max, Lisp_Object wrong)
 {
-  USE_LOCAL_ALLOCA;
-  xsignal2 (Qerror, Fconcat (4, ((Lisp_Object [])
-    { build_local_string ("Value should be from "),
-      Fnumber_to_string (min),
-      build_local_string (" to "),
-      Fnumber_to_string (max) })), wrong);
+  AUTO_STRING (value_should_be_from, "Value should be from ");
+  AUTO_STRING (to, " to ");
+  xsignal2 (Qerror,
+	    Fconcat (4, ((Lisp_Object [])
+			 {value_should_be_from, Fnumber_to_string (min),
+			  to, Fnumber_to_string (max)})),
+	    wrong);
 }
 
 /* Store NEWVAL into SYMBOL, where VALCONTENTS is found in the value cell

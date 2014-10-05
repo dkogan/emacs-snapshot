@@ -205,9 +205,8 @@ European languages which are distributed with Windows as
 
 See the documentation of `create-fontset-from-fontset-spec' for the format.")
 
-(defun x-win-suspend-error ()
-  "Report an error when a suspend is attempted.
-This returns an error if any Emacs frames are X frames, or always under W32."
+(defun w32-win-suspend-error ()
+  "Report an error when a suspend is attempted."
   (error "Suspending an Emacs running under W32 makes no sense"))
 
 (defvar dynamic-library-alist)
@@ -353,7 +352,7 @@ This returns an error if any Emacs frames are X frames, or always under W32."
                 (cons '(reverse . t) default-frame-alist)))))
 
   ;; Don't let Emacs suspend under Windows.
-  (add-hook 'suspend-hook 'x-win-suspend-error)
+  (add-hook 'suspend-hook #'w32-win-suspend-error)
 
   ;; Turn off window-splitting optimization; w32 is usually fast enough
   ;; that this is only annoying.
@@ -371,9 +370,18 @@ This returns an error if any Emacs frames are X frames, or always under W32."
   (setq w32-initialized t))
 
 (add-to-list 'display-format-alist '("\\`w32\\'" . w32))
-(add-to-list 'handle-args-function-alist '(w32 . x-handle-args))
-(add-to-list 'frame-creation-function-alist '(w32 . x-create-frame-with-faces))
-(add-to-list 'window-system-initialization-alist '(w32 . w32-initialize-window-system))
+(gui-method-define handle-args-function w32 #'x-handle-args)
+(gui-method-define frame-creation-function w32
+                   #'x-create-frame-with-faces)
+(gui-method-define window-system-initialization w32
+                   #'w32-initialize-window-system)
+
+(declare-function w32-set-clipboard-data "w32select.c"
+		  (string &optional ignored))
+(gui-method-define gui-select-text w32
+                   (lambda (text)
+                     (if gui-select-enable-clipboard
+                         (w32-set-clipboard-data text))))
 
 (provide 'w32-win)
 

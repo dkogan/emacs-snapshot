@@ -1,3 +1,32 @@
+2014-10-04  Martin Rudalics  <rudalics@gmx.at>
+
+	* frames.texi (Scroll Bars): Describe use of horizontal scroll
+	bars.
+
+2014-10-04  Glenn Morris  <rgm@gnu.org>
+
+	* cmdargs.texi (Misc X):
+	* display.texi (Optional Mode Line):
+	* misc.texi (emacsclient Options):
+	* vc1-xtra.texi (VC Delete/Rename): Small fixes re @var usage.
+
+	* killing.texi (Rectangles): Copyedits re rectangle-mark-mode.
+	(CUA Bindings): Mention rectangle-mark-mode.
+
+2014-10-03  Martin Rudalics  <rudalics@gmx.at>
+
+	* frames.texi (Frame Commands):
+	* cmdargs.texi (Window Size X): Mention the use of
+	`frame-resize-pixelwise' to make frames truly fullscreen or maximized.
+
+2014-10-02  Glenn Morris  <rgm@gnu.org>
+
+	* package.texi (Package Installation): Mention etc/package-keyring.gpg.
+
+2014-09-29  Eli Zaretskii  <eliz@gnu.org>
+
+	* emacsver.texi (EMACSVER): Bump to 20.0.50.
+
 2014-09-15  Daniel Colascione  <dancol@dancol.org>
 
 	* regs.texi (Text Registers): Update end-user documentation

@@ -1111,7 +1111,8 @@ filesystem tree, not (expand-file-name ".."  dirname).  */)
 
 	      name = make_specified_string (nm, -1, p - nm, multibyte);
 	      temp[0] = DRIVE_LETTER (drive);
-	      name = concat2 (build_local_string (temp), name);
+	      AUTO_STRING (drive_prefix, temp);
+	      name = concat2 (drive_prefix, name);
 	    }
 #ifdef WINDOWSNT
 	  if (!NILP (Vw32_downcase_file_names))
@@ -1162,11 +1163,11 @@ filesystem tree, not (expand-file-name ".."  dirname).  */)
 	      char newdir_utf8[MAX_UTF8_PATH];
 
 	      filename_from_ansi (newdir, newdir_utf8);
-	      tem = build_local_string (newdir_utf8);
+	      tem = build_string (newdir_utf8);
 	    }
 	  else
 #endif
-	    tem = build_local_string (newdir);
+	    tem = build_string (newdir);
 	  newdirlim = newdir + SBYTES (tem);
 	  if (multibyte && !STRING_MULTIBYTE (tem))
 	    {
@@ -1198,7 +1199,7 @@ filesystem tree, not (expand-file-name ".."  dirname).  */)
 	      /* `getpwnam' may return a unibyte string, which will
 		 bite us since we expect the directory to be
 		 multibyte.  */
-	      tem = build_local_string (newdir);
+	      tem = build_string (newdir);
 	      newdirlim = newdir + SBYTES (tem);
 	      if (multibyte && !STRING_MULTIBYTE (tem))
 		{
@@ -1231,7 +1232,7 @@ filesystem tree, not (expand-file-name ".."  dirname).  */)
 	    adir = NULL;
 	  else if (multibyte)
 	    {
-	      Lisp_Object tem = build_local_string (adir);
+	      Lisp_Object tem = build_string (adir);
 
 	      tem = DECODE_FILE (tem);
 	      newdirlim = adir + SBYTES (tem);
@@ -1334,7 +1335,7 @@ filesystem tree, not (expand-file-name ".."  dirname).  */)
 	    getcwd (adir, adir_size);
 	  if (multibyte)
 	    {
-	      Lisp_Object tem = build_local_string (adir);
+	      Lisp_Object tem = build_string (adir);
 
 	      tem = DECODE_FILE (tem);
 	      newdirlim = adir + SBYTES (tem);
@@ -2690,7 +2691,10 @@ emacs_readlinkat (int fd, char const *filename)
 
   val = build_unibyte_string (buf);
   if (buf[0] == '/' && strchr (buf, ':'))
-    val = concat2 (build_unibyte_string ("/:"), val);
+    {
+      AUTO_STRING (slash_colon, "/:");
+      val = concat2 (slash_colon, val);
+    }
   if (buf != readlink_buf)
     xfree (buf);
   val = DECODE_FILE (val);
@@ -3644,13 +3648,14 @@ by calling `format-decode', which see.  */)
 		report_file_error ("Read error", orig_filename);
 	      else if (nread > 0)
 		{
+		  AUTO_STRING (name, " *code-converting-work*");
 		  struct buffer *prev = current_buffer;
 		  Lisp_Object workbuf;
 		  struct buffer *buf;
 
 		  record_unwind_current_buffer ();
 
-		  workbuf = Fget_buffer_create (build_string (" *code-converting-work*"));
+		  workbuf = Fget_buffer_create (name);
 		  buf = XBUFFER (workbuf);
 
 		  delete_all_overlays (buf);
@@ -5411,7 +5416,6 @@ An argument specifies the modification time value to use
 static Lisp_Object
 auto_save_error (Lisp_Object error_val)
 {
-  USE_LOCAL_ALLOCA;
   Lisp_Object msg;
   int i;
   struct gcpro gcpro1;
@@ -5420,10 +5424,10 @@ auto_save_error (Lisp_Object error_val)
 
   ring_bell (XFRAME (selected_frame));
 
+  AUTO_STRING (format, "Auto-saving %s: %s");
   msg = Fformat (3, ((Lisp_Object [])
-    { build_local_string ("Auto-saving %s: %s"),
-      BVAR (current_buffer, name),
-      Ferror_message_string (error_val) }));
+		     {format, BVAR (current_buffer, name),
+		      Ferror_message_string (error_val)}));
   GCPRO1 (msg);
 
   for (i = 0; i < 3; ++i)

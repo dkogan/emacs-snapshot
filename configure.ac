@@ -23,7 +23,7 @@ dnl  along with GNU Emacs.  If not, see <http://www.gnu.org/licenses/>.
 
 AC_PREREQ(2.65)
 dnl Note this is parsed by (at least) make-dist and lisp/cedet/ede/emacs.el.
-AC_INIT(GNU Emacs, 24.4.50, bug-gnu-emacs@gnu.org)
+AC_INIT(GNU Emacs, 25.0.50, bug-gnu-emacs@gnu.org)
 
 dnl Set emacs_config_options to the options of 'configure', quoted for the shell,
 dnl and then quoted again for a C string.  Separate options with spaces.
@@ -151,7 +151,8 @@ case $canonical in
       # "/c/foo/bar", to simplify later conversions to native Windows
       # format ("c:/foo/bar").
       srcdir=`cd "${srcdir}" && pwd -W`
-      srcdir="/${srcdir:0:1}${srcdir:2}"
+      # 'eval' pacifies strict POSIX non-MinGW shells (Bug#18612).
+      eval 'srcdir="/${srcdir:0:1}${srcdir:2}"'
       ;;
   esac;;
 esac
@@ -3376,8 +3377,12 @@ if test "${HAVE_X11}" = "yes"; then
   EMACS_CHECK_MODULES([XRANDR], [$XRANDR_MODULES])
   if test $HAVE_XRANDR = no; then
     # Test old way in case pkg-config doesn't have it (older machines).
+    # Include Xrender.h by hand to work around bug in older Xrandr.h
+    # (e.g. RHEL5) and silence (harmless) configure warning (bug#18465).
     AC_CHECK_HEADER(X11/extensions/Xrandr.h,
-      [AC_CHECK_LIB(Xrandr, XRRGetScreenResources, HAVE_XRANDR=yes)])
+      [AC_CHECK_LIB(Xrandr, XRRGetScreenResources, HAVE_XRANDR=yes)],
+      [], [AC_INCLUDES_DEFAULT
+#include <X11/extensions/Xrender.h>])
     if test $HAVE_XRANDR = yes; then
       XRANDR_LIBS=-lXrandr
     fi
@@ -4836,17 +4841,6 @@ if test "$emacs_cv_struct_alignment" = yes; then
   AC_DEFINE([HAVE_STRUCT_ATTRIBUTE_ALIGNED], 1,
     [Define to 1 if 'struct __attribute__ ((aligned (N)))' aligns the
      structure to an N-byte boundary.])
-fi
-
-AC_CACHE_CHECK([for statement expressions],
-  [emacs_cv_statement_expressions],
-  [AC_COMPILE_IFELSE(
-     [AC_LANG_PROGRAM([], [[return ({ int x = 5; x-x; });]])],
-     [emacs_cv_statement_expressions=yes],
-     [emacs_cv_statement_expressions=no])])
-if test "$emacs_cv_statement_expressions" = yes; then
-  AC_DEFINE([HAVE_STATEMENT_EXPRESSIONS], 1,
-    [Define to 1 if statement expressions work.])
 fi
 
 if test "${GNU_MALLOC}" = "yes" ; then

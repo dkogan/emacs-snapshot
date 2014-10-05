@@ -6802,7 +6802,7 @@ handle_one_xevent (struct x_display_info *dpyinfo,
       break;
 
     case SelectionNotify:
-      dpyinfo->last_user_time = event->xselection.time;
+      x_display_set_last_user_time (dpyinfo, event->xselection.time);
 #ifdef USE_X_TOOLKIT
       if (! x_window_to_frame (dpyinfo, event->xselection.requestor))
         goto OTHER;
@@ -6811,7 +6811,7 @@ handle_one_xevent (struct x_display_info *dpyinfo,
       break;
 
     case SelectionClear:	/* Someone has grabbed ownership.  */
-      dpyinfo->last_user_time = event->xselectionclear.time;
+      x_display_set_last_user_time (dpyinfo, event->xselectionclear.time);
 #ifdef USE_X_TOOLKIT
       if (! x_window_to_frame (dpyinfo, event->xselectionclear.window))
         goto OTHER;
@@ -6827,7 +6827,7 @@ handle_one_xevent (struct x_display_info *dpyinfo,
       break;
 
     case SelectionRequest:	/* Someone wants our selection.  */
-      dpyinfo->last_user_time = event->xselectionrequest.time;
+      x_display_set_last_user_time (dpyinfo, event->xselectionrequest.time);
 #ifdef USE_X_TOOLKIT
       if (!x_window_to_frame (dpyinfo, event->xselectionrequest.owner))
         goto OTHER;
@@ -6846,7 +6846,7 @@ handle_one_xevent (struct x_display_info *dpyinfo,
       break;
 
     case PropertyNotify:
-      dpyinfo->last_user_time = event->xproperty.time;
+      x_display_set_last_user_time (dpyinfo, event->xproperty.time);
       f = x_top_window_to_frame (dpyinfo, event->xproperty.window);
       if (f && event->xproperty.atom == dpyinfo->Xatom_net_wm_state)
 	{
@@ -7044,7 +7044,7 @@ handle_one_xevent (struct x_display_info *dpyinfo,
 
     case KeyPress:
 
-      dpyinfo->last_user_time = event->xkey.time;
+      x_display_set_last_user_time (dpyinfo, event->xkey.time);
       ignore_next_mouse_click_timeout = 0;
 
 #if defined (USE_X_TOOLKIT) || defined (USE_GTK)
@@ -7378,7 +7378,7 @@ handle_one_xevent (struct x_display_info *dpyinfo,
 #endif
 
     case KeyRelease:
-      dpyinfo->last_user_time = event->xkey.time;
+      x_display_set_last_user_time (dpyinfo, event->xkey.time);
 #ifdef HAVE_X_I18N
       /* Don't dispatch this event since XtDispatchEvent calls
          XFilterEvent, and two calls in a row may freeze the
@@ -7389,7 +7389,7 @@ handle_one_xevent (struct x_display_info *dpyinfo,
 #endif
 
     case EnterNotify:
-      dpyinfo->last_user_time = event->xcrossing.time;
+      x_display_set_last_user_time (dpyinfo, event->xcrossing.time);
       x_detect_focus_change (dpyinfo, any, event, &inev.ie);
 
       f = any;
@@ -7414,7 +7414,7 @@ handle_one_xevent (struct x_display_info *dpyinfo,
       goto OTHER;
 
     case LeaveNotify:
-      dpyinfo->last_user_time = event->xcrossing.time;
+      x_display_set_last_user_time (dpyinfo, event->xcrossing.time);
       x_detect_focus_change (dpyinfo, any, event, &inev.ie);
 
       f = x_top_window_to_frame (dpyinfo, event->xcrossing.window);
@@ -7448,7 +7448,7 @@ handle_one_xevent (struct x_display_info *dpyinfo,
 
     case MotionNotify:
       {
-        dpyinfo->last_user_time = event->xmotion.time;
+        x_display_set_last_user_time (dpyinfo, event->xmotion.time);
         previous_help_echo_string = help_echo_string;
         help_echo_string = Qnil;
 
@@ -7588,7 +7588,7 @@ handle_one_xevent (struct x_display_info *dpyinfo,
 
 	memset (&compose_status, 0, sizeof (compose_status));
 	dpyinfo->last_mouse_glyph_frame = NULL;
-	dpyinfo->last_user_time = event->xbutton.time;
+	x_display_set_last_user_time (dpyinfo, event->xbutton.time);
 
         f = (x_mouse_grabbed (dpyinfo) ? dpyinfo->last_mouse_frame
 	     : x_window_to_frame (dpyinfo, event->xbutton.window));
@@ -10666,7 +10666,6 @@ static unsigned x_display_id;
 struct x_display_info *
 x_term_init (Lisp_Object display_name, char *xrm_option, char *resource_name)
 {
-  USE_LOCAL_ALLOCA;
   Display *dpy;
   struct terminal *terminal;
   struct x_display_info *dpyinfo;
@@ -10936,10 +10935,11 @@ x_term_init (Lisp_Object display_name, char *xrm_option, char *resource_name)
     {
       if (dpyinfo->visual->class == PseudoColor)
 	{
-	  Lisp_Object value;
-	  value = display_x_get_resource
-	    (dpyinfo, build_local_string ("privateColormap"),
-	     build_local_string ("PrivateColormap"), Qnil, Qnil);
+	  AUTO_STRING (privateColormap, "privateColormap");
+	  AUTO_STRING (PrivateColormap, "PrivateColormap");
+	  Lisp_Object value
+	    = display_x_get_resource (dpyinfo, privateColormap,
+				      PrivateColormap, Qnil, Qnil);
 	  if (STRINGP (value)
 	      && (!strcmp (SSDATA (value), "true")
 		  || !strcmp (SSDATA (value), "on")))
@@ -11063,11 +11063,11 @@ x_term_init (Lisp_Object display_name, char *xrm_option, char *resource_name)
     };
 
     int i;
-    const int atom_count = ARRAYELTS (atom_refs);
-    /* 1 for _XSETTINGS_SN  */
-    const int total_atom_count = 1 + atom_count;
-    Atom *atoms_return = xmalloc (total_atom_count * sizeof *atoms_return);
-    char **atom_names = xmalloc (total_atom_count * sizeof *atom_names);
+    enum { atom_count = ARRAYELTS (atom_refs) };
+    /* 1 for _XSETTINGS_SN.  */
+    enum { total_atom_count = 1 + atom_count };
+    Atom atoms_return[total_atom_count];
+    char *atom_names[total_atom_count];
     static char const xsettings_fmt[] = "_XSETTINGS_S%d";
     char xsettings_atom_name[sizeof xsettings_fmt - 2
 			     + INT_STRLEN_BOUND (int)];
@@ -11075,7 +11075,7 @@ x_term_init (Lisp_Object display_name, char *xrm_option, char *resource_name)
     for (i = 0; i < atom_count; i++)
       atom_names[i] = (char *) atom_refs[i].name;
 
-    /* Build _XSETTINGS_SN atom name */
+    /* Build _XSETTINGS_SN atom name.  */
     sprintf (xsettings_atom_name, xsettings_fmt,
 	     XScreenNumberOfScreen (dpyinfo->screen));
     atom_names[i] = xsettings_atom_name;
@@ -11086,11 +11086,8 @@ x_term_init (Lisp_Object display_name, char *xrm_option, char *resource_name)
     for (i = 0; i < atom_count; i++)
       *(Atom *) ((char *) dpyinfo + atom_refs[i].offset) = atoms_return[i];
 
-    /* Manual copy of last atom */
+    /* Manually copy last atom.  */
     dpyinfo->Xatom_xsettings_sel = atoms_return[i];
-
-    xfree (atom_names);
-    xfree (atoms_return);
   }
 
   dpyinfo->x_dnd_atoms_size = 8;
@@ -11146,9 +11143,10 @@ x_term_init (Lisp_Object display_name, char *xrm_option, char *resource_name)
   /* See if we should run in synchronous mode.  This is useful
      for debugging X code.  */
   {
-    Lisp_Object value = display_x_get_resource
-      (dpyinfo, build_local_string ("synchronous"),
-       build_local_string ("Synchronous"), Qnil, Qnil);
+    AUTO_STRING (synchronous, "synchronous");
+    AUTO_STRING (Synchronous, "Synchronous");
+    Lisp_Object value = display_x_get_resource (dpyinfo, synchronous,
+						Synchronous, Qnil, Qnil);
     if (STRINGP (value)
 	&& (!strcmp (SSDATA (value), "true")
 	    || !strcmp (SSDATA (value), "on")))
@@ -11156,9 +11154,10 @@ x_term_init (Lisp_Object display_name, char *xrm_option, char *resource_name)
   }
 
   {
-    Lisp_Object value = display_x_get_resource
-      (dpyinfo, build_local_string ("useXIM"),
-       build_local_string ("UseXIM"), Qnil, Qnil);
+    AUTO_STRING (useXIM, "useXIM");
+    AUTO_STRING (UseXIM, "UseXIM");
+    Lisp_Object value = display_x_get_resource (dpyinfo, useXIM, UseXIM,
+						Qnil, Qnil);
 #ifdef USE_XIM
     if (STRINGP (value)
 	&& (!strcmp (SSDATA (value), "false")

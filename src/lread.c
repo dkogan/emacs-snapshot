@@ -968,11 +968,11 @@ load_error_handler (Lisp_Object data)
 static void
 load_warn_old_style_backquotes (Lisp_Object file)
 {
-  USE_LOCAL_ALLOCA;
   if (!NILP (Vold_style_backquotes))
-    Fmessage (2, ((Lisp_Object [])
-      { build_local_string ("Loading `%s': old-style backquotes detected!"),
-	file }));
+    {
+      AUTO_STRING (format, "Loading `%s': old-style backquotes detected!");
+      Fmessage (2, (Lisp_Object []) {format, file});
+    }
 }
 
 DEFUN ("get-load-suffixes", Fget_load_suffixes, Sget_load_suffixes, 0, 0, 0,
@@ -2096,9 +2096,10 @@ DEFUN ("read-from-string", Fread_from_string, Sread_from_string, 1, 3, 0,
        doc: /* Read one Lisp expression which is represented as text by STRING.
 Returns a cons: (OBJECT-READ . FINAL-STRING-INDEX).
 FINAL-STRING-INDEX is an integer giving the position of the next
- remaining character in STRING.
-START and END optionally delimit a substring of STRING from which to read;
- they default to 0 and (length STRING) respectively.  */)
+remaining character in STRING.  START and END optionally delimit
+a substring of STRING from which to read;  they default to 0 and
+(length STRING) respectively.  Negative values are counted from
+the end of STRING.  */)
   (Lisp_Object string, Lisp_Object start, Lisp_Object end)
 {
   Lisp_Object ret;
@@ -2109,10 +2110,9 @@ START and END optionally delimit a substring of STRING from which to read;
 }
 
 /* Function to set up the global context we need in toplevel read
-   calls.  */
+   calls.  START and END only used when STREAM is a string.  */
 static Lisp_Object
 read_internal_start (Lisp_Object stream, Lisp_Object start, Lisp_Object end)
-/* `start', `end' only used when stream is a string.  */
 {
   Lisp_Object retval;
 
@@ -2134,25 +2134,9 @@ read_internal_start (Lisp_Object stream, Lisp_Object start, Lisp_Object end)
       else
 	string = XCAR (stream);
 
-      if (NILP (end))
-	endval = SCHARS (string);
-      else
-	{
-	  CHECK_NUMBER (end);
-	  if (! (0 <= XINT (end) && XINT (end) <= SCHARS (string)))
-	    args_out_of_range (string, end);
-	  endval = XINT (end);
-	}
+      validate_subarray (string, start, end, SCHARS (string),
+			 &startval, &endval);
 
-      if (NILP (start))
-	startval = 0;
-      else
-	{
-	  CHECK_NUMBER (start);
-	  if (! (0 <= XINT (start) && XINT (start) <= endval))
-	    args_out_of_range (string, start);
-	  startval = XINT (start);
-	}
       read_from_string_index = startval;
       read_from_string_index_byte = string_char_to_byte (string, startval);
       read_from_string_limit = endval;
@@ -2889,11 +2873,8 @@ read1 (Lisp_Object readcharfun, int *pch, bool first_in_list)
 		  if (c == '=')
 		    {
 		      /* Make a placeholder for #n# to use temporarily.  */
-		      Lisp_Object placeholder;
-		      Lisp_Object cell;
-
-		      placeholder = scoped_cons (Qnil, Qnil);
-		      cell = Fcons (make_number (n), placeholder);
+		      AUTO_CONS (placeholder, Qnil, Qnil);
+		      Lisp_Object cell = Fcons (make_number (n), placeholder);
 		      read_objects = Fcons (cell, read_objects);
 
 		      /* Read the object itself.  */
@@ -3372,7 +3353,7 @@ substitute_object_recurse (Lisp_Object object, Lisp_Object placeholder, Lisp_Obj
 	   substitute_in_interval contains part of the logic.  */
 
 	INTERVAL root_interval = string_intervals (subtree);
-	Lisp_Object arg = scoped_cons (object, placeholder);
+	AUTO_CONS (arg, object, placeholder);
 
 	traverse_intervals_noorder (root_interval,
 				    &substitute_in_interval, arg);
@@ -3639,7 +3620,6 @@ read_vector (Lisp_Object readcharfun, bool bytecodeflag)
 static Lisp_Object
 read_list (bool flag, Lisp_Object readcharfun)
 {
-  USE_LOCAL_ALLOCA;
   Lisp_Object val, tail;
   Lisp_Object elt, tem;
   struct gcpro gcpro1, gcpro2;
@@ -3680,8 +3660,10 @@ read_list (bool flag, Lisp_Object readcharfun)
 	       in the installed Lisp directory.
 	       We don't use Fexpand_file_name because that would make
 	       the directory absolute now.  */
-	    elt = concat2 (build_local_string ("../lisp/"),
-			   Ffile_name_nondirectory (elt));
+	    {
+	      AUTO_STRING (dotdotlisp, "../lisp/");
+	      elt = concat2 (dotdotlisp, Ffile_name_nondirectory (elt));
+	    }
 	}
       else if (EQ (elt, Vload_file_name)
 	       && ! NILP (elt)

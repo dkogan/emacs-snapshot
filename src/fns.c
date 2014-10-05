@@ -2706,7 +2706,6 @@ If dialog boxes are supported, a dialog box will be used
 if `last-nonmenu-event' is nil, and `use-dialog-box' is non-nil.  */)
   (Lisp_Object prompt)
 {
-  USE_LOCAL_ALLOCA;
   Lisp_Object ans;
   struct gcpro gcpro1;
 
@@ -2726,8 +2725,8 @@ if `last-nonmenu-event' is nil, and `use-dialog-box' is non-nil.  */)
       return obj;
     }
 
-  prompt = Fconcat (2, ((Lisp_Object [])
-    { prompt, build_local_string ("(yes or no) ") }));
+  AUTO_STRING (yes_or_no, "(yes or no) ");
+  prompt = Fconcat (2, (Lisp_Object []) {prompt, yes_or_no});
   GCPRO1 (prompt);
 
   while (1)

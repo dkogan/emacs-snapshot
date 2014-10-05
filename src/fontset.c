@@ -1420,7 +1420,6 @@ to the font specifications for TARGET previously set.  If it is
 appended.  By default, FONT-SPEC overrides the previous settings.  */)
   (Lisp_Object name, Lisp_Object target, Lisp_Object font_spec, Lisp_Object frame, Lisp_Object add)
 {
-  USE_LOCAL_ALLOCA;
   Lisp_Object fontset;
   Lisp_Object font_def, registry, family;
   Lisp_Object range_list;
@@ -1463,8 +1462,8 @@ appended.  By default, FONT-SPEC overrides the previous settings.  */)
       registry = AREF (font_spec, FONT_REGISTRY_INDEX);
       if (! NILP (registry))
 	registry = Fdowncase (SYMBOL_NAME (registry));
-      encoding = find_font_encoding (concat3 (family, build_local_string ("-"),
-					      registry));
+      AUTO_STRING (dash, "-");
+      encoding = find_font_encoding (concat3 (family, dash, registry));
       if (NILP (encoding))
 	encoding = Qascii;
 
@@ -1576,7 +1575,7 @@ appended.  By default, FONT-SPEC overrides the previous settings.  */)
 
   if (ascii_changed)
     {
-      Lisp_Object tail, fr, alist;
+      Lisp_Object tail, fr;
       int fontset_id = XINT (FONTSET_ID (fontset));
 
       set_fontset_ascii (fontset, fontname);
@@ -1599,8 +1598,8 @@ appended.  By default, FONT-SPEC overrides the previous settings.  */)
 	  if (! NILP (font_object))
 	    {
 	      update_auto_fontset_alist (font_object, fontset);
-	      alist = FRAME_PARAMETER (Qfont, Fcons (name, font_object));
-	      Fmodify_frame_parameters (fr, alist);
+	      AUTO_FRAME_ARG (arg, Qfont, Fcons (name, font_object));
+	      Fmodify_frame_parameters (fr, arg);
 	    }
 	}
     }

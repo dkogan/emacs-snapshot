@@ -545,7 +545,7 @@ The type returned can be `comment', `string' or `paren'."
               (res nil))
           (while (and (setq res (re-search-forward re limit t))
                       (or (python-syntax-context 'paren)
-                          (equal (char-after (point-marker)) ?=))))
+                          (equal (char-after (point)) ?=))))
           res))
      (1 font-lock-variable-name-face nil nil))
     ;; support for a, b, c = (1, 2, 3)
@@ -1042,9 +1042,9 @@ See `python-indent-line' for details."
   "De-indent current line."
   (interactive "*")
   (when (and (not (python-syntax-comment-or-string-p))
-             (<= (point-marker) (save-excursion
+             (<= (point) (save-excursion
                                   (back-to-indentation)
-                                  (point-marker)))
+                           (point)))
              (> (current-column) 0))
     (python-indent-line t)
     t))
@@ -1801,7 +1801,7 @@ It should not contain a caret (^) at the beginning."
   :type 'string)
 
 (define-obsolete-variable-alias
-  'python-shell-enable-font-lock 'python-shell-font-lock-enable "24.5")
+  'python-shell-enable-font-lock 'python-shell-font-lock-enable "25.1")
 
 (defcustom python-shell-font-lock-enable t
   "Should syntax highlighting be enabled in the Python shell buffer?
@@ -2179,7 +2179,7 @@ banner and the initial prompt are received separately."
 (define-obsolete-function-alias
   'python-comint-output-filter-function
   'ansi-color-filter-apply
-  "24.5")
+  "25.1")
 
 (defun python-comint-postoutput-scroll-to-bottom (output)
   "Faster version of `comint-postoutput-scroll-to-bottom'.
@@ -2399,12 +2399,8 @@ variable.
          python-comint-postoutput-scroll-to-bottom))
   (set (make-local-variable 'compilation-error-regexp-alist)
        python-shell-compilation-regexp-alist)
-  (define-key inferior-python-mode-map [remap complete-symbol]
-    'completion-at-point)
   (add-hook 'completion-at-point-functions
-            'python-shell-completion-at-point nil 'local)
-  (add-to-list (make-local-variable 'comint-dynamic-complete-functions)
-               'python-shell-completion-at-point)
+            #'python-shell-completion-at-point nil 'local)
   (define-key inferior-python-mode-map "\t"
     'python-shell-completion-complete-or-indent)
   (make-local-variable 'python-pdbtrack-buffers-to-kill)
@@ -2881,38 +2877,37 @@ the full statement in the case of imports."
 (define-obsolete-variable-alias
   'python-shell-completion-pdb-string-code
   'python-shell-completion-string-code
-  "24.5"
+  "25.1"
   "Completion string code must work for (i)pdb.")
 
 (defun python-shell-completion-get-completions (process import input)
   "Do completion at point using PROCESS for IMPORT or INPUT.
 When IMPORT is non-nil takes precedence over INPUT for
 completion."
-  (let* ((prompt
-          (with-current-buffer (process-buffer process)
+  (with-current-buffer (process-buffer process)
+    (let* ((prompt
             (let ((prompt-boundaries (python-util-comint-last-prompt)))
               (buffer-substring-no-properties
-               (car prompt-boundaries) (cdr prompt-boundaries)))))
-         (completion-code
-          ;; Check whether a prompt matches a pdb string, an import
-          ;; statement or just the standard prompt and use the
-          ;; correct python-shell-completion-*-code string
-          (cond ((and (string-match
-                       (concat "^" python-shell-prompt-pdb-regexp) prompt))
-                 ;; Since there are no guarantees the user will remain
-                 ;; in the same context where completion code was sent
-                 ;; (e.g. user steps into a function), safeguard
-                 ;; resending completion setup continuously.
-                 (concat python-shell-completion-setup-code
-                         "\nprint (" python-shell-completion-string-code ")"))
-                ((string-match
-                  python-shell--prompt-calculated-input-regexp prompt)
-                 python-shell-completion-string-code)
-                (t nil)))
-         (subject (or import input)))
-    (and completion-code
-         (> (length input) 0)
-         (with-current-buffer (process-buffer process)
+               (car prompt-boundaries) (cdr prompt-boundaries))))
+           (completion-code
+            ;; Check whether a prompt matches a pdb string, an import
+            ;; statement or just the standard prompt and use the
+            ;; correct python-shell-completion-*-code string
+            (cond ((and (string-match
+                         (concat "^" python-shell-prompt-pdb-regexp) prompt))
+                   ;; Since there are no guarantees the user will remain
+                   ;; in the same context where completion code was sent
+                   ;; (e.g. user steps into a function), safeguard
+                   ;; resending completion setup continuously.
+                   (concat python-shell-completion-setup-code
+                           "\nprint (" python-shell-completion-string-code ")"))
+                  ((string-match
+                    python-shell--prompt-calculated-input-regexp prompt)
+                   python-shell-completion-string-code)
+                  (t nil)))
+           (subject (or import input)))
+      (and completion-code
+           (> (length input) 0)
            (let ((completions
                   (python-util-strip-string
                    (python-shell-send-string-no-output
@@ -2952,7 +2947,7 @@ using that one instead of current buffer's process."
 (define-obsolete-function-alias
   'python-shell-completion-complete-at-point
   'python-shell-completion-at-point
-  "24.5")
+  "25.1")
 
 (defun python-shell-completion-complete-or-indent ()
   "Complete or indent depending on the context.
@@ -2961,7 +2956,7 @@ If not try to complete."
   (interactive)
   (if (string-match "^[[:space:]]*$"
                     (buffer-substring (comint-line-beginning-position)
-                                      (point-marker)))
+                                      (point)))
       (indent-for-tab-command)
     (completion-at-point)))
 
@@ -3072,7 +3067,7 @@ inferior Python process is updated properly."
 (define-obsolete-function-alias
   'python-completion-complete-at-point
   'python-completion-at-point
-  "24.5")
+  "25.1")
 
 
 ;;; Fill paragraph
@@ -3292,17 +3287,17 @@ JUSTIFY should be used (if applicable) as in `fill-paragraph'."
   (save-restriction
     (narrow-to-region (progn
                         (while (python-syntax-context 'paren)
-                          (goto-char (1- (point-marker))))
-                        (point-marker)
+                          (goto-char (1- (point))))
                         (line-beginning-position))
                       (progn
                         (when (not (python-syntax-context 'paren))
                           (end-of-line)
                           (when (not (python-syntax-context 'paren))
                             (skip-syntax-backward "^)")))
-                        (while (python-syntax-context 'paren)
-                          (goto-char (1+ (point-marker))))
-                        (point-marker)))
+                        (while (and (python-syntax-context 'paren)
+                                    (not (eobp)))
+                          (goto-char (1+ (point))))
+                        (point)))
     (let ((paragraph-start "\f\\|[ \t]*$")
           (paragraph-separate ",")
           (fill-paragraph-function))
@@ -3311,7 +3306,8 @@ JUSTIFY should be used (if applicable) as in `fill-paragraph'."
     (while (not (eobp))
       (forward-line 1)
       (python-indent-line)
-      (goto-char (line-end-position)))) t)
+      (goto-char (line-end-position))))
+  t)
 
 
 ;;; Skeletons
@@ -4322,7 +4318,8 @@ Arguments START and END narrow the buffer region to work on."
   (add-to-list 'hs-special-modes-alist
                `(python-mode "^\\s-*\\(?:def\\|class\\)\\>" nil "#"
                              ,(lambda (_arg)
-                                (python-nav-end-of-defun)) nil))
+                                (python-nav-end-of-defun))
+                             nil))
 
   (set (make-local-variable 'outline-regexp)
        (python-rx (* space) block-start))

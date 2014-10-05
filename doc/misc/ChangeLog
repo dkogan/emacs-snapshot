@@ -1,3 +1,37 @@
+2014-10-04  Glenn Morris  <rgm@gnu.org>
+
+	* vip.texi (Other Vi Commands): Markup fix.
+
+2014-10-03  Bastien Guerry  <bzg@gnu.org>
+
+	* org.texi (Key bindings and useful functions): Fix typo.
+	Use the correct function's name.
+
+2014-10-03  Michael Brand  <michael.ch.brand@gmail.com>
+
+	* org.texi (Formula syntax for Calc): Add `f-1' to TBLFM example
+	about `nan'.
+
+2014-10-03  Nicolas Goaziou  <mail@nicolasgoaziou.fr>
+
+	* org.texi (Export settings): Be more explicit about how output
+	file name is built.
+
+	* org.texi (Headings and sectioning structure): Document menus.
+
+	* org.texi (Include files, Publishing options): Remove reference
+	to nonexistent variable.
+
+2014-10-03  Eli Zaretskii  <eliz@gnu.org>
+
+	* erc.texi (Connecting): Remove stray "OA" that failed the manual
+	build.
+
+2014-10-03  Kelvin White  <kwhite@gnu.org>
+
+	* erc.texi (Advanced Usage, Options): Add descriptions and examples
+	for erc-format-nick-function and erc-rename-buffers options.
+
 2014-09-26  Leo Liu  <sdl.web@gmail.com>
 
 	* cl.texi (Predicates on Numbers): Document cl-digit-char-p.

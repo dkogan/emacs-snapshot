@@ -2137,8 +2137,11 @@ adjust_frame_glyphs_for_window_redisplay (struct frame *f)
 static void
 adjust_decode_mode_spec_buffer (struct frame *f)
 {
+  int frame_message_buf_size = FRAME_MESSAGE_BUF_SIZE (f);
+
+  eassert (frame_message_buf_size >= 0);
   f->decode_mode_spec_buffer = xrealloc (f->decode_mode_spec_buffer,
-					 FRAME_MESSAGE_BUF_SIZE (f) + 1);
+					 frame_message_buf_size + 1);
 }
 
 
@@ -6097,15 +6100,12 @@ init_display (void)
       (*initial_terminal->delete_terminal_hook) (initial_terminal);
 
     /* Update frame parameters to reflect the new type. */
-    Fmodify_frame_parameters
-      (selected_frame, FRAME_PARAMETER (Qtty_type,
-					Ftty_type (selected_frame)));
-    if (t->display_info.tty->name)
-      Fmodify_frame_parameters
-	(selected_frame,
-	 FRAME_PARAMETER (Qtty, build_string (t->display_info.tty->name)));
-    else
-      Fmodify_frame_parameters (selected_frame, FRAME_PARAMETER (Qtty, Qnil));
+    AUTO_FRAME_ARG (tty_type_arg, Qtty_type, Ftty_type (selected_frame));
+    Fmodify_frame_parameters (selected_frame, tty_type_arg);
+    AUTO_FRAME_ARG (tty_arg, Qtty, (t->display_info.tty->name
+				    ? build_string (t->display_info.tty->name)
+				    : Qnil));
+    Fmodify_frame_parameters (selected_frame, tty_arg);
   }
 
   {

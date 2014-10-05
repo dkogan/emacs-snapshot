@@ -1,3 +1,229 @@
+2014-10-04  Jan Djärv  <jan.h.d@swipnet.se>
+
+	* gtkutil.c (create_menus): Only add tearoffs to empty menus.
+	(xg_update_submenu): Remove has_tearoff_p, pass 1 to create_menus
+	for add_tearoff_p.
+
+2014-10-04  Martin Rudalics  <rudalics@gmx.at>
+
+	* buffer.c (scroll_bar_width, scroll_bar_height): Fix
+	doc-strings.
+	* window.c (Fset_window_scroll_bars): Fix doc-string.
+	(Fwindow_scroll_bars): Have it return what the doc-string says.
+
+2014-10-03  Eli Zaretskii  <eliz@gnu.org>
+
+	* xdisp.c (move_it_by_lines): Call reseat_1 after moving the
+	iterator backwards, to resync the bidi iterator.  (Bug#18584)
+
+2014-10-03  Dmitry Antipov  <dmantipov@yandex.ru>
+
+	Consistently use min and max macros from lisp.h.
+	* coding.c (min, max):
+	* font.c (MAX):
+	* unexhp9k800.c (min):
+	* unexw32.c (min, max): Use definitions from lisp.h.
+	* regex.c (MAX, MIN) [!emacs]: Define own max and min as such.
+	Adjust users.
+	* gmalloc.c (min): Tiny style change.
+
+	* fileio.c (emacs_readlinkat, Finsert_file_contents):
+	* w32fns.c, xfns.c (x_create_tip_frame): Use AUTO_STRING.
+
+2014-10-03  Paul Eggert  <eggert@cs.ucla.edu>
+
+	Fix x-focus-frame bug with "Not an in-range integer" (Bug#18586).
+	* xselect.c (X_SHRT_MAX, X_SHRT_MIN, X_LONG_MAX, X_LONG_MIN)
+	(X_ULONG_MAX): Move these macros to xterm.h.
+	(x_fill_property_data): Be more generous about allowing either
+	signed or unsigned data of the appropriate width.
+	* xterm.h (x_display_set_last_user_time): New function.
+	All setters of last_user_time changd to use this function.
+	If ENABLE_CHECKING, check that the times are in range.
+
+2014-10-02  Eli Zaretskii  <eliz@gnu.org>
+
+	* dispnew.c (adjust_decode_mode_spec_buffer): Use 'int' instead of
+	'ssize_t'.  Suggested by Paul Eggert <eggert@cs.ucla.edu>.
+
+2014-10-02  Jan Djärv  <jan.h.d@swipnet.se>
+
+	* xfaces.c (Finternal_set_lisp_face_attribute): Don't try to
+	make a font_object from a tty frame (Bug#18573).
+	(Finternal_set_lisp_face_attribute): Add FIXME comment.
+
+2014-10-02  Dmitry Antipov  <dmantipov@yandex.ru>
+
+	* alloc.c (mark_overlay): Assume that overlay boundaries are
+	always markers.  Add comment.
+	* lread.c (read_internal_start): Use convenient validate_subarray.
+	Adjust docstring.
+	(Fread_from_string): Adjust docstring.
+
+2014-10-02  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* lisp.h: Fix up compilation for USE_STACK_LISP_OBJECTS=false.
+
+	* nsselect.m (ns-own-selection-internal, ns-disown-selection-internal):
+	Rename from the "x-" prefix.
+
+2014-10-01  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* xselect.c (selection-converter-alist): Fix docstring.
+
+2014-10-01  Eli Zaretskii  <eliz@gnu.org>
+
+	* w32proc.c (sys_spawnve): Avoid modification of the CMDNAME
+	argument passed by the caller, when we mirror all slashes into
+	backslashes.
+
+2014-10-01  Dmitry Antipov  <dmantipov@yandex.ru>
+
+	* gtkutil.c (xg_set_toolkit_horizontal_scroll_bar_thumb):
+	Resurrect old code and fix compilation with GTK < 2.13.6.
+
+2014-10-01  Paul Eggert  <eggert@cs.ucla.edu>
+
+	Use AUTO_CONS instead of SCOPED_CONS, etc.
+	* frame.h (AUTO_FRAME_ARG): Rename from FRAME_PARAMETER.
+	* lisp.h (AUTO_CONS): Rename from scoped_cons.
+	(AUTO_LIST1): Rename from scoped_list1.
+	(AUTO_LIST2): Rename from scoped_list2.
+	(AUTO_LIST3): Rename from scoped_list3.
+	(AUTO_LIST4): Rename from scoped_list4.
+	(AUTO_STRING): Rename from SCOPED_STRING.
+	* frame.h (AUTO_FRAME_ARG):
+	* lisp.h (AUTO_CONS, AUTO_LIST1, AUTO_LIST2, AUTO_LIST3)
+	(AUTO_LIST4, AUTO_STRING):
+	Prepend a new argument 'name'.
+	Declare a variable instead of yielding a value.
+	All uses changed.
+	* lisp.h (STACK_CONS, AUTO_CONS_EXPR): New internal macros.
+
+2014-09-30  Eli Zaretskii  <eliz@gnu.org>
+
+	* w32fns.c (w32_createwindow): Accept an additional argument, an
+	array of 2 values specifying the coordinates of the frame's
+	top-left corner.  Use these values instead of calling x_get_arg,
+	which can cons Lisp objects, and therefore cannot be called except
+	from the main thread.  Remove redundant tests for the default
+	values.
+	(my_create_window): Move the calculation of the coordinates of the
+	frame's top-left edge here.  Pass them to the input thread via the
+	second parameter of the WM_EMACS_CREATEWINDOW message.  See
+	http://lists.gnu.org/archive/html/emacs-devel/2014-09/msg00892.html
+	for the details.
+
+2014-09-30  Eli Zaretskii  <eliz@gnu.org>
+
+	* xdisp.c (cursor_row_fully_visible_p): Update commentary.
+	(redisplay_window): Treat the frame's frozen_window_starts flag
+	the same way as the optional_new_start flag for the window: only
+	obey it if the glyph row showing point will be fully visible.
+	Likewise when the window start is in a continuation line.  If,
+	after trying everything under the 'force_start' label, point is
+	still not fully visible, give up and scroll the window.  Add
+	debugging traces.  (Bug#18545)
+
+	* window.c (Frecenter): Set the window's redisplay flag.
+
+2014-09-30  Eli Zaretskii  <eliz@gnu.org>
+
+	* w32term.c (w32_read_socket): Don't use frame dimensions for
+	resizing if GetClientRect returned an empty (0, 0, 0, 0)
+	rectangle.  Check the return value of GetClientRect, and don't use
+	the results if it didn't succeed.
+
+	* dispnew.c (change_frame_size_1): Recompute the frame dimensions
+	in columns and lines after correcting the pixel dimensions in
+	check_frame_size.
+	(adjust_decode_mode_spec_buffer): Add assertion to avoid passing
+	negative values to xrealloc.  (Bug#18528)
+
+2014-09-30  Paul Eggert  <eggert@cs.ucla.edu>
+
+	* alloc.c: Remove now-unnecessary check.
+	Suggested by Dmitry Antipov in:
+	http://lists.gnu.org/archive/html/emacs-devel/2014-09/msg00891.html
+
+	* xterm.c (x_term_init): Allocate temps on stack, not on heap.
+
+	* frame.c (x_set_frame_parameters): Port --enable-gcc-warnings
+	to Ubuntu 14.04.1 x86-64.
+
+	Simplify stack-allocated Lisp objects, and make them more portable.
+	The build_local_string macro was used in two ways: (1) string
+	literals for which scoped allocation suffices, and (2) file name
+	components, where it's not safe in general to assume bounded-size
+	ASCII data.  Simplify by defining a new macro SCOPED_STRING that
+	allocates a block-scope string, and by using SCOPED_STRING for (1)
+	and build_string for (2).  Furthermore, actually use stack
+	allocation only for objects known to have sufficient alignment.
+	This simpler implementation means Emacs can make
+	USE_STACK_LISP_OBJECTS the default unless GC_MARK_STACK !=
+	GC_MAKE_GCPROS_NOOPS.
+	* lisp.h (GCALIGNED): Align even if !USE_STACK_LISP_OBJECTS,
+	for fewer differences among implementations.
+	(struct Lisp_String): Now GCALIGNED.
+	(USE_STACK_LISP_OBJECTS): Default to true, since the
+	implementation no longer insists on a nonempty GCALIGNED.
+	But make it false if GC_MARK_STACK != GC_MAKE_GCPROS_NOOPS.
+	(SCOPED_CONS_INITIALIZER): Remove, since it's no longer needed
+	separately.  Move definiens to scoped_cons.  The old definition
+	was incorrect when GCALIGNED was defined to be empty.
+	(union Aligned_String): New type.
+	(USE_STACK_CONS, USE_STACK_STRING): New constants, so that the
+	implementation ports to compilers that don't align strictly enough.
+	Don't worry about the union sizes; it's not worth bothering about.
+	(scoped_cons, scoped_list1, scoped_list3, scoped_list4):
+	Rewrite using USE_STACK_CONS.
+	(scoped_cons): Assume the use of union Aligned_Cons.
+	(lisp_string_size, make_local_string, build_local_string): Remove.
+	Unless otherwise specified, all callers of build_local_string
+	changed to use SCOPED_STRING.
+	(SCOPED_STRING): New macro.
+	* data.c (wrong_choice):
+	* menu.c (single_menu_item):
+	* process.c (Fformat_network_address):
+	Hoist use of SCOPED_STRING out of a scope, so that its returned
+	object lives long enough.
+	* fileio.c (Fexpand_file_name): Use build_string, not SCOPED_STRING,
+	as the string might be long or might not be ASCII.
+
+2014-09-29  Eli Zaretskii  <eliz@gnu.org>
+
+	* msdos.c (internal_terminal_init): Bump version to 25.
+
+2014-09-29  Dmitry Antipov  <dmantipov@yandex.ru>
+
+	Keep stack-allocated Lisp objects fast rather than versatile.
+	* lisp.h (union Aligned_Cons) [!GCALIGNED]: Define as such.
+	(SCOPED_CONS_INITIALIZER): New macro.
+	(scoped_cons) [USE_STACK_LISP_OBJECTS]: Use it.
+	(USE_LOCAL_ALLOCA): Remove.
+	(local_cons, local_list1, local_list2, local_list3, local_list4):
+	Remove.  Stack overflow checking makes them too slow.
+	(make_local_vector): Likewise.  Also we just don't have enough
+	users for it.
+	(enum LISP_STRING_OVERHEAD): Remove.
+	(local_string_init, local_vector_init): Remove prototypes.
+	(make_local_string, build_local_string): Redesign to target short
+	compile-time string constants, fall back to regular string allocation
+	where appropriate.
+	(lisp_string_size): New function.
+	(verify_ascii) [ENABLE_CHECKING]: Add prototype.
+	* alloc.c (local_string_init, local_vector_init): Remove.
+	(verify_ascii) [ENABLE_CHECKING]: New function.
+	* buffer.c, charset.c, chartab.c, data.c, editfns.c, emacs.c, fileio.c:
+	* fns.c, font.c, fontset.c, frame.c, keyboard.c, keymap.c, lread.c:
+	* menu.c, minibuf.c, process.c, textprop.c, xdisp.c, xfns.c, xfont.c:
+	* xselect.c, xterm.c: All related users changed.
+
+2014-09-28  Ken Brown  <kbrown@cornell.edu>
+
+	* sheap.c (bss_sbrk_buffer_beg): Remove redundant variable.
+	* gmalloc.c [CYGWIN]: Adapt to change in sheap.c.
+
 2014-09-27  Ken Brown  <kbrown@cornell.edu>
 
 	Fix implementation of HYBRID_MALLOC on Cygwin.
@@ -226,7 +452,7 @@
 	* macfont.m (macfont_close): Release and free font-specific data
 	only if it wasn't previously freed.
 
-2014-09-22  David Caldwell <david@porkrind.org> (tiny change)
+2014-09-22  David Caldwell <david@porkrind.org>  (tiny change)
 
 	* unexmacosx.c (dump_it): Improve error message.
 
@@ -4405,8 +4631,7 @@
 	* doc.c (store_function_docstring): Warn when we don't know where to
 	put a docstring.
 	(Fsubstitute_command_keys): Don't advertise the fact that
-	text-properties are dropped, since we think it's a bug that we'll fix
-	in 24.5.
+	text-properties are dropped, since we think it's a bug that we'll fix.
 
 	* frame.h (SET_FRAME_VISIBLE): Keep frame_garbaged up to date.
 	* xterm.c (handle_one_xevent) <MapNotify>: Don't garbage the frame.
@@ -9637,7 +9862,7 @@
 	* eval.c (Ffuncall): Fix handling of ((lambda ..) ..) in lexically
 	scoped code (bug#11258).
 
-2013-08-28  Davor Cubranic  <cubranic@stat.ubc.ca> (tiny change)
+2013-08-28  Davor Cubranic  <cubranic@stat.ubc.ca>  (tiny change)
 
 	* nsterm.m (last_window): New variable.
 	(EV_TRAILER2): New macro.

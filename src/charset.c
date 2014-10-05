@@ -481,20 +481,16 @@ static void
 load_charset_map_from_file (struct charset *charset, Lisp_Object mapfile,
 			    int control_flag)
 {
-  USE_LOCAL_ALLOCA;
   unsigned min_code = CHARSET_MIN_CODE (charset);
   unsigned max_code = CHARSET_MAX_CODE (charset);
   int fd;
   FILE *fp;
-  Lisp_Object suffixes;
   struct charset_map_entries *head, *entries;
   int n_entries;
-  ptrdiff_t count;
-
-  suffixes = scoped_list2 (build_local_string (".map"),
-			   build_local_string (".TXT"));
-
-  count = SPECPDL_INDEX ();
+  AUTO_STRING (map, ".map");
+  AUTO_STRING (txt, ".txt");
+  AUTO_LIST2 (suffixes, map, txt);
+  ptrdiff_t count = SPECPDL_INDEX ();
   record_unwind_protect_nothing ();
   specbind (Qfile_name_handler_alist, Qnil);
   fd = openp (Vcharset_map_path, mapfile, suffixes, NULL, Qnil, false);
@@ -1551,7 +1547,6 @@ If the current buffer is unibyte, the returned list may contain
 only `ascii', `eight-bit-control', and `eight-bit-graphic'.  */)
   (Lisp_Object beg, Lisp_Object end, Lisp_Object table)
 {
-  USE_LOCAL_ALLOCA;
   Lisp_Object charsets;
   ptrdiff_t from, from_byte, to, stop, stop_byte;
   int i;
@@ -1572,7 +1567,7 @@ only `ascii', `eight-bit-control', and `eight-bit-graphic'.  */)
 
   from_byte = CHAR_TO_BYTE (from);
 
-  charsets = make_local_vector (charset_table_used, Qnil);
+  charsets = Fmake_vector (make_number (charset_table_used), Qnil);
   while (1)
     {
       find_charsets_in_text (BYTE_POS_ADDR (from_byte), stop - from,
@@ -1603,14 +1598,13 @@ If STR is unibyte, the returned list may contain
 only `ascii', `eight-bit-control', and `eight-bit-graphic'. */)
   (Lisp_Object str, Lisp_Object table)
 {
-  USE_LOCAL_ALLOCA;
   Lisp_Object charsets;
   int i;
   Lisp_Object val;
 
   CHECK_STRING (str);
 
-  charsets = make_local_vector (charset_table_used, Qnil);
+  charsets = Fmake_vector (make_number (charset_table_used), Qnil);
   find_charsets_in_text (SDATA (str), SCHARS (str), SBYTES (str),
 			 charsets, table,
 			 STRING_MULTIBYTE (str));

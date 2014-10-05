@@ -324,7 +324,6 @@ single_keymap_panes (Lisp_Object keymap, Lisp_Object pane_name,
 static void
 single_menu_item (Lisp_Object key, Lisp_Object item, Lisp_Object dummy, void *skp_v)
 {
-  USE_LOCAL_ALLOCA;
   Lisp_Object map, item_string, enabled;
   struct gcpro gcpro1, gcpro2;
   bool res;
@@ -355,7 +354,7 @@ single_menu_item (Lisp_Object key, Lisp_Object item, Lisp_Object dummy, void *sk
      front of them.  */
   if (!have_boxes ())
     {
-      Lisp_Object prefix = Qnil;
+      char const *prefix = 0;
       Lisp_Object type = AREF (item_properties, ITEM_PROPERTY_TYPE);
       if (!NILP (type))
 	{
@@ -390,8 +389,11 @@ single_menu_item (Lisp_Object key, Lisp_Object item, Lisp_Object dummy, void *sk
 		    {
 		      if (!submenu && SREF (tem, 0) != '\0'
 			  && SREF (tem, 0) != '-')
-			ASET (menu_items, idx + MENU_ITEMS_ITEM_NAME,
-			      concat2 (build_local_string ("    "), tem));
+			{
+			  AUTO_STRING (spaces, "    ");
+			  ASET (menu_items, idx + MENU_ITEMS_ITEM_NAME,
+				concat2 (spaces, tem));
+			}
 		      idx += MENU_ITEMS_ITEM_LENGTH;
 		    }
 		}
@@ -400,24 +402,30 @@ single_menu_item (Lisp_Object key, Lisp_Object item, Lisp_Object dummy, void *sk
 
 	  /* Calculate prefix, if any, for this item.  */
 	  if (EQ (type, QCtoggle))
-	    prefix = build_local_string (NILP (selected) ? "[ ] " : "[X] ");
+	    prefix = NILP (selected) ? "[ ] " : "[X] ";
 	  else if (EQ (type, QCradio))
-	    prefix = build_local_string (NILP (selected) ? "( ) " : "(*) ");
+	    prefix = NILP (selected) ? "( ) " : "(*) ";
 	}
       /* Not a button. If we have earlier buttons, then we need a prefix.  */
       else if (!skp->notbuttons && SREF (item_string, 0) != '\0'
 	       && SREF (item_string, 0) != '-')
-	prefix = build_local_string ("    ");
+	prefix = "    ";
 
-      if (!NILP (prefix))
-	item_string = concat2 (prefix, item_string);
+      if (prefix)
+	{
+	  AUTO_STRING (prefix_obj, prefix);
+	  item_string = concat2 (prefix_obj, item_string);
+	}
   }
 
   if ((FRAME_TERMCAP_P (XFRAME (Vmenu_updating_frame))
        || FRAME_MSDOS_P (XFRAME (Vmenu_updating_frame)))
       && !NILP (map))
     /* Indicate visually that this is a submenu.  */
-    item_string = concat2 (item_string, build_local_string (" >"));
+    {
+      AUTO_STRING (space_gt, " >");
+      item_string = concat2 (item_string, space_gt);
+    }
 
   push_menu_item (item_string, enabled, key,
 		  AREF (item_properties, ITEM_PROPERTY_DEF),

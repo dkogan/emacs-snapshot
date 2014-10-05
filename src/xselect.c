@@ -96,13 +96,6 @@ static Lisp_Object Qx_lost_selection_functions, Qx_sent_selection_functions;
    is not necessarily sizeof (long).  */
 #define X_LONG_SIZE 4
 
-/* Extreme 'short' and 'long' values suitable for libX11.  */
-#define X_SHRT_MAX 0x7fff
-#define X_SHRT_MIN (-1 - X_SHRT_MAX)
-#define X_LONG_MAX 0x7fffffff
-#define X_LONG_MIN (-1 - X_LONG_MAX)
-#define X_ULONG_MAX 0xffffffffUL
-
 /* If this is a smaller number than the max-request-size of the display,
    emacs will use INCR selection transfer when the selection is larger
    than this.  The max-request-size is usually around 64k, so if you want
@@ -2159,11 +2152,9 @@ x_clipboard_manager_save (Lisp_Object frame)
 static Lisp_Object
 x_clipboard_manager_error_1 (Lisp_Object err)
 {
-  USE_LOCAL_ALLOCA;
-  Fmessage (2, ((Lisp_Object [])
-    { build_local_string ("X clipboard manager error: %s\n\
-If the problem persists, set `x-select-enable-clipboard-manager' to nil."),
-      CAR (CDR (err)) }));
+  AUTO_STRING (format, "X clipboard manager error: %s\n\
+If the problem persists, set `x-select-enable-clipboard-manager' to nil.");
+  Fmessage (2, (Lisp_Object []) {format, CAR (CDR (err))});
   return Qnil;
 }
 
@@ -2213,7 +2204,6 @@ void
 x_clipboard_manager_save_all (void)
 {
   /* Loop through all X displays, saving owned clipboards.  */
-  USE_LOCAL_ALLOCA;
   struct x_display_info *dpyinfo;
   Lisp_Object local_selection, local_frame;
 
@@ -2231,9 +2221,8 @@ x_clipboard_manager_save_all (void)
       local_frame = XCAR (XCDR (XCDR (XCDR (local_selection))));
       if (FRAME_LIVE_P (XFRAME (local_frame)))
 	{
-	  Fmessage (1, ((Lisp_Object [])
-	    { build_local_string
-		("Saving clipboard to X clipboard manager...") }));
+	  AUTO_STRING (saving, "Saving clipboard to X clipboard manager...");
+	  Fmessage (1, &saving);
 	  internal_condition_case_1 (x_clipboard_manager_save, local_frame,
 				     Qt, x_clipboard_manager_error_2);
 	}
@@ -2288,10 +2277,10 @@ x_check_property_data (Lisp_Object data)
 void
 x_fill_property_data (Display *dpy, Lisp_Object data, void *ret, int format)
 {
-  long val;
-  long  *d32 = (long  *) ret;
-  short *d16 = (short *) ret;
-  char  *d08 = (char  *) ret;
+  unsigned long val;
+  unsigned long  *d32 = (unsigned long  *) ret;
+  unsigned short *d16 = (unsigned short *) ret;
+  unsigned char  *d08 = (unsigned char  *) ret;
   Lisp_Object iter;
 
   for (iter = data; CONSP (iter); iter = XCDR (iter))
@@ -2304,16 +2293,16 @@ x_fill_property_data (Display *dpy, Lisp_Object data, void *ret, int format)
 	      && RANGED_INTEGERP (X_LONG_MIN >> 16, XCAR (o), X_LONG_MAX >> 16)
 	      && RANGED_INTEGERP (- (1 << 15), XCDR (o), -1))
             {
-              long v1 = XINT (XCAR (o));
-              long v2 = XINT (XCDR (o));
-              /* cons_to_signed does not handle negative values for v2.
+	      /* cons_to_x_long does not handle negative values for v2.
                  For XDnd, v2 might be y of a window, and can be negative.
                  The XDnd spec. is not explicit about negative values,
                  but let's assume negative v2 is sent modulo 2**16.  */
-	      val = (v1 << 16) | (v2 & 0xffff);
+	      unsigned long v1 = XINT (XCAR (o)) & 0xffff;
+	      unsigned long v2 = XINT (XCDR (o)) & 0xffff;
+	      val = (v1 << 16) | v2;
             }
           else
-            val = cons_to_signed (o, X_LONG_MIN, X_LONG_MAX);
+            val = cons_to_x_long (o);
         }
       else if (STRINGP (o))
         {
@@ -2326,17 +2315,15 @@ x_fill_property_data (Display *dpy, Lisp_Object data, void *ret, int format)
 
       if (format == 8)
 	{
-	  if (CHAR_MIN <= val && val <= CHAR_MAX)
-	    *d08++ = val;
-	  else
+	  if ((1 << 8) < val && val <= X_ULONG_MAX - (1 << 7))
 	    error ("Out of 'char' range");
+	  *d08++ = val;
 	}
       else if (format == 16)
 	{
-	  if (X_SHRT_MIN <= val && val <= X_SHRT_MAX)
-	    *d16++ = val;
-	  else
+	  if ((1 << 16) < val && val <= X_ULONG_MAX - (1 << 15))
 	    error ("Out of 'short' range");
+	  *d16++ = val;
 	}
       else
         *d32++ = val;
@@ -2642,12 +2629,14 @@ syms_of_xselect (void)
   converted_selections = NULL;
   conversion_fail_tag = None;
 
+  /* FIXME: Duplicate definition in nsselect.c.  */
   DEFVAR_LISP ("selection-converter-alist", Vselection_converter_alist,
 	       doc: /* An alist associating X Windows selection-types with functions.
 These functions are called to convert the selection, with three args:
 the name of the selection (typically `PRIMARY', `SECONDARY', or `CLIPBOARD');
 a desired type to which the selection should be converted;
-and the local selection value (whatever was given to `x-own-selection').
+and the local selection value (whatever was given to
+`x-own-selection-internal').
 
 The function should return the value to send to the X server
 \(typically a string).  A return value of nil

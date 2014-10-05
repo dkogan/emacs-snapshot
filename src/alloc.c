@@ -69,12 +69,6 @@ along with GNU Emacs.  If not, see <http://www.gnu.org/licenses/>.  */
 static bool valgrind_p;
 #endif
 
-#ifdef USE_LOCAL_ALLOCATORS
-# if GC_MARK_STACK != GC_MAKE_GCPROS_NOOPS
-#  error "Stack-allocated Lisp objects are not compatible with GCPROs"
-# endif
-#endif
-
 /* GC_CHECK_MARKED_OBJECTS means do sanity checks on allocated objects.
    Doable only if GC_MARK_STACK.  */
 #if ! GC_MARK_STACK
@@ -2232,33 +2226,6 @@ make_string (const char *contents, ptrdiff_t nbytes)
   return val;
 }
 
-#ifdef USE_LOCAL_ALLOCATORS
-
-/* Initialize the string S from DATA and SIZE.  S must be followed by
-   SIZE + 1 bytes of memory that can be used.  Return S tagged as a
-   Lisp object.  */
-
-Lisp_Object
-local_string_init (struct Lisp_String *s, char const *data, ptrdiff_t size)
-{
-  unsigned char *data_copy = (unsigned char *) (s + 1);
-  parse_str_as_multibyte ((unsigned char const *) data,
-			  size, &s->size, &s->size_byte);
-  if (size == s->size || size != s->size_byte)
-    {
-      s->size = size;
-      s->size_byte = -1;
-    }
-  s->intervals = NULL;
-  s->data = data_copy;
-  memcpy (data_copy, data, size);
-  data_copy[size] = '\0';
-  return make_lisp_ptr (s, Lisp_String);
-}
-
-#endif
-
-
 /* Make an unibyte string from LENGTH bytes at CONTENTS.  */
 
 Lisp_Object
@@ -3319,23 +3286,6 @@ See also the function `vector'.  */)
   XSETVECTOR (vector, p);
   return vector;
 }
-
-#ifdef USE_LOCAL_ALLOCATORS
-
-/* Initialize V with LENGTH objects each with value INIT,
-   and return it tagged as a Lisp Object.  */
-
-Lisp_Object
-local_vector_init (struct Lisp_Vector *v, ptrdiff_t length, Lisp_Object init)
-{
-  v->header.size = length;
-  for (ptrdiff_t i = 0; i < length; i++)
-    v->contents[i] = init;
-  return make_lisp_ptr (v, Lisp_Vectorlike);
-}
-
-#endif
-
 
 DEFUN ("vector", Fvector, Svector, 0, MANY, 0,
        doc: /* Return a newly created vector with specified arguments as elements.
@@ -6065,8 +6015,9 @@ mark_overlay (struct Lisp_Overlay *ptr)
   for (; ptr && !ptr->gcmarkbit; ptr = ptr->next)
     {
       ptr->gcmarkbit = 1;
-      mark_object (ptr->start);
-      mark_object (ptr->end);
+      /* These two are always markers and can be marked fast.  */
+      XMARKER (ptr->start)->gcmarkbit = 1;
+      XMARKER (ptr->end)->gcmarkbit = 1;
       mark_object (ptr->plist);
     }
 }
@@ -7157,7 +7108,22 @@ die (const char *msg, const char *file, int line)
 
 #endif /* ENABLE_CHECKING */
 
-#if defined (ENABLE_CHECKING) && defined (USE_STACK_LISP_OBJECTS)
+#if defined (ENABLE_CHECKING) && USE_STACK_LISP_OBJECTS
+
+/* Debugging check whether STR is ASCII-only.  */
+
+const char *
+verify_ascii (const char *str)
+{
+  const unsigned char *ptr = (unsigned char *) str, *end = ptr + strlen (str);
+  while (ptr < end)
+    {
+      int c = STRING_CHAR_ADVANCE (ptr);
+      if (!ASCII_CHAR_P (c))
+	emacs_abort ();
+    }
+  return str;
+}
 
 /* Stress alloca with inconveniently sized requests and check
    whether all allocated areas may be used for Lisp_Object.  */
@@ -7175,7 +7141,7 @@ verify_alloca (void)
     }
 }
 
-#else /* not (ENABLE_CHECKING && USE_STACK_LISP_OBJECTS) */
+#else /* not ENABLE_CHECKING && USE_STACK_LISP_OBJECTS */
 
 #define verify_alloca() ((void) 0)
 

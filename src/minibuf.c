@@ -1123,7 +1123,6 @@ If `read-buffer-function' is non-nil, this works by calling it as a
 function, instead of the usual behavior.  */)
   (Lisp_Object prompt, Lisp_Object def, Lisp_Object require_match)
 {
-  USE_LOCAL_ALLOCA;
   Lisp_Object result;
   char *s;
   ptrdiff_t len;
@@ -1158,9 +1157,10 @@ function, instead of the usual behavior.  */)
 					      STRING_MULTIBYTE (prompt));
 	    }
 
+	  AUTO_STRING (format, "%s (default %s): ");
 	  prompt = Fformat (3, ((Lisp_Object [])
-	    { build_local_string ("%s (default %s): "),
-	      prompt, CONSP (def) ? XCAR (def) : def }));
+				{format, prompt,
+				 CONSP (def) ? XCAR (def) : def}));
 	}
 
       result = Fcompleting_read (prompt, intern ("internal-complete-buffer"),
