@@ -8,7 +8,7 @@ Signed-off-by: Julien Danjou <julien@danjou.info>
  1 file changed, 5 insertions(+), 5 deletions(-)
 
 diff --git a/doc/man/emacs.1 b/doc/man/emacs.1
-index 45bdb64..35a9f97 100644
+index 6ad6ee1..f4dd0f1 100644
 --- a/doc/man/emacs.1
 +++ b/doc/man/emacs.1
 @@ -554,24 +554,24 @@ distribution.

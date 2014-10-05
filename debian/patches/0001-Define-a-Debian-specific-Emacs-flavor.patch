@@ -8,7 +8,7 @@ Signed-off-by: Julien Danjou <julien@danjou.info>
  1 file changed, 11 insertions(+), 1 deletion(-)
 
 diff --git a/lisp/startup.el b/lisp/startup.el
-index c46200a..1d33052 100644
+index 1f524dc..d332702 100644
 --- a/lisp/startup.el
 +++ b/lisp/startup.el
 @@ -405,6 +405,10 @@ from being initialized."
@@ -22,7 +22,7 @@ index c46200a..1d33052 100644
  (defvar no-blinking-cursor nil)
  
  (defvar pure-space-overflow nil
-@@ -1050,7 +1054,13 @@ please check its value")
+@@ -1033,7 +1037,13 @@ please check its value")
      ;; should check init-file-user instead, since that is already set.
      ;; See cus-edit.el for an example.
      (if site-run-file
