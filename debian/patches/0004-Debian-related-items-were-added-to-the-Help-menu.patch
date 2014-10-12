@@ -8,10 +8,10 @@ Signed-off-by: Julien Danjou <julien@danjou.info>
  1 file changed, 33 insertions(+)
 
 diff --git a/lisp/menu-bar.el b/lisp/menu-bar.el
-index 35f996c..77b979e 100644
+index 5ae5da9..9dcc5e6 100644
 --- a/lisp/menu-bar.el
 +++ b/lisp/menu-bar.el
-@@ -1603,6 +1603,28 @@ key, a click, or a menu-item"))
+@@ -1596,6 +1596,28 @@ key, a click, or a menu-item"))
    (info "elisp")
    (Info-index topic))
  
@@ -40,7 +40,7 @@ index 35f996c..77b979e 100644
  (defvar menu-bar-search-documentation-menu
    (let ((menu (make-sparse-keymap "Search Documentation")))
  
-@@ -1707,6 +1729,17 @@ key, a click, or a menu-item"))
+@@ -1700,6 +1722,17 @@ key, a click, or a menu-item"))
        `(menu-item "Describe" ,menu-bar-describe-menu))
      (bindings--define-key menu [search-documentation]
        `(menu-item "Search Documentation" ,menu-bar-search-documentation-menu))
