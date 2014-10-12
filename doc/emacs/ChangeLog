@@ -1,7 +1,16 @@
+2014-10-09  Glenn Morris  <rgm@gnu.org>
+
+	* package.texi (Package Menu): The package list was changed to not
+	say "unsigned" any more.
+
+2014-10-05  Glenn Morris  <rgm@gnu.org>
+
+	* misc.texi (Sorting):
+	* search.texi (Query Replace): Markup fixes.
+
 2014-10-04  Martin Rudalics  <rudalics@gmx.at>
 
-	* frames.texi (Scroll Bars): Describe use of horizontal scroll
-	bars.
+	* frames.texi (Scroll Bars): Describe use of horizontal scroll bars.
 
 2014-10-04  Glenn Morris  <rgm@gnu.org>
 

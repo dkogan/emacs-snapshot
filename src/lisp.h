@@ -3990,7 +3990,6 @@ extern Lisp_Object make_buffer_string_both (ptrdiff_t, ptrdiff_t, ptrdiff_t,
 					    ptrdiff_t, bool);
 extern void init_editfns (void);
 extern void syms_of_editfns (void);
-extern void set_time_zone_rule (const char *);
 
 /* Defined in buffer.c.  */
 extern bool mouse_face_overlay_overlaps (Lisp_Object);
@@ -4398,6 +4397,7 @@ extern void syms_of_xsmfns (void);
 extern void syms_of_xselect (void);
 
 /* Defined in xterm.c.  */
+extern void init_xterm (void);
 extern void syms_of_xterm (void);
 #endif /* HAVE_X_WINDOWS */
 
@@ -4419,6 +4419,7 @@ extern void syms_of_decompress (void);
 
 #ifdef HAVE_DBUS
 /* Defined in dbusbind.c.  */
+void init_dbusbind (void);
 void syms_of_dbusbind (void);
 #endif
 
@@ -4615,13 +4616,16 @@ union Aligned_String
   double d; intmax_t i; void *p;
 };
 
-/* True for stack-based cons and string implementations.  */
+/* True for stack-based cons and string implementations, respectively.
+   Use stack-based strings only if stack-based cons also works.
+   Otherwise, STACK_CONS would create heap-based cons cells that
+   could point to stack-based strings, which is a no-no.  */
 
 enum
   {
     USE_STACK_CONS = (USE_STACK_LISP_OBJECTS
 		      && alignof (union Aligned_Cons) % GCALIGNMENT == 0),
-    USE_STACK_STRING = (USE_STACK_LISP_OBJECTS
+    USE_STACK_STRING = (USE_STACK_CONS
 			&& alignof (union Aligned_String) % GCALIGNMENT == 0)
   };
 

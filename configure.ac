@@ -825,6 +825,7 @@ if test "$gl_gcc_warnings" != yes; then
      gl_WARN_ADD([-Wno-switch])
      gl_WARN_ADD([-Wno-tautological-constant-out-of-range-compare])
      gl_WARN_ADD([-Wno-pointer-sign])
+     gl_WARN_ADD([-Wno-string-plus-int])
   fi
 else
   isystem='-isystem '
@@ -1716,12 +1717,14 @@ if test "${with_ns}" != no; then
      ns_appbindir=${ns_appdir}/Contents/MacOS
      ns_appresdir=${ns_appdir}/Contents/Resources
      ns_appsrc=Cocoa/Emacs.base
+     ns_fontfile=macfont.o
   elif test -f $GNUSTEP_CONFIG_FILE; then
      NS_IMPL_GNUSTEP=yes
      ns_appdir=`pwd`/nextstep/Emacs.app
      ns_appbindir=${ns_appdir}
      ns_appresdir=${ns_appdir}/Resources
      ns_appsrc=GNUstep/Emacs.base
+     ns_fontfile=nsfont.o
      dnl FIXME sourcing this several times in subshells seems inefficient.
      GNUSTEP_SYSTEM_HEADERS="$(. $GNUSTEP_CONFIG_FILE; echo $GNUSTEP_SYSTEM_HEADERS)"
      GNUSTEP_SYSTEM_LIBRARIES="$(. $GNUSTEP_CONFIG_FILE; echo $GNUSTEP_SYSTEM_LIBRARIES)"
@@ -1764,48 +1767,24 @@ fail;
 
   macfont_file=""
   if test "${NS_IMPL_COCOA}" = "yes"; then
-    AC_MSG_CHECKING([for OSX 10.4 or newer])
+    AC_MSG_CHECKING([for OSX 10.6 or newer])
     AC_COMPILE_IFELSE([AC_LANG_PROGRAM([#include <AppKit/AppKit.h>],
                                      [
 #ifdef MAC_OS_X_VERSION_MAX_ALLOWED
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1040
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1060
  ; /* OK */
 #else
- error "OSX 10.4 or newer required";
+ error "OSX 10.6 or newer required";
 #endif
 #endif
 		    ])],
-		    ns_osx_have_104=yes,
-		    ns_osx_have_104=no)
-    AC_MSG_RESULT([$ns_osx_have_104])
+		    ns_osx_have_106=yes,
+		    ns_osx_have_106=no)
+    AC_MSG_RESULT([$ns_osx_have_106])
 
-    if test $ns_osx_have_104 = no; then
-       AC_MSG_ERROR([`OSX 10.4 or newer is required']);
+    if test $ns_osx_have_106 = no; then
+       AC_MSG_ERROR([`OSX 10.6 or newer is required']);
     fi
-    AC_MSG_CHECKING([for OSX 10.5 or newer])
-    AC_COMPILE_IFELSE([AC_LANG_PROGRAM([#include <AppKit/AppKit.h>],
-                                     [
-#ifdef MAC_OS_X_VERSION_MAX_ALLOWED
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1050
- ; /* OK */
-#else
- error "OSX 10.5 not found";
-#endif
-#endif
-		    ])],
-		    ns_osx_have_105=yes,
-		    ns_osx_have_105=no)
-    AC_MSG_RESULT([$ns_osx_have_105])
-    if test $ns_osx_have_105 = yes; then
-      macfont_file="macfont.o"
-    fi
-  fi
-  AC_COMPILE_IFELSE([AC_LANG_PROGRAM([#include <Foundation/NSObjCRuntime.h>],
-                                     [NSInteger i;])],
-		    ns_have_nsinteger=yes,
-		    ns_have_nsinteger=no)
-  if test $ns_have_nsinteger = yes; then
-    AC_DEFINE(NS_HAVE_NSINTEGER, 1, [Define to 1 if `NSInteger' is defined.])
   fi
 fi
 
@@ -1839,7 +1818,7 @@ if test "${HAVE_NS}" = yes; then
      INSTALL_ARCH_INDEP_EXTRA=
   fi
 
-  NS_OBJC_OBJ="nsterm.o nsfns.o nsmenu.o nsselect.o nsimage.o nsfont.o $macfont_file"
+  NS_OBJC_OBJ="nsterm.o nsfns.o nsmenu.o nsselect.o nsimage.o $ns_fontfile"
 fi
 CFLAGS="$tmp_CFLAGS"
 CPPFLAGS="$tmp_CPPFLAGS"
@@ -3914,43 +3893,7 @@ AC_SUBST(KRB4LIB)
 
 AC_CHECK_HEADERS(valgrind/valgrind.h)
 
-AC_CHECK_FUNCS_ONCE(tzset)
-AC_MSG_CHECKING(whether localtime caches TZ)
-AC_CACHE_VAL(emacs_cv_localtime_cache,
-[if test x$ac_cv_func_tzset = xyes; then
-AC_RUN_IFELSE([AC_LANG_SOURCE([[#include <time.h>
-char TZ_GMT0[] = "TZ=GMT0";
-char TZ_PST8[] = "TZ=PST8";
-main()
-{
-  time_t now = time ((time_t *) 0);
-  int hour_GMT0, hour_unset;
-  if (putenv (TZ_GMT0) != 0)
-    exit (1);
-  hour_GMT0 = localtime (&now)->tm_hour;
-  unsetenv("TZ");
-  hour_unset = localtime (&now)->tm_hour;
-  if (putenv (TZ_PST8) != 0)
-    exit (1);
-  if (localtime (&now)->tm_hour == hour_GMT0)
-    exit (1);
-  unsetenv("TZ");
-  if (localtime (&now)->tm_hour != hour_unset)
-    exit (1);
-  exit (0);
-}]])], emacs_cv_localtime_cache=no, emacs_cv_localtime_cache=yes,
-[# If we have tzset, assume the worst when cross-compiling.
-emacs_cv_localtime_cache=yes])
-else
-	# If we lack tzset, report that localtime does not cache TZ,
-	# since we can't invalidate the cache if we don't have tzset.
-	emacs_cv_localtime_cache=no
-fi])dnl
-AC_MSG_RESULT($emacs_cv_localtime_cache)
-if test $emacs_cv_localtime_cache = yes; then
-  AC_DEFINE(LOCALTIME_CACHE, 1,
-	    [Define to 1 if localtime caches TZ.])
-fi
+AC_CHECK_FUNCS_ONCE(tzalloc tzset)
 
 ok_so_far=yes
 AC_CHECK_FUNC(socket, , ok_so_far=no)

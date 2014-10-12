@@ -1,3 +1,174 @@
+2014-10-12  Jan Djärv  <jan.h.d@swipnet.se>
+
+	* unexmacosx.c: Remove include ppc/reloc.h.
+	(unrelocate, copy_dysymtab): Remove PPC code.
+	(rebase_reloc_address): Remove, only used for PPC:
+
+	* nsterm.m: Always include macfont.h on COCOA.
+	(ns_update_auto_hide_menu_bar, ns_draw_fringe_bitmap)
+	(ns_dumpglyphs_image, ns_check_menu_open)
+	(applicationDidFinishLaunching)
+	(antialiasThresholdDidChange:)
+	(keyDown:, toggleFullScreen:, setPosition:portion:whole:): Remove
+	checks for OSX <= 10.5/10.6.
+	(changeFont:): Use macfont on COCOA, nsfont on GNUSTEP.
+	(syms_of_nsterm): Call syms_of_macfont on COCOA, syms_of_nsfont on
+	GNUSTEP.
+
+	* nsterm.h (MAC_OS_X_VERSION_10_4, MAC_OS_X_VERSION_10_5): Remove.
+	(NS_HAVE_NSINTEGER): Remove block.
+	Remove >= OSX 10.6 tests.
+
+	* nsmenu.m (NSMenuDidBeginTrackingNotification): Remove.
+	(x_activate_menubar, trackingNotification:): Remove check for
+	OSX >= 10.5.
+	(menuNeedsUpdate:): Remove check for OSX < 10.5.
+
+	* nsimage.m (allocInitFromFile:): Remove code for OSX < 10.6.
+
+	* nsfns.m: Always include macfont.h on COCOA.
+	(ns_filename_from_panel, ns_directory_from_panel)
+	(Fx_create_frame, Fns_popup_font_panel, ns_run_file_dialog)
+	(Fns_read_file_name, Fns_list_services): Remove code for OSX < 10.6
+
+	* macfont.m: Remove >= 1050 check.
+	(macfont_create_family_with_symbol)
+	(macfont_get_glyph_for_character)
+	(mac_font_get_glyphs_for_variants)
+	(mac_ctfont_create_available_families, syms_of_macfont): Remove
+	code for OSX < 10.6.
+	(mac_font_family_group, mac_font_family_compare): Remove, only used
+	for OSX < 10.6.
+
+	* macfont.h (MAC_FONT_FORMAT_ATTRIBUTE, MAC_FONT_FORMAT_BITMAP)
+	(mac_font_copy_non_synthetic_table): Remove versions for OSX < 10.6
+
+	* Makefile.in: Replace nsfont.o macfont.o with ns_fontfile in
+	comment.
+
+2014-10-12  Paul Eggert  <eggert@cs.ucla.edu>
+
+	Fix putenv race conditions with undefined behavior (Bug#8705).
+	Do all putenv calls before Emacs creates any threads.
+	Use a safer way to modify the TZ environment variable in the
+	presence of multiple threads.  For further thread-safety,
+	prefer localtime_r and gmtime_r to localtime and gmtime,
+	and prefer struct tm's tm_gmtoff (if available) to calling
+	both localtime_r and gmtime_r.
+	* dbusbind.c (Fdbus__init_bus): Move xputenv call from here ...
+	(init_dbusbind): ... to this new function.
+	* emacs.c (main) [HAVE_DBUS]: Call it before creating threads.
+	* xterm.c (x_term_init): Move xputenv call from here ...
+	(init_xterm): ... to this new function.
+	* emacs.c (main) [USE_GTK]: Call it before creating threads.
+	* editfns.c (HAVE_TM_GMTOFF): Default to false.
+	(dump_tz_string): New constant.
+	(init_editfns): Use it.  This centralizes the dump_tz stuff.
+	Call set_time_zone_rule here, so that its xputenv is done
+	before Emacs goes multithreaded.
+	(mktime_z) [!HAVE_TZALLOC]: New function, which is typically
+	thread-safe enough for Emacs.
+	(format_time_string, Fdecode_time, Fcurrent_time_string)
+	(Fcurrent_time_zone):
+	Prefer localtime_r and gmtime_r, which are more thread-safe, to
+	localtime and gmtime.  Remove now-unnecessary calls to block_input.
+	(tm_gmtoff): New static function.
+	(Fdecode_time, Fcurrent_time_zone): Use it.
+	(Fencode_time): Use mktime_z, for better thread-safety.
+	(set_time_zone_rule): Now static.  Rewrite to be mostly thread-safe,
+	i.e., not quite thread-safe but good enough for Emacs typical usage.
+	Do not reclaim storage that is in the environment; let it leak.
+	Always call tzset, since localtime_r does not.
+	* emacs.c (dump_tz, Fdump_emacs) [HAVE_TZSET]: Remove dump_tz stuff.
+	This is now done in init_editfns.
+	* systime.h (mktime_z, timezone_t, tzalloc, tzfree) [!HAVE_TZALLOC]:
+	New macros and declarations, for platforms lacking tzalloc & friends.
+
+2014-10-09  Paul Eggert  <eggert@cs.ucla.edu>
+
+	* lisp.h (USE_STACK_STRING): Now true only if USE_STACK CONS.
+	On x86 platforms this works around GCC bug 63495
+	<https://gcc.gnu.org/bugzilla/show_bug.cgi?id=63495>,
+	and more generally should fix a portability problem in Emacs.
+	Problem reported by Stefan Monnier in:
+	http://lists.gnu.org/archive/html/emacs-devel/2014-10/msg00261.html
+
+2014-10-08  Leo Liu  <sdl.web@gmail.com>
+
+	Enhance terpri to allow conditionally output a newline.  (Bug#18652)
+	* keymap.c (describe_vector_princ):
+	* keyboard.c (Fcommand_error_default_function): Adapt to change to
+	Fterpri.
+
+	* print.c (printchar_stdout_last): Declare.
+	(printchar): Record the last char written to stdout.
+	(Fterpri): Add optional argument ENSURE.
+
+2014-10-08  Eli Zaretskii  <eliz@gnu.org>
+
+	* w32inevt.c (maybe_generate_resize_event): Pass non-zero as the
+	DELAY argument to change_frame_size, so that the frame size
+	changes, if any are needed, are delayed until the next redisplay.
+	This is to avoid a too early QUIT inside change_frame_size, when
+	it calls Lisp in frame_windows_min_size, in case one of the events
+	we've read sets the quit-flag.  (Bug#18649)
+
+	* w32fns.c (check_x_display_info): Accept terminal objects as
+	argument, to follow what xfns.c does.
+
+2014-10-07  Glenn Morris  <rgm@gnu.org>
+
+	* Makefile.in ($(srcdir)/macuvs.h)
+	($(lispsource)/international/charprop.el): Add explicit FORCE.
+
+2014-10-07  Eli Zaretskii  <eliz@gnu.org>
+
+	* decompress.c (init_zlib_functions): Move the message about zlib
+	being unavailable from here...
+	(Fzlib_decompress_region): ...to here.  (Bug#18650)
+
+2014-10-07  Dmitry Antipov  <dmantipov@yandex.ru>
+
+	* font.c (Ffont_get_glyphs): Use validate_subarray and fix
+	the case where an optional string is used.  Adjust docstring.
+
+2014-10-06  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* lisp.mk (lisp): Remove w32-common-fns.elc.
+
+2014-10-05  Paul Eggert  <eggert@cs.ucla.edu>
+
+	* keyboard.c (Qleft, Qright): Remove duplicate definitions (Bug#9927).
+	These were already defined in buffer.c, and the duplicate
+	definitions cause problems on platforms like 'gcc -fno-common'.
+	Reported by Peter Dyballa in: http://bugs.gnu.org/9927#137
+
+2014-10-05  Jan Djärv  <jan.h.d@swipnet.se>
+
+	* nsterm.m (updateFrameSize:): Only call update_frame_tool_bar
+	if toolbar is visible.
+
+	* nsfont.m (nsfont_draw): Use CGFloat for GNUstep newer than
+	0.23 (Bug#18030).
+
+	* nsterm.m (syms_of_nsterm): ns-use-fullscreen-animation is new.
+	(toggleFullScreen:): Use ns-use-fullscreen-animation for animate.
+	(ns_select, ns_read_socket): Use unwind_protect to decrease
+	apploopnr (Bug#18345).
+	(ns_draw_window_cursor): Adjust y for hbar cursor only if smaller than
+	line height (Bug#17977).
+
+	* macfont.m: Fix indentation and import changes from macport 24.3.94.
+	(macfont_closest_traits_index): New function.
+	(macfont_closest_traits_index_p): Rename from
+	macfont_closest_traits_index.
+	(macfont_list): Use macfont_closest_traits_index_p.
+
+2014-10-05  K. Handa  <handa@gnu.org>
+
+	* coding.c (detect_coding_iso_2022): Set coding->rejected
+	correctly when an invalid escape sequence is found (Bug#18610).
+
 2014-10-04  Jan Djärv  <jan.h.d@swipnet.se>
 
 	* gtkutil.c (create_menus): Only add tearoffs to empty menus.
@@ -6,8 +177,8 @@
 
 2014-10-04  Martin Rudalics  <rudalics@gmx.at>
 
-	* buffer.c (scroll_bar_width, scroll_bar_height): Fix
-	doc-strings.
+	* buffer.c (scroll_bar_width, scroll_bar_height):
+	Fix doc-strings.
 	* window.c (Fset_window_scroll_bars): Fix doc-string.
 	(Fwindow_scroll_bars): Have it return what the doc-string says.
 
@@ -110,8 +281,8 @@
 	values.
 	(my_create_window): Move the calculation of the coordinates of the
 	frame's top-left edge here.  Pass them to the input thread via the
-	second parameter of the WM_EMACS_CREATEWINDOW message.  See
-	http://lists.gnu.org/archive/html/emacs-devel/2014-09/msg00892.html
+	second parameter of the WM_EMACS_CREATEWINDOW message.
+	See http://lists.gnu.org/archive/html/emacs-devel/2014-09/msg00892.html
 	for the details.
 
 2014-09-30  Eli Zaretskii  <eliz@gnu.org>
@@ -122,8 +293,8 @@
 	obey it if the glyph row showing point will be fully visible.
 	Likewise when the window start is in a continuation line.  If,
 	after trying everything under the 'force_start' label, point is
-	still not fully visible, give up and scroll the window.  Add
-	debugging traces.  (Bug#18545)
+	still not fully visible, give up and scroll the window.
+	Add debugging traces.  (Bug#18545)
 
 	* window.c (Frecenter): Set the window's redisplay flag.
 
@@ -1014,7 +1185,7 @@
 
 	* Makefile.in (EMACS_HEAPSIZE): Remove, no longer used.  (Bug#18416)
 
-2014-09-04  Jan D  <jhd@f20.localdomain>
+2014-09-04  Jan D  <jan.h.d@swipnet.se>
 
 	* xterm.c (x_term_init): Don't call x_session_initialize if running
 	as a daemon (Bug#18375).

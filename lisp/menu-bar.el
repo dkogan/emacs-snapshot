@@ -470,17 +470,14 @@
                        [paste-from-menu])
       ;; ns-win.el said: Change text to be more consistent with
       ;; surrounding menu items `paste', etc."
-      `(menu-item ,(if (featurep 'ns) "Select and Paste"
-                     "Paste from Kill Menu") yank-menu
+      `(menu-item ,(if (featurep 'ns) "Select and Paste" "Paste from Kill Menu")
+                  yank-menu
                   :enable (and (cdr yank-menu) (not buffer-read-only))
                   :help "Choose a string from the kill ring and paste it"))
     (bindings--define-key menu [paste]
       '(menu-item "Paste" yank
                   :enable (and (or
-                                ;; Emacs compiled --without-x (or --with-ns)
-                                ;; doesn't have x-selection-exists-p.
-                                (and (fboundp 'x-selection-exists-p)
-                                     (x-selection-exists-p 'CLIPBOARD))
+                                (gui-call gui-selection-exists-p 'CLIPBOARD)
                                 (if (featurep 'ns) ; like paste-from-menu
                                     (cdr yank-menu)
                                   kill-ring))
@@ -537,9 +534,8 @@
      '(and mark-active (not buffer-read-only)))
 (put 'clipboard-kill-ring-save 'menu-enable 'mark-active)
 (put 'clipboard-yank 'menu-enable
-     '(and (or (not (fboundp 'x-selection-exists-p))
-	       (x-selection-exists-p)
-	       (x-selection-exists-p 'CLIPBOARD))
+     '(and (or (gui-call gui-selection-exists-p 'PRIMARY)
+	       (gui-call gui-selection-exists-p 'CLIPBOARD))
  	   (not buffer-read-only)))
 
 (defun clipboard-yank ()
@@ -1330,9 +1326,6 @@ mail status in mode line"))
     (bindings--define-key menu [life]
       '(menu-item "Life"  life
                   :help "Watch how John Conway's cellular automaton evolves"))
-    (bindings--define-key menu [land]
-      '(menu-item "Landmark" landmark
-                  :help "Watch a neural-network robot learn landmarks"))
     (bindings--define-key menu [hanoi]
       '(menu-item "Towers of Hanoi" hanoi
                   :help "Watch Towers-of-Hanoi puzzle solved by Emacs"))

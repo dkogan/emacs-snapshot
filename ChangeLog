@@ -1,3 +1,20 @@
+2014-10-12  Jan Djärv  <jan.h.d@swipnet.se>
+
+	* configure.ac: Require OSX 10.6.  Remove NSInteger test,
+	use nsfont for Gnustep, macfont for OSX.
+
+2014-10-12  Paul Eggert  <eggert@cs.ucla.edu>
+
+	Fix putenv race conditions that can crash Emacs (Bug#8705).
+	* configure.ac (LOCALTIME_CACHE): Remove.
+	We needn't worry about SunOS 4 any more; Sun dropped support in 2003.
+	All uses of LOCALTIME_CACHE removed.  This simplifies the fix.
+	(tzalloc): Add check for this function.
+
+2014-10-06  Jan Djärv  <jan.h.d@swipnet.se>
+
+	* configure.ac: Add -Wno-string-plus-int for clang.
+
 2014-10-04  Glenn Morris  <rgm@gnu.org>
 
 	* configure.ac: Silence warning with some old Xrandr.h.  (Bug#18465)

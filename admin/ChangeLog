@@ -1,3 +1,21 @@
+2014-10-12  Paul Eggert  <eggert@cs.ucla.edu>
+
+	Fix putenv race conditions with undefined behavior (Bug#8705).
+	* merge-gnulib (GNULIB_MODULES): Add time_r, since Emacs now
+	calls localtime_r and gmtime_r directly.
+
+2014-10-07  Glenn Morris  <rgm@gnu.org>
+
+	* unidata/Makefile.in: Check for deleted uni- files.  (Bug#18489)
+	(all): Use unifiles rather than charprop.el.
+	(FORCE): New variable and phony rule.
+	(${unidir}/charprop.el): Respect FORCE.
+	(unifiles): New rule.
+
+	* unidata/Makefile.in (unidir): Rename from DSTDIR.  Change all uses.
+	(charprop.el, install): Remove rules.
+	(clean): Simplify.
+
 2014-10-04  Glenn Morris  <rgm@gnu.org>
 
 	* authors.el (authors-renamed-files-alist): Add package-x-test.el
