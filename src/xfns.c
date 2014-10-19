@@ -159,7 +159,7 @@ check_x_display_info (Lisp_Object object)
     }
   else if (TERMINALP (object))
     {
-      struct terminal *t = get_terminal (object, 1);
+      struct terminal *t = decode_live_terminal (object);
 
       if (t->type != output_x_window)
         error ("Terminal %d is not an X display", t->id);
@@ -6161,12 +6161,6 @@ chooser to show or not show hidden files on a case by case basis.  */);
 If more space for files in the file chooser dialog is wanted, set this to nil
 to turn the additional text off.  */);
   x_gtk_file_dialog_help_text = 1;
-
-  DEFVAR_BOOL ("x-gtk-whole-detached-tool-bar", x_gtk_whole_detached_tool_bar,
-    doc: /* If non-nil, a detached tool bar is shown in full.
-The default is to just show an arrow and pressing on that arrow shows
-the tool bar buttons.  */);
-  x_gtk_whole_detached_tool_bar = 0;
 
   DEFVAR_BOOL ("x-gtk-use-system-tooltips", x_gtk_use_system_tooltips,
     doc: /* If non-nil with a Gtk+ built Emacs, the Gtk+ tooltip is used.

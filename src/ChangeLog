@@ -1,3 +1,231 @@
+2014-10-18  Paul Eggert  <eggert@cs.ucla.edu>
+
+	* gtkutil.c: Remove no-longer-used code.
+	(xg_update_menubar): Remove unused local and unnecessary call to
+	gtk_menu_item_get_submenu.
+	(XG_TOOL_BAR_PROXY_BUTTON, xg_tool_bar_proxy_callback)
+	(xg_get_tool_bar_widgets, xg_tool_bar_proxy_help_callback)
+	(TOOLBAR_TOP_WIDGET): Remove; no longer used.
+
+2014-10-18  Jan Djärv  <jan.h.d@swipnet.se>
+
+	* xfns.c (syms_of_xfns): Remove x-gtk-whole-detached-tool-bar.
+
+	* xterm.h (handlebox_widget): Remove.
+
+	* xmenu.c (set_frame_menubar): Remove GTK block that calls
+	xg_have_tear_offs.
+
+	* gtkutil.h (xg_have_tear_offs): Remove declaration.
+
+	* gtkutil.c (XG_TEXT_CANCEL, XG_TEXT_OPEN, XG_TEXT_OK): New defines
+	to handle Gtk versions.
+	(xg_get_file_with_chooser): Use them.
+	(xg_have_tear_offs, tearoff_remove, tearoff_activate): Remove
+	(create_menus): Remove teroff argument and code.
+	Remove call to gtk_menu_set_title.
+	(xg_update_menubar, xg_update_submenu): Remove tearoff code.  Adjust
+	args to create_menus.
+	(xg_tool_bar_menu_proxy, xg_tool_bar_detach_callback)
+	(xg_tool_bar_attach_callback, TOOLBAR_TOP_WIDGET): Remove.
+	(xg_pack_tool_bar): Replace TOOLBAR_TOP_WIDGET, remove detach code.
+	(xg_make_tool_item): Remove detach code.
+	(xg_update_tool_bar_sizes): Replace TOOLBAR_TOP_WIDGET.
+	(find_icon_from_name): New function.
+	(update_frame_tool_bar): Remove GtkStockItem code, move to
+	find_icon_from_name.  Let stock be a list of icon names to try.
+	Only use gtk_image_new_from_stock on Gtk+ < 3.10.
+	Replace TOOLBAR_TOP_WIDGET.
+	(free_frame_tool_bar, xg_change_toolbar_position ): Replace
+	TOOLBAR_TOP_WIDGET.
+	(xg_initialize): Remove tearoff code.
+
+2014-10-18  Eli Zaretskii  <eliz@gnu.org>
+
+	* xterm.c (x_draw_bar_cursor, x_draw_hollow_cursor): Subtract 1
+	pixel from the window's cursor glyph width, since X renders hollow
+	blocks 1 pixel wider than the 'width' parameter.
+
+	* xdisp.c (get_phys_cursor_geometry): Don't subtract 1 pixel from
+	glyph->pixel_width; this is now done in xterm.c.
+
+	Fix reordering of bracket characters in isolates.
+	* bidi.c (bidi_cache_find): Rename the argument NEUTRALS_OK to
+	RESOLVED_ONLY; when non-zero, return from the cache only fully
+	resolved states.  All callers changed.
+	(CANONICAL_EQU): New macro.
+	(PUSH_BPA_STACK): Use it to push onto the BPA stack the canonical
+	equivalent of the paired closing bracket character.
+	(bidi_find_bracket_pairs): Set the bracket_pairing_pos member to
+	the default non-negative value, to be checked later in
+	bidi_resolve_brackets.  Use CANONICAL_EQU to test candidate
+	characters against those pushed onto the BPA stack.
+	(bidi_record_type_for_neutral): New function.
+	(bidi_resolve_brackets): Record next_for_neutral and
+	prev_for_neutral when embedding level gets pushed.  Force
+	resolution of bracket pairs when entering a level run that was not
+	yet BPA-resolved.
+	(bidi_resolve_neutral): Add assertions before calling
+	bidi_resolve_neutral_1.
+	(bidi_level_of_next_char): Remove the code that attempted to
+	resolve unresolved neutrals; that is now done by
+	bidi_resolve_neutral.
+
+	* w32select.c (owner_callback): Mark with ALIGN_STACK attribute.
+
+2014-10-17  Eli Zaretskii  <eliz@gnu.org>
+
+	* xterm.c (x_draw_hollow_cursor): Fix display of hollow cursor on
+	1-pixel R2L characters.
+	Reported by Dmitry Antipov <dmantipov@yandex.ru>, see
+	http://lists.gnu.org/archive/html/emacs-devel/2014-10/msg00518.html.
+
+2014-10-16  Eli Zaretskii  <eliz@gnu.org>
+
+	* bidi.c (bidi_find_bracket_pairs): Avoid a loop that does nothing
+	useful.
+
+2014-10-15  Paul Eggert  <eggert@cs.ucla.edu>
+
+	* bidi.c (bidi_find_bracket_pairs): Initialize local var.
+	This pacifies GCC 4.9.1 with --enable-gcc-warnings.
+	It's not clear to me whether the initialization is needed,
+	but it can't hurt so I played it safe.
+
+2014-10-15  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* lisp.mk (lisp): Add emacs-lisp/eldoc.elc.
+
+2014-10-15  Eli Zaretskii  <eliz@gnu.org>
+
+	Update the bidirectional reordering engine for Unicode 6.3 and 7.0.
+	* bidi.c (bidi_ignore_explicit_marks_for_paragraph_level):
+	Remove variable.
+	(bidi_get_type): Return the isolate initiators and terminator types.
+	(bidi_isolate_fmt_char, bidi_paired_bracket_type)
+	(bidi_fetch_char_skip_isolates, find_first_strong_char)
+	(bidi_find_bracket_pairs, bidi_resolve_brackets): New functions.
+	(bidi_set_sos_type): Rename from bidi_set_sor_type and updated
+	for the new features.
+	(bidi_push_embedding_level, bidi_pop_embedding_level): Update to
+	push and pop correctly for isolates.
+	(bidi_remember_char): Modify to accept an additional argument
+	and record the bidi type according to its value.
+	(bidi_cache_iterator_state): Accept an additional argument to only
+	update an existing state.  Handle the new members of struct bidi_it.
+	(bidi_cache_find): Arguments changed: no longer accepts a level,
+	instead accepts a flag telling it whether it is okay to return
+	unresolved neutrals.
+	(bidi_initialize): Initiate and staticpro the bracket-type uniprop
+	table.  Initialize new isolate-related members.
+	(bidi_paragraph_init): Some code factored out into
+	find_first_strong_char.
+	(bidi_resolve_explicit_1): Function deleted, its code incorporated
+	into bidi_resolve_explicit.
+	(bidi_resolve_explicit): Support the isolate initiators and
+	terminator.  Fix handling of embeddings and overrides according to
+	new UBA requirements.  Record information about previously seen
+	characters here (moved from bidi_level_of_next_char).
+	(bidi_resolve_weak): Adapt to changes in struct members.
+	(FLAG_EMBEDDING_INSIDE, FLAG_OPPOSITE_INSIDE, MAX_BPA_STACK)
+	(STORE_BRACKET_CHARPOS, PUSH_BPA_STACK): New macros.
+	(bidi_resolve_neutral): Call bidi_resolve_brackets to handle the
+	paired bracket resolution.  Handle isolate initiators and
+	terminator.
+	(bidi_type_of_next_char): Remove unneeded code for BN limit.
+	(bidi_level_of_next_char): Move the code that records information
+	about previous characters to bidi_resolve_explicit.  Fix logic of
+	resolving neutrals and make sure their cache entries are updated.
+	Remove now unneeded special handling of PDF level.
+
+	* dispextern.h (struct glyph): Enlarge the width of resolved_level.
+	(BIDI_MAXDEPTH): New macro, renamed from BIDI_MAXLEVEL and
+	enlarged per Unicode 6.3.
+	(enum bidi_bracket_type_t): New data type.
+	(struct bidi_saved_info): Leave only 2 type members out of 4.
+	Remove bytepos.
+	(struct bidi_stack): Add members necessary to support isolating
+	sequences.
+	(struct bidi_it): Add new members necessary to support isolating
+	sequences and bracket pair resolution.
+
+	* xdisp.c (Fbidi_resolved_levels): New function.
+	(syms_of_xdisp): Defsubr it.
+	(append_glyph, append_composite_glyph, produce_image_glyph)
+	(append_stretch_glyph, append_glyphless_glyph): Convert aborts to
+	assertions.
+	(syms_of_xdisp) <inhibit-bidi-mirroring>: New variable.
+
+	* term.c (append_glyph, append_composite_glyph)
+	(append_glyphless_glyph): Convert aborts to assertions.
+
+	* .gdbinit (pgx): Display the character codepoint, resolved level,
+	and bidi type also for glyphless glyphs.
+
+2014-10-15  Dmitry Antipov  <dmantipov@yandex.ru>
+
+	Avoid unwanted point motion in Fline_beginning_position.
+	* lisp.h (scan_newline_from_point): Add prototype.
+	* search.c (scan_newline_from_point): New function, refactored from...
+	* cmds.c (Fforward_line): ...adjusted user.
+	* editfns.c (Fline_beginning_position): Use scan_newline_from_point
+	and simplify the former since the latter doesn't move point.
+
+2014-10-14  Dmitry Antipov  <dmantipov@yandex.ru>
+
+	Cleanup terminal handling code.
+	* dispextern.h (get_named_tty): Remove prototype but...
+	* termhooks.h (get_named_terminal): ...resurrect it under
+	more meaningful name.
+	(get_terminal): Likewise, but with...
+	(decode_live_terminal): ...this name.
+	(decode_tty_terminal): Add prototype.
+	* term.c (get_tty_terminal): Remove.
+	(get_named_tty): Remove.
+	(Ftty_display_color_p, Ftty_display_color_cells, Ftty_type)
+	(Fcontrolling_tty_p, Fsuspend_tty, Fresume_tty):
+	Use decode_tty_terminal.
+	(Ftty_no_underline, Ftty_top_frame): Use decode_live_terminal.
+	* terminal.c (get_terminal): Refactor to...
+	(decode_terminal, decode_live_terminal): ...new functions.
+	(decode_tty_terminal): Replacement for get_tty_terminal.
+	(get_named_terminal): Likewise for get_named_tty.
+	* coding.c (Fset_terminal_coding_system_internal)
+	(Fterminal_coding_system, Fset_keyboard_coding_system_internal):
+	(Fkeyboard_coding_system):
+	* composite.c (Fcomposition_get_gstring):
+	* dispnew.c (Fsend_string_to_terminal):
+	* frame.c (Fmake_terminal_frame):
+	* nsfns.m (check_ns_display_info):
+	* w32fns.c, xfns.c (check_x_display_info):
+	* xselect.c (frame_for_x_selection): Use decode_live_terminal.
+	* keyboard.c (handle_interrupt_signal, handle_interrupt)
+	(Fset_quit_char): Use get_named_terminal.
+	(Fset_output_flow_control, Fset_input_meta_mode):
+	Use decode_tty_terminal.
+
+2014-10-13  Eli Zaretskii  <eliz@gnu.org>
+
+	* w32term.h (ALIGN_STACK): Use _WIN64, not _W64, to distinguish
+	between 32-bit and 64-bit MinGW builds.  (Bug#18699)
+
+2014-10-12  Paul Eggert  <eggert@cs.ucla.edu>
+
+	Fix port to Debian GNU/kFreeBSD 7 (wheezy) (Bug#18666).
+	* process.c (accept4) [!HAVE_ACCEPT4]: New macro.
+
+2014-10-12  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* frame.c (Fmouse_pixel_position): Call Vmouse_position_function
+	(bug#18638).
+
+2014-10-12  Paul Eggert  <eggert@cs.ucla.edu>
+
+	* editfns.c (dump_tz_string): No longer const.
+	It might be modified.
+
+	* nsmenu.m (clear): Assume OS X 10.6 or later.
+
 2014-10-12  Jan Djärv  <jan.h.d@swipnet.se>
 
 	* unexmacosx.c: Remove include ppc/reloc.h.
@@ -9,8 +237,8 @@
 	(ns_dumpglyphs_image, ns_check_menu_open)
 	(applicationDidFinishLaunching)
 	(antialiasThresholdDidChange:)
-	(keyDown:, toggleFullScreen:, setPosition:portion:whole:): Remove
-	checks for OSX <= 10.5/10.6.
+	(keyDown:, toggleFullScreen:, setPosition:portion:whole:):
+	Remove checks for OSX <= 10.5/10.6.
 	(changeFont:): Use macfont on COCOA, nsfont on GNUSTEP.
 	(syms_of_nsterm): Call syms_of_macfont on COCOA, syms_of_nsfont on
 	GNUSTEP.
@@ -35,8 +263,8 @@
 	(macfont_create_family_with_symbol)
 	(macfont_get_glyph_for_character)
 	(mac_font_get_glyphs_for_variants)
-	(mac_ctfont_create_available_families, syms_of_macfont): Remove
-	code for OSX < 10.6.
+	(mac_ctfont_create_available_families, syms_of_macfont):
+	Remove code for OSX < 10.6.
 	(mac_font_family_group, mac_font_family_compare): Remove, only used
 	for OSX < 10.6.
 
@@ -10441,7 +10669,7 @@
 	(imagemagick_get_animation_cache): Fix a double-free error.
 	(imagemagick_load_image): Remove the ping_wand code, which only
 	apparently saved time on invalid animated images, and slowed down
-	everything else.  Optimise for the common case.
+	everything else.  Optimize for the common case.
 
 2013-08-16  Xue Fuqiao  <xfq.free@gmail.com>
 

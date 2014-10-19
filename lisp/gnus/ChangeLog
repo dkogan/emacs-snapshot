@@ -1,3 +1,22 @@
+2014-10-15  Jorge A. Alfaro-Murillo  <jorge.alfaro-murillo@yale.edu>  (tiny change)
+
+	* message.el (message-insert-signature): Use `newline' instead of
+	inserting explicit "\n".
+
+2014-10-15  Sylvain Chouleur  <sylvain.chouleur@gmail.com>
+
+	* gnus-icalendar.el: Support vcal format timezones
+	(gnus-icalendar-event--decode-datefield): use icalendar functions to
+	compute dates with associated timezone
+	(gnus-icalendar-event-from-ical): compute all timezones
+
+2014-10-14  Teodor Zlatanov  <tzz@lifelogs.com>
+
+	* gnus-start.el (gnus-save-newsrc-file-check-timestamp): New option to
+	check the newsrc.eld file's timestamp before saving it.
+	(gnus-save-newsrc-file): Use it, with a prompt when the newsrc.eld
+	timestamp has changed to be newer.
+
 2014-10-06  Jan Tatarik  <jan.tatarik@gmail.com>
 
 	* gnus-icalendar.el (gnus-icalendar-identities):

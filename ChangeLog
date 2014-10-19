@@ -1,3 +1,34 @@
+2014-10-19  Paul Eggert  <eggert@cs.ucla.edu>
+
+	Merge from gnulib, incorporating:
+	2014-10-18 readlinkat: port to AIX 7.1
+	2014-10-07 fcntl: fix error reporting by dupfd
+	* lib/fcntl.c, lib/readlinkat.c, lib/unistd.in.h, m4/readlinkat.m4:
+	* m4/unistd_h.m4: Update from gnulib.
+	* lib/gnulib.mk, m4/gnulib-comp.m4: Regenerate.
+
+2014-10-17  Glenn Morris  <rgm@gnu.org>
+
+	* configure.ac: Simplify OS X $canonical tests.
+
+2014-10-15  Jan Djärv  <jan.h.d@swipnet.se>
+
+	* configure.ac: Move the OSX 10.6 test.
+
+2014-10-15  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* .bzrignore: Add uni-brackets.el.
+
+2014-10-14  Jan Djärv  <jan.h.d@swipnet.se>
+
+	* configure.ac: apple-darwin powerpc is unported.
+	Require OSX >= 10.6 even if --with-ns is not given.
+
+2014-10-12  Ken Brown  <kbrown@cornell.edu>
+
+	* configure.ac (LD_SWITCH_SYSTEM_TEMACS) [CYGWIN]: Set stack size
+	to 8 MB.  (Bug#18438)
+
 2014-10-12  Jan Djärv  <jan.h.d@swipnet.se>
 
 	* configure.ac: Require OSX 10.6.  Remove NSInteger test,

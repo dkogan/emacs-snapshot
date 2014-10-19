@@ -556,9 +556,8 @@ case "${canonical}" in
   ## Apple Darwin / Mac OS X
   *-apple-darwin* )
     case "${canonical}" in
-      i[3456]86-* )  ;;
-      powerpc-* )    ;;
-      x86_64-* )     ;;
+      *-apple-darwin[0-9].*) unported=yes ;;
+      i[3456]86-* | x86_64-* )  ;;
       * )            unported=yes ;;
     esac
     opsys=darwin
@@ -704,7 +703,6 @@ if test $unported = yes; then
 If you think it should, please send a report to ${PACKAGE_BUGREPORT}.
 Check `etc/MACHINES' for recognized configuration names.])
 fi
-
 
 #### Choose a compiler.
 
@@ -4869,6 +4867,8 @@ fi
 
 case "$opsys" in
   aix4-2) LD_SWITCH_SYSTEM_TEMACS="-Wl,-bnodelcsect" ;;
+
+  cygwin) LD_SWITCH_SYSTEM_TEMACS="-Wl,-stack,0x00800000" ;;
 
   darwin)
    ## The -headerpad option tells ld (see man page) to leave room at the

@@ -1,3 +1,156 @@
+2014-10-19  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* emacs-lisp/eieio-opt.el (eieio-lambda-arglist): Remove.
+	Use help-function-arglist instead.
+
+	* emacs-lisp/eieio-core.el (eieio-compiled-function-arglist): Remove.
+	(eieio--with-scoped-class): Use `declare'.
+	(eieio-defclass): Remove compatibility code.
+	(no-method-definition, no-next-method, inconsistent-class-hierarchy)
+	(invalid-slot-type, unbound-slot, invalid-slot-name): Use define-error.
+
+2014-10-18  Jan Djärv  <jan.h.d@swipnet.se>
+
+	* cus-start.el (x-gtk-whole-detached-tool-bar): Remove.
+
+	* term/x-win.el (x-gtk-stock-map): Add icon names suggested as
+	replacements to stock names before stock names in a list.
+	Cdr may be a list, each name is tried in turn until one is found.
+
+2014-10-18  Alan Mackenzie  <acm@muc.de>
+
+	Check that a "macro" found near point-min isn't a ## operator.
+	Fixes bug #18749.
+	* progmodes/cc-engine.el (c-macro-is-genuine-p): New function.
+	(c-beginning-of-macro): Use the above new function.
+
+2014-10-18  Teodor Zlatanov  <tzz@lifelogs.com>
+
+	* net/gnutls.el (gnutls-negotiate): Don't use cl-mapcan; pass
+	correct data to `gnutls-boot' (Bug#18664).
+	Reported by Toke Høiland-Jørgensen <toke@toke.dk>.
+
+2014-10-18  Michal Nazarewicz  <mina86@mina86.com>
+
+	* whitespace.el (whitespace-style, whitespace-big-indent)
+	(whitespace-big-indent-regexp, whitespace-style-value-list)
+	(whitespace-toggle-option-alist, whitespace-interactive-char)
+	(whitespace-toggle-options)
+	(global-whitespace-toggle-options, whitespace-help-text)
+	(whitespace-style-face-p, whitespace-color-on): Add a 'big-indent
+	style to `whitespace-mode' to indicate that the line indentation
+	is too deep.  By default, 32 SPACEs or four TABs are considered
+	too many but `whitespace-big-indent-regexp' can be configured.
+
+2014-10-17  Michal Nazarewicz  <mina86@mina86.com>
+
+	* textmodes/tildify.el (tildify--pick-alist-entry): Rename from
+	tildify-mode-alist.
+
+2014-10-17  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* emacs-lisp/eieio.el: Use lexical-binding drop non-GV fallback.
+	(defclass, defgeneric, defmethod): Add doc-string position.
+	(with-slots): Require cl-lib.
+
+	* emacs-lisp/eieio-core.el: Use lexical-binding and cl-lib.
+	(list-of): New type.
+	(eieio--typep): Remove.
+	(eieio-perform-slot-validation): Use cl-typep instead.
+
+	* emacs-lisp/eieio-base.el: Use lexical-binding and cl-lib.
+
+	* emacs-lisp/cl-macs.el (cl--make-type-test): Avoid ((lambda ..) ..).
+
+2014-10-16  Alan Mackenzie  <acm@muc.de>
+
+	Trigger showing when point is in the "periphery" of a line or just
+	inside a paren.
+	* paren.el (show-paren-style, show-paren-delay)
+	(show-paren-priority, show-paren-ring-bell-on-mismatch):
+	Remove superfluous :group specifications.
+	(show-paren-when-point-inside-paren)
+	(show-paren-when-point-in-periphery): New customizable variables.
+	(show-paren-highlight-openparen): Make into a defcustom.
+	(show-paren--unescaped-p, show-paren--categorize-paren)
+	(show-paren--locate-near-paren): New defuns.
+	(show-paren--default): Refaactor and trigger on more paren
+	positions.
+	(show-paren-function): Small consequential changes.
+
+2014-10-16  Tom Tromey  <tom@tromey.com>
+
+	* files.el (auto-mode-alist): Use javascript-mode for .jsm
+	(bug #18719).
+
+2014-10-16  Eli Zaretskii  <eliz@gnu.org>
+
+	* international/characters.el (bracket-type): Force pre-loading of
+	uni-brackets.el.
+
+2014-10-16  Alan Mackenzie  <acm@muc.de>
+
+	* cus-edit.el (custom-command-apply): Specify the return value in
+	the doc string.
+	(Custom-reset-standard): Save custom-file (e.g. .emacs) only when
+	custom-command-apply has returned non-nil.
+
+2014-10-15  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* emacs-lisp/eldoc.el (global-eldoc-mode): Enable by default.
+	Remove incorrect handling of eldoc-print-after-edit.
+	(eldoc-message-commands, eldoc-last-data): Use defvar.
+	* loadup.el (emacs-lisp/eldoc): Load it.
+
+	* progmodes/m4-mode.el (m4-syntax-propertize): New var.
+	(m4-mode): Use it.
+	(m4--quoted-p): New function.
+	(m4-font-lock-keywords): Don't handle #..\n comments any more.
+	(m4-mode-syntax-table): Use punctuation syntax (according to m4 manual)
+	for most special characters.
+
+	* progmodes/compile.el (compilation--previous-directory): Simplify.
+	(compilation-next-error): Ensure the parse before we look at
+	compilation-message property.
+
+2014-10-15  Eli Zaretskii  <eliz@gnu.org>
+
+	* simple.el (what-cursor-position):
+	* descr-text.el (describe-char): Update to support the new bidi
+	characters.
+
+	* emacs-lisp/tabulated-list.el (tabulated-list-mode):
+	Force bidi-paragraph-direction to 'left-to-right'.  This fixes
+	buffer-menu display when the first buffer happens to start with
+	R2L letter.
+
+2014-10-15  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* progmodes/elisp-mode.el (elisp--local-variables-1):
+	Handle quoted expressions (bug#18688).
+
+2014-10-14  Jérémy Compostella  <jeremy.compostella@intel.com>
+	    Michael Albinus  <michael.albinus@gmx.de>
+
+	* net/tramp-sh.el (tramp-open-connection-setup-interactive-shell):
+	Reduce the amount of set environment variable commands.
+
+2014-10-12  Fabián Ezequiel Gallina  <fgallina@gnu.org>
+
+	Fix import completion.  (Bug#18582)
+	* progmodes/python.el (python-shell-completion-get-completions):
+	Fix import case regexp.
+
+2014-10-12  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* progmodes/bat-mode.el (bat-font-lock-keywords): Fix \\<_ typo
+	(bug#18622).  Reported by Arni Magnusson <arnima@hafro.is>.
+	* progmodes/prolog.el (prolog-electric--underscore): Same.
+
+2014-10-12  Michael Albinus  <michael.albinus@gmx.de>
+
+	* net/tramp-sh.el (tramp-get-remote-id): Check also for "gid".
+
 2014-10-11  Jan Djärv  <jan.h.d@swipnet.se>
 
 	* cus-start.el (all): Add missing ns and boolean to
@@ -443,7 +596,7 @@
 	* term.el (term-mouse-paste):
 	* mouse.el (mouse-yank-primary): Use gui-get-primary-selection.
 
-2014-10-02  H. Dieter Wilhelm <dieter@duenenhof-wilhelm.de>  (tiny change)
+2014-10-02  H. Dieter Wilhelm  <dieter@duenenhof-wilhelm.de>
 
 	* calc/calc-help.el (calc-describe-thing): Quote strings
 	which could look like regexps.
@@ -3301,7 +3454,7 @@
 	outside of ignored environments.
 	(tildify-build-regexp): Remove function since it is now
 	incorporated in `tildify-foreach-region-outside-env' where it is
-	optimised and simplified by the use of `mapconcat'.
+	optimized and simplified by the use of `mapconcat'.
 	(tildify-tildify): Return number of substitutions made so that…
 	(tildify-count): …can be removed.
 	(tildify-find-env): Accept a new PAIRS argument which was
@@ -3314,7 +3467,7 @@
 	and instead using or.
 
 	* textmodes/tildify.el (tildify-ignored-environments-alist):
-	Optimise environments regexes
+	Optimize environments regexes
 
 	Each time beginning of an environment to ignore is found,
 	`tildify-find-env' needs to identify regexp for the ending
@@ -3396,7 +3549,7 @@
 
 	The most trivial fix would be to replace `expression' in the
 	true-part of the if-statement with `aux', but instead, this commit
-	optimises `tildify-find-env' by changing it to use `mapconcat'
+	optimizes `tildify-find-env' by changing it to use `mapconcat'
 	rather than open-coded while-loop.
 
 2014-06-05  Mario Lang  <mlang@delysid.org>
@@ -16618,7 +16771,7 @@
 
 2013-06-04  Alan Mackenzie  <acm@muc.de>
 
-	Remove faulty optimisation from indentation calculation.
+	Remove faulty optimization from indentation calculation.
 	* progmodes/cc-engine.el (c-guess-basic-syntax): Don't calculate
 	search limit based on 2000 characters back from indent-point.
 

@@ -90,7 +90,7 @@ static char const *initial_tz;
 
 /* A valid but unlikely setting for the TZ environment variable.
    It is OK (though a bit slower) if the user chooses this value.  */
-static char const dump_tz_string[] = "TZ=UtC0";
+static char dump_tz_string[] = "TZ=UtC0";
 
 void
 init_editfns (void)
@@ -109,7 +109,7 @@ init_editfns (void)
   if (!initialized)
     {
 # ifdef HAVE_TZSET
-      xputenv ((char *) dump_tz_string);
+      xputenv (dump_tz_string);
       tzset ();
 # endif
       return;
@@ -787,26 +787,17 @@ boundaries, bind `inhibit-field-text-motion' to t.
 This function does not move point.  */)
   (Lisp_Object n)
 {
-  ptrdiff_t orig, orig_byte, end;
-  ptrdiff_t count = SPECPDL_INDEX ();
-  specbind (Qinhibit_point_motion_hooks, Qt);
+  ptrdiff_t charpos, bytepos;
 
   if (NILP (n))
     XSETFASTINT (n, 1);
   else
     CHECK_NUMBER (n);
 
-  orig = PT;
-  orig_byte = PT_BYTE;
-  Fforward_line (make_number (XINT (n) - 1));
-  end = PT;
-
-  SET_PT_BOTH (orig, orig_byte);
-
-  unbind_to (count, Qnil);
+  scan_newline_from_point (XINT (n) - 1, &charpos, &bytepos);
 
   /* Return END constrained to the current input field.  */
-  return Fconstrain_to_field (make_number (end), make_number (orig),
+  return Fconstrain_to_field (make_number (charpos), make_number (PT),
 			      XINT (n) != 1 ? Qt : Qnil,
 			      Qt, Qnil);
 }
