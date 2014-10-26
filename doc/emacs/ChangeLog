@@ -1,3 +1,12 @@
+2014-10-22  Tassilo Horn  <tsdh@gnu.org>
+
+	* misc.texi (Document View): Adapt to latest doc-view changes wrt
+	viewing the document's plain text contents.
+
+2014-10-20  Glenn Morris  <rgm@gnu.org>
+
+	* Merge in all changes up to 24.4 release.
+
 2014-10-13  Glenn Morris  <rgm@gnu.org>
 
 	* Makefile.in (dist): Update for new output variables.
@@ -303,8 +312,8 @@
 
 2014-03-13  Paul Eggert  <eggert@cs.ucla.edu>
 
-	* mule.texi (International, Language Environments): Update
-	the list of language environments to what Emacs currently
+	* mule.texi (International, Language Environments):
+	Update the list of language environments to what Emacs currently
 	supports.  Add the full list to the index.  Suggest C-h L for
 	details rather than trying to give very brief details here.
 
@@ -596,8 +605,8 @@
 
 	* indent.texi (Tab Stops): Mention recent changes about `tab-stop-list'.
 
-	* frames.texi (Scroll Bars): Document
-	`scroll-bar-adjust-thumb-portion'.
+	* frames.texi (Scroll Bars):
+	Document `scroll-bar-adjust-thumb-portion'.
 
 2013-12-21  Chong Yidong  <cyd@gnu.org>
 
@@ -623,8 +632,8 @@
 
 	* entering.texi: Document `initial-buffer-choice' changes.
 
-	* misc.texi (emacsclient Options): Document
-	`initial-buffer-choice' changes.
+	* misc.texi (emacsclient Options):
+	Document `initial-buffer-choice' changes.
 
 	* help.texi: Document that `?' now also shows subcommands of
 	prefix keys.
@@ -1107,8 +1116,8 @@
 
 	* misc.texi (Terminal emulator): Document Term mode faces.
 
-	* mini.texi (Basic Minibuffer): New node.  Document
-	minibuffer-electric-default-mode.
+	* mini.texi (Basic Minibuffer): New node.
+	Document minibuffer-electric-default-mode.
 
 	* display.texi (Visual Line Mode): Fix index entry.
 
@@ -3168,7 +3177,7 @@
 
 	* Makefile.in (MAKEINFO): Now controlled by `configure'.
 	(MAKEINFO_OPTS): New variable.  Use it where appropriate.
-	(ENVADD): Updated.
+	(ENVADD): Update.
 
 2011-01-18  Glenn Morris  <rgm@gnu.org>
 
@@ -9063,7 +9072,7 @@
 
 	* text.texi (Format Faces): Replace old M-g key prefix with M-o.
 
-	* emacs.texi (Acknowledgments): Updated.
+	* emacs.texi (Acknowledgments): Update.
 
 	* anti.texi: Total rewrite.
 

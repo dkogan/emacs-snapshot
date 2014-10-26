@@ -110,7 +110,7 @@ window is used when filling.  See also `newsticker-justification'."
       #'shr-render-region)
   "Function for rendering HTML contents.
 If non-nil, newsticker.el will call this function whenever it
-finds HTML-like tags in item descriptions.  
+finds HTML-like tags in item descriptions.
 Possible functions include `shr-render-region', `w3m-region', `w3-region', and
 `newsticker-htmlr-render'.
 Newsticker automatically loads the respective package w3m, w3, or
@@ -193,7 +193,8 @@ KEYMAP will be applied."
 
 (defun newsticker--print-extra-elements (item keymap &optional htmlish)
   "Insert extra-elements of ITEM in a pretty form into the current buffer.
-KEYMAP is applied."
+KEYMAP is applied.  If HTMLISH is non-nil then HTML-markup is used
+for formatting."
   (let ((ignored-elements '(items link title description content
                                   content:encoded encoded
                                   dc:subject subject
@@ -223,7 +224,8 @@ KEYMAP is applied."
 
 (defun newsticker--do-print-extra-element (extra-element width keymap htmlish)
   "Actually print an EXTRA-ELEMENT using the given WIDTH.
-KEYMAP is applied."
+KEYMAP is applied.  If HTMLISH is non-nil then HTML-markup is used
+for formatting."
   (let ((name (symbol-name (car extra-element))))
     (if htmlish
         (insert (format "<li>%s: " name))
@@ -253,28 +255,54 @@ KEYMAP is applied."
         (insert "</li>")
       (insert "\n"))))
 
-(defun newsticker--image-read (feed-name-symbol disabled)
+(defun newsticker--image-read (feed-name-symbol disabled &optional max-height)
   "Read the cached image for FEED-NAME-SYMBOL from disk.
 If DISABLED is non-nil the image will be converted to a disabled look
 \(unless `newsticker-enable-logo-manipulations' is not t\).
+Optional argument MAX-HEIGHT specifies the maximal image height.
 Return the image."
   (let ((image-name (concat (newsticker--images-dir)
-                            (symbol-name feed-name-symbol)))
-        (img nil))
+                            (symbol-name feed-name-symbol))))
     (when (file-exists-p image-name)
       (condition-case error-data
-          (setq img (create-image
-                     image-name nil nil
-                     :conversion (and newsticker-enable-logo-manipulations
-                                      disabled
-                                      'disabled)
-                     :mask (and newsticker-enable-logo-manipulations
-                                'heuristic)
-                     :ascent 70))
+          (create-image
+           image-name
+           (and (fboundp 'imagemagick-types)
+                (imagemagick-types)
+                'imagemagick)
+           nil
+           :conversion (and newsticker-enable-logo-manipulations
+                            disabled
+                            'disabled)
+           :mask (and newsticker-enable-logo-manipulations
+                      'heuristic)
+           :ascent 100
+           :max-height max-height)
         (error
          (message "Error: cannot create image for %s: %s"
-                  feed-name-symbol error-data))))
-    img))
+                  feed-name-symbol error-data))))))
+
+(defun newsticker--icon-read (feed-name-symbol)
+  "Read the cached icon for FEED-NAME-SYMBOL from disk.
+Return the image."
+  (catch 'icon
+    (when (file-exists-p (newsticker--icons-dir))
+      (dolist (file (directory-files (newsticker--icons-dir) t
+                             (concat (symbol-name feed-name-symbol) "\\..*")))
+        (condition-case error-data
+            (throw 'icon (create-image
+                          file (and (fboundp 'imagemagick-types)
+                                    (imagemagick-types)
+                                    'imagemagick)
+                          nil
+                          :ascent 'center
+                          :max-width 16
+                          :max-height 16))
+          (error
+           (message "Error: cannot create icon for %s: %s"
+                    feed-name-symbol error-data)))))
+    ;; Fallback: default icon.
+    (find-image '((:type png :file "newsticker/rss-feed.png" :ascent center)))))
 
 ;; the functions we need for retrieval and display
 ;;;###autoload

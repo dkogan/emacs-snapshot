@@ -1,3 +1,17 @@
+2014-10-25  Eric S. Raymond  <esr@thyrsus.com>
+
+	* Neutralize language specific to a repository type.
+
+2014-10-22  Noam Postavsky  <npostavs@users.sourceforget.net>
+
+	* nt/cmdproxy.c (batch_file_p): New function.
+	(spawn): If calling a quoted batch file pass NULL for progname.
+	(Bug#18745)
+
+2014-10-20  Glenn Morris  <rgm@gnu.org>
+
+	* Merge in all changes up to 24.4 release.
+
 2014-09-29  Eli Zaretskii  <eliz@gnu.org>
 
 	* makefile.w32-in (VERSION): Bump version to 25.0.50.

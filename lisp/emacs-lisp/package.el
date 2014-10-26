@@ -162,8 +162,10 @@
 ;;; Code:
 
 (eval-when-compile (require 'cl-lib))
+(eval-when-compile (require 'epg))      ;For setf accessors.
 
 (require 'tabulated-list)
+(require 'macroexp)
 
 (defgroup package nil
   "Manager for Emacs Lisp packages."
@@ -722,12 +724,7 @@ untar into a directory named DIR; otherwise, signal an error."
        nil pkg-file nil 'silent))))
 
 (defun package--alist-to-plist-args (alist)
-  (mapcar (lambda (x)
-            (if (and (not (consp x))
-                     (or (keywordp x)
-                         (not (symbolp x))
-                         (memq x '(nil t))))
-                x `',x))
+  (mapcar 'macroexp-quote
           (apply #'nconc
                  (mapcar (lambda (pair) (list (car pair) (cdr pair))) alist))))
 (defun package-unpack (pkg-desc)
@@ -809,7 +806,6 @@ buffer is killed afterwards.  Return the last value in BODY."
 			     cipher-algorithm
 			     digest-algorithm
 			     compress-algorithm))
-(declare-function epg-context-set-home-directory "epg" (context directory))
 (declare-function epg-verify-string "epg" (context signature
 						   &optional signed-text))
 (declare-function epg-context-result-for "epg" (context name))
@@ -824,7 +820,7 @@ GnuPG keyring is located under \"gnupg\" in `package-user-dir'."
          (sig-file (concat file ".sig"))
          (sig-content (package--with-work-buffer location sig-file
 			(buffer-string))))
-    (epg-context-set-home-directory context homedir)
+    (setf (epg-context-home-directory context) homedir)
     (epg-verify-string context sig-content (buffer-string))
     (let (good-signatures had-fatal-error)
       ;; The .sig file may contain multiple signatures.  Success if one
@@ -1303,7 +1299,7 @@ similar to an entry in `package-alist'.  Save the cached copy to
 	(homedir (expand-file-name "gnupg" package-user-dir)))
     (with-file-modes 448
       (make-directory homedir t))
-    (epg-context-set-home-directory context homedir)
+    (setf (epg-context-home-directory context) homedir)
     (message "Importing %s..." (file-name-nondirectory file))
     (epg-import-keys-from-file context file)
     (message "Importing %s...done" (file-name-nondirectory file))))

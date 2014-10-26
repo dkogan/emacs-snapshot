@@ -56,6 +56,7 @@
 ;;; Code:
 
 (require 'unsafep)
+(require 'macroexp)
 (eval-when-compile (require 'cl-lib))
 
 
@@ -491,7 +492,8 @@ Safety-checking for FORMULA and PRINTER are deferred until first use."
   (let ((rowcol (ses-sym-rowcol sym)))
     (ses-formula-record formula)
     (ses-printer-record printer)
-    (unless formula (setq formula value))
+    (unless (or formula (eq value '*skip*))
+      (setq formula (macroexp-quote value)))
     (or (atom formula)
 	(eq safe-functions t)
 	(setq formula `(ses-safe-formula ,formula)))

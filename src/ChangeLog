@@ -1,3 +1,118 @@
+2014-10-25  Jan Djärv  <jan.h.d@swipnet.se>
+
+	* nsselect.m: pasteboard_changecount is new.
+	(ns_store_pb_change_count, ns_get_pb_change_count)
+	(ns_get_our_change_count_for): New functions.
+	(ns_string_to_pasteboard_internal): Correct comment.
+	type => gtype in eassert, Call ns_store_pb_change_count.
+	(Fns_own_selection_internal): Remove data, use value (Bug#18799).
+	(Fns_disown_selection_internal, Fns_selection_owner_p): Replace
+	Vselection_alist check, with change count check.
+	(Fns_get_selection): Initialize val to Qnil.  Only get local
+	selection if change counts match (Bug#18799).
+	(nxatoms_of_nsselect): Initialize pasteboard_changecount.
+
+2014-10-25  Noam Postavsky  <npostavs@users.sourceforget.net>
+
+	* src/w32proc.c (create_child): If calling a quoted batch file,
+	pass NULL for exe.  (Bug#18745)
+
+2014-10-24  Eli Zaretskii  <eliz@gnu.org>
+
+	* bidi.c (bidi_resolve_explicit, bidi_find_bracket_pairs)
+	(bidi_resolve_brackets): Use end of string position rather than ZV
+	when iterating over a string.  (Bug#18815)
+
+2014-10-24  Martin Rudalics  <rudalics@gmx.at>
+
+	* keyboard.c (make_lispy_position): Return coordinates also when
+	on scroll bars, fringes, margins or not in a window.
+	* xdisp.c (show_mouse_face): Don't change cursor face during
+	mouse tracking.
+
+2014-10-23  Martin Rudalics  <rudalics@gmx.at>
+
+	* frame.c (Fset_frame_height, Fset_frame_width, Fset_frame_size)
+	(frame_resize_pixelwise, frame_inhibit_implied_resize): Fix
+	doc-strings (Bug#18789).
+
+2014-10-23  Paul Eggert  <eggert@cs.ucla.edu>
+
+	* Makefile.in (ACLOCAL_INPUTS): Omit unnecessary use of 'wildcard'.
+
+2014-10-22  Eli Zaretskii  <eliz@gnu.org>
+
+	Optimize redisplay of simple bracketed text.
+	* bidi.c (bidi_cache_reset_to): New function.
+	(bidi_cache_reset): Call it.
+	(bidi_init_it, bidi_line_init): Initialize the bracket_pairing_pos
+	member to -1.
+	(bidi_resolve_explicit): Reset bracket_pairing_pos and
+	bracket_enclosed_type only if bracket_pairing_pos's value is not
+	ZV.
+	(MAX_BPA_STACK): Make sure the value is signed.
+	(PUSH_BPA_STACK): If the BPA stack overflows, don't bail out, but
+	stop pushing values onto the stack.
+	(bidi_find_bracket_pairs): If the bracketed text is only on the
+	base embedding level, remove all the states cached by this
+	function from the cache, and return zero, so that the brackets in
+	this segment of text are processed as normal neutrals.
+	(bidi_resolve_brackets): Detect the brackets that are to be
+	processed as neutrals, and don't call bidi_find_bracket_pairs on
+	them.  (Bug#18778)
+
+2014-10-21  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* w32select.c (Fw32_selection_exists_p): Rename from
+	Fx_selection_exists_p.
+	(syms_of_w32select): Adjust accordingly.
+
+	* w16select.c (Fw16_selection_exists_p): Rename from
+	Fx_selection_exists_p.
+	(syms_of_win16select): Adjust accordingly.
+
+	* nsselect.m (ns_get_local_selection): Signal error rather than `quit'.
+	(Fns_own_selection_internal): Tighten scoping.
+	(Fns_selection_exists_p): Rename from Fx_selection_exists_p.
+	(Fns_get_selection): Rename from Fx_get_selection_internal.
+	(Fns_get_selection_internal, Fns_store_selection_internal):
+	Remove functions.
+	(syms_of_nsselect): Adjust accordingly.
+
+2014-10-21  Martin Rudalics  <rudalics@gmx.at>
+
+	* w32fns.c (Fw32_frame_menu_bar_size): New function.
+	* w32term.c (x_set_window_size): Account for wrapped menu bar
+	lines when setting up frame height (Bug#15174 and Bug#18720).
+	(w32_add_wrapped_menu_bar_lines): New variable.
+
+2014-10-21  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* xdisp.c (redisplay_window): Re-run pre-redisplay-function after we
+	move point.
+
+2014-10-20  Glenn Morris  <rgm@gnu.org>
+
+	* Merge in all changes up to 24.4 release.
+
+2014-10-19  Jan Djärv  <jan.h.d@swipnet.se>
+
+	* gtkutil.c (xg_update_menubar, xg_update_menu_item): Only call
+	g_object_notify for label if Gtk+ >= 2.16 (Bug#16522).
+
+	* xterm.h (x_output): Remove net_wm_state_hidden_seen.
+
+	* xterm.c (handle_one_xevent): Check return value from
+	x_handle_net_wm_state, remove net_wm_state_hidden_seen (Bug#18722).
+	(get_current_wm_state): Remove net_wm_state_hidden_seen setting.
+
+	* gtkutil.c (create_dialog): Don't use gtk_dialog_get_action_area on
+	Gt+ >= 3.12, or gtk_misc_set_alignment on Gtk+ >= 3.14 (Bug#18674).
+	(make_widget_for_menu_item): Don't use gtk_misc_set_alignment on
+	Gtk+ >= 3.14 (Bug#18674).
+	(update_frame_tool_bar): Don't use  gtk_misc_set_padding on
+	Gtk+ >= 3.14 (Bug#18674).
+
 2014-10-18  Paul Eggert  <eggert@cs.ucla.edu>
 
 	* gtkutil.c: Remove no-longer-used code.
@@ -21,11 +136,11 @@
 	* gtkutil.c (XG_TEXT_CANCEL, XG_TEXT_OPEN, XG_TEXT_OK): New defines
 	to handle Gtk versions.
 	(xg_get_file_with_chooser): Use them.
-	(xg_have_tear_offs, tearoff_remove, tearoff_activate): Remove
-	(create_menus): Remove teroff argument and code.
+	(xg_have_tear_offs, tearoff_remove, tearoff_activate):
+	Remove (create_menus): Remove teroff argument and code.
 	Remove call to gtk_menu_set_title.
-	(xg_update_menubar, xg_update_submenu): Remove tearoff code.  Adjust
-	args to create_menus.
+	(xg_update_menubar, xg_update_submenu): Remove tearoff code.
+	Adjust args to create_menus.
 	(xg_tool_bar_menu_proxy, xg_tool_bar_detach_callback)
 	(xg_tool_bar_attach_callback, TOOLBAR_TOP_WIDGET): Remove.
 	(xg_pack_tool_bar): Replace TOOLBAR_TOP_WIDGET, remove detach code.
@@ -36,8 +151,8 @@
 	find_icon_from_name.  Let stock be a list of icon names to try.
 	Only use gtk_image_new_from_stock on Gtk+ < 3.10.
 	Replace TOOLBAR_TOP_WIDGET.
-	(free_frame_tool_bar, xg_change_toolbar_position ): Replace
-	TOOLBAR_TOP_WIDGET.
+	(free_frame_tool_bar, xg_change_toolbar_position ):
+	Replace TOOLBAR_TOP_WIDGET.
 	(xg_initialize): Remove tearoff code.
 
 2014-10-18  Eli Zaretskii  <eliz@gnu.org>
@@ -912,10 +1027,6 @@
 	truncated R2L rows, consider the width of the left fringe instead
 	of the right one.
 	(produce_special_glyphs): Fix bogus assignments.
-
-2014-09-22  Eli Zaretskii  <eliz@gnu.org>
-
-	* w32.c (fcntl): Support O_NONBLOCK fcntl on the write side of pipes.
 
 2014-09-22  Eli Zaretskii  <eliz@gnu.org>
 

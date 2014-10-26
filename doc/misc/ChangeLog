@@ -1,3 +1,11 @@
+2014-10-25  Eric S. Raymond  <esr@thyrsus.com>
+
+	* gnus-coding.txt: Neutralized language specific to a repository type.
+
+2014-10-20  Glenn Morris  <rgm@gnu.org>
+
+	* Merge in all changes up to 24.4 release.
+
 2014-10-13  Glenn Morris  <rgm@gnu.org>
 
 	* Makefile.in (dist): Update for new output variables.
@@ -53,8 +61,8 @@
 2014-09-24  Ulf Jasper  <ulf.jasper@web.de>
 
 	* newsticker.texi: Reworked.  Document new treeview group
-	commands.  Remove VERSION, UPDATED, use EMACSVER instead.  Use
-	term 'feed reader'.
+	commands.  Remove VERSION, UPDATED, use EMACSVER instead.
+	Use term 'feed reader'.
 
 2014-09-04  Paul Eggert  <eggert@cs.ucla.edu>
 

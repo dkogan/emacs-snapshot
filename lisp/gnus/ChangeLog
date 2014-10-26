@@ -1,3 +1,17 @@
+2014-10-24  Katsumi Yamaoka  <yamaoka@jpl.org>
+
+	* gnus.el (gnus-mode-line-buffer-identification): Don't shadow
+	load-path, it blocks autoloading of find-image (bug#18813).
+
+2014-10-24  enami tsugutomo  <tsugutomo.enami@jp.sony.com>
+
+	* nnimap.el (nnimap-wait-for-response): Ignore NOOP response requested
+	to keep connection open (bug#18728).
+
+2014-10-20  Glenn Morris  <rgm@gnu.org>
+
+	* Merge in all changes up to 24.4 release.
+
 2014-10-15  Jorge A. Alfaro-Murillo  <jorge.alfaro-murillo@yale.edu>  (tiny change)
 
 	* message.el (message-insert-signature): Use `newline' instead of
@@ -5,10 +19,10 @@
 
 2014-10-15  Sylvain Chouleur  <sylvain.chouleur@gmail.com>
 
-	* gnus-icalendar.el: Support vcal format timezones
-	(gnus-icalendar-event--decode-datefield): use icalendar functions to
-	compute dates with associated timezone
-	(gnus-icalendar-event-from-ical): compute all timezones
+	* gnus-icalendar.el: Support vcal format timezones.
+	(gnus-icalendar-event--decode-datefield): Use icalendar functions to
+	compute dates with associated timezone.
+	(gnus-icalendar-event-from-ical): Compute all timezones.
 
 2014-10-14  Teodor Zlatanov  <tzz@lifelogs.com>
 
@@ -612,7 +626,7 @@
 	* gnus-icalendar.el (gnus-icalendar-event:org-timestamp):
 	Fix org-timestamp for events ending at midnight.
 
-2013-11-21  Ivan Shmakov  <ivan@siamics.net>  (tiny change)
+2013-11-21  Ivan Shmakov  <ivan@siamics.net>
 
 	* nndoc.el (nndoc-type-alist, nndoc-debbugs-db-type-p):
 	Support debbugs .log files.
@@ -24286,10 +24300,10 @@
 
 	* gnus-group.el: Require gnus-sum and autoload functions to
 	resolve warnings when gnus-group.el compiled alone.
-	(gnus-group-line-format): Documented new %F.
+	(gnus-group-line-format): Document new %F.
 	(size of Fetched data) group line format; identifies disk space
 	used by agent and cache.
-	(gnus-group-line-format-alist): Defined new F format.
+	(gnus-group-line-format-alist): Define new F format.
 	(gnus-total-fetched-for): New function.
 	(gnus-group-delete-group): No longer update
 	gnus-cache-active-altered as gnus-request-delete-group now keeps
