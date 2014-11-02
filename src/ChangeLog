@@ -1,3 +1,87 @@
+2014-11-01  Jan Djärv  <jan.h.d@swipnet.se>
+
+	* macfont.m (macfont_draw):
+	* nsterm.m (ns_mouse_position, judge): Clean up merge conflict.
+
+	* macfont.m (macfont_glyph_extents): Turn off synthetic bold
+	if force_integral_p (i.e. no antialias).
+	(macfont_draw): Check ns_antialias_text, also turn off synthetic
+	bold if no antialias (Bug#18876).
+
+	* emacs.c (main): Don't chdir to $HOME on Cocoa if --chdir
+	was given (Bug#18846).
+
+	* nsterm.h (ns_set_doc_edited): Declare taking no args.
+
+	* nsfns.m (ns_set_doc_edited): Do all logic (check frames) here
+	instead of in xdisp.c, function now takes void. (Bug#18884).
+
+	* xdisp.c (prepare_menu_bars): Remove HAVE_NS code.
+	(redisplay_internal): Call ns_set_doc_edited if HAVE_NS (Bug#18884).
+
+	* nsterm.h (EmacsScroller): Replace Lisp_Object win with
+	struct window* (Bug#18889).
+	Remove getMouseMotionPart.
+	(ns_output): Make icon_top/left int.
+
+	* nsfns.m (x_icon): icon_top/left is int.
+
+	* nsterm.m (ns_mouse_position): Remove unused code.
+	(initFrame:window:, dealloc): Use window instead of win.
+	(getMouseMotionPart:window:x:y:): Remove, unused.
+	(sendScrollEventAtLoc:fromEvent:): Make Lisp_Object win from window.
+
+2014-11-01  Eli Zaretskii  <eliz@gnu.org>
+
+	* keyboard.c (readable_events): When FLAGS include
+	READABLE_EVENTS_FILTER_EVENTS, ignore BUFFER_SWITCH_EVENT events.
+	This avoids returning non-nil from input-pending-p when only such
+	events are in the queue.  (Bug#18856)
+
+2014-11-01  Jan Djärv  <jan.h.d@swipnet.se>
+
+	* nsselect.m (QCLIPBOARD, QSECONDARY, QTEXT, QFILE_NAME)
+	(NXPrimaryPboard, NXSecondaryPboard): Declare static.
+	(Qforeign_selection): Remove.
+	(ns_get_local_selection): Identation fix.
+	(syms_of_nsselect): Remove Qforeign_selection, ns-lost-selection-hooks
+
+	* nsselect.m (ns_get_local_selection): Remove calling of
+	functions in Vselection_converter_alist (Bug#18911).
+	(syms_of_nsselect): Remove Vselection_converter_alist.
+
+(2014-10-31  Dmitry Antipov  <dmantipov@yandex.ru>
+
+	* font.c (copy_font_spec): Redesign to avoid Fcopy_alist
+	and unnecessary initialization.  Adjust comments.
+
+2014-10-30  Eli Zaretskii  <eliz@gnu.org>
+
+	* bidi.c (bidi_cache_reset_to): Invalidate bidi_cache_last_idx by
+	setting it to -1.
+	(bidi_find_bracket_pairs): Pass to bidi_cache_reset_to a relative
+	index, not an absolute one, as that's what the function expects.
+
+2014-10-30  Dmitry Antipov  <dmantipov@yandex.ru>
+
+	* xfaces.c (Finternal_set_lisp_face_attribute): Don't try to realize
+	font on an initial frame when running as a daemon (Bug#18869).
+
+	* fontset.c (toplevel): Adjust comment to match 2014-06-19 change.
+
+2014-10-30  Eli Zaretskii  <eliz@gnu.org>
+
+	* fileio.c (Fexpand_file_name): Use make_unibyte_string, not
+	build_string, when importing a home directory.  (Bug#18873)
+
+	* dispnew.c (buffer_posn_from_coords): Use
+	WINDOW_WANTS_HEADER_LINE_P, not WINDOW_WANTS_MODELINE_P, to
+	account for the header-line height.  (Bug#18839)
+
+2014-10-28  Ulf Jasper  <ulf.jasper@web.de>
+
+	* xml.c (parse_region): Do not forget the first document child.
+
 2014-10-25  Jan Djärv  <jan.h.d@swipnet.se>
 
 	* nsselect.m: pasteboard_changecount is new.

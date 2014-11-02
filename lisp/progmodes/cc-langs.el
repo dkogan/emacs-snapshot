@@ -1807,6 +1807,26 @@ will be handled."
   t (c-make-keywords-re t (c-lang-const c-brace-list-decl-kwds)))
 (c-lang-defvar c-brace-list-key (c-lang-const c-brace-list-key))
 
+(c-lang-defconst c-after-brace-list-decl-kwds
+  "Keywords that might follow keywords in `c-brace-list-decl-kwds'
+and precede the opening brace."
+  t    nil
+  c++  '("class" "struct"))
+
+(c-lang-defconst c-after-brace-list-key
+  ;; Regexp matching keywords that can fall between a brace-list
+  ;; keyword and the associated brace list.
+  t (c-make-keywords-re t (c-lang-const c-after-brace-list-decl-kwds)))
+(c-lang-defvar c-after-brace-list-key (c-lang-const c-after-brace-list-key))
+
+(c-lang-defconst c-recognize-post-brace-list-type-p
+  "Set to t when we recognize a colon and then a type after an enum,
+e.g., enum foo : int { A, B, C };"
+  t nil
+  c++ t)
+(c-lang-defvar c-recognize-post-brace-list-type-p
+	       (c-lang-const c-recognize-post-brace-list-type-p))
+
 (c-lang-defconst c-other-block-decl-kwds
   "Keywords where the following block (if any) contains another
 declaration level that should not be considered a class.  For every
@@ -3238,7 +3258,7 @@ accomplish that conveniently."
       `(lambda ()
 
 	 ;; This let sets up the context for `c-mode-var' and similar
-	 ;; that could be in the result from `macroexpand-all'.
+	 ;; that could be in the result from `c--macroexpand-all'.
 	 (let ((c-buffer-is-cc-mode ',mode)
 	       current-var source-eval)
 	   (c-make-emacs-variables-local)
@@ -3248,12 +3268,12 @@ accomplish that conveniently."
 		   (setq ,@(let ((c-buffer-is-cc-mode mode)
 				 (c-lang-const-expansion 'immediate))
 			     ;; `c-lang-const' will expand to the evaluated
-			     ;; constant immediately in `macroexpand-all'
+			     ;; constant immediately in `c--macroexpand-all'
 			     ;; below.
 			      (mapcan
 			       (lambda (init)
 				 `(current-var ',(car init)
-				   ,(car init) ,(macroexpand-all
+				   ,(car init) ,(c--macroexpand-all
 						 (elt init 1))))
 			       ;; Note: The following `append' copies the
 			       ;; first argument.  That list is small, so

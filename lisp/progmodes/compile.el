@@ -1676,7 +1676,16 @@ Returns the compilation buffer created."
 	     (list command mode name-function highlight-regexp))
 	(set (make-local-variable 'revert-buffer-function)
 	     'compilation-revert-buffer)
-	(and outwin (set-window-start outwin (point-min)))
+	(and outwin
+	     ;; Forcing the window-start overrides the usual redisplay
+	     ;; feature of bringing point into view, so setting the
+	     ;; window-start to top of the buffer risks losing the
+	     ;; effect of moving point to EOB below, per
+	     ;; compilation-scroll-output, if the command is long
+	     ;; enough to push point outside of the window.  This
+	     ;; could happen, e.g., in `rgrep'.
+	     (not compilation-scroll-output)
+	     (set-window-start outwin (point-min)))
 
 	;; Position point as the user will see it.
 	(let ((desired-visible-point
@@ -1975,6 +1984,12 @@ Runs `compilation-mode-hook' with `run-mode-hooks' (which see).
        compilation-page-delimiter)
   ;; (set (make-local-variable 'compilation-buffer-modtime) nil)
   (compilation-setup)
+  ;; Turn off deferred fontifications in the compilation buffer, if
+  ;; the user turned them on globally.  This is because idle timers
+  ;; aren't re-run after receiving input from a subprocess, so the
+  ;; buffer is left unfontified after the compilation exits, until
+  ;; some other input event happens.
+  (set (make-local-variable 'jit-lock-defer-time) nil)
   (setq buffer-read-only t)
   (run-mode-hooks 'compilation-mode-hook))
 

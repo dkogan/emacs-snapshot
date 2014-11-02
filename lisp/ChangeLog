@@ -1,3 +1,196 @@
+2014-11-02  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* emacs-lisp/pp.el (pp-macroexpand-expression): Use macroexpand-1
+	(bug#18821).
+	* progmodes/elisp-mode.el (emacs-lisp-macroexpand): Idem.
+
+2014-11-01  Michael R. Mauger  <michael@mauger.com>
+
+	* sql.el (sql-mode-oracle-font-lock-keywords): Correct regexp
+	syntax, add new keywords, and parse longer keywords first.
+	(sql-redirect-one): Protect against empty command.
+	(sql-mode, sql-interactive-mode): Set `custom-mode-group' property
+	to SQL.  (Bug#14759)
+
+2014-11-01  Michael R. Mauger  <michael@mauger.com>
+
+	* sql.el (sql-interactive-mode, sql-stop): Correct fix for
+	Bug#16814 with let-bind of comint-input-ring variables around read
+	and save functions.
+
+2014-11-01  Michael Albinus  <michael.albinus@gmx.de>
+
+	* net/tramp-cache.el (tramp-get-file-property)
+	(tramp-set-file-property): Check that `tramp-cache-get-count-*'
+	and `tramp-cache-set-count-*' are bound.  Otherwise, there might
+	be compiler warnings.
+
+	* net/tramp-sh.el (tramp-get-remote-uid, tramp-get-remote-gid):
+	Return -1 respective "UNKNOWN", if uid or gid cannot be determined.
+
+2014-11-01  Eli Zaretskii  <eliz@gnu.org>
+
+	* progmodes/compile.el (compilation-mode): Turn off deferred
+	fontifications locally.  (Bug#18856)
+
+2014-11-01  Wolfgang Jenkner  <wjenkner@inode.at>
+
+	* net/tramp-sh.el (tramp-send-command): Fix the case where the
+	remote-echo connection property is non-nil (bug#18858).
+
+2014-11-01  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* simple.el (newline): Add assertions to try and help catch bug#18913.
+
+	* emulation/cua-base.el (cua-delete-region): Use delete-active-region
+	(bug#18886).
+	(cua--last-deleted-region-pos, cua--last-deleted-region-text): Remove.
+
+2014-11-01  Kim F. Storm  <storm@cua.dk>
+
+	Restore cua-delete-copy-to-register-0 and M-v command (bug#18886).
+	* delsel.el (delete-selection-save-to-register)
+	(delsel--replace-text-or-position): New vars.
+	(delete-active-region): Use them.
+	(delete-selection-repeat-replace-region): New command, moved from
+	cua-base.el.
+	* emulation/cua-base.el (cua--repeat-replace-text): Remove var.
+	(cua-repeat-replace-region): Move command to delsel.el.
+	(cua--init-keymaps): Update binding accordingly.
+	(cua-mode): Set delete-selection-save-to-register.
+
+2014-11-01  Alan Mackenzie  <acm@muc.de>
+
+	Make blink-parens work with a closing template delimiter.
+	* progmodes/cc-cmds.el (c-electric-lt-gt): Cause a redisplay
+	before calling blink-paren-function, so as to apply syntax-table
+	properties to the ">".
+
+2014-11-01  Jan Djärv  <jan.h.d@swipnet.se>
+
+	* select.el (gui-get-selection): Comment: data-type ignored on NS.
+
+2014-10-31  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* emacs-lisp/macroexp.el (macroexpand-1): New function (bug#18821).
+	(macroexp--expand-all): Unrelated tweaks.
+
+	* emacs-lisp/gv.el (gv-get): Use macroexpand-1.
+
+2014-10-30  Glenn Morris  <rgm@gnu.org>
+
+	* startup.el (command-line): Remove pointless attempt to avoid
+	statting the file-system (which expand-file-name doesn't do).
+
+2014-10-30  Daniel Colascione  <dancol@dancol.org>
+
+	Add "enum class" support to C++ mode.
+	* progmodes/cc-langs.el (c-after-brace-list-decl-kwds)
+	(c-after-brace-list-key): New language consts/variables.
+	* progmodes/cc-engine.el (c-looking-at-decl-block):
+	Exclude spurious match of "enum struct" from decl-block recognition.
+	(c-backward-colon-prefixed-type): New function.
+	(c-backward-over-enum-header): Call above function to extend
+	recognition of enum structure.
+
+2014-10-30  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* progmodes/cc-defs.el (c--macroexpand-all): New function (bug#18845).
+	(c-lang-defconst):
+	* progmodes/cc-langs.el (c-make-init-lang-vars-fun): Use it.
+
+2014-10-30  Eli Zaretskii  <eliz@gnu.org>
+
+	* progmodes/compile.el (compilation-start):
+	If compilation-scroll-output is non-nil, don't force window-start of
+	the compilation buffer to be at beginning of buffer.  (Bug#18874)
+
+	* startup.el (fancy-about-text): Read the entire tutorial, not
+	just its first 256 bytes.  (Bug#18760)
+
+2014-10-30  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* emacs-lisp/bytecomp.el: Require cl-extra (bug#18804).
+	* emacs-lisp/cl-extra.el: Add missing provide.
+
+	* emacs-lisp/bytecomp.el (byte-compile-and-folded): Optimize case where
+	all args are copyable (bug#18767).
+	(=, <, >, <=, >=): Re-enable the optimization.
+
+2014-10-29  Glenn Morris  <rgm@gnu.org>
+
+	* net/rcirc.el (rcirc-fill-column): Unbump :version.  Mark :risky.
+
+	* version.el (emacs-bzr-version, emacs-bzr-get-version):
+	Revert 2014-10-26 change.
+
+2014-10-29  Paul Eggert  <eggert@cs.ucla.edu>
+
+	Simplify use of current-time and friends.
+	* allout-widgets.el (allout-widgets-hook-error-handler):
+	* calendar/appt.el (appt-display-message):
+	* calendar/icalendar.el (icalendar--convert-float-to-ical):
+	* calendar/timeclock.el (timeclock-in, timeclock-when-to-leave)
+	(timeclock-last-period, timeclock-day-base):
+	* eshell/em-ls.el (eshell-ls-file):
+	* eshell/esh-util.el (eshell-parse-ange-ls):
+	* generic-x.el (named-database-print-serial):
+	* net/newst-backend.el (newsticker--get-news-by-url-callback)
+	(newsticker-get-news, newsticker--sentinel-work)
+	(newsticker--image-get, newsticker--image-sentinel):
+	* net/tramp-sh.el (tramp-get-remote-touch):
+	* progmodes/opascal.el (opascal-debug-log):
+	* textmodes/remember.el (remember-mail-date)
+	(remember-store-in-files):
+	* vc/vc-annotate.el (vc-annotate-display-autoscale)
+	(vc-default-annotate-current-time):
+	* vc/vc-bzr.el (vc-bzr-shelve-snapshot):
+	* vc/vc-cvs.el (vc-cvs-annotate-current-time):
+	* vc/vc-rcs.el (vc-rcs-annotate-current-time):
+	Omit unnecessary call to current-time.
+	* calendar/time-date.el (time-to-seconds) [!float-time]:
+	* vc/vc-annotate.el (vc-annotate-convert-time):
+	Use current time if arg is nil, to be compatible with float-time.
+	(time-date--day-in-year): New function, with most of the guts of
+	the old time-to-day-in-year.
+	(time-to-day-in-year): Use it.
+	(time-to-days): Use it, to avoid decoding the same time stamp twice.
+	* calendar/timeclock.el (timeclock-time-to-date):
+	Arg is now optional, like current-time-string.
+	(timeclock-update-mode-line):
+	Don't call current-time twice to get the current time stamp,
+	as this can lead to inconsistent results.
+	* completion.el (cmpl-hours-since-origin):
+	* ido.el (ido-time-stamp):
+	* vc/vc-annotate.el (vc-annotate-convert-time):
+	Simplify by using float-time.
+	* completion.el (save-completions-to-file):
+	Rename local var to avoid confusion.
+	* net/rcirc.el (rcirc-float-time): Simplify to an alias because
+	time-to-seconds now behaves like float-time with respect to nil arg.
+	* subr.el (progress-reporter-do-update):
+	Don't call float-time unless needed.
+
+2014-10-29  Leo Liu  <sdl.web@gmail.com>
+
+	* net/rcirc.el (rcirc-fill-column): Use function.
+	(rcirc-markup-fill): Remove adjustment.
+
+2014-10-28  Christopher Schmidt  <ch@ristopher.com>
+
+	* calc/calc.el (quick-calc):
+	* calc/calc-aent.el (calc-do-quick-calc): New argument INSERT.
+
+2014-10-28  Sam Steingold  <sds@gnu.org>
+
+	* net/rcirc.el (rcirc-fill-column): Allow any symbolic value for
+	the sake of `window-body-width' (in addition to `frame-width').
+
+2014-10-26  Eric S. Raymond  <esr@thyrsus.com>
+
+	* version.el: Fix some fallback values to conform to the actual
+	release number.
+
 2014-10-25  Eric S. Raymond  <esr@thyrsus.com>
 
 	* Makefile.in: Change some production names so they're neutral
@@ -11,7 +204,7 @@
 
 2014-10-25  Vincent Belaïche  <vincentb1@users.sourceforge.net>
 
-	* ses.el (macroexp): add require for this package, so that
+	* ses.el (macroexp): Add require for this package, so that
 	function `ses--cell' gets macroexp-quote --- this change was
 	supposed to be in my previous commit, but left out by mistake.
 	(ses--cell): Do not make formula a macroexp-quote of value when
@@ -19,22 +212,22 @@
 
 2014-10-24  Vincent Belaïche  <vincentb1@users.sourceforge.net>
 
-	* ses.el (macroexp): add require for this package, so that function
+	* ses.el (macroexp): Add require for this package, so that function
 	`ses--cell gets macroexp-quote.
-	(ses--cell): makes formula a macroexp-quote of value when formula
+	(ses--cell): Makes formula a macroexp-quote of value when formula
 	is nil. The rationale of this changr is to allow in the future
 	shorter SES files, e.g. we could have only `(ses-cell A1 1.0)'
 	instead of `(ses-cell A1 1.0 1.0 nil REFLIST)'. In such a case
 	reference list REFLIST would be re-computed after load --- thus
 	trading off load time against file size.
 
-	* emacs-lisp/package.el (package--alist-to-plist-args): use
-	macroexp-quote instead of a lambda expression which has the same
+	* emacs-lisp/package.el (package--alist-to-plist-args):
+	Use macroexp-quote instead of a lambda expression which has the same
 	content as macroexp-quote.
-	(macroexp): add require for this package, so that function
+	(macroexp): Add require for this package, so that function
 	`package--alist-to-plist-args' gets macroexp-quote.
 
-	* emacs-lisp/macroexp.el (macroexp-quote): new defun.
+	* emacs-lisp/macroexp.el (macroexp-quote): New defun.
 
 2014-10-24  Stefan Monnier  <monnier@iro.umontreal.ca>
 
@@ -338,8 +531,8 @@
 
 	* net/newst-reader.el (newsticker-html-renderer): Whitespace.
 	(newsticker--print-extra-elements)
-	(newsticker--do-print-extra-element): Documentation
-	(newsticker--image-read): Optionally limit image height.
+	(newsticker--do-print-extra-element):
+	Documentation (newsticker--image-read): Optionally limit image height.
 	Use imagemagick if possible.
 	(newsticker--icon-read): New.
 
