@@ -28,7 +28,9 @@
 (require 'format-spec)
 (require 'shr)
 (require 'url)
+(require 'url-queue)
 (require 'mm-url)
+(eval-when-compile (require 'subr-x)) ;; for string-trim
 
 (defgroup eww nil
   "Emacs Web Wowser"
@@ -159,14 +161,15 @@ See also `eww-form-checkbox-selected-symbol'."
 If the input doesn't look like an URL or a domain name, the
 word(s) will be searched for via `eww-search-prefix'."
   (interactive "sEnter URL or keywords: ")
-  (cond ((string-match-p "\\`file://" url))
+  (setq url (string-trim url))
+  (cond ((string-match-p "\\`file:/" url))
         ((string-match-p "\\`ftp://" url)
          (user-error "FTP is not supported."))
         (t
          (if (and (= (length (split-string url)) 1)
-                 (or (and (not (string-match-p "\\`[\"\'].*[\"\']\\'" url))
-                          (> (length (split-string url "\\.")) 1))
-                     (string-match eww-local-regex url)))
+		  (or (and (not (string-match-p "\\`[\"\'].*[\"\']\\'" url))
+			   (> (length (split-string url "[.:]")) 1))
+		      (string-match eww-local-regex url)))
              (progn
                (unless (string-match-p "\\`[a-zA-Z][-a-zA-Z0-9+.]*://" url)
                  (setq url (concat "http://" url)))
@@ -214,6 +217,8 @@ word(s) will be searched for via `eww-search-prefix'."
             (eww-browse-with-external-browser url))
 	   ((equal (car content-type) "text/html")
 	    (eww-display-html charset url nil point))
+	   ((equal (car content-type) "application/pdf")
+	    (eww-display-pdf))
 	   ((string-match-p "\\`image/" (car content-type))
 	    (eww-display-image)
 	    (eww-update-header-line-format))
@@ -256,18 +261,24 @@ word(s) will be searched for via `eww-search-prefix'."
 (defun eww-display-html (charset url &optional document point)
   (or (fboundp 'libxml-parse-html-region)
       (error "This function requires Emacs to be compiled with libxml2"))
-  (unless (eq charset 'utf8)
-    (condition-case nil
-	(decode-coding-region (point) (point-max) charset)
-      (coding-system-error nil)))
+  ;; There should be a better way to abort loading images
+  ;; asynchronously.
+  (setq url-queue nil)
   (let ((document
 	 (or document
 	     (list
 	      'base (list (cons 'href url))
-	      (libxml-parse-html-region (point) (point-max))))))
-    (setq eww-current-source (buffer-substring (point) (point-max)))
+	      (progn
+		(unless (eq charset 'utf-8)
+		  (condition-case nil
+		      (decode-coding-region (point) (point-max) charset)
+		    (coding-system-error nil)))
+		(libxml-parse-html-region (point) (point-max))))))
+	(source (and (null document)
+		     (buffer-substring (point) (point-max)))))
     (eww-setup-buffer)
-    (setq eww-current-dom document)
+    (setq eww-current-source source
+	  eww-current-dom document)
     (let ((inhibit-read-only t)
 	  (after-change-functions nil)
 	  (shr-target-id (url-target (url-generic-parse-url url)))
@@ -291,7 +302,12 @@ word(s) will be searched for via `eww-search-prefix'."
 	  (when point
 	    (goto-char point))))
        (t
-	(goto-char (point-min)))))
+	(goto-char (point-min))
+	;; Don't leave point inside forms, because the normal eww
+	;; commands aren't available there.
+	(while (and (not (eobp))
+		    (get-text-property (point) 'eww-form))
+	  (forward-line 1)))))
     (setq eww-current-url url
 	  eww-history-position 0)
     (eww-update-header-line-format)))
@@ -347,6 +363,10 @@ word(s) will be searched for via `eww-search-prefix'."
   (dolist (sub cont)
     (when (eq (car sub) 'text)
       (setq eww-current-title (concat eww-current-title (cdr sub)))))
+  (setq eww-current-title
+	(replace-regexp-in-string
+	 "^ \\| $" ""
+	 (replace-regexp-in-string "[ \t\r\n]+" " " eww-current-title)))
   (eww-update-header-line-format))
 
 (defun eww-tag-body (cont)
@@ -357,20 +377,7 @@ word(s) will be searched for via `eww-search-prefix'."
 	 (shr-stylesheet (list (cons 'color fgcolor)
 			       (cons 'background-color bgcolor))))
     (shr-generic cont)
-    (eww-colorize-region start (point) fgcolor bgcolor)))
-
-(defun eww-colorize-region (start end fg &optional bg)
-  (when (or fg bg)
-    (let ((new-colors (shr-color-check fg bg)))
-      (when new-colors
-	(when fg
-	  (add-face-text-property start end
-				  (list :foreground (cadr new-colors))
-				  t))
-	(when bg
-	  (add-face-text-property start end
-				  (list :background (car new-colors))
-				  t))))))
+    (shr-colorize-region start (point) fgcolor bgcolor)))
 
 (defun eww-display-raw ()
   (let ((data (buffer-substring (point) (point-max))))
@@ -385,6 +392,16 @@ word(s) will be searched for via `eww-search-prefix'."
     (let ((inhibit-read-only t))
       (shr-put-image data nil))
     (goto-char (point-min))))
+
+(defun eww-display-pdf ()
+  (let ((data (buffer-substring (point) (point-max))))
+    (switch-to-buffer (get-buffer-create "*eww pdf*"))
+    (let ((coding-system-for-write 'raw-text)
+	  (inhibit-read-only t))
+      (erase-buffer)
+      (insert data)
+      (doc-view-mode)))
+  (goto-char (point-min)))
 
 (defun eww-setup-buffer ()
   (switch-to-buffer (get-buffer-create "*eww*"))
@@ -401,16 +418,79 @@ word(s) will be searched for via `eww-search-prefix'."
   (setq-local eww-contents-url nil))
 
 (defun eww-view-source ()
+  "View the HTML source code of the current page."
   (interactive)
   (let ((buf (get-buffer-create "*eww-source*"))
         (source eww-current-source))
     (with-current-buffer buf
       (delete-region (point-min) (point-max))
-      (insert (or eww-current-source "no source"))
+      (insert (or source "no source"))
       (goto-char (point-min))
       (when (fboundp 'html-mode)
         (html-mode)))
     (view-buffer buf)))
+
+(defun eww-readable ()
+  "View the main \"readable\" parts of the current web page.
+This command uses heuristics to find the parts of the web page that
+contains the main textual portion, leaving out navigation menus and
+the like."
+  (interactive)
+  (let* ((source eww-current-source)
+	 (dom (shr-transform-dom
+	       (with-temp-buffer
+		 (insert source)
+		 (condition-case nil
+		     (decode-coding-region (point-min) (point-max) 'utf-8)
+		   (coding-system-error nil))
+		 (libxml-parse-html-region (point-min) (point-max))))))
+    (eww-score-readability dom)
+    (eww-save-history)
+    (eww-display-html nil nil
+		      (shr-retransform-dom
+		       (eww-highest-readability dom)))
+    (setq eww-current-source source)))
+
+(defun eww-score-readability (node)
+  (let ((score -1))
+    (cond
+     ((memq (car node) '(script head comment))
+      (setq score -2))
+     ((eq (car node) 'meta)
+      (setq score -1))
+     ((eq (car node) 'img)
+      (setq score 2))
+     ((eq (car node) 'a)
+      (setq score (- (length (split-string
+			      (or (cdr (assoc 'text (cdr node))) ""))))))
+     (t
+      (dolist (elem (cdr node))
+	(cond
+	 ((and (stringp (cdr elem))
+	       (eq (car elem) 'text))
+	  (setq score (+ score (length (split-string (cdr elem))))))
+	 ((consp (cdr elem))
+	  (setq score (+ score
+			 (or (cdr (assoc :eww-readability-score (cdr elem)))
+			     (eww-score-readability elem)))))))))
+    ;; Cache the score of the node to avoid recomputing all the time.
+    (setcdr node (cons (cons :eww-readability-score score) (cdr node)))
+    score))
+
+(defun eww-highest-readability (node)
+  (let ((result node)
+	highest)
+    (dolist (elem (cdr node))
+      (when (and (consp (cdr elem))
+		 (> (or (cdr (assoc
+			      :eww-readability-score
+			      (setq highest
+				    (eww-highest-readability elem))))
+			most-negative-fixnum)
+		    (or (cdr (assoc :eww-readability-score (cdr result)))
+			most-negative-fixnum)))
+	(setq result highest)))
+    result))
 
 (defvar eww-mode-map
   (let ((map (make-sparse-keymap)))
@@ -434,6 +514,7 @@ word(s) will be searched for via `eww-search-prefix'."
     (define-key map "w" 'eww-copy-page-url)
     (define-key map "C" 'url-cookie-list)
     (define-key map "v" 'eww-view-source)
+    (define-key map "R" 'eww-readable)
     (define-key map "H" 'eww-list-histories)
 
     (define-key map "b" 'eww-add-bookmark)
@@ -443,7 +524,7 @@ word(s) will be searched for via `eww-search-prefix'."
 
     (easy-menu-define nil map ""
       '("Eww"
-	["Exit" eww-quit t]
+	["Exit" quit-window t]
 	["Close browser" quit-window t]
 	["Reload" eww-reload t]
 	["Back to previous page" eww-back-url
@@ -463,7 +544,7 @@ word(s) will be searched for via `eww-search-prefix'."
 (defvar eww-tool-bar-map
   (let ((map (make-sparse-keymap)))
     (dolist (tool-bar-item
-             '((eww-quit . "close")
+             '((quit-window . "close")
                (eww-reload . "refresh")
                (eww-back-url . "left-arrow")
                (eww-forward-url . "right-arrow")
@@ -522,8 +603,8 @@ word(s) will be searched for via `eww-search-prefix'."
   (let ((inhibit-read-only t))
     (erase-buffer)
     (insert (plist-get elem :text))
-    (setq eww-current-source (plist-get elem :source))
-    (setq eww-current-dom (plist-get elem :dom))
+    (setq eww-current-source (plist-get elem :source)
+	  eww-current-dom (plist-get elem :dom))
     (goto-char (plist-get elem :point))
     (setq eww-current-url (plist-get elem :url)
 	  eww-current-title (plist-get elem :title))
@@ -1006,7 +1087,7 @@ See URL `https://developer.mozilla.org/en-US/docs/Web/HTML/Element/Input'.")
       (when (and (consp elem)
 		 (eq (car elem) 'hidden))
 	(push (cons (plist-get (cdr elem) :name)
-		    (plist-get (cdr elem) :value))
+		    (or (plist-get (cdr elem) :value) ""))
 	      values)))
     (if (and (stringp (cdr (assq :method form)))
 	     (equal (downcase (cdr (assq :method form))) "post"))
@@ -1048,7 +1129,7 @@ If EXTERNAL, browse the URL using `shr-external-browser'."
      ((and (url-target (url-generic-parse-url url))
 	   (eww-same-page-p url eww-current-url))
       (eww-save-history)
-      (eww-display-html 'utf8 url eww-current-dom))
+      (eww-display-html 'utf-8 url eww-current-dom))
      (t
       (eww-browse-url url)))))
 
@@ -1135,6 +1216,7 @@ Differences in #targets are ignored."
 	      (insert-file-contents file)
 	      (read (current-buffer)))))))
 
+;;;###autoload
 (defun eww-list-bookmarks ()
   "Display the bookmarks."
   (interactive)

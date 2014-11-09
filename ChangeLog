@@ -1,3 +1,18 @@
+2014-11-08  Dani Moncayo  <dmoncayo@gmail.com>
+
+	* build-aux/msys-to-w32: simplify the initial over-engineered
+	interface, and the implementation.
+	* Makefile.in (epaths-force-w32): Update for the above.  Also
+	simplify, assuming that the shell is bash (which is the case in
+	MSYS).
+	(msys_w32prefix_subst, msys_sed_sh_escape): Remove (no longer
+	used).
+
+2014-11-05  Glenn Morris  <rgm@gnu.org>
+
+	* Makefile.in (QUIET_SUBMAKE): Remove.
+	(install-info, uninstall): Use --no-print-directory.  (Bug#18908)
+
 2014-10-25  Eric S. Raymond  <esr@thyrsus.com>
 
 	* autogen.sh: Neutralize language specific to a repository type.
@@ -2333,7 +2348,7 @@
 2012-12-13  Andreas Schwab  <schwab@suse.de>
 
 	* Makefile.in (install-info): Use `${MAKE} -s' for echo-info.
-	(uninstall): Likewise.  (Bug#13143)
+	(uninstall): Likewise.  (Bug#13142)
 
 2012-12-11  Paul Eggert  <eggert@cs.ucla.edu>
 

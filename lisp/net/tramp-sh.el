@@ -1103,23 +1103,24 @@ target of the symlink differ."
 (defun tramp-sh-handle-file-attributes (filename &optional id-format)
   "Like `file-attributes' for Tramp files."
   (unless id-format (setq id-format 'integer))
-  ;; Don't modify `last-coding-system-used' by accident.
-  (let ((last-coding-system-used last-coding-system-used))
-    (with-parsed-tramp-file-name (expand-file-name filename) nil
-      (with-tramp-file-property
-	  v localname (format "file-attributes-%s" id-format)
-	(save-excursion
-	  (tramp-convert-file-attributes
-	   v
-	   (or
-	    (cond
-	     ((tramp-get-remote-stat v)
-	      (tramp-do-file-attributes-with-stat v localname id-format))
-	     ((tramp-get-remote-perl v)
-	      (tramp-do-file-attributes-with-perl v localname id-format))
-	     (t nil))
-	    ;; The scripts could fail, for example with huge file size.
-	    (tramp-do-file-attributes-with-ls v localname id-format))))))))
+  (ignore-errors
+    ;; Don't modify `last-coding-system-used' by accident.
+    (let ((last-coding-system-used last-coding-system-used))
+      (with-parsed-tramp-file-name (expand-file-name filename) nil
+	(with-tramp-file-property
+	    v localname (format "file-attributes-%s" id-format)
+	  (save-excursion
+	    (tramp-convert-file-attributes
+	     v
+	     (or
+	      (cond
+	       ((tramp-get-remote-stat v)
+		(tramp-do-file-attributes-with-stat v localname id-format))
+	       ((tramp-get-remote-perl v)
+		(tramp-do-file-attributes-with-perl v localname id-format))
+	       (t nil))
+	      ;; The scripts could fail, for example with huge file size.
+	      (tramp-do-file-attributes-with-ls v localname id-format)))))))))
 
 (defun tramp-do-file-attributes-with-ls (vec localname &optional id-format)
   "Implement `file-attributes' for Tramp files using the ls(1) command."
@@ -2061,10 +2062,15 @@ FILENAME is the source file, NEWNAME the target file.
 KEEP-DATE is non-nil if NEWNAME should have the same timestamp as FILENAME."
   (with-temp-buffer
     ;; We must disable multibyte, because binary data shall not be
-    ;; converted.
+    ;; converted.  We remove `tramp-file-name-handler' from
+    ;; `inhibit-file-name-handlers'; otherwise the file name handler
+    ;; for `insert-file-contents' might be deactivated in some corner
+    ;; cases.
     (set-buffer-multibyte nil)
     (let ((coding-system-for-read 'binary)
-	  (jka-compr-inhibit t))
+	  (jka-compr-inhibit t)
+	  (inhibit-file-name-handlers
+	   (remq 'tramp-file-name-handler inhibit-file-name-handlers)))
       (insert-file-contents-literally filename))
     ;; We don't want the target file to be compressed, so we let-bind
     ;; `jka-compr-inhibit' to t.

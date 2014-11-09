@@ -448,23 +448,28 @@ Return the compile-time value of FORM."
     ;;     		       (apply 'byte-compiler-options-handler forms)))
     (declare-function . byte-compile-macroexpand-declare-function)
     (eval-when-compile . ,(lambda (&rest body)
-                                  (let ((result nil))
-                                    (byte-compile-recurse-toplevel
-                                     (cons 'progn body)
-                                     (lambda (form)
-                                       (setf result
-                                             (byte-compile-eval
-                                              (byte-compile-top-level
-                                               (byte-compile-preprocess form))))))
-                                    (list 'quote result))))
+                            (let ((result nil))
+                              (byte-compile-recurse-toplevel
+                               (cons 'progn body)
+                               (lambda (form)
+                                 (setf result
+                                       (byte-compile-eval
+                                        (byte-compile-top-level
+                                         (byte-compile-preprocess form))))))
+                              (list 'quote result))))
     (eval-and-compile . ,(lambda (&rest body)
-                                 (byte-compile-recurse-toplevel
-                                  (cons 'progn body)
-                                  (lambda (form)
-                                    (let ((compiled (byte-compile-top-level
-                                                     (byte-compile-preprocess form))))
-                                      (eval compiled lexical-binding)
-                                      compiled))))))
+                           (byte-compile-recurse-toplevel
+                            (cons 'progn body)
+                            (lambda (form)
+                              ;; Don't compile here, since we don't know
+                              ;; whether to compile as byte-compile-form
+                              ;; or byte-compile-file-form.
+                              (let ((expanded
+                                     (macroexpand-all
+                                      form
+                                      macroexpand-all-environment)))
+                                (eval expanded lexical-binding)
+                                expanded))))))
   "The default macro-environment passed to macroexpand by the compiler.
 Placing a macro here will cause a macro to have different semantics when
 expanded by the compiler as when expanded by the interpreter.")
@@ -1162,10 +1167,13 @@ Each function's symbol gets added to `byte-compile-noruntime-functions'."
 	(byte-compile-warn "%s" msg)))))
 
 (defun byte-compile-report-error (error-info)
-  "Report Lisp error in compilation.  ERROR-INFO is the error data."
+  "Report Lisp error in compilation.
+ERROR-INFO is the error data, in the form of either (ERROR-SYMBOL . DATA)
+or STRING."
   (setq byte-compiler-error-flag t)
   (byte-compile-log-warning
-   (error-message-string error-info)
+   (if (stringp error-info) error-info
+     (error-message-string error-info))
    nil :error))
 
 ;;; sanity-checking arglists
@@ -1361,6 +1369,33 @@ extra args."
 ;; Warn if the function or macro is being redefined with a different
 ;; number of arguments.
 (defun byte-compile-arglist-warn (name arglist macrop)
+  ;; This is the first definition.  See if previous calls are compatible.
+  (let ((calls (assq name byte-compile-unresolved-functions))
+        nums sig min max)
+    (when (and calls macrop)
+      (byte-compile-warn "macro `%s' defined too late" name))
+    (setq byte-compile-unresolved-functions
+          (delq calls byte-compile-unresolved-functions))
+    (setq calls (delq t calls))      ;Ignore higher-order uses of the function.
+    (when (cdr calls)
+      (when (and (symbolp name)
+                 (eq (function-get name 'byte-optimizer)
+                     'byte-compile-inline-expand))
+        (byte-compile-warn "defsubst `%s' was used before it was defined"
+                           name))
+      (setq sig (byte-compile-arglist-signature arglist)
+            nums (sort (copy-sequence (cdr calls)) (function <))
+            min (car nums)
+            max (car (nreverse nums)))
+      (when (or (< min (car sig))
+                (and (cdr sig) (> max (cdr sig))))
+        (byte-compile-set-symbol-position name)
+        (byte-compile-warn
+         "%s being defined to take %s%s, but was previously called with %s"
+         name
+         (byte-compile-arglist-signature-string sig)
+         (if (equal sig '(1 . 1)) " arg" " args")
+         (byte-compile-arglist-signature-string (cons min max))))))
   (let* ((old (byte-compile-fdefinition name macrop))
          (initial (and macrop
                        (cdr (assq name
@@ -1369,52 +1404,26 @@ extra args."
     ;; to a defined function.  (Bug#8646)
     (and initial (symbolp initial)
          (setq old (byte-compile-fdefinition initial nil)))
-    (if (and old (not (eq old t)))
-	(progn
-	  (and (eq 'macro (car-safe old))
-	       (eq 'lambda (car-safe (cdr-safe old)))
-	       (setq old (cdr old)))
-	  (let ((sig1 (byte-compile-arglist-signature
-		       (pcase old
-                         (`(lambda ,args . ,_) args)
-                         (`(closure ,_ ,args . ,_) args)
-                         ((pred byte-code-function-p) (aref old 0))
-                         (t '(&rest def)))))
-		(sig2 (byte-compile-arglist-signature arglist)))
-	    (unless (byte-compile-arglist-signatures-congruent-p sig1 sig2)
-	      (byte-compile-set-symbol-position name)
-	      (byte-compile-warn
-	       "%s %s used to take %s %s, now takes %s"
-	       (if macrop "macro" "function")
-	       name
-	       (byte-compile-arglist-signature-string sig1)
-	       (if (equal sig1 '(1 . 1)) "argument" "arguments")
-	       (byte-compile-arglist-signature-string sig2)))))
-      ;; This is the first definition.  See if previous calls are compatible.
-      (let ((calls (assq name byte-compile-unresolved-functions))
-	    nums sig min max)
-        (setq byte-compile-unresolved-functions
-              (delq calls byte-compile-unresolved-functions))
-        (setq calls (delq t calls))  ;Ignore higher-order uses of the function.
-	(when (cdr calls)
-          (when (and (symbolp name)
-                     (eq (function-get name 'byte-optimizer)
-                         'byte-compile-inline-expand))
-            (byte-compile-warn "defsubst `%s' was used before it was defined"
-		       name))
-          (setq sig (byte-compile-arglist-signature arglist)
-                nums (sort (copy-sequence (cdr calls)) (function <))
-                min (car nums)
-                max (car (nreverse nums)))
-          (when (or (< min (car sig))
-                    (and (cdr sig) (> max (cdr sig))))
-            (byte-compile-set-symbol-position name)
-            (byte-compile-warn
-             "%s being defined to take %s%s, but was previously called with %s"
-             name
-             (byte-compile-arglist-signature-string sig)
-             (if (equal sig '(1 . 1)) " arg" " args")
-             (byte-compile-arglist-signature-string (cons min max)))))))))
+    (when (and old (not (eq old t)))
+      (and (eq 'macro (car-safe old))
+           (eq 'lambda (car-safe (cdr-safe old)))
+           (setq old (cdr old)))
+      (let ((sig1 (byte-compile-arglist-signature
+                   (pcase old
+                     (`(lambda ,args . ,_) args)
+                     (`(closure ,_ ,args . ,_) args)
+                     ((pred byte-code-function-p) (aref old 0))
+                     (t '(&rest def)))))
+            (sig2 (byte-compile-arglist-signature arglist)))
+        (unless (byte-compile-arglist-signatures-congruent-p sig1 sig2)
+          (byte-compile-set-symbol-position name)
+          (byte-compile-warn
+           "%s %s used to take %s %s, now takes %s"
+           (if macrop "macro" "function")
+           name
+           (byte-compile-arglist-signature-string sig1)
+           (if (equal sig1 '(1 . 1)) "argument" "arguments")
+           (byte-compile-arglist-signature-string sig2)))))))
 
 (defvar byte-compile-cl-functions nil
   "List of functions defined in CL.")
@@ -2115,11 +2124,6 @@ list that represents a doc string reference.
                         (eq (aref (nth (nth 1 info) form) 0) ?*))
                    (setq position (- position)))))
 
-        (if preface
-            (progn
-              (insert preface)
-              (prin1 name byte-compile--outbuffer)))
-        (insert (car info))
         (let ((print-continuous-numbering t)
               print-number-table
               (index 0)
@@ -2132,6 +2136,15 @@ list that represents a doc string reference.
               (print-gensym t)
               (print-circle             ; Handle circular data structures.
                (not byte-compile-disable-print-circle)))
+          (if preface
+              (progn
+                ;; FIXME: We don't handle uninterned names correctly.
+                ;; E.g. if cl-define-compiler-macro uses uninterned name we get:
+                ;;    (defalias '#1=#:foo--cmacro #[514 ...])
+                ;;    (put 'foo 'compiler-macro '#:foo--cmacro)
+                (insert preface)
+                (prin1 name byte-compile--outbuffer)))
+          (insert (car info))
           (prin1 (car form) byte-compile--outbuffer)
           (while (setq form (cdr form))
             (setq index (1+ index))

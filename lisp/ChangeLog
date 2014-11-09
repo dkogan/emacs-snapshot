@@ -1,3 +1,306 @@
+2014-11-09  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* emacs-lisp/bytecomp.el (byte-compile-initial-macro-environment):
+	Don't call byte-compile-preprocess since the result will go through
+	cconv.
+	(byte-compile-output-docform): Handle uninterned `name' correctly.
+	* emacs-lisp/cl-macs.el (cl-define-compiler-macro): Use interned name
+	to circumvent byte-compiler bug.
+
+	* emacs-lisp/macroexp.el (macroexp--expand-all): Fix typo.
+	(macroexp--compiler-macro): Remove left-over debug code.
+
+	* emacs-lisp/cl-extra.el (cl-get): Silence compiler warning.
+
+2014-11-08  Juri Linkov  <juri@jurta.org>
+
+	* simple.el (shell-command): Use buffer-name when output-buffer is
+	a buffer.  (Bug#18096)
+
+2014-11-08  Juri Linkov  <juri@jurta.org>
+
+	* minibuffer.el (minibuffer-completion-help): Compare this-command
+	with completion-at-point.  (Bug#17809)
+
+2014-11-08  Glenn Morris  <rgm@gnu.org>
+
+	* emacs-lisp/bytecomp.el (byte-compile-report-error):
+	Allow the argument to be a string.  Due to the vague doc,
+	it was already being used this way.
+
+2014-11-08  Michael Albinus  <michael.albinus@gmx.de>
+
+	* net/tramp.el (tramp-check-cached-permissions): Include hop in
+	the constructed Tramp file name.  (Bug#18943)
+
+2014-11-08  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* emulation/cua-base.el (cua--select-keymaps): Use region-active-p
+	(bug#18952).
+	(cua-set-mark, cua--post-command-handler-1):
+	* emulation/cua-gmrk.el (cua-cancel-global-mark): Same.
+
+2014-11-08  Michael Albinus  <michael.albinus@gmx.de>
+
+	* files.el (file-name-non-special): Wrap the call of
+	`insert-file-contents' by `unwind-protect', in order to set the
+	buffer's file name anyway.  (Bug#18891)
+
+2014-11-08  Alan Mackenzie  <acm@muc.de>
+
+	Fix wrong bound to c-font-lock-declarators.  Fixes bug #18948.
+	* progmodes/cc-fonts.el (c-font-lock-declarations): Pass
+	"(point-max)" as bound to c-font-lock-declarators, not "limit", as
+	the buffer is sometimes narrowed to less than "limit" (e.g., in
+	the presence of macros).
+
+2014-11-08  Michael Albinus  <michael.albinus@gmx.de>
+
+	* net/tramp.el (tramp-error-with-buffer): Show connection buffer
+	only when message appeared in minibuffer.  (Bug#18891)
+
+	* net/tramp-adb.el (tramp-adb-handle-file-attributes):
+	* net/tramp-gvfs.el (tramp-gvfs-handle-file-attributes):
+	* net/tramp-sh.el (tramp-sh-handle-file-attributes): Return nil in
+	case of errors.
+
+2014-11-08  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* emacs-lisp/bytecomp.el (byte-compile-initial-macro-environment):
+	Don't compile before eval in `eval-and-compile'.
+	(byte-compile-arglist-warn): Add check for defining macros after their
+	first use.  Check call use even if the function is fboundp.
+
+2014-11-08  Richard Stallman  <rms@gnu.org>
+
+	* mail/rmail.el (rmail-epa-decrypt): Detect armor with line prefixes.
+	Check more carefully for mime-part specified character set.
+	Check for mime-part Content Transfer Encoding.
+	Notify if no armor found.
+
+2014-11-08  Martin Rudalics  <rudalics@gmx.at>
+
+	* faces.el (face-set-after-frame-default): Enable running
+	`window-configuration-change-hook'.
+
+2014-11-07  Juri Linkov  <juri@jurta.org>
+
+	* replace.el: History for query replace pairs.
+	(query-replace-defaults): Promote to a list of cons cell.  Doc fix.
+	(query-replace-from-to-separator): New variable.
+	(query-replace-read-from): Let-bind query-replace-from-to-history
+	to a list of FROM-TO strings created from query-replace-defaults
+	and separated by query-replace-from-to-separator.  Use it as
+	the history while reading from the minibuffer.  Split the returned
+	string by the separator to get FROM and TO parts, and add them
+	to the history variables.
+	(query-replace-read-to): Add FROM-TO pairs to query-replace-defaults.
+	(query-replace-regexp-eval): Let-bind query-replace-defaults to nil.
+	http://lists.gnu.org/archive/html/emacs-devel/2014-11/msg00253.html
+
+	* isearch.el (isearch-text-char-description): Keep characters
+	intact and put formatted strings with the `display' property.
+
+2014-11-07  Martin Rudalics  <rudalics@gmx.at>
+
+	* cus-start.el (frame-resize-pixelwise): Fix group.
+	(frame-inhibit-implied-resize): Add entry.
+
+2014-11-07  Daiki Ueno  <ueno@gnu.org>
+
+	* epa.el (epa-pinentry-mode): New user option.
+	(epa-sign-file, epa-encrypt-file, epa-decrypt-region)
+	(epa-sign-region, epa-encrypt-region): Respect epa-pinentry-mode.
+	* epa-file.el (epa-file-insert-file-contents)
+	(epa-file-write-region): Respect epa-pinentry-mode.
+
+2014-11-07  Daiki Ueno  <ueno@gnu.org>
+
+	* epg.el (epg--list-keys-1): Ignore fields after the 15th field
+	(bug#18979).  Reported by Hideki Saito.
+
+2014-11-06  Daiki Ueno  <ueno@gnu.org>
+
+	* emacs-lisp/package.el (package--display-verify-error): New function.
+	(package--check-signature): Use it to display output sent to stderr.
+
+2014-11-06  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* subr.el (pop): Don't call the getter twice (bug#18968).
+
+	* emacs-lisp/macroexp.el (macroexp--expand-all): Optimize away trivial
+	uses of `funcall'.
+
+2014-11-06  Daiki Ueno  <ueno@gnu.org>
+
+	* epa.el (epa-error-buffer): New variable.
+	(epa-display-error): New function.
+	(epa-decrypt-file, epa-verify-file, epa-verify-region)
+	(epa-delete-keys, epa-import-keys): Display output sent to stderr.
+	(epa-sign-file, epa-sign-region, epa-encrypt-region)
+	(epa-export-keys, epa-insert-keys): Display output sent to stderr.
+	Use setf instead of epg-context-set-*.
+	* epa-file.el (epa-file-insert-file-contents):
+	Use epa-display-error instead of epa-display-info.  Mimic the behavior
+	of jka-compr when decryption program is not found.
+	(epa-file-write-region): Use epa-display-error instead of
+	epa-display-info.
+
+2014-11-05  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* vc/vc.el (vc-region-history): New command.
+	(vc-print-log-internal): Use cl-some.
+
+	* vc/vc-git.el (vc-git-region-history): New function.
+	(vc-git-region-history-mode-map)
+	(vc-git--log-view-long-font-lock-keywords)
+	(vc-git-region-history-font-lock-keywords): New vars.
+	(vc-git-region-history-font-lock): New function.
+	(vc-git-region-history-mode): New major mode.
+
+2014-11-05  Tassilo Horn  <tsdh@gnu.org>
+
+	* net/eww.el (subr-x): Require subr-x at compile-time because eww
+	uses string-trim.
+
+2014-11-05  Daiki Ueno  <ueno@gnu.org>
+
+	* epg.el (epg-context): Add new slot ERROR-OUTPUT.
+	(epg-error-output): New buffer-local variable.
+	(epg--start): Initialize epg-error-output.
+	(epg--process-filter): Record output lines sent to stderr, in
+	epg-error-output.
+	(epg-wait-for-completion): Copy epg-error-output to ERROR-OUTPUT
+	slot of context.
+	* epa-file.el (epa-file-insert-file-contents): On error, display
+	output sent to stderr.
+	(epa-file-write-region): Likewise.
+
+2014-11-05  Eli Zaretskii  <eliz@gnu.org>
+
+	* jit-lock.el (jit-lock-stealth-fontify): Be tolerant to nil being
+	returned by load-average.
+
+2014-11-05  Michael Albinus  <michael.albinus@gmx.de>
+
+	* net/tramp-sh.el (tramp-do-copy-or-rename-file-via-buffer): Don't use
+	a local copy; setting `inhibit-file-name-handlers' proper might be
+	more performant.  (Bug#18751)
+
+2014-11-05  Glenn Morris  <rgm@gnu.org>
+
+	* mail/emacsbug.el (report-emacs-bug): No longer include
+	recent-keys in the report.  (Bug#18900)
+
+2014-11-04  Paul Eggert  <eggert@cs.ucla.edu>
+
+	* mouse.el (mouse-drag-line): Fix misspelling of "right-fringe".
+
+2014-11-04  Teodor Zlatanov  <tzz@lifelogs.com>
+
+	* net/eww.el (eww): Trim URL with `string-trim'.
+	Suggested by Vibhav Pant <vibhavp@gmail.com>.
+
+2014-11-03  Lars Magne Ingebrigtsen  <larsi@gnus.org>
+
+	* net/eww.el (eww-score-readability): Don't count comments positively.
+
+	* net/shr.el (shr-retransform-dom): Typo fix.
+
+	* net/eww.el (eww-score-readability): Parse SVC images correctly.
+	(eww-display-html): Don't leave point inside forms.
+
+	* net/shr.el: Ditto.
+
+2014-11-03  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* emacs-lisp/edebug.el (edebug-safe-prin1-to-string): Assume that
+	edebug-prin1-to-string already handles circularity.
+
+	* emacs-lisp/byte-run.el (defun-declarations-alist): Fix compiler-macro
+	autoloading when specified as a lambda.
+
+	* simple.el (execute-extended-command--last-typed): New var.
+	(read-extended-command): Set it.
+	Don't complete obsolete commands.
+	(execute-extended-command--shorter-1)
+	(execute-extended-command--shorter): New functions.
+	(execute-extended-command): Use them to suggest shorter names.
+	(indicate-copied-region, deactivate-mark): Use region-active-p.
+
+2014-11-03  Michael Albinus  <michael.albinus@gmx.de>
+
+	* net/tramp-sh.el (tramp-do-copy-or-rename-file-via-buffer): Use a
+	local copy of FILENAME, when it is remote.  (Bug#18751)
+
+	* net/tramp-adb.el (tramp-adb-handle-process-file): Do not raise
+	an error when the command fails; the return code must indicate.
+	(tramp-adb-send-command-and-check): Fix docstring.
+
+2014-11-03  Lars Magne Ingebrigtsen  <larsi@gnus.org>
+
+	* net/shr.el (shr-retransform-dom): Don't ignore elements that
+	have no children like <br />.
+
+	* net/eww.el (eww-display-html): Clear `url-queue'.
+	(eww-display-pdf): New function.
+	(eww-render): Display PDFs with `doc-view'.
+	(url-queue): Require `url-queue' to avoid compilation warning.
+	(eww-colorize-region): Remove duplicate function.
+	(eww-tag-body): Use `shr-colorize-region'.
+
+2014-11-03  Yoni Rabkin <yrk@gnu.org>
+
+	* net/eww.el (eww-list-bookmarks): Autoload.
+
+2014-11-03  Lars Magne Ingebrigtsen  <larsi@gnus.org>
+
+	* net/shr.el (shr-retransform-dom): Allow several text sub-nodes.
+
+	* net/eww.el (eww-display-html): The charset is called `utf-8',
+	not `utf8'.
+	(eww-readable): Decode the saved text correctly.
+	(eww-readable): Save the history before displaying so that we can
+	go back to the non-readable version.
+	(eww-display-html): Don't try to decode the text if we've been
+	passed in a pre-parsed DOM.
+	(eww-tag-title): Remove newlines and extra whitespace from the
+	displayed title.
+
+2014-11-02  Lars Magne Ingebrigtsen  <larsi@gnus.org>
+
+	* net/eww.el (eww-readable): New command and keystroke.
+
+	* net/shr.el (shr-retransform-dom): New function.
+
+	* net/eww.el (eww-display-html): Set `eww-current-source' in the
+	correct buffer.
+	(eww-view-source): Use it.
+
+2014-11-02  Ivan Shmakov <ivan@siamics.net>
+
+	* net/eww.el (eww): Recognize colon-delimited IPv6 addresses.
+	(Bug#18603).
+
+2014-11-02  Brian McKenna <brian@brianmckenna.org>  (tiny change)
+
+	* net/eww.el (eww-submit): Encode empty form values as "".  (Bug#17785).
+
+2014-11-02  Ivan Shmakov <ivan@siamics.net>
+
+	* net/eww.el (eww): Allow "file:/file/name" URLs.  (Bug#18825).
+
+2014-11-02  Ivan Shmakov <ivan@siamics.net>
+
+	* net/eww.el (eww-mode-map): Remove mentions of `eww-quit'.
+	(Bug#18834).
+
+2014-11-02  Eric Abrahamsen  <eric@ericabrahamsen.net>
+
+	* emacs-lisp/eieio.el (eieio-edebug-prin1-to-string): Adjust for
+	use as advice.
+	(edebug-setup-hook): Advise `edebug-prin1-to-string'.  (Bug#18897)
+
 2014-11-02  Stefan Monnier  <monnier@iro.umontreal.ca>
 
 	* emacs-lisp/pp.el (pp-macroexpand-expression): Use macroexpand-1

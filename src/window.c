@@ -3337,7 +3337,9 @@ run_window_configuration_change_hook (struct frame *f)
     = Fdefault_value (Qwindow_configuration_change_hook);
   XSETFRAME (frame, f);
 
-  if (NILP (Vrun_hooks) || !(f->official))
+  if (NILP (Vrun_hooks)
+      || !(f->can_x_set_window_size)
+      || !(f->can_run_window_configuration_change_hook))
     return;
 
   /* Use the right buffer.  Matters when running the local hooks.  */
@@ -4930,8 +4932,8 @@ window_scroll_pixel_based (Lisp_Object window, int n, bool whole, int noerror)
       /* The function move_iterator_vertically may move over more than
 	 the specified y-distance.  If it->w is small, e.g. a
 	 mini-buffer window, we may end up in front of the window's
-	 display area.  This is the case when Start displaying at the
-	 start of the line containing PT in this case.  */
+	 display area.  Start displaying at the start of the line
+	 containing PT in this case.  */
       if (it.current_y <= 0)
 	{
 	  init_iterator (&it, w, PT, PT_BYTE, NULL, DEFAULT_FACE_ID);
@@ -6204,8 +6206,8 @@ the return value is nil.  Otherwise the value is t.  */)
 	    call1 (Qrecord_window_buffer, window);
 	}
 
-      /* Consider frame unofficial, temporarily.  */
-      f->official = false;
+      /* Disallow x_set_window_size, temporarily.  */
+      f->can_x_set_window_size = false;
       /* The mouse highlighting code could get screwed up
 	 if it runs during this.  */
       block_input ();
@@ -6414,10 +6416,10 @@ the return value is nil.  Otherwise the value is t.  */)
 	    ++n;
 	}
 
-      /* Make frame official again and apply frame size changes if
+      /* Allow x_set_window_size again and apply frame size changes if
 	 needed.  */
-      f->official = true;
-      adjust_frame_size (f, -1, -1, 1, 0);
+      f->can_x_set_window_size = true;
+      adjust_frame_size (f, -1, -1, 1, 0, Qnil);
 
       adjust_frame_glyphs (f);
       unblock_input ();

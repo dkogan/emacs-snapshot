@@ -328,11 +328,13 @@ struct frame
      in pixels.  */
   bool_bf new_pixelwise : 1;
 
-  /* True if frame has been added to Vframe_list and is henceforth
-     considered official.  For in-official frames we neither process
-     x_set_window_size requests nor do we allow running
-     window-configuration-change-hook when resizing windows.  */
-  bool_bf official : 1;
+  /* True means x_set_window_size requests can be processed for this
+     frame.  */
+  bool_bf can_x_set_window_size : 1;
+
+  /* True means run_window_configuration_change_hook can be processed
+     for this frame.  */
+  bool_bf can_run_window_configuration_change_hook : 1;
 
   /* Bitfield area ends here.  */
 
@@ -1117,8 +1119,8 @@ extern void check_window_system (struct frame *);
 extern void frame_make_pointer_invisible (struct frame *);
 extern void frame_make_pointer_visible (struct frame *);
 extern Lisp_Object delete_frame (Lisp_Object, Lisp_Object);
-extern bool frame_inhibit_resize (struct frame *, bool);
-extern void adjust_frame_size (struct frame *, int, int, int, bool);
+extern bool frame_inhibit_resize (struct frame *, bool, Lisp_Object);
+extern void adjust_frame_size (struct frame *, int, int, int, bool, Lisp_Object);
 
 extern Lisp_Object Vframe_list;
 
@@ -1379,6 +1381,11 @@ extern Lisp_Object Qx_resource_name;
 
 extern Lisp_Object Qtop, Qbox, Qbottom;
 extern Lisp_Object Qdisplay;
+
+extern Lisp_Object Qframe_position, Qframe_outer_size, Qframe_inner_size;
+extern Lisp_Object Qexternal_border_size, Qtitle_height;
+extern Lisp_Object Qmenu_bar_external, Qmenu_bar_size;
+extern Lisp_Object Qtool_bar_external, Qtool_bar_size;
 
 extern Lisp_Object Qrun_hook_with_args;
 

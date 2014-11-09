@@ -1,3 +1,159 @@
+2014-11-09  Paul Eggert  <eggert@cs.ucla.edu>
+
+	* xgselect.c (xg_select): Don't assume n_gfds is nonnegative
+	merely because tmo_in_millisec is nonnegative.  The 1st call
+	to g_main_context_query could succeed while the 2nd one fails.
+
+	* frame.c (Fcan_run_window_configuration_change_hook): Return a value.
+
+2014-11-08  Jan Djärv  <jan.h.d@swipnet.se>
+
+	* nsterm.m (run): Only use non-system event loop if OSX version is
+	exactly 10.9 (Bug#18993).
+	(ns_set_vertical_scroll_bar): Don't call bar setPosition: unless
+	needed (Bug#18757).
+
+2014-11-08  Michael Albinus  <michael.albinus@gmx.de>
+
+	* callproc.c (encode_current_directory): Support handling of file
+	names prepended by "/:".  (Bug#18891)
+
+2014-11-08  Alan Mackenzie  <acm@muc.de>
+
+	* syntax.c (back_comment): Fix off-by-one error (bug#18022).
+
+2014-11-08  Dima Kogan  <dima@secretsauce.net>
+
+	* xgselect.c (xg_select): Use g_main_context_acquire (bug#18861).
+
+2014-11-08  Michael Albinus  <michael.albinus@gmx.de>
+
+	* dired.c (Ffile_attributes): Return Qnil, if Fexpand_file_name
+	raises an error.  (Bug#18891)
+
+2014-11-08  Martin Rudalics  <rudalics@gmx.at>
+
+	* frame.c (adjust_frame_size): Call x_set_window_size only if
+	f->can_x_set_window_size is set.
+	(make_frame): Initialize f->can_x_set_window_size and
+	f->can_run_window_configuration_change_hook.
+	(Fcan_run_window_configuration_change_hook): New function.
+	* frame.h (frame): Split `official' into `can_x_set_window_size'
+	and `can_run_window_configuration_change_hook'.
+	* nsfns.m (Fx_create_frame): Set f->can_x_set_window_size.
+	* w32fns.c (Fx_create_frame, x_create_tip_frame): Set
+	f->can_x_set_window_size.
+	* window.c (run_window_configuration_change_hook): Return
+	immediately if either f->can_x_set_window_size or
+	f->can_run_window_configuration_change_hook are false.
+	(Fset_window_configuration): Instead of f->official set
+	f->can_x_set_window_size.
+	* xfns.c (Fx_create_frame, x_create_tip_frame): Set
+	f->can_x_set_window_size.
+
+2014-11-08  Jan Djärv  <jan.h.d@swipnet.se>
+
+	* nsterm.m (EmacsScroller.dealloc): Reinstate, removed at merge
+	cleanup from 2014-11-01 (Bug#18972).
+
+2014-11-07  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* keyboard.c: Call gui-set-selection instead of x-set-selection.
+	* xdisp.c (window-scroll-functions): Improve docstring.
+
+2014-11-07  Paul Eggert  <eggert@cs.ucla.edu>
+
+	Uniquify the 'size' symbol.
+	* frame.c (Qsize):
+	* w32notify.c (Qsize): Remove.
+	* lisp.h (Qsize): New decl.
+	* lread.c (Qsize): Now extern.
+	* w32notify.c (syms_of_w32notify): No need to defsym.
+
+2014-11-07  Martin Rudalics  <rudalics@gmx.at>
+
+	* dispnew.c (change_frame_size_1): Fix call of
+	adjust_frame_size.
+	* frame.c (Qsize, Qframe_position, Qframe_outer_size)
+	(Qframe_inner_size, Qexternal_border_size, Qtitle_height)
+	(Qmenu_bar_external, Qmenu_bar_size, Qtool_bar_external)
+	(Qtool_bar_size): New constants.
+	(frame_inhibit_resize, adjust_frame_size): New argument to
+	handle case where frame_inhibit_implied_resize is a list.
+	(Fmake_terminal_frame, Fset_frame_height, Fset_frame_width)
+	(Fset_frame_size, x_set_left_fringe, x_set_right_fringe)
+	(x_set_right_divider_width, x_set_bottom_divider_width)
+	(x_set_vertical_scroll_bars, x_set_horizontal_scroll_bars)
+	(x_set_scroll_bar_width, x_set_scroll_bar_height):
+	Update callers.
+	(frame-inhibit-implied-resize): Rewrite doc-string.
+	* frame.h (frame_inhibit_resize, adjust_frame_size):
+	Fix external declarations.
+	(Qframe_position, Qframe_outer_size)
+	(Qframe_inner_size, Qexternal_border_size, Qtitle_height)
+	(Qmenu_bar_external, Qmenu_bar_size, Qtool_bar_external)
+	(Qtool_bar_size): Extern them.
+	* gtkutil.c (FRAME_TOTAL_PIXEL_HEIGHT, FRAME_TOTAL_PIXEL_WIDTH)
+	(xg_height_or_width_changed): Remove.
+	(xg_frame_set_char_size): Adjust adjust_frame_size calls.
+	(menubar_map_cb, xg_update_frame_menubar, free_frame_menubar)
+	(tb_size_cb, update_frame_tool_bar, free_frame_tool_bar)
+	(xg_change_toolbar_position): Call adjust_frame_size directly.
+	* nsfns.m (x_set_internal_border_width, Fx_create_frame):
+	Fix calls of adjust_frame_size.
+	* w32fns.c (x_set_internal_border_width, x_set_menu_bar_lines)
+	(Fx_create_frame, x_create_tip_frame): Adjust adjust_frame_size calls.
+	(x_set_tool_bar_lines, x_change_tool_bar_height): Make sure that
+	frame can get resized when tool-bar-lines parameter changes from
+	or to zero.
+	(Fw32_frame_menu_bar_size): Return fourth value.
+	(Fw32_frame_rect): Block input around system calls
+	(Fx_frame_geometry): New function.
+	* w32menu.c (set_frame_menubar): Adjust adjust_frame_size call.
+	* w32term.c (x_new_font): Adjust adjust_frame_size call.
+	* widget.c (EmacsFrameSetCharSize): Adjust frame_inhibit_resize call.
+	* window.c (Fset_window_configuration): Adjust adjust_frame_size call.
+	* xfns.c (x_set_menu_bar_lines, x_set_internal_border_width)
+	(Fx_create_frame): Adjust adjust_frame_size calls.
+	(x_set_tool_bar_lines, x_change_tool_bar_height): Make sure that
+	frame can get resized when tool-bar-lines parameter changes from
+	or to zero.
+	(Fx_frame_geometry): New function.
+	* xmenu.c (update_frame_menubar): On Lucid call
+	adjust_frame_size with one pixel less height to avoid that
+	repeatedly adding/removing the menu bar grows the frame.
+	(free_frame_menubar): On Motif arrange to optionally preserve
+	the old frame height when removing the menu bar.
+	* xterm.c (x_new_font): Adjust adjust_frame_size call.
+
+2014-11-03  Eli Zaretskii  <eliz@gnu.org>
+
+	* xdisp.c (Fdump_glyph_matrix, Fdump_frame_glyph_matrix): Doc fix.
+	(Fdump_frame_glyph_matrix): Don't segfault if invoked on a GUI
+	frame; instead, print an error message.
+
+2014-11-03  Jan Djärv  <jan.h.d@swipnet.se>
+
+	* nsfns.m (ns_set_doc_edited): Check for FRAME_NS (Bug#18925).
+
+2014-11-02  Jan Djärv  <jan.h.d@swipnet.se>
+
+	* nsimage.m (allocInitFromFile:): Initialize bmRep.
+	(dealloc): Release bmRep.
+
+	* nsterm.h (EmacsImage): Remove imageListNext, refCount, reference,
+	imageListSetNext, imageListNext.
+
+	* nsimage.m (ImageList, imageListNext, imageListSetNext:)
+	(reference): Remove.
+	(allocInitFromFile:): Remove searching ImageList and calling
+	reference (Bug#18918).
+	(dealloc): Remove handling if ImageList.
+
+2014-11-02  Andreas Schwab  <schwab@linux-m68k.org>
+
+	* process.c (catch_child_signal): Fix incorrect assertion.
+
 2014-11-01  Jan Djärv  <jan.h.d@swipnet.se>
 
 	* macfont.m (macfont_draw):
@@ -74,8 +230,8 @@
 	* fileio.c (Fexpand_file_name): Use make_unibyte_string, not
 	build_string, when importing a home directory.  (Bug#18873)
 
-	* dispnew.c (buffer_posn_from_coords): Use
-	WINDOW_WANTS_HEADER_LINE_P, not WINDOW_WANTS_MODELINE_P, to
+	* dispnew.c (buffer_posn_from_coords):
+	Use WINDOW_WANTS_HEADER_LINE_P, not WINDOW_WANTS_MODELINE_P, to
 	account for the header-line height.  (Bug#18839)
 
 2014-10-28  Ulf Jasper  <ulf.jasper@web.de>
@@ -90,8 +246,8 @@
 	(ns_string_to_pasteboard_internal): Correct comment.
 	type => gtype in eassert, Call ns_store_pb_change_count.
 	(Fns_own_selection_internal): Remove data, use value (Bug#18799).
-	(Fns_disown_selection_internal, Fns_selection_owner_p): Replace
-	Vselection_alist check, with change count check.
+	(Fns_disown_selection_internal, Fns_selection_owner_p):
+	Replace Vselection_alist check, with change count check.
 	(Fns_get_selection): Initialize val to Qnil.  Only get local
 	selection if change counts match (Bug#18799).
 	(nxatoms_of_nsselect): Initialize pasteboard_changecount.
@@ -117,8 +273,8 @@
 2014-10-23  Martin Rudalics  <rudalics@gmx.at>
 
 	* frame.c (Fset_frame_height, Fset_frame_width, Fset_frame_size)
-	(frame_resize_pixelwise, frame_inhibit_implied_resize): Fix
-	doc-strings (Bug#18789).
+	(frame_resize_pixelwise, frame_inhibit_implied_resize):
+	Fix doc-strings (Bug#18789).
 
 2014-10-23  Paul Eggert  <eggert@cs.ucla.edu>
 
