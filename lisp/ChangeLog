@@ -1,3 +1,78 @@
+2014-11-10  Lars Magne Ingebrigtsen  <larsi@gnus.org>
+
+	* net/eww.el (eww-form-file): :type isn't a valid `defface' keyword.
+
+2014-11-10  Kenjiro NAKAYAMA  <nakayamakenjiro@gmail.com>
+
+        * net/eww.el(eww-form-file(defface)): New defface of file upload form.
+        (eww-submit-file): New key map of file upload.
+        (eww-form-file): New file upload button and file name context.
+        (eww-select-file): Select file and display selected file name.
+        (eww-tag-input): Handle input tag of file type.
+        (eww-update-field): Add point offset.
+        (eww-submit): Add submit with multipart/form-data.
+
+2014-11-10  Lars Magne Ingebrigtsen  <larsi@gnus.org>
+
+	* net/eww.el (eww-render, eww-display-html, eww-setup-buffer):
+	Allow taking a buffer to render data in.  This allows using several
+	eww buffers (bug#16211).
+
+2014-11-10  Charles Rendleman  <carendle@gmail.com>  (tiny change)
+
+	* net/eww.el (eww-download-callback): Save only the file contents,
+	not the headers.
+
+2014-11-10  Lars Magne Ingebrigtsen  <larsi@gnus.org>
+
+	* net/eww.el (eww-data): New plist to store all the data relevant
+	to a single page, used throughout the file instead of the
+	variables `eww-current-url', `eww-current-dom',
+	`eww-current-source', and `eww-current-title'.
+	(eww-readable): Copy over pertinent data from the parent page.
+	(eww-save-history): Don't let the history grow infinitely.
+
+	* net/eww.el: Remove `eww-next-url', `eww-previous-url',
+	`eww-up-url', `eww-home-url', `eww-start-url' and
+	`eww-contents-url' and put the data into the `eww-data' plist.
+	This allow restoring these values after going back in the history.
+
+2014-11-10  Sylvain Chouleur  <sylvain.chouleur@gmail.com>  (tiny change)
+
+	Allow VTIMEZONE where daylight and standard time zones are equal.
+	See: http://lists.gnu.org/archive/html/emacs-devel/2014-11/msg00494.html
+	* calendar/icalendar.el (icalendar--convert-tz-offset):
+	Support timezone without daylight saving time.
+
+2014-11-10  Glenn Morris  <rgm@gnu.org>
+
+	* startup.el (command-line): Handle nil elements in load-path.
+
+2014-11-10  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* help.el (view-lossage): Include the actual commands run.
+
+2014-11-10  Dmitry Gutov  <dgutov@yandex.ru>
+
+	* vc/vc-dir.el (vc-dir-hide-state): Also hide `ignored' items when
+	no state is specified.  (Bug#18964)
+
+2014-11-09  Eric Ludlam  <zappo@gnu.org>
+
+	* emacs-lisp/eieio-custom.el (eieio-customize-object):
+	Set eieio-cog (current group) to g, which is an improved form of input
+	group.
+
+2014-11-09  Juri Linkov  <juri@jurta.org>
+
+	* isearch.el (isearch-message-prefix): Show "Multi-file" and
+	"Multi-buffer" instead of "Multi".  (Bug#13592)
+
+	* misearch.el (multi-isearch-file-list):
+	Autoload multi-isearch-buffer-list and multi-isearch-file-list.
+	(multi-isearch-end): Reset multi-isearch-buffer-list and
+	multi-isearch-file-list to nil.
+
 2014-11-09  Stefan Monnier  <monnier@iro.umontreal.ca>
 
 	* emacs-lisp/bytecomp.el (byte-compile-initial-macro-environment):
@@ -49,8 +124,8 @@
 2014-11-08  Alan Mackenzie  <acm@muc.de>
 
 	Fix wrong bound to c-font-lock-declarators.  Fixes bug #18948.
-	* progmodes/cc-fonts.el (c-font-lock-declarations): Pass
-	"(point-max)" as bound to c-font-lock-declarators, not "limit", as
+	* progmodes/cc-fonts.el (c-font-lock-declarations):
+	Pass "(point-max)" as bound to c-font-lock-declarators, not "limit", as
 	the buffer is sometimes narrowed to less than "limit" (e.g., in
 	the presence of macros).
 

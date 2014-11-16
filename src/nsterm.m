@@ -3803,6 +3803,7 @@ ns_set_vertical_scroll_bar (struct window *window,
           bar = XNS_SCROLL_BAR (window->vertical_scroll_bar);
           [bar removeFromSuperview];
           wset_vertical_scroll_bar (window, Qnil);
+          [bar release];
         }
       ns_clear_frame_area (f, left, top, width, height);
       unblock_input ();
@@ -3832,7 +3833,8 @@ ns_set_vertical_scroll_bar (struct window *window,
         }
     }
 
-  [bar setPosition: position portion: portion whole: whole];
+  if (update_p)
+    [bar setPosition: position portion: portion whole: whole];
   unblock_input ();
 }
 
@@ -3852,6 +3854,7 @@ ns_set_horizontal_scroll_bar (struct window *window,
   int top, height, left, width;
   int window_x, window_width;
   int pixel_width = WINDOW_PIXEL_WIDTH (window);
+  BOOL update_p = YES;
 
   /* optimization; display engine sends WAY too many of these.. */
   if (!NILP (window->horizontal_scroll_bar))
@@ -3866,6 +3869,7 @@ ns_set_horizontal_scroll_bar (struct window *window,
             }
           else
             view->scrollbarsNeedingUpdate--;
+          update_p = NO;
         }
     }
 
@@ -3907,6 +3911,7 @@ ns_set_horizontal_scroll_bar (struct window *window,
 
       bar = [[EmacsScroller alloc] initFrame: r window: win];
       wset_horizontal_scroll_bar (window, make_save_ptr (bar));
+      update_p = YES;
     }
   else
     {
@@ -3992,8 +3997,8 @@ ns_judge_scroll_bars (struct frame *f)
     {
       view = [subviews objectAtIndex: i];
       if (![view isKindOfClass: [EmacsScroller class]]) continue;
-      [view judge];
-      removed = YES;
+      if ([view judge])
+        removed = YES;
     }
 
   if (removed)
@@ -7223,9 +7228,10 @@ if (cols > 0 && rows > 0)
 }
 
 
-- judge
+-(bool)judge
 {
   NSTRACE (judge);
+  bool ret = condemned;
   if (condemned)
     {
       EmacsView *view;
@@ -7234,11 +7240,14 @@ if (cols > 0 && rows > 0)
       view = (EmacsView *)FRAME_NS_VIEW (frame);
       if (view != nil)
         view->scrollbarsNeedingUpdate++;
+      if (window)
+        wset_vertical_scroll_bar (window, Qnil);
+      window = 0;
       [self removeFromSuperview];
       [self release];
       unblock_input ();
     }
-  return self;
+  return ret;
 }
 
 
@@ -7292,11 +7301,6 @@ if (cols > 0 && rows > 0)
       [self setFloatValue: pos knobProportion: por];
 #endif
     }
-
-  /* Events may come here even if the event loop is not running.
-     If we don't enter the event loop, the scroll bar will not update.
-     So send SIGIO to ourselves.  */
-  if (apploopnr == 0) raise (SIGIO);
 
   return self;
 }

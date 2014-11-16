@@ -94,13 +94,7 @@ Root must be the root of an Emacs source tree."
 		       (rx (and "AC_INIT" (1+ (not (in ?,)))
                                 ?, (0+ space)
                                 (submatch (1+ (in "0-9."))))))
-  (set-version-in-file root "doc/emacs/emacsver.texi" version
-		       (rx (and "EMACSVER" (1+ space)
-				(submatch (1+ (in "0-9."))))))
-  (set-version-in-file root "doc/man/emacs.1" version
-		       (rx (and ".TH EMACS" (1+ not-newline)
-                                "GNU Emacs" (1+ space)
-				(submatch (1+ (in "0-9."))))))
+  ;; No longer used, broken in multiple ways, updating version seems pointless.
   (set-version-in-file root "nt/config.nt" version
 		       (rx (and bol "#" (0+ blank) "define" (1+ blank)
 				"VERSION" (1+ blank) "\""
@@ -109,6 +103,7 @@ Root must be the root of an Emacs source tree."
 		       (rx (and bol "/^#undef " (1+ not-newline)
 				"define VERSION" (1+ space) "\""
 				(submatch (1+ (in "0-9."))))))
+  ;; No longer used, broken in multiple ways, updating version seems pointless.
   (set-version-in-file root "nt/makefile.w32-in" version
 		       (rx (and "VERSION" (0+ space) "=" (0+ space)
 				(submatch (1+ (in "0-9."))))))
@@ -163,9 +158,6 @@ Root must be the root of an Emacs source tree."
 				    ?\( (submatch (1+ (in "0-9"))) ?\))))
       (set-version-in-file root "etc/refcards/ru-refcard.tex" version
 			   "\\\\newcommand{\\\\versionemacs}\\[0\\]\
-{\\([0-9]\\{2,\\}\\)}.+%.+version of Emacs")
-      (set-version-in-file root "etc/refcards/emacsver.tex" version
-			   "\\\\def\\\\versionemacs\
 {\\([0-9]\\{2,\\}\\)}.+%.+version of Emacs")))
   (message "Setting version numbers...done"))
 
@@ -201,7 +193,7 @@ Root must be the root of an Emacs source tree."
     (set-version-in-file root "etc/refcards/ru-refcard.tex" copyright
 			 "\\\\newcommand{\\\\cyear}\\[0\\]\
 {\\([0-9]\\{4\\}\\)}.+%.+copyright year")
-    (set-version-in-file root "etc/refcards/emacsver.tex" copyright
+    (set-version-in-file root "etc/refcards/emacsver.tex.in" copyright
 			 "\\\\def\\\\year\
 {\\([0-9]\\{4\\}\\)}.+%.+copyright year"))
   (message "Setting copyrights...done"))
@@ -611,7 +603,7 @@ style=\"text-align:left\">")
 
 
 (defconst make-manuals-dist-output-variables
-  `(("@srcdir@" . ".")
+  `(("@\\(top_\\)?srcdir@" . ".")	; top_srcdir is wrong, but not used
     ("^\\(\\(?:texinfo\\|buildinfo\\|emacs\\)dir *=\\).*" . "\\1 .")
     ("^\\(clean:.*\\)" . "\\1 infoclean")
     ("@MAKEINFO@" . "makeinfo")
@@ -655,11 +647,13 @@ style=\"text-align:left\">")
 		   (string-match-p "\\.\\(eps\\|pdf\\)\\'" file)))
 	  (copy-file file stem)))
     (with-temp-buffer
-      (insert-file-contents (format "../doc/%s/Makefile.in" type))
-      (dolist (cons make-manuals-dist-output-variables)
-	(while (re-search-forward (car cons) nil t)
-	  (replace-match (cdr cons) t))
-	(goto-char (point-min)))
+      (let ((outvars make-manuals-dist-output-variables))
+	(push `("@version@" . ,version) outvars)
+	(insert-file-contents (format "../doc/%s/Makefile.in" type))
+	(dolist (cons outvars)
+	  (while (re-search-forward (car cons) nil t)
+	    (replace-match (cdr cons) t))
+	  (goto-char (point-min))))
       (let (ats)
 	(while (re-search-forward "@[a-zA-Z_]+@" nil t)
 	  (setq ats t)

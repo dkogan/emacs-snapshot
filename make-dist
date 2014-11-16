@@ -169,9 +169,8 @@ fi
 echo Version number is $version
 
 if [ $update = yes ]; then
-  if ! grep -q "@set EMACSVER  *${version}" doc/emacs/emacsver.texi || \
-     ! grep -q "tree holds version  *${version}" README; then
-    echo "WARNING: README and/or emacsver.texi have the wrong version number"
+  if ! grep -q "tree holds version  *${version}" README; then
+    echo "WARNING: README has the wrong version number"
     echo "Consider running M-x set-version from admin/admin.el"
     sleep 5
   fi
@@ -504,8 +503,9 @@ echo "Making links to \`doc/lispintro'"
 
 echo "Making links to \`doc/man'"
 (cd doc/man
- ln ChangeLog* *.1 ../../${tempdir}/doc/man
- cd ../../${tempdir}/doc/man)
+ ln ChangeLog* *.1 *.in ../../${tempdir}/doc/man
+ cd ../../${tempdir}/doc/man
+ rm -f emacs.1)
 
 ### It would be nice if they could all be symlinks to top-level copy, but
 ### you're not supposed to have any symlinks in distribution tar files.

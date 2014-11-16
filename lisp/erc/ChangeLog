@@ -1,3 +1,7 @@
+2014-11-10  Kelvin White  <kwhite@gnu.org>
+
+	* erc-stamp.el (erc-timestamp-intangible): Change version tag to 24.5.
+
 2014-11-05  Stefan Monnier  <monnier@iro.umontreal.ca>
 
 	* erc.el (erc-send-input): Bind `str' dynamically (bug#18936).

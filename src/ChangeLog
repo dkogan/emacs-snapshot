@@ -1,3 +1,27 @@
+2014-11-10  Eli Zaretskii  <eliz@gnu.org>
+
+	* fileio.c (Finsert_file_contents): Invalidate buffer caches also
+	when the inserted text does not need decoding.  (Bug#18982)
+
+2014-11-10  Jan Djärv  <jan.h.d@swipnet.se>
+
+	* nsterm.h (EmacsScroller): judge returns bool.
+
+	* nsterm.m (ns_set_vertical_scroll_bar): Release bar.
+	(ns_judge_scroll_bars): Only set removed if judge returns true.
+	(judge): Returns bool == condemned.  Remove self from window.
+	(setPosition:portion:whole:): Remove raise SIGIO (Bug#18757).
+
+2014-11-10  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* keyboard.c (command_loop_1): Record this-command in recent-keys.
+	(Frecent_keys): Rewrite. and add optional `include-cmds' arg.
+
+2014-11-09  Jan Djärv  <jan.h.d@swipnet.se>
+
+	* nsterm.m (ns_set_vertical_scroll_bar)
+	(ns_set_horizontal_scroll_bar): Cleanup merge error.
+
 2014-11-09  Paul Eggert  <eggert@cs.ucla.edu>
 
 	* xgselect.c (xg_select): Don't assume n_gfds is nonnegative

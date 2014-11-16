@@ -49,6 +49,8 @@ Use './configure PKG_CONFIG=/full/name/of/pkg-config' if you need to.
 
 * Changes in Emacs 25.1
 
+** C-h l now also lists the commands that were run.
+
 ** M-x suggests shorthands and ignores obsolete commands for completion.
 ** x-select-enable-clipboard is renamed select-enable-clipboard.
 x-select-enable-primary and renamed select-enable-primary.
@@ -127,12 +129,14 @@ Unicode standards.
 
 ** Search and Replace
 
-*** `M-p' in query-replace minibuffer that reads the FROM string
-now moves through pairs of previous replacements where FROM and TO
-parts are separated by an arrow defined by the new variable
-`query-replace-from-to-separator'.  After exiting the minibuffer,
-replacement is performed with the FROM and TO values extracted
-from the strings before and after the separator.
+*** Query-replace history is enhanced.
+When query-replace reads the FROM string from the minibuffer, typing
+`M-p' will now show previous replacements as "FROM SEP TO", where FROM
+and TO are the original text and its replacement, and SEP is an arrow
+string defined by the new variable `query-replace-from-to-separator'.
+To select a prior replacement, type `M-p' until the desired
+replacement appears in the minibuffer, and then exit the minibuffer by
+typing RET.
 
 ** Calc
 +++
@@ -148,6 +152,9 @@ result of the calculation into the current buffer.
 *** A new command `R' (`eww-readable') will try do identify the main
 textual parts of a web page and display only that, leaving menus and
 the like off the page.
+
+*** You can now use several eww buffers in parallel by renaming eww
+buffers you want to keep separate.
 
 ** Message mode
 
