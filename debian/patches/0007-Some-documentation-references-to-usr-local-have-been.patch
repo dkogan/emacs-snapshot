@@ -4,13 +4,13 @@ Subject: Some documentation references to /usr/local have been changed to /usr
 
 Signed-off-by: Julien Danjou <julien@danjou.info>
 ---
- doc/man/emacs.1 | 10 +++++-----
+ doc/man/emacs.1.in | 10 +++++-----
  1 file changed, 5 insertions(+), 5 deletions(-)
 
-diff --git a/doc/man/emacs.1 b/doc/man/emacs.1
-index 6ad6ee1..f4dd0f1 100644
---- a/doc/man/emacs.1
-+++ b/doc/man/emacs.1
+diff --git a/doc/man/emacs.1.in b/doc/man/emacs.1.in
+index fc7be71..d30f800 100644
+--- a/doc/man/emacs.1.in
++++ b/doc/man/emacs.1.in
 @@ -554,24 +554,24 @@ distribution.
  .
  .
