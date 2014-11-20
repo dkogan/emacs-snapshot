@@ -1,0 +1,36 @@
+-*-text-*-
+
+This package was debianized by Rob Browning <rlb@defaultvalue.org>
+on Tue, 16 Dec 1997 00:05:45 -0600 and is now maintained by
+Dima Kogan <dima@secretsauce.net>.
+
+The Debian source is based on a git checkout of the GNU Emacs Bazaar trunk,
+which can be obtained with:
+
+  git clone git://git.savannah.gnu.org/emacs.git
+
+For more details, see <URL: http://savannah.gnu.org/projects/emacs>.
+
+Please see /usr/share/doc/@BIN_NAME@-common/README.Debian for a
+description of the Debian specific differences from the upstream
+version.
+
+Copyright:
+
+  GNU Emacs is Copyright (C) 1985, 1986, 1987, 1993-2007 Free Software
+  Foundation, Inc. 51 Franklin St, Fifth Floor, Boston, MA 02110-1301
+  USA and is covered under the terms of the GPL.  See the file
+  /usr/share/common-licenses/GPL for more information.
+
+  The GNU Emacs Manual is Copyright (C) 1985, 1986, 1987, 1993-2007 Free
+  Software Foundation, Inc. 51 Franklin St, Fifth Floor, Boston, MA
+  02110-1301 USA.  It is covered under the terms of the GNU Free
+  Documentation License, version 1.2 or later.  See node `GNU Free
+  Documentation License' in the Info manual (emacs) for details.
+
+  The GNU Emacs Manual and related manuals in /usr/share/info/@BIN_NAME@
+  are Copyright (C) 1985, 1986, 1987, 1993-2007 Free Software
+  Foundation, Inc.  51 Franklin St, Fifth Floor, Boston, MA 02110-1301
+  USA.  They are covered under the terms of the GNU Free Documentation
+  License, version 1.2 or later.  See node `GNU Free Documentation
+  License' in the Info manual (emacs) for details.

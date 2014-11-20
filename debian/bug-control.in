@@ -1,0 +1,2 @@
+report-with: @BIN_NAME@-common @BIN_NAME@-bin-common @BIN_NAME@ @BIN_NAME@-gtk @BIN_NAME@-nox @BIN_NAME@-el emacsen-common
+package-status: dictionaries-common

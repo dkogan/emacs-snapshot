@@ -1,0 +1,7 @@
+?package(@PKG_NAME@):\
+  needs="text"\
+  section="Applications/Editors"\
+  title="@MENU_TITLE@ (text)"\
+  command="/usr/bin/@BIN_NAME@ -nw"\
+  icon="/usr/share/emacs/@FULL_VERSION@/etc/emacs.xpm"\
+  hints="Text"

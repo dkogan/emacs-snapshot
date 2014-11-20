@@ -1,0 +1,51 @@
+#!/bin/sh
+
+set -e
+
+# Register ourselves as the flavor alternative
+update-alternatives \
+  --install /usr/bin/@BIN_NAME@ @BIN_NAME@ \
+            /usr/bin/@BIN_NAME@-@X_SUPPORT@ 0
+
+# emacsen-common registration: if a subflavor package is already
+# installed, don't call `emacs-install'.
+F=`ls /var/lib/@BIN_NAME@/installed-subflavors/@BIN_NAME@-* 2>/dev/null || true`
+if [ -z "$F" ]; then
+    # Set up the emacs alternative for @BIN_NAME@
+    update-alternatives \
+	--install /usr/bin/emacs emacs \
+                  /usr/bin/@BIN_NAME@ @BIN_PRIORITY@ \
+	--slave /usr/share/man/man1/emacs.1.gz emacs.1.gz \
+                /usr/share/man/man1/emacs.1@BIN_NAME@.gz
+
+    # ... then set up the editor alternative...
+    update-alternatives \
+	--install /usr/bin/editor editor \
+                  /usr/bin/@BIN_NAME@ 0 \
+	--slave /usr/share/man/man1/editor.1.gz editor.1.gz \
+                /usr/share/man/man1/emacs.1@BIN_NAME@.gz
+
+    # ... then call `emacs-install'.
+    INSTLOG=`mktemp /tmp/@BIN_NAME@.XXXXXX`
+    echo -n "Byte-compiling add-on packages, please wait..."
+    if /usr/lib/emacsen-common/emacs-install @BIN_NAME@ >$INSTLOG 2>&1; then
+	echo " done."
+	[ -z "$EMACS_DEBUG" ] && rm -f $INSTLOG
+    else
+	echo " failed."
+	echo
+	echo "!! Byte-compilation for @BIN_NAME@ failed!"
+	echo "!! This indicates a bug in one of the add-on packages"
+	echo "!! installed on your system, or a bug in Emacs itself."
+	echo "!! Please file a bug report against @BIN_NAME@"
+	echo "!! and attach the file $INSTLOG"
+	exit 1
+    fi
+fi
+
+# Register ourselves as a subflavor of this flavor
+touch /var/lib/@BIN_NAME@/installed-subflavors/@BIN_NAME@-@X_SUPPORT@
+
+#DEBHELPER#
+
+exit 0
