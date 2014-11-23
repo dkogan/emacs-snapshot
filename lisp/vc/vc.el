@@ -52,7 +52,7 @@
 
 ;; This mode is fully documented in the Emacs user's manual.
 ;;
-;; Supported version-control systems presently include CVS, RCS, GNU
+;; Supported version-control systems presently include CVS, RCS, SRC, GNU
 ;; Arch, Subversion, Bzr, Git, Mercurial, Monotone and SCCS
 ;; (or its free replacement, CSSC).
 ;;
@@ -73,6 +73,9 @@
 ;; *through the VCS tools* should safely interlock with VC
 ;; operations. Under these VC does little state caching, because local
 ;; operations are assumed to be fast.
+;;
+;; The 'assumed to be fast' category includes SRC, even though it's
+;; a wrapper around RCS.
 ;;
 ;; ADDING SUPPORT FOR OTHER BACKENDS
 ;;
@@ -996,6 +999,9 @@ current buffer."
       (if observer
 	  (vc-dired-deduce-fileset)
 	(error "State changing VC operations not supported in `dired-mode'")))
+     ((and (derived-mode-p 'log-view-mode)
+	   (setq backend (vc-responsible-backend default-directory)))
+      (list backend default-directory))
      ((setq backend (vc-backend buffer-file-name))
       (if state-model-only-files
 	(list backend (list buffer-file-name)
@@ -2684,33 +2690,6 @@ backend to NEW-BACKEND, and unregister FILE from the current backend.
       (vc-file-setprop file 'vc-state 'edited)
       (vc-mode-line file new-backend)
       (vc-checkin file new-backend comment (stringp comment)))))
-
-(defun vc-rename-master (oldmaster newfile templates)
-  "Rename OLDMASTER to be the master file for NEWFILE based on TEMPLATES."
-  (let* ((dir (file-name-directory (expand-file-name oldmaster)))
-	 (newdir (or (file-name-directory newfile) ""))
-	 (newbase (file-name-nondirectory newfile))
-	 (masters
-	  ;; List of potential master files for `newfile'
-	  (mapcar
-	   (lambda (s) (vc-possible-master s newdir newbase))
-	   templates)))
-    (when (or (file-symlink-p oldmaster)
-	      (file-symlink-p (file-name-directory oldmaster)))
-      (error "This is unsafe in the presence of symbolic links"))
-    (rename-file
-     oldmaster
-     (catch 'found
-       ;; If possible, keep the master file in the same directory.
-       (dolist (f masters)
-	 (when (and f (string= (file-name-directory (expand-file-name f)) dir))
-	   (throw 'found f)))
-       ;; If not, just use the first possible place.
-       (dolist (f masters)
-	 (and f (or (not (setq dir (file-name-directory f)))
-		    (file-directory-p dir))
-	      (throw 'found f)))
-       (error "New file lacks a version control directory")))))
 
 ;;;###autoload
 (defun vc-delete-file (file)

@@ -1,3 +1,26 @@
+2014-11-22  Glenn Morris  <rgm@gnu.org>
+
+	* Makefile.in (emacs.res): Add dependency on icons/hand.cur.  Use $<.
+
+2014-11-22  Martin Rudalics  <rudalics@gmx.at>
+
+	Don't shrink frame when using desktop-save-mode (Bug#19048).
+	* w32fns.c (x_set_tool_bar_lines): Always call
+	x_change_tool_bar_height (Bug#19048).
+	(x_change_tool_bar_height): Mark frame as garbaged since
+	adjust_frame_size might not have done that.
+	* xfns.c (x_set_tool_bar_lines): Always call
+	x_change_tool_bar_height (Bug#19048).
+	(x_change_tool_bar_height): Mark frame as garbaged since
+	adjust_frame_size might not have done that.
+
+2014-11-21  Ulf Jasper  <ulf.jasper@web.de>
+
+	* xml.c (parse_region): Take care of new optional parameter
+	'discard-comments' of 'libxml-parse(html|xml)-region'.
+	(Flibxml_parse_html_region, Flibxml_parse_xml_region): New
+	optional parameter 'discard-comments'.
+
 2014-11-17  Paul Eggert  <eggert@cs.ucla.edu>
 
 	Improve time stamp handling, and be more consistent about it.

@@ -1,19 +1,91 @@
-2014-11-20  Eric S. Raymond  <esr@snark>
+2014-11-23  Leo Liu  <sdl.web@gmail.com>
+
+	* calendar/cal-china.el (calendar-chinese-from-absolute-for-diary)
+	(calendar-chinese-to-absolute-for-diary)
+	(calendar-chinese-mark-date-pattern, diary-chinese-anniversary):
+	Handle leap months in Chinese calendar.  (Bug#18953)
+
+2014-11-22  Alan Mackenzie  <acm@muc.de>
+
+	Fix error with `mark-defun' and "protected:" in C++ Mode.
+	Fixes: debbugs:19134.
+
+	* progmodes/cc-cmds.el (c-where-wrt-brace-construct): Handle a
+	return code of (label) from c-beginning-of-decl-1.
+
+2014-11-22  Ulf Jasper  <ulf.jasper@web.de>
+
+	* net/newst-backend.el (newsticker--sentinel-work): Tell
+	`libxml-parse-xml-region' to discard comments. Fixes bug#18787.
+
+2014-11-22  Michael Albinus  <michael.albinus@gmx.de>
+
+        * net/tramp-sh.el (tramp-sh-handle-start-file-process)
+	(tramp-sh-handle-process-file): Propagate `process-environment'.
+
+	* vc/vc-hg.el (vc-hg-state): No special handling for remote files;
+	Tramp propagates environment variables now.
+
+2014-11-22  Eric S. Raymond  <esr@snark>
+
+	* vc/vc-filewise.el: New file to isolate code used only by the
+	file-oriented back ends (SCCS/RCS/CVS/SRC) which should not
+	live in vc.el and certainly not in vc-hooks.el.
+
+	* vc/vc-hooks.el, vc-rcs.el, vc-sccs.el: vc-name  -> vc-master-name.
+	This is preaparatory to isolating all the 'master' functions
+	used only by the file-oriented back ends.  With this done first,
+	the substantive diffs will be easier to read.
+
+2014-11-21  Rüdiger Sonderfeld  <ruediger@c-plusplus.net>
+
+	* play/morse.el (nato-alphabet): Mark URL in docstring in a way
+	that is recognized by `help-mode'.
+
+2014-11-21  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* desktop.el (desktop-create-buffer): Use activate-mark to set
+	`mark-active' (bug#19058).
+
+2014-11-21  Eric S. Raymond  <esr@snark>
+
+	* vc/vc-src.el (vc-src-state): Fix bug that produced spurious
+	nil state.
+
+2014-11-21  Eli Zaretskii  <eliz@gnu.org>
+
+	* vc/vc.el (vc-deduce-fileset): Support invocation from
+	*vc-change-log* buffer.  (Bug#19084)
+
+2014-11-13  Matthew Leach  <matthew@mattleach.net>
+
+	* arc-mode.el (archive-visit-single-files): New.
+	(archive-mode): Visit file if archive contains a single file.
+	(Bug#1702)
+
+2014-11-21  Ulrich Müller  <ulm@gentoo.org>
+
+	* vc/vc.el: Fix a typo in the commentary.
+
+2014-11-20  Eric S. Raymond  <esr@snark.thyrsus.com>
+
+	* vc/vc-src.el, vc/vc.el: Added support for SRC.  Needs more
+	testing and a real log-view mode.
 
 	* vc/vc-bzr.el, vc/vc-cvs.el, vc/vc-dav.el, vc/vc-git.el,
 	vc/vc-hg.el, vc/vc-mtn.el, vc/vc-rcs.el, vc/vc-sccs.el,
 	vc/vc-svn.el, vc/vc.el: Remove editable argument from the backend
 	checkout methods; where it matters (which is only in SCCS and RCS)
-	files are always checked out editable. This may actually have
+	files are always checked out editable.  This may actually have
 	been dynamically true already - it looks like the vc-next-action
-	code evolved past visiting the other case. Tested with RCS.
+	code evolved past visiting the other case.  Tested with RCS.
 
 	* vc/vc-arch.el, vc/vc-bzr.el, vc/vc-cvs.el, vc/vc-dav.el,
 	vc/vc-git.el, vc/vc-hg.el, vc/vc-mtn.el, vc/vc-rcs.el,
 	vc/vc-sccs.el, vc/vc-svn.el, vc/vc.el: Remove never-used rev
-	argument from the backend checkin methods. Only the RCS, SCCS, and
-	CVS back ends tried to do anything with it, and that code was
-	never exercised. Chiseling away the cruft of decades...
+	argument from the backend checkin methods.  Only the RCS, SCCS,
+	and CVS back ends tried to do anything with it, and that code was
+	never exercised.  Chiseling away the cruft of decades...
 
 2014-11-19  Lars Magne Ingebrigtsen  <larsi@gnus.org>
 
@@ -86,8 +158,8 @@
 2014-11-18  Leo Liu  <sdl.web@gmail.com>
 
 	* emacs-lisp/nadvice.el (define-advice): New macro.
-	* emacs-lisp/lisp-mode.el (lisp-imenu-generic-expression): Add
-	define-advice.
+	* emacs-lisp/lisp-mode.el (lisp-imenu-generic-expression):
+	Add define-advice.
 	(lisp-font-lock-keywords-1): Add define-advice.
 
 2014-11-18  Daiki Ueno  <ueno@gnu.org>
@@ -166,26 +238,26 @@
 	immediately marked as obsolete, used to handle deprecated
 	`tildify-ignored-environments-alist'.
 
-	* textmodes/tex-mode.el (tex-common-initialization): Set
-	`tildify-space-string' and `tildify-foreach-region-function'
+	* textmodes/tex-mode.el (tex-common-initialization):
+	Set `tildify-space-string' and `tildify-foreach-region-function'
 	variables in all variants of TeX mode since `tildify-string-alist'
 	and `tildify-ignored-environments-alist' are now empty by default.
 
-	* nxml/nxml-mode.el (nxml-mode): Ditto in `nxml-mode'.  If
-	encoding supports it use no-break space instead of character
+	* nxml/nxml-mode.el (nxml-mode): Ditto in `nxml-mode'.
+	If encoding supports it use no-break space instead of character
 	entity; this changes previous default which used a numeric
 	reference.
 
-	* textmodes/sgml-mode.el (sgml-mode): ditto in `sgml-mode'.  If
-	encoding does not support no-break space, use numeric reference;
+	* textmodes/sgml-mode.el (sgml-mode): ditto in `sgml-mode'.
+	If encoding does not support no-break space, use numeric reference;
 	this changes previous default which used named entity (“&nbsp;”)
 	in HTML mode.
 
 2014-11-17  Ulf Jasper  <ulf.jasper@web.de>
 
 	Fix bug#5433.
-	* calendar/icalendar.el (icalendar-export-alarms): New
-	customizable variable.
+	* calendar/icalendar.el (icalendar-export-alarms):
+	New customizable variable.
 	(icalendar-export-region): Export alarms as specified in
 	`icalendar-export-alarms'.
 	(icalendar--create-ical-alarm, icalendar--do-create-ical-alarm):
@@ -2816,8 +2888,8 @@
 	(c-typeless-decl-kwds): Append "auto" onto the C++ value.
 	(c-not-decl-init-keywords): Also exclude c-typeof-kwds from value.
 
-	Make ">>" act as double template ender in C++ Mode.  Fix
-	bug#11386.
+	Make ">>" act as double template ender in C++ Mode.
+	Fix bug#11386.
 	* progmodes/cc-langs.el (c->-op-cont-tokens): New lang-const split
 	off from c->-op-cont-re.
 	(c->-op-cont-tokens): Change to use the above.

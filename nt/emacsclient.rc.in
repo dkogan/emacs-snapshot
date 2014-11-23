@@ -1,18 +1,12 @@
-Emacs ICON   icons/emacs.ico
-32649 CURSOR icons/hand.cur
-#if defined (WIN64) || defined (__x86_64__)
-1 24 "emacs-x64.manifest"
-#else
-1 24 "emacs-x86.manifest"
-#endif
+Emacs ICON   icons\emacs.ico
 
 #ifndef VS_VERSION_INFO
 #define VS_VERSION_INFO 1
 #endif
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 25,0,50,0
- PRODUCTVERSION 25,0,50,0
+ FILEVERSION @comma_version@
+ PRODUCTVERSION @comma_version@
  FILEFLAGSMASK 0x3FL
 #ifdef EMACSDEBUG
  FILEFLAGS 0x1L
@@ -28,13 +22,13 @@ BEGIN
 	BLOCK "040904B0"
 	BEGIN
 	    VALUE "CompanyName", "Free Software Foundation\0"
-	    VALUE "FileDescription", "GNU Emacs: The extensible self-documenting text editor\0"
-	    VALUE "FileVersion", "25, 0, 50, 0\0"
-	    VALUE "InternalName", "Emacs\0"
+	    VALUE "FileDescription", "GNU EmacsClient: Client for the extensible self-documenting text editor\0"
+	    VALUE "FileVersion", "@comma_space_version@\0"
+	    VALUE "InternalName", "EmacsClient\0"
 	    VALUE "LegalCopyright", "Copyright (C) 2001-2014\0"
-	    VALUE "OriginalFilename", "emacs.exe"
-	    VALUE "ProductName", "Emacs\0"
-	    VALUE "ProductVersion", "25, 0, 50, 0\0"
+	    VALUE "OriginalFilename", "emacsclientw.exe"
+	    VALUE "ProductName", "EmacsClient\0"
+	    VALUE "ProductVersion", "@comma_space_version@\0"
 	    VALUE "OLESelfRegister", "\0"
 	 END
      END
