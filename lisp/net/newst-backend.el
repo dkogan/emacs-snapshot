@@ -1216,13 +1216,17 @@ URL `http://www.atompub.org/2005/08/17/draft-ietf-atompub-format-11.html'"
                             (car (xml-get-children node 'title)))))
                     ;; desc-fn
                     (lambda (node)
-                      ;; unxml the content node. Atom allows for
-                      ;; integrating (x)html into the atom structure
-                      ;; but we need the raw html string.
+                      ;; unxml the content or the summary node. Atom
+                      ;; allows for integrating (x)html into the atom
+                      ;; structure but we need the raw html string.
                       ;; e.g. http://www.heise.de/open/news/news-atom.xml
-                  (or (newsticker--unxml
+                      ;; http://feeds.feedburner.com/ru_nix_blogs
+                      (or (newsticker--unxml
                            (car (xml-node-children
-                                (car (xml-get-children node 'content)))))
+                                 (car (xml-get-children node 'content)))))
+                          (newsticker--unxml
+                           (car (xml-node-children
+                                 (car (xml-get-children node 'summary)))))
                           (car (xml-node-children
                                 (car (xml-get-children node 'summary))))))
                     ;; link-fn
@@ -1579,11 +1583,16 @@ argument, which is one of the items in ITEMLIST."
                   ;; item was not there
                   (setq item-new-p t)
                   (setq something-was-added t))
-                (setq newsticker--cache
-                      (newsticker--cache-add
-                       newsticker--cache (intern name) title desc link
-                       time age1 position (funcall extra-fn node)
-                       time age2))
+                (let ((extra-elements-with-guid (funcall extra-fn node)))
+                  (unless (assoc 'guid extra-elements-with-guid)
+                     (setq extra-elements-with-guid
+                           (cons `(guid nil ,(funcall guid-fn node))
+                                 extra-elements-with-guid)))
+                    (setq newsticker--cache
+                        (newsticker--cache-add
+                         newsticker--cache (intern name) title desc link
+                         time age1 position extra-elements-with-guid
+                         time age2)))
                 (when item-new-p
                   (let ((item (newsticker--cache-contains
                                newsticker--cache (intern name) title

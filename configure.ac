@@ -137,12 +137,39 @@ AM_INIT_AUTOMAKE(1.11)
 
 dnl Canonicalize the configuration name.
 AC_CANONICAL_HOST
-canonical=$host
-configuration=${host_alias-${build_alias-$host}}
 
-dnl We get MINGW64 with MSYS2, MINGW32 with MSYS.
-case $canonical in
+case $host in
  *-mingw*)
+
+  if test -z "$host_alias"; then
+
+      # No --host argument was given to 'configure'; therefore $host
+      # was set to a default value based on the build platform.  But
+      # this default value may be wrong if we are building from a
+      # 64-bit MSYS[2] pre-configured to build 32-bit MinGW programs.
+      # Therefore, we'll try to get the right host platform from the
+      # compiler's target.
+
+      AC_MSG_CHECKING([the compiler's target])
+      if test -z "$CC"; then
+	  cc=gcc
+      else
+	  cc=$CC
+      fi
+      cc_target=`$cc -v 2>&1 | sed -n 's/Target: //p'`
+      case "$cc_target" in
+          *-*) host=$cc_target
+	      ;;
+          "") AC_MSG_ERROR([Impossible to obtain $cc compiler target.
+Please explicitly provide --host.])
+              ;;
+	  *) AC_MSG_WARN([Compiler reported non-standard target.
+Defaulting to $host.])
+              ;;
+      esac
+      AC_MSG_RESULT([$host])
+  fi
+
   . $srcdir/nt/mingw-cfg.site
 
   case $srcdir in
@@ -156,6 +183,9 @@ case $canonical in
       ;;
   esac;;
 esac
+
+canonical=$host
+configuration=${host_alias-${build_alias-$host}}
 
 dnl Support for --program-prefix, --program-suffix and
 dnl --program-transform-name options
@@ -1885,6 +1915,13 @@ if test "${HAVE_W32}" = "yes"; then
     x86_64-*-*) EMACS_MANIFEST="emacs-x64.manifest" ;;
     *) EMACS_MANIFEST="emacs-x86.manifest" ;;
   esac
+  dnl Construct something of the form "24,4,0,0" with 4 components.
+  comma_version=`echo "${PACKAGE_VERSION}.0.0" | sed -e 's/\./,/g' -e 's/^\([[^,]]*,[[^,]]*,[[^,]]*,[[^,]]*\).*/\1/'`
+
+  comma_space_version=`echo "$comma_version" | sed 's/,/, /g'`
+  AC_SUBST(comma_version)
+  AC_SUBST(comma_space_version)
+  AC_CONFIG_FILES([nt/emacs.rc nt/emacsclient.rc])
   if test "${opsys}" = "cygwin"; then
     W32_LIBS="$W32_LIBS -lkernel32 -luser32 -lgdi32 -lole32 -lcomdlg32"
     W32_LIBS="$W32_LIBS -lusp10 -lcomctl32 -lwinspool"
@@ -2562,19 +2599,13 @@ fi
 AC_SUBST(LIBSELINUX_LIBS)
 
 HAVE_GNUTLS=no
-HAVE_GNUTLS3=no
 if test "${with_gnutls}" = "yes" ; then
-  EMACS_CHECK_MODULES([LIBGNUTLS], [gnutls >= 3.0.0],
-    [HAVE_GNUTLS3=yes], [HAVE_GNUTLS3=no])
-  if test "${HAVE_GNUTLS3}" = "yes"; then
-    AC_DEFINE(HAVE_GNUTLS3, 1, [Define if using GnuTLS v3.])
-    HAVE_GNUTLS="yes"
-  else
-    EMACS_CHECK_MODULES([LIBGNUTLS], [gnutls >= 2.6.6],
-      [HAVE_GNUTLS=yes], [HAVE_GNUTLS=no])
-  fi
+  EMACS_CHECK_MODULES([LIBGNUTLS], [gnutls >= 2.6.6],
+    [HAVE_GNUTLS=yes], [HAVE_GNUTLS=no])
   if test "${HAVE_GNUTLS}" = "yes"; then
     AC_DEFINE(HAVE_GNUTLS, 1, [Define if using GnuTLS.])
+    EMACS_CHECK_MODULES([LIBGNUTLS3], [gnutls >= 3.0.0],
+      [AC_DEFINE(HAVE_GNUTLS3, 1, [Define if using GnuTLS v3.])], [])
   fi
 
   # Windows loads GnuTLS dynamically
@@ -4679,15 +4710,6 @@ AH_TEMPLATE(config_opsysfile, [Some platforms that do not use configure
 case $opsys in
   mingw32)
     AC_DEFINE(config_opsysfile, <ms-w32.h>, [])
-
-    dnl Construct something of the form "24,4,0,0" with 4 components.
-    comma_version=`echo "$version.0.0" | sed -e 's/\./,/g' -e 's/^\([[^,]]*,[[^,]]*,[[^,]]*,[[^,]]*\).*/\1/'`
-
-    comma_space_version=`echo "$comma_version" | sed 's/,/, /g'`
-
-    AC_SUBST(comma_version)
-    AC_SUBST(comma_space_version)
-    AC_CONFIG_FILES([nt/emacs.rc nt/emacsclient.rc])
     ;;
 esac
 

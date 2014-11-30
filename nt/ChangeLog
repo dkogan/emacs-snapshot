@@ -1,3 +1,12 @@
+2014-11-27  Oscar Fuentes  <ofv@wanadoo.es>
+
+	* inc/ms-w32.h: Define MINGW_W64.
+	* nt/addpm.c, nt/addsection.c, nt/preprep.c: Use it.
+
+2014-11-24  Glenn Morris  <rgm@gnu.org>
+
+	* Makefile.in (../src/emacs.res): New target.
+
 2014-11-22  Glenn Morris  <rgm@gnu.org>
 
 	* emacs.rc.in, emacsclient.rc.in: Rename from emacs.rc, emacsclient.rc.
@@ -1848,7 +1857,7 @@
 	* config.nt (HAVE_FACES): Remove, unused.
 
 2008-06-26  Juanma Barranquero  <lekktu@gmail.com>
-            Eli Zaretskii  <eliz@gnu.org>
+	    Eli Zaretskii  <eliz@gnu.org>
 
 	* nmake.defs (FONT_CFLAGS):
 	* gmake.defs (FONT_CFLAGS): Remove.
@@ -1864,7 +1873,7 @@
 	* config.nt: Remove reference to UNEXEC_SRC.
 
 2008-06-23  Juanma Barranquero  <lekktu@gmail.com>
-            Eli Zaretskii  <eliz@gnu.org>
+	    Eli Zaretskii  <eliz@gnu.org>
 
 	* gmake.defs (DEBUG_FLAG, DEBUG_LINK) [!NODEBUG]:
 	Don't hardcode -gstabs+, use DEBUG_INFO.

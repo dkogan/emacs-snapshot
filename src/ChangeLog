@@ -1,3 +1,121 @@
+2014-11-30  Paul Eggert  <eggert@cs.ucla.edu>
+
+	Port better to AddressSanitizer.
+	These changes suffice for temacs on x86-64 with GCC 4.9.2 and
+	-fsanitize=address.
+	* alloc.c (valid_pointer_p) [ADDRESS_SANITIZER]:
+	Return -1 or 0, as the pipe trick doesn't work.
+	* alloc.c (relocatable_string_data_p, mark_object, sweep_symbols):
+	* data.c (Ffset):
+	* print.c (print_object):
+	When a pointer-check primitive returns -1, do not assume this
+	means the pointer is valid or that the underlying system has failed.
+	It could just be that addresses are being sanitized so Emacs can't
+	test for pointer validity.
+	* lisp.h (defined_GC_CHECK_STRING_BYTES): New constant.
+	(USE_STACK_STRING) [GC_CHECK_STRING_BYTES]: Now false, since the
+	string validity checker doesn't work on stack-based strings.
+
+2014-11-29  Paul Eggert  <eggert@cs.ucla.edu>
+
+	Improve clarity of USE_LSB_TAG definition.
+	Problem reported by Lee Duhem.  Suggestion by Andreas Schwab in:
+	http://lists.gnu.org/archive/html/emacs-devel/2014-11/msg02222.html
+	* lisp.h (USE_LSB_TAG): Define in terms of the (simpler)
+	VAL_MAX / 2 rather than in terms of the (more complicated)
+	EMACS_INT_MAX >> GCTYPEBITS, and adjust commentary to match.
+
+2014-11-29  Eli Zaretskii  <eliz@gnu.org>
+
+	* xdisp.c (handle_single_display_spec): When ignoring a fringe
+	bitmap display, reset the ignore_overlay_strings_at_pos_p flag.
+	(next_element_from_buffer): When done with overlays, reset the
+	ignore_overlay_strings_at_pos_p flag.  (Bug#19201)
+
+2014-11-29  Eli Zaretskii  <eliz@gnu.org>
+
+	* w32fns.c (Fw32_shell_execute): Convert forward slashes in
+	DOCUMENT to backslashes, if DOCUMENT is a file.  (Bug#19141)
+
+2014-11-29  Ulrich Müller  <ulm@gentoo.org>
+
+	* Makefile.in (temacs$(EXEEXT)): Use consistent flag settings
+	for paxctl and setfattr. Fixes temacs startup failure with
+	grsecurity/PaX enabled Linux kernel (bug#19067).
+
+2014-11-27  Oscar Fuentes  <ofv@wanadoo.es>
+
+	* src/w32.c, src/w32heap.c, src/w32term.c:
+	Use MINGW_W64 instead of _W64.
+
+2014-11-27  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* frame.c (Fhandle_switch_frame): Deactivate shift-region (bug#19003).
+
+2014-11-26  Lars Magne Ingebrigtsen  <larsi@gnus.org>
+
+	* gnutls.c (gnutls_ip_address_p): New function.
+	(Fgnutls_boot): Only send SNI if the host name is not an IP address.
+
+2014-11-26  Toke Høiland-Jørgensen  <toke@toke.dk>  (tiny change)
+
+	* gnutls.c (Fgnutls_boot): Send the server name over (bug#18208).
+
+2014-11-25  Paul Eggert  <eggert@cs.ucla.edu>
+
+	Fix gnutls problems caught by static checking.
+	* gnutls.c (Fgnutls_boot): Remove unused local.
+	(Fgnutls_boot): Fix pointer signedness.
+
+2014-11-25  Lars Magne Ingebrigtsen  <larsi@gnus.org>
+
+	* gnutls.c (gnutls_certificate_details): Don't include certain
+	certificate details on older gnutls versions (bug#19168).
+	(syms_of_gnutls): Export gnutls_peer_status_warning_describe.
+	(gnutls_certificate_details): Reversed check in last checkin.
+
+2014-11-25  Teodor Zlatanov  <tzz@lifelogs.com>
+
+	* gnutls.c (Fgnutls_peer_status): Check GNUTLS_INITSTAGE, not gnutls_p.
+	(Fgnutls_peer_status_warning_describe): Add function to describe a
+	peer verification warning symbol.
+	(Fgnutls_peer_status): Use it.
+	(Fgnutls_boot): Use it.  Minor logging fixes.
+
+2014-11-24  Lars Magne Ingebrigtsen  <larsi@gnus.org>
+
+	* gnutls.c: Fix compilation warnings given fix --enable-gcc-warnings.
+
+2014-11-24  Glenn Morris  <rgm@gnu.org>
+
+	* emacs.c (main) <--version>: Make use of PACKAGE_NAME.
+
+	* Makefile.in (emacs.res): Use ../nt rule, rather than duplicating it.
+	(ntsource, WINDRES, EMACS_MANIFEST): Remove, now unused.
+
+2014-11-23  Lars Magne Ingebrigtsen  <larsi@gnus.org>
+
+	* gnutls.c: Fix Windows function definition of
+	gnutls_x509_crt_get_fingerprint.
+
+	* gnutls.c: Fix Windows return value for gnutls_pk_algorithm_get_name.
+
+	* gnutls.c (Fgnutls_boot): Save certificate for later inspection.
+
+	* process.h: Added more fields to Lisp_Process to track
+	certificate details.
+
+	* gnutls.c (gnutls_hex_string, gnutls_certificate_details)
+	(Fgnutls_peer_status): New functions to export TLS certificate
+	details to Emacs Lisp.
+
+2014-11-23  Jan Djärv  <jan.h.d@swipnet.se>
+
+	* gtkutil.c (gtk_adjustment_configure): Define for Gtk+ < 2.14.
+	(xg_set_toolkit_horizontal_scroll_bar_thumb): Remove wrong version
+	check for gtk_adjustment_configure (Bug#19149).
+	(gtk_adjustment_configure): Don't use 2.14 functions (Bug#19149).
+
 2014-11-22  Glenn Morris  <rgm@gnu.org>
 
 	* Makefile.in (emacs.res): Add dependency on icons/hand.cur.  Use $<.

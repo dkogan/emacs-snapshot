@@ -1,3 +1,21 @@
+2014-11-29  Paul Eggert  <eggert@cs.ucla.edu>
+
+	Lessen focus on ChangeLog files, as opposed to change log entries.
+	* CONTRIBUTE: Give advice about git commit messages and how
+	to generate proposed patches containing them.
+
+2014-11-27  Lars Magne Ingebrigtsen  <larsi@gnus.org>
+
+	* NEWS: Mention dom.el.
+
+2014-11-24  Lars Magne Ingebrigtsen  <larsi@gnus.org>
+
+	* NEWS: Mention NSM.
+
+2014-11-23  Lars Magne Ingebrigtsen  <larsi@gnus.org>
+
+	* NEWS: Mention `url-request-noninteractive'.
+
 2014-11-19  Leo Liu  <sdl.web@gmail.com>
 
 	* NEWS: Mention new macro define-advice.
@@ -89,7 +107,7 @@
 
 	* NEWS: Mention ns-use-fullscreen-animation.
 
-2014-09-30  Bill Wohler	 <wohler@newt.com>
+2014-09-30  Bill Wohler  <wohler@newt.com>
 
 	Release MH-E version 8.6
 

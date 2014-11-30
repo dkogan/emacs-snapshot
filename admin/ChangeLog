@@ -1,13 +1,26 @@
+2014-11-29  Paul Eggert  <eggert@cs.ucla.edu>
+
+	Lessen focus on ChangeLog files, as opposed to change log entries.
+	This is in preparation for generating the former automatically
+	from the latter.
+	* notes/bugtracker, notes/copyright, notes/newfile:
+	ChangeLog -> change log
+	* notes/changelogs: Remove, merging old contents to ...
+	* notes/repo: ... here.
+
+2014-11-27  David Engster  <deng@randomsample.de>
+
+	* gitmerge.el: New file.
+	* notes/git-workflow: Add documentation for using it.
+
+2014-11-27  Oscar Fuentes  <ofv@wanadoo.es>
+
+	* admin/CPP-DEFINES: Mention MINGW_W64.
+
 2014-11-22  Glenn Morris  <rgm@gnu.org>
 
 	* admin.el (set-version): No more need to update nt/*.rc.
 	* authors.el (authors-renamed-files-alist): Add .rc.in files.
-
-2014-11-16  Glenn Morris  <rgm@gnu.org>
-
-	* update_autogen: Auto-detect VCS in use.
-	(vcs): New variable.
-	(status, commit, main): Handle git.
 
 2014-11-13  Andreas Schwab  <schwab@suse.de>
 

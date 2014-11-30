@@ -3,7 +3,7 @@
 ;; Copyright (C) 1992-2014 Free Software Foundation, Inc.
 
 ;; Author:     FSF (see vc.el for full credits)
-;; Maintainer: Eric S. Raymond <esr@ythyrsus.com>
+;; Maintainer: Eric S. Raymond <esr@thyrsus.com>
 ;; Package: vc
 
 ;; This file is part of GNU Emacs.
@@ -23,7 +23,7 @@
 
 ;;; Commentary:
 
-;; See vc.el.  SRC requires an underlying RCS version of 4.0 or greater. 
+;; See vc.el.  SRC requires an underlying RCS version of 4.0 or greater.
 
 ;; FUNCTION NAME                               STATUS
 ;; BACKEND PROPERTIES
@@ -96,7 +96,7 @@
 
 (defgroup vc-src nil
   "VC SRC backend."
-  :version "24.1"
+  :version "25.1"
   :group 'vc)
 
 (defcustom vc-src-release nil
@@ -119,7 +119,6 @@ If nil, use the value of `vc-diff-switches'.  If t, use no switches."
                  (const :tag "None" t)
 		 (string :tag "Argument String")
 		 (repeat :tag "Argument List" :value ("") string))
-  :version "21.1"
   :group 'vc-src)
 
 ;; This needs to be autoloaded because vc-src-registered uses it (via
@@ -135,7 +134,6 @@ For a description of possible values, see `vc-check-master-templates'."
 		 (repeat :tag "User-specified"
 			 (choice string
 				 function)))
-  :version "21.1"
   :group 'vc-src)
 
 
@@ -236,7 +234,7 @@ REV is ignored.
 COMMENT is ignored."
   (vc-src-command nil files "add"))
 
-(defun vc-rcs-responsible-p (file)
+(defun vc-src-responsible-p (file)
   "Return non-nil if SRC thinks it would be responsible for registering FILE."
   (file-directory-p (expand-file-name ".src"
                                       (if (file-directory-p file)

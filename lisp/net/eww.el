@@ -29,6 +29,7 @@
 (require 'shr)
 (require 'url)
 (require 'url-queue)
+(require 'url-util)			; for url-get-url-at-point
 (require 'mm-url)
 (eval-when-compile (require 'subr-x)) ;; for string-trim
 
@@ -58,6 +59,21 @@
   :version "24.4"
   :group 'eww
   :type 'string)
+
+(defcustom eww-suggest-uris
+  '(eww-links-at-point
+    url-get-url-at-point
+    eww-current-url)
+  "List of functions called to form the list of default URIs for `eww'.
+Each of the elements is a function returning either a string or a list
+of strings.  The results will be joined into a single list with
+duplicate entries (if any) removed."
+  :version "25.1"
+  :group 'eww
+  :type 'hook
+  :options '(eww-links-at-point
+	     url-get-url-at-point
+	     eww-current-url))
 
 (defcustom eww-bookmarks-directory user-emacs-directory
   "Directory where bookmark files will be stored."
@@ -101,6 +117,7 @@ The string will be passed through `substitute-command-keys'."
   :group 'eww
   :type '(choice (const :tag "Unlimited" nil)
                  integer))
+
 (defcustom eww-use-external-browser-for-content-type
   "\\`\\(video/\\|audio/\\|application/ogg\\)"
   "Always use external browser for specified content-type."
@@ -194,12 +211,30 @@ See also `eww-form-checkbox-selected-symbol'."
     (define-key map "\r" 'eww-follow-link)
     map))
 
+(defun eww-suggested-uris nil
+  "Return the list of URIs to suggest at the `eww' prompt.
+This list can be customized via `eww-suggest-uris'."
+  (let ((obseen (make-vector 42 0))
+	(uris nil))
+    (dolist (fun eww-suggest-uris)
+      (let ((ret (funcall fun)))
+	(dolist (uri (if (stringp ret) (list ret) ret))
+	  (when (and uri (not (intern-soft uri obseen)))
+	    (intern uri obseen)
+	    (push   uri uris)))))
+    (nreverse uris)))
+
 ;;;###autoload
 (defun eww (url)
   "Fetch URL and render the page.
 If the input doesn't look like an URL or a domain name, the
 word(s) will be searched for via `eww-search-prefix'."
-  (interactive "sEnter URL or keywords: ")
+  (interactive
+   (let* ((uris (eww-suggested-uris))
+	  (prompt (concat "Enter URL or keywords"
+			  (if uris (format " (default %s)" (car uris)) "")
+			  ": ")))
+     (list (read-string prompt nil nil uris))))
   (setq url (string-trim url))
   (cond ((string-match-p "\\`file:/" url))
 	;; Don't mangle file: URLs at all.
@@ -218,10 +253,14 @@ word(s) will be searched for via `eww-search-prefix'."
                  (setq url (concat url "/"))))
            (setq url (concat eww-search-prefix
                              (replace-regexp-in-string " " "+" url))))))
+  (unless (eq major-mode 'eww-mode)
+    (eww-setup-buffer)
+    (plist-put eww-data :url url)
+    (eww-update-header-line-format)
+    (let ((inhibit-read-only t))
+      (insert (format "Loading %s..." url))))
   (url-retrieve url 'eww-render
-		(list url nil
-		      (and (eq major-mode 'eww-mode)
-			   (current-buffer)))))
+		(list url nil (current-buffer))))
 
 ;;;###autoload (defalias 'browse-web 'eww)
 
@@ -241,7 +280,7 @@ See the `eww-search-prefix' variable for the search engine used."
   (interactive "r")
   (eww (buffer-substring beg end)))
 
-(defun eww-render (status url &optional point buffer)
+(defun eww-render (status url &optional point buffer encode)
   (let ((redirect (plist-get status :redirect)))
     (when redirect
       (setq url redirect)))
@@ -255,7 +294,7 @@ See the `eww-search-prefix' variable for the search engine used."
 		    (or (cdr (assq 'charset (cdr content-type)))
 			(eww-detect-charset (equal (car content-type)
 						   "text/html"))
-			"utf8"))))
+			"utf-8"))))
 	 (data-buffer (current-buffer)))
     (unwind-protect
 	(progn
@@ -265,14 +304,14 @@ See the `eww-search-prefix' variable for the search engine used."
                                  (car content-type)))
             (eww-browse-with-external-browser url))
 	   ((equal (car content-type) "text/html")
-	    (eww-display-html charset url nil point buffer))
+	    (eww-display-html charset url nil point buffer encode))
 	   ((equal (car content-type) "application/pdf")
 	    (eww-display-pdf))
 	   ((string-match-p "\\`image/" (car content-type))
 	    (eww-display-image buffer)
 	    (eww-update-header-line-format))
 	   (t
-	    (eww-display-raw buffer)
+	    (eww-display-raw buffer encode)
 	    (eww-update-header-line-format)))
 	  (plist-put eww-data :url url)
 	  (setq eww-history-position 0)
@@ -308,9 +347,11 @@ See the `eww-search-prefix' variable for the search engine used."
 (declare-function libxml-parse-html-region "xml.c"
 		  (start end &optional base-url))
 
-(defun eww-display-html (charset url &optional document point buffer)
-  (or (fboundp 'libxml-parse-html-region)
-      (error "This function requires Emacs to be compiled with libxml2"))
+(defun eww-display-html (charset url &optional document point buffer encode)
+  (unless (fboundp 'libxml-parse-html-region)
+    (error "This function requires Emacs to be compiled with libxml2"))
+  (unless (buffer-live-p buffer)
+    (error "Buffer %s doesn't exist" buffer))
   ;; There should be a better way to abort loading images
   ;; asynchronously.
   (setq url-queue nil)
@@ -319,81 +360,86 @@ See the `eww-search-prefix' variable for the search engine used."
 	     (list
 	      'base (list (cons 'href url))
 	      (progn
-		(unless (eq charset 'utf-8)
+		(when (or (and encode
+			       (not (eq charset encode)))
+			  (not (eq charset 'utf-8)))
 		  (condition-case nil
-		      (decode-coding-region (point) (point-max) charset)
+		      (decode-coding-region (point) (point-max)
+					    (or encode charset))
 		    (coding-system-error nil)))
 		(libxml-parse-html-region (point) (point-max))))))
 	(source (and (null document)
 		     (buffer-substring (point) (point-max)))))
-    (eww-setup-buffer buffer)
-    (plist-put eww-data :source source)
-    (plist-put eww-data :dom document)
-    (let ((inhibit-read-only t)
-	  (after-change-functions nil)
-	  (shr-target-id (url-target (url-generic-parse-url url)))
-	  (shr-external-rendering-functions
-	   '((title . eww-tag-title)
-	     (form . eww-tag-form)
-	     (input . eww-tag-input)
-	     (textarea . eww-tag-textarea)
-	     (body . eww-tag-body)
-	     (select . eww-tag-select)
-	     (link . eww-tag-link)
-	     (a . eww-tag-a))))
-      (shr-insert-document document)
-      (cond
-       (point
-	(goto-char point))
-       (shr-target-id
-	(goto-char (point-min))
-	(let ((point (next-single-property-change
-		      (point-min) 'shr-target-id)))
-	  (when point
-	    (goto-char point))))
-       (t
-	(goto-char (point-min))
-	;; Don't leave point inside forms, because the normal eww
-	;; commands aren't available there.
-	(while (and (not (eobp))
-		    (get-text-property (point) 'eww-form))
-	  (forward-line 1)))))
-    (plist-put eww-data :url url)
-    (setq eww-history-position 0)
-    (eww-update-header-line-format)))
+    (with-current-buffer buffer
+      (plist-put eww-data :source source)
+      (plist-put eww-data :dom document)
+      (let ((inhibit-read-only t)
+	    (inhibit-modification-hooks t)
+	    (shr-target-id (url-target (url-generic-parse-url url)))
+	    (shr-external-rendering-functions
+	     '((title . eww-tag-title)
+	       (form . eww-tag-form)
+	       (input . eww-tag-input)
+	       (textarea . eww-tag-textarea)
+	       (body . eww-tag-body)
+	       (select . eww-tag-select)
+	       (link . eww-tag-link)
+	       (a . eww-tag-a))))
+	(erase-buffer)
+	(shr-insert-document document)
+	(cond
+	 (point
+	  (goto-char point))
+	 (shr-target-id
+	  (goto-char (point-min))
+	  (let ((point (next-single-property-change
+			(point-min) 'shr-target-id)))
+	    (when point
+	      (goto-char point))))
+	 (t
+	  (goto-char (point-min))
+	  ;; Don't leave point inside forms, because the normal eww
+	  ;; commands aren't available there.
+	  (while (and (not (eobp))
+		      (get-text-property (point) 'eww-form))
+	    (forward-line 1)))))
+      (plist-put eww-data :url url)
+      (setq eww-history-position 0)
+      (eww-size-text-inputs)
+      (eww-update-header-line-format))))
 
-(defun eww-handle-link (cont)
-  (let* ((rel (assq :rel cont))
-  	(href (assq :href cont))
-	(where (assoc
-		;; The text associated with :rel is case-insensitive.
-		(if rel (downcase (cdr rel)))
-		      '(("next" . :next)
-			;; Texinfo uses "previous", but HTML specifies
-			;; "prev", so recognize both.
-			("previous" . :previous)
-			("prev" . :previous)
-			;; HTML specifies "start" but also "contents",
-			;; and Gtk seems to use "home".  Recognize
-			;; them all; but store them in different
-			;; variables so that we can readily choose the
-			;; "best" one.
-			("start" . :start)
-			("home" . :home)
-			("contents" . :contents)
-			("up" . up)))))
+(defun eww-handle-link (dom)
+  (let* ((rel (dom-attr dom 'rel))
+	 (href (dom-attr dom 'href))
+	 (where (assoc
+		 ;; The text associated with :rel is case-insensitive.
+		 (if rel (downcase rel))
+		 '(("next" . :next)
+		   ;; Texinfo uses "previous", but HTML specifies
+		   ;; "prev", so recognize both.
+		   ("previous" . :previous)
+		   ("prev" . :previous)
+		   ;; HTML specifies "start" but also "contents",
+		   ;; and Gtk seems to use "home".  Recognize
+		   ;; them all; but store them in different
+		   ;; variables so that we can readily choose the
+		   ;; "best" one.
+		   ("start" . :start)
+		   ("home" . :home)
+		   ("contents" . :contents)
+		   ("up" . up)))))
     (and href
 	 where
-	 (plist-put eww-data (cdr where) (cdr href)))))
+	 (plist-put eww-data (cdr where) href))))
 
-(defun eww-tag-link (cont)
-  (eww-handle-link cont)
-  (shr-generic cont))
+(defun eww-tag-link (dom)
+  (eww-handle-link dom)
+  (shr-generic dom))
 
-(defun eww-tag-a (cont)
-  (eww-handle-link cont)
+(defun eww-tag-a (dom)
+  (eww-handle-link dom)
   (let ((start (point)))
-    (shr-tag-a cont)
+    (shr-tag-a dom)
     (put-text-property start (point) 'keymap eww-link-keymap)))
 
 (defun eww-update-header-line-format ()
@@ -404,44 +450,50 @@ See the `eww-search-prefix' variable for the search engine used."
 	     ;; FIXME?  Title can be blank.  Default to, eg, last component
 	     ;; of url?
 	     (format-spec eww-header-line-format
-			  `((?u . ,(plist-get eww-data :url))
+			  `((?u . ,(or (plist-get eww-data :url) ""))
 			    (?t . ,(or (plist-get eww-data :title) ""))))))
     (setq header-line-format nil)))
 
-(defun eww-tag-title (cont)
-  (let ((title ""))
-    (dolist (sub cont)
-      (when (eq (car sub) 'text)
-	(setq title (concat title (cdr sub)))))
-    (plist-put eww-data :title
-	       (replace-regexp-in-string
-		"^ \\| $" ""
-		(replace-regexp-in-string "[ \t\r\n]+" " " title))))
+(defun eww-tag-title (dom)
+  (plist-put eww-data :title
+	     (replace-regexp-in-string
+	      "^ \\| $" ""
+	      (replace-regexp-in-string "[ \t\r\n]+" " " (dom-text dom))))
   (eww-update-header-line-format))
 
-(defun eww-tag-body (cont)
+(defun eww-tag-body (dom)
   (let* ((start (point))
-	 (fgcolor (cdr (or (assq :fgcolor cont)
-                           (assq :text cont))))
-	 (bgcolor (cdr (assq :bgcolor cont)))
+	 (fgcolor (or (dom-attr dom 'fgcolor) (dom-attr dom 'text)))
+	 (bgcolor (dom-attr dom 'bgcolor))
 	 (shr-stylesheet (list (cons 'color fgcolor)
 			       (cons 'background-color bgcolor))))
-    (shr-generic cont)
+    (shr-generic dom)
     (shr-colorize-region start (point) fgcolor bgcolor)))
 
-(defun eww-display-raw (&optional buffer)
+(defun eww-display-raw (buffer &optional encode)
   (let ((data (buffer-substring (point) (point-max))))
-    (eww-setup-buffer buffer)
-    (let ((inhibit-read-only t))
-      (insert data))
-    (goto-char (point-min))))
+    (unless (buffer-live-p buffer)
+      (error "Buffer %s doesn't exist" buffer))
+    (with-current-buffer buffer
+      (let ((inhibit-read-only t))
+	(erase-buffer)
+	(insert data)
+	(unless (eq encode 'utf-8)
+	  (encode-coding-region (point-min) (1+ (length data)) 'utf-8)
+	  (condition-case nil
+	      (decode-coding-region (point-min) (1+ (length data)) encode)
+	    (coding-system-error nil))))
+      (goto-char (point-min)))))
 
-(defun eww-display-image (&optional buffer)
+(defun eww-display-image (buffer)
   (let ((data (shr-parse-image-data)))
-    (eww-setup-buffer buffer)
-    (let ((inhibit-read-only t))
-      (shr-put-image data nil))
-    (goto-char (point-min))))
+    (unless (buffer-live-p buffer)
+      (error "Buffer %s doesn't exist" buffer))
+    (with-current-buffer buffer
+      (let ((inhibit-read-only t))
+	(erase-buffer)
+	(shr-put-image data nil))
+      (goto-char (point-min)))))
 
 (defun eww-display-pdf ()
   (let ((data (buffer-substring (point) (point-max))))
@@ -453,16 +505,23 @@ See the `eww-search-prefix' variable for the search engine used."
       (doc-view-mode)))
   (goto-char (point-min)))
 
-(defun eww-setup-buffer (&optional buffer)
-  (switch-to-buffer
-   (if (buffer-live-p buffer)
-       buffer
-     (get-buffer-create "*eww*")))
+(defun eww-setup-buffer ()
+  (switch-to-buffer (get-buffer-create "*eww*"))
   (let ((inhibit-read-only t))
     (remove-overlays)
     (erase-buffer))
   (unless (eq major-mode 'eww-mode)
     (eww-mode)))
+
+(defun eww-current-url nil
+  "Return URI of the Web page the current EWW buffer is visiting."
+  (plist-get eww-data :url))
+
+(defun eww-links-at-point (&optional pt)
+  "Return list of URIs, if any, linked at point."
+  (remq nil
+	(list (get-text-property (point) 'shr-url)
+	      (get-text-property (point) 'image-url))))
 
 (defun eww-view-source ()
   "View the HTML source code of the current page."
@@ -485,18 +544,16 @@ contains the main textual portion, leaving out navigation menus and
 the like."
   (interactive)
   (let* ((old-data eww-data)
-	 (dom (shr-transform-dom
-	       (with-temp-buffer
-		 (insert (plist-get old-data :source))
-		 (condition-case nil
-		     (decode-coding-region (point-min) (point-max) 'utf-8)
-		   (coding-system-error nil))
-		 (libxml-parse-html-region (point-min) (point-max))))))
+	 (dom (with-temp-buffer
+		(insert (plist-get old-data :source))
+		(condition-case nil
+		    (decode-coding-region (point-min) (point-max) 'utf-8)
+		  (coding-system-error nil))
+		(libxml-parse-html-region (point-min) (point-max)))))
     (eww-score-readability dom)
     (eww-save-history)
     (eww-display-html nil nil
-		      (shr-retransform-dom
-		       (eww-highest-readability dom))
+		      (eww-highest-readability dom)
 		      nil (current-buffer))
     (dolist (elem '(:source :url :title :next :previous :up))
       (plist-put eww-data elem (plist-get old-data elem)))
@@ -505,41 +562,35 @@ the like."
 (defun eww-score-readability (node)
   (let ((score -1))
     (cond
-     ((memq (car node) '(script head comment))
+     ((memq (dom-tag node) '(script head comment))
       (setq score -2))
-     ((eq (car node) 'meta)
+     ((eq (dom-tag node) 'meta)
       (setq score -1))
-     ((eq (car node) 'img)
+     ((eq (dom-tag node) 'img)
       (setq score 2))
-     ((eq (car node) 'a)
-      (setq score (- (length (split-string
-			      (or (cdr (assoc 'text (cdr node))) ""))))))
+     ((eq (dom-tag node) 'a)
+      (setq score (- (length (split-string (dom-text node))))))
      (t
-      (dolist (elem (cdr node))
-	(cond
-	 ((and (stringp (cdr elem))
-	       (eq (car elem) 'text))
-	  (setq score (+ score (length (split-string (cdr elem))))))
-	 ((consp (cdr elem))
+      (dolist (elem (dom-children node))
+	(if (stringp elem)
+	    (setq score (+ score (length (split-string elem))))
 	  (setq score (+ score
 			 (or (cdr (assoc :eww-readability-score (cdr elem)))
-			     (eww-score-readability elem)))))))))
+			     (eww-score-readability elem))))))))
     ;; Cache the score of the node to avoid recomputing all the time.
-    (setcdr node (cons (cons :eww-readability-score score) (cdr node)))
+    (dom-set-attribute node :eww-readability-score score)
     score))
 
 (defun eww-highest-readability (node)
   (let ((result node)
 	highest)
-    (dolist (elem (cdr node))
-      (when (and (consp (cdr elem))
-		 (> (or (cdr (assoc
-			      :eww-readability-score
-			      (setq highest
-				    (eww-highest-readability elem))))
-			most-negative-fixnum)
-		    (or (cdr (assoc :eww-readability-score (cdr result)))
-			most-negative-fixnum)))
+    (dolist (elem (dom-non-text-children node))
+      (when (> (or (dom-attr
+		    (setq highest (eww-highest-readability elem))
+		    :eww-readability-score)
+		   most-negative-fixnum)
+	       (or (dom-attr result :eww-readability-score)
+		   most-negative-fixnum))
 	(setq result highest)))
     result))
 
@@ -548,8 +599,10 @@ the like."
     (suppress-keymap map)
     (define-key map "q" 'quit-window)
     (define-key map "g" 'eww-reload)
+    (define-key map "G" 'eww)
     (define-key map [?\t] 'shr-next-link)
     (define-key map [?\M-\t] 'shr-previous-link)
+    (define-key map [backtab] 'shr-previous-link)
     (define-key map [delete] 'scroll-down-command)
     (define-key map [?\S-\ ] 'scroll-down-command)
     (define-key map "\177" 'scroll-down-command)
@@ -567,6 +620,7 @@ the like."
     (define-key map "v" 'eww-view-source)
     (define-key map "R" 'eww-readable)
     (define-key map "H" 'eww-list-histories)
+    (define-key map "E" 'eww-set-character-encoding)
 
     (define-key map "b" 'eww-add-bookmark)
     (define-key map "B" 'eww-list-bookmarks)
@@ -589,7 +643,8 @@ the like."
 	["List histories" eww-list-histories t]
 	["Add bookmark" eww-add-bookmark t]
 	["List bookmarks" eww-list-bookmarks t]
-	["List cookies" url-cookie-list t]))
+	["List cookies" url-cookie-list t]
+       ["Character Encoding" eww-set-character-encoding]))
     map))
 
 (defvar eww-tool-bar-map
@@ -624,10 +679,18 @@ the like."
   (setq buffer-read-only t))
 
 ;;;###autoload
-(defun eww-browse-url (url &optional _new-window)
-  (when (and (equal major-mode 'eww-mode)
-	     (plist-get eww-data :url))
-    (eww-save-history))
+(defun eww-browse-url (url &optional new-window)
+  (cond (new-window
+         (let ((new-buffer "*eww*")
+               (num 0))
+           (while (get-buffer new-buffer)
+             (setq num (1+ num)
+                   new-buffer (format "*eww*<%d>" num)))
+           (switch-to-buffer new-buffer))
+         (eww-mode))
+        ((and (equal major-mode 'eww-mode)
+              (plist-get eww-data :url))
+         (eww-save-history)))
   (eww url))
 
 (defun eww-back-url ()
@@ -649,6 +712,7 @@ the like."
 
 (defun eww-restore-history (elem)
   (let ((inhibit-read-only t)
+	(inhibit-modification-hooks t)
 	(text (plist-get elem :text)))
     (setq eww-data elem)
     (if (null text)
@@ -700,12 +764,12 @@ appears in a <link> or <a> tag."
 	(eww-browse-url (shr-expand-url best-url (plist-get eww-data :url)))
       (user-error "No `top' for this page"))))
 
-(defun eww-reload ()
+(defun eww-reload (&optional encode)
   "Reload the current page."
   (interactive)
   (let ((url (plist-get eww-data :url)))
     (url-retrieve url 'eww-render
-		  (list url (point) (current-buffer)))))
+		  (list url (point) (current-buffer) encode))))
 
 ;; Form support.
 
@@ -787,13 +851,12 @@ appears in a <link> or <a> tag."
   (1- (next-single-property-change
        (point) 'eww-form nil (point-max))))
 
-(defun eww-tag-form (cont)
-  (let ((eww-form
-	 (list (assq :method cont)
-	       (assq :action cont)))
+(defun eww-tag-form (dom)
+  (let ((eww-form (list (cons :method (dom-attr dom 'method))
+			(cons :action (dom-attr dom 'action))))
 	(start (point)))
     (shr-ensure-paragraph)
-    (shr-generic cont)
+    (shr-generic dom)
     (unless (bolp)
       (insert "\n"))
     (insert "\n")
@@ -801,9 +864,9 @@ appears in a <link> or <a> tag."
       (put-text-property start (1+ start)
 			 'eww-form eww-form))))
 
-(defun eww-form-submit (cont)
+(defun eww-form-submit (dom)
   (let ((start (point))
-	(value (cdr (assq :value cont))))
+	(value (dom-attr dom 'value)))
     (setq value
 	  (if (zerop (length value))
 	      "Submit"
@@ -814,28 +877,28 @@ appears in a <link> or <a> tag."
 		       (list :eww-form eww-form
 			     :value value
 			     :type "submit"
-			     :name (cdr (assq :name cont))))
+			     :name (dom-attr dom 'name)))
     (put-text-property start (point) 'keymap eww-submit-map)
     (insert " ")))
 
-(defun eww-form-checkbox (cont)
+(defun eww-form-checkbox (dom)
   (let ((start (point)))
-    (if (cdr (assq :checked cont))
+    (if (dom-attr dom 'checked)
 	(insert eww-form-checkbox-selected-symbol)
       (insert eww-form-checkbox-symbol))
     (add-face-text-property start (point) 'eww-form-checkbox)
     (put-text-property start (point) 'eww-form
 		       (list :eww-form eww-form
-			     :value (cdr (assq :value cont))
-			     :type (downcase (cdr (assq :type cont)))
-			     :checked (cdr (assq :checked cont))
-			     :name (cdr (assq :name cont))))
+			     :value (dom-attr dom 'value)
+			     :type (downcase (dom-attr dom 'type))
+			     :checked (dom-attr dom 'checked)
+			     :name (dom-attr dom 'name)))
     (put-text-property start (point) 'keymap eww-checkbox-map)
     (insert " ")))
 
-(defun eww-form-file (cont)
+(defun eww-form-file (dom)
   (let ((start (point))
-	(value (cdr (assq :value cont))))
+	(value (dom-attr dom 'value)))
     (setq value
 	  (if (zerop (length value))
 	      " No file selected"
@@ -845,9 +908,9 @@ appears in a <link> or <a> tag."
     (insert value)
     (put-text-property start (point) 'eww-form
 		       (list :eww-form eww-form
-			     :value (cdr (assq :value cont))
-			     :type (downcase (cdr (assq :type cont)))
-			     :name (cdr (assq :name cont))))
+			     :value (dom-attr dom 'value)
+			     :type (downcase (dom-attr dom 'type))
+			     :name (dom-attr dom 'name)))
     (put-text-property start (point) 'keymap eww-submit-file)
     (insert " ")))
 
@@ -861,16 +924,13 @@ appears in a <link> or <a> tag."
       (eww-update-field filename (length "Browse"))
               (plist-put input :filename filename))))
 
-(defun eww-form-text (cont)
+(defun eww-form-text (dom)
   (let ((start (point))
-	(type (downcase (or (cdr (assq :type cont))
-			    "text")))
-	(value (or (cdr (assq :value cont)) ""))
-	(width (string-to-number
-		(or (cdr (assq :size cont))
-		    "40")))
-        (readonly-property (if (or (cdr (assq :disabled cont))
-                                   (cdr (assq :readonly cont)))
+	(type (downcase (or (dom-attr dom 'type) "text")))
+	(value (or (dom-attr dom 'value) ""))
+	(width (string-to-number (or (dom-attr dom 'size) "40")))
+        (readonly-property (if (or (dom-attr dom 'disabled)
+				   (dom-attr dom 'readonly))
                                'read-only
                              'inhibit-read-only)))
     (insert value)
@@ -884,7 +944,7 @@ appears in a <link> or <a> tag."
                        (list :eww-form eww-form
                              :value value
                              :type type
-                             :name (cdr (assq :name cont))))
+                             :name (dom-attr dom 'name)))
     (insert " ")))
 
 (defconst eww-text-input-types '("text" "password" "textarea"
@@ -894,57 +954,64 @@ appears in a <link> or <a> tag."
   "List of input types which represent a text input.
 See URL `https://developer.mozilla.org/en-US/docs/Web/HTML/Element/Input'.")
 
-(defun eww-process-text-input (beg end length)
-  (let* ((form (get-text-property (min (1+ end) (point-max)) 'eww-form))
-	 (properties (text-properties-at end))
-	 (type (plist-get form :type)))
-    (when (and form
-	       (member type eww-text-input-types))
-      (cond
-       ((zerop length)
-	;; Delete some space at the end.
-	(save-excursion
-	  (goto-char
-	   (if (equal type "textarea")
-	       (1- (line-end-position))
-	     (eww-end-of-field)))
-	  (let ((new (- end beg)))
-	    (while (and (> new 0)
+(defun eww-process-text-input (beg end replace-length)
+  (when-let (pos (and (< (1+ end) (point-max))
+		      (> (1- end) (point-min))
+		      (cond
+		       ((get-text-property (1+ end) 'eww-form)
+			(1+ end))
+		       ((get-text-property (1- end) 'eww-form)
+			(1- end)))))
+    (let* ((form (get-text-property pos 'eww-form))
+	   (properties (text-properties-at pos))
+	   (inhibit-read-only t)
+	   (length (- end beg replace-length))
+	   (type (plist-get form :type)))
+      (when (and form
+		 (member type eww-text-input-types))
+	(cond
+	 ((> length 0)
+	  ;; Delete some space at the end.
+	  (save-excursion
+	    (goto-char
+	     (if (equal type "textarea")
+		 (1- (line-end-position))
+	       (eww-end-of-field)))
+	    (while (and (> length 0)
 			(eql (following-char) ? ))
-	      (delete-region (point) (1+ (point)))
-	      (setq new (1- new))))
-	  (set-text-properties beg end properties)))
-       ((> length 0)
-	;; Add padding.
-	(save-excursion
-	  (goto-char
-	   (if (equal type "textarea")
-	       (1- (line-end-position))
-	     (eww-end-of-field)))
-	  (let ((start (point)))
-	    (insert (make-string length ? ))
-	    (set-text-properties start (point) properties)))))
-      (let ((value (buffer-substring-no-properties
-		    (eww-beginning-of-field)
-		    (eww-end-of-field))))
-	(when (string-match " +\\'" value)
-	  (setq value (substring value 0 (match-beginning 0))))
-	(plist-put form :value value)
-	(when (equal type "password")
-	  ;; Display passwords as asterisks.
-	  (let ((start (eww-beginning-of-field)))
-	    (put-text-property start (+ start (length value))
-			       'display (make-string (length value) ?*))))))))
+	      (delete-region (1- (point)) (point))
+	      (cl-decf length))))
+	 ((< length 0)
+	  ;; Add padding.
+	  (save-excursion
+	    (goto-char (1- end))
+	    (goto-char
+	     (if (equal type "textarea")
+		 (1- (line-end-position))
+	       (1+ (eww-end-of-field))))
+	    (let ((start (point)))
+	      (insert (make-string (abs length) ? ))
+	      (set-text-properties start (point) properties))
+	    (goto-char (1- end)))))
+	(set-text-properties (plist-get form :start) (plist-get form :end)
+			     properties)
+	(let ((value (buffer-substring-no-properties
+		      (eww-beginning-of-field)
+		      (eww-end-of-field))))
+	  (when (string-match " +\\'" value)
+	    (setq value (substring value 0 (match-beginning 0))))
+	  (plist-put form :value value)
+	  (when (equal type "password")
+	    ;; Display passwords as asterisks.
+	    (let ((start (eww-beginning-of-field)))
+	      (put-text-property start (+ start (length value))
+				 'display (make-string (length value) ?*)))))))))
 
-(defun eww-tag-textarea (cont)
+(defun eww-tag-textarea (dom)
   (let ((start (point))
-	(value (or (cdr (assq :value cont)) ""))
-	(lines (string-to-number
-		(or (cdr (assq :rows cont))
-		    "10")))
-	(width (string-to-number
-		(or (cdr (assq :cols cont))
-		    "10")))
+	(value (or (dom-attr dom 'value) ""))
+	(lines (string-to-number (or (dom-attr dom 'rows) "10")))
+	(width (string-to-number (or (dom-attr dom 'cols) "10")))
 	end)
     (shr-ensure-newline)
     (insert value)
@@ -969,23 +1036,22 @@ See URL `https://developer.mozilla.org/en-US/docs/Web/HTML/Element/Input'.")
 		       (list :eww-form eww-form
 			     :value value
 			     :type "textarea"
-			     :name (cdr (assq :name cont))))))
+			     :name (dom-attr dom 'name)))))
 
-(defun eww-tag-input (cont)
-  (let ((type (downcase (or (cdr (assq :type cont))
-			     "text")))
+(defun eww-tag-input (dom)
+  (let ((type (downcase (or (dom-attr dom 'type) "text")))
 	(start (point)))
     (cond
      ((or (equal type "checkbox")
 	  (equal type "radio"))
-      (eww-form-checkbox cont))
+      (eww-form-checkbox dom))
      ((equal type "file")
-      (eww-form-file cont))
+      (eww-form-file dom))
      ((equal type "submit")
-      (eww-form-submit cont))
+      (eww-form-submit dom))
      ((equal type "hidden")
       (let ((form eww-form)
-	    (name (cdr (assq :name cont))))
+	    (name (dom-attr dom 'name)))
 	;; Don't add <input type=hidden> elements repeatedly.
 	(while (and form
 		    (or (not (consp (car form)))
@@ -997,34 +1063,33 @@ See URL `https://developer.mozilla.org/en-US/docs/Web/HTML/Element/Input'.")
 	  (nconc eww-form (list
 			   (list 'hidden
 				 :name name
-				 :value (cdr (assq :value cont))))))))
+				 :value (dom-attr dom 'value)))))))
      (t
-      (eww-form-text cont)))
+      (eww-form-text dom)))
     (unless (= start (point))
       (put-text-property start (1+ start) 'help-echo "Input field"))))
 
-(defun eww-tag-select (cont)
+(defun eww-tag-select (dom)
   (shr-ensure-paragraph)
-  (let ((menu (list :name (cdr (assq :name cont))
+  (let ((menu (list :name (dom-attr dom 'name)
 		    :eww-form eww-form))
 	(options nil)
 	(start (point))
 	(max 0)
 	opelem)
-    (if (eq (car (car cont)) 'optgroup)
-	(dolist (groupelem cont)
-	  (unless (cdr (assq :disabled (cdr groupelem)))
-	    (setq opelem (append opelem (cdr (cdr groupelem))))))
-      (setq opelem cont))
+    (if (eq (dom-tag dom) 'optgroup)
+	(dolist (groupelem (dom-children dom))
+	  (unless (dom-attr groupelem 'disabled)
+	    (setq opelem (append opelem (list groupelem)))))
+      (setq opelem (list dom)))
     (dolist (elem opelem)
-      (when (eq (car elem) 'option)
-	(when (cdr (assq :selected (cdr elem)))
-	  (nconc menu (list :value
-			    (cdr (assq :value (cdr elem))))))
-	(let ((display (or (cdr (assq 'text (cdr elem))) "")))
+      (when (eq (dom-tag elem) 'option)
+	(when (dom-attr elem 'selected)
+	  (nconc menu (list :value (dom-attr elem 'value))))
+	(let ((display (dom-text elem)))
 	  (setq max (max max (length display)))
 	  (push (list 'item
-		      :value (cdr (assq :value (cdr elem)))
+		      :value (dom-attr elem 'value)
 		      :display display)
 		options))))
     (when options
@@ -1128,6 +1193,18 @@ See URL `https://developer.mozilla.org/en-US/docs/Web/HTML/Element/Input'.")
 	(setq start (next-single-property-change start 'eww-form))))
     (nreverse inputs)))
 
+(defun eww-size-text-inputs ()
+  (let ((start (point-min)))
+    (while (and start
+		(< start (point-max)))
+      (when (or (get-text-property start 'eww-form)
+		(setq start (next-single-property-change start 'eww-form)))
+	(let ((props (get-text-property start 'eww-form)))
+	  (plist-put props :start start)
+	  (setq start (next-single-property-change
+		       start 'eww-form nil (point-max)))
+	  (plist-put props :end start))))))
+
 (defun eww-input-value (input)
   (let ((type (plist-get input :type))
 	(value (plist-get input :value)))
@@ -1224,8 +1301,7 @@ See URL `https://developer.mozilla.org/en-US/docs/Web/HTML/Element/Input'.")
       (eww-browse-url
        (concat
 	(if (cdr (assq :action form))
-	    (shr-expand-url (cdr (assq :action form))
-			    (plist-get eww-data :url))
+	    (shr-expand-url (cdr (assq :action form)) (plist-get eww-data :url))
 	  (plist-get eww-data :url))
 	"?"
 	(mm-url-encode-www-form-urlencoded values))))))
@@ -1238,7 +1314,8 @@ The browser to used is specified by the `shr-external-browser' variable."
 
 (defun eww-follow-link (&optional external mouse-event)
   "Browse the URL under point.
-If EXTERNAL, browse the URL using `shr-external-browser'."
+If EXTERNAL is single prefix, browse in new buffer.
+If EXTERNAL is double prefix, browse the URL using `shr-external-browser'."
   (interactive (list current-prefix-arg last-nonmenu-event))
   (mouse-set-point mouse-event)
   (let ((url (get-text-property (point) 'shr-url)))
@@ -1247,16 +1324,16 @@ If EXTERNAL, browse the URL using `shr-external-browser'."
       (message "No link under point"))
      ((string-match "^mailto:" url)
       (browse-url-mail url))
-     (external
+     ((and (consp external) (< 4 (car external)))
       (funcall shr-external-browser url))
      ;; This is a #target url in the same page as the current one.
      ((and (url-target (url-generic-parse-url url))
 	   (eww-same-page-p url (plist-get eww-data :url)))
-      (eww-save-history)
-      (eww-display-html 'utf-8 url (plist-get eww-data :url)
-			nil (current-buffer)))
+      (let ((dom (plist-get eww-data :dom)))
+	(eww-save-history)
+	(eww-display-html 'utf-8 url dom nil (current-buffer))))
      (t
-      (eww-browse-url url)))))
+      (eww-browse-url url external)))))
 
 (defun eww-same-page-p (url1 url2)
   "Return non-nil if both URLs represent the same page.
@@ -1307,6 +1384,13 @@ Differences in #targets are ignored."
 	(setq count (1+ count)))
       (expand-file-name file directory)))
 
+(defun eww-set-character-encoding (charset)
+  "Set character encoding."
+  (interactive "zUse character set (default utf-8): ")
+  (if (null charset)
+      (eww-reload 'utf-8)
+    (eww-reload charset)))
+
 ;;; Bookmarks code
 
 (defvar eww-bookmarks nil)
@@ -1321,7 +1405,7 @@ Differences in #targets are ignored."
   (if (y-or-n-p "bookmark this page? ")
       (progn
 	(let ((title (replace-regexp-in-string "[\n\t\r]" " "
-					       (plist-get eww-data :url))))
+					       (plist-get eww-data :title))))
 	  (setq title (replace-regexp-in-string "\\` +\\| +\\'" "" title))
 	  (push (list :url (plist-get eww-data :url)
 		      :title title

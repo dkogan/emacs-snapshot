@@ -49,6 +49,10 @@ Use './configure PKG_CONFIG=/full/name/of/pkg-config' if you need to.
 
 * Changes in Emacs 25.1
 
+** Network security (TLS/SSL certificate validity and the like) is
+added via the new Network Security Manager (NSM) and controlled via
+the `network-security-level' variable.
+
 ** C-h l now also lists the commands that were run.
 
 ** The new M-s M-w key binding uses eww to search the web for the
@@ -177,8 +181,16 @@ the like off the page.
 *** You can now use several eww buffers in parallel by renaming eww
 buffers you want to keep separate.
 
+*** Partial state of the eww buffers (the URIs and the titles of the
+pages visited) is now preserved in the desktop file.
+
 *** `eww-after-render-hook' is now called after eww has rendered
 the data in the buffer.
+
+*** The DOM shr and eww uses has been changed to the general Emacs
+xml.el/libxml2 DOM, and a new package dom.el has been added to
+interact with this DOM.  See the Emacs Lisp manual for interface
+details.
 
 ** Message mode
 
@@ -262,13 +274,19 @@ plain text parts, if display of HTML email is possible; customize the
 ** In sh-mode, you can now use `sh-shell' as a file-local variable to
 specify the type of shell in use (bash, csh, etc).
 
-** The URL package accepts now the protocols "ssh", "scp" and "rsync".
+** URL
+
+*** The URL package accepts now the protocols "ssh", "scp" and "rsync".
 When `url-handler-mode' is enabled, file operations for these
 protocols as well as for "telnet" and "ftp" are passed to Tramp.
 
-** The URL package allows customizing the `url-user-agent' string.
+*** The URL package allows customizing the `url-user-agent' string.
 The new `url-user-agent' variable can be customized to be a string or
 a function.
+
+*** The new interface variable `url-request-noninteractive' can be used
+to specify that we're running in a noninteractive context, and that
+we should not be queried about things like TLS certificate validity.
 
 ** Tramp
 

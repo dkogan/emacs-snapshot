@@ -24,8 +24,8 @@
 ;;; Commentary:
 
 ;; Common functions for file-oriented back ends - SCCS, RCS, SRC, CVS
-;; 
-;; The main purpose of this file is so none od this code jas to like
+;;
+;; The main purpose of this file is so none of this code has to live
 ;; in the always-resident vc-hooks.  A secondary purpose is to remove
 ;; code specific to this class of back ends from vc.el.
 
@@ -41,7 +41,7 @@ If the file is not registered, or the master name is not known, return nil."
       ;; vc-BACKEND-registered explicitly
       (let ((backend (vc-backend file)))
 	(if (and backend
-		 (vc-call-backend backend 'registered file))
+		 (vc-filewise-registered backend file))
 	    (vc-file-getprop file 'vc-name)))))
 
 (defun vc-rename-master (oldmaster newfile templates)

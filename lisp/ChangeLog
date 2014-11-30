@@ -1,3 +1,346 @@
+2014-11-29  Glenn Morris  <rgm@gnu.org>
+
+	* vc/vc-src.el (vc-src, vc-src-diff-switches)
+	(vc-src-master-templates): Fix :version tags.
+
+2014-11-29  Paul Rankin  <paul@tilk.co>  (tiny change)
+
+	* outline.el (outline-move-subtree-down): Refactor and improve code.
+
+2014-11-29  Stephen Berman  <stephen.berman@gmx.net>
+	    Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* outline.el (outline-move-subtree-down): Make sure we can move
+	forward to find the end of the subtree and the insertion point
+	(bug#19102).
+
+2014-11-29  Fabián Ezequiel Gallina  <fgallina@gnu.org>
+
+	* progmodes/python.el (python-shell-completion-setup-code): Use
+	__builtin__ module (or builtins in Python 3) and catch all errors
+	when importing readline and rlcompleter.
+
+2014-11-29  Stephen Berman  <stephen.berman@gmx.net>
+
+	* calendar/todo-mode.el: Handle calling revert-buffer (bug#19187).
+	(todo-revert-buffer): New function.
+	(todo-modes-set-1): Use it as the buffer-local value of
+	revert-buffer-function.
+
+2014-11-29  Stephen Berman  <stephen.berman@gmx.net>
+
+	* calendar/todo-mode.el (todo-mode): If called interactively, just
+	display a message saying to call todo-show to enter Todo mode
+	(Bug#19112).
+
+2014-11-29  Dmitry Gutov  <dgutov@yandex.ru>
+
+	* vc/vc-hg.el (vc-hg-dir-status-files): Include ignored files.
+	(Bug#18579)
+
+	* vc/vc-bzr.el (vc-bzr-after-dir-status): Don't skip ignored
+	files.  (Bug#18579)
+
+2014-11-29  Michael Albinus  <michael.albinus@gmx.de>
+
+	* textmodes/makeinfo.el (makeinfo-buffer): Make it work also for
+	remote `buffer-file-name'.
+
+2014-11-29  Leo Liu  <sdl.web@gmail.com>
+
+	* calendar/diary-lib.el (calendar-mark-1): Fix thinko.
+
+2014-11-29  Fabián Ezequiel Gallina  <fgallina@gnu.org>
+
+	Set PYTHONUNBUFFERED on shell startup.
+
+	* progmodes/python.el (python-shell-unbuffered): New var.
+	(python-shell-calculate-process-environment): Use it.
+
+2014-11-29  Michael Albinus  <michael.albinus@gmx.de>
+
+	* net/tramp.el (tramp-action-password): Clean password on subsequent
+	attempts even if there was no wrong password indication.  (Bug#19047)
+
+	* net/tramp-sh.el (tramp-get-remote-locale): Return "LC_ALL=C" as
+	fallback.
+	(tramp-open-connection-setup-interactive-shell): No need to check
+	for nil as `tramp-get-remote-locale' return value.
+
+2014-11-29  Eli Zaretskii  <eliz@gnu.org>
+
+	* vc/vc-git.el (vc-git-command, vc-git--call): Bind
+	coding-system-for-read and coding-system-for-write to
+	vc-git-commits-coding-system.
+	(vc-git-previous-revision): Use "~1" instead of "^", since the
+	latter is a special character for MS-Windows system shells.
+
+2014-11-29  Michael Albinus  <michael.albinus@gmx.de>
+
+	Improve XEmacs compatibility.
+
+	* net/tramp.el (tramp-autoload-file-name-handler):
+	Wrap `temporary-file-directory' by `symbol-value', it doesn't
+	exist in XEmacs.
+	(tramp-read-passwd): Don't use `with-timeout-suspend' and
+	`with-timeout-unsuspend' if they don't exist, like in XEmacs.
+	(tramp-time-less-p, tramp-time-subtract): Remove functions.
+	(tramp-handle-file-newer-than-file-p, tramp-time-diff):
+	* net/tramp-adb.el (tramp-adb-ls-output-time-less-p):
+	* net/tramp-cache.el (tramp-get-file-property):
+	* net/tramp-smb.el (tramp-smb-handle-insert-directory):
+	Use `time-less-p' and `time-subtract, respectively.
+
+	* net/tramp-adb.el (top): Do not require time-date.el.
+
+	* net/tramp-compat.el (top): Require time-date.el for XEmacs.
+
+	* net/tramp-sh.el (tramp-open-connection-setup-interactive-shell):
+	Check, whether `utf-8' is a valid coding system.
+
+2014-11-29  Eli Zaretskii  <eliz@gnu.org>
+
+	* vc/vc.el (vc-retrieve-tag): Doc fix.
+
+2014-11-28  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* simple.el (execute-extended-command--shorter): Fix the "M-p" case
+	(bug#19152).
+
+2014-11-28  Martin Rudalics  <rudalics@gmx.at>
+
+	Fix two issues around help-window-select.  (Bug#11039) (Bug#19012)
+	* help.el (help-window-old-frame): New variable.
+	(help-window-select): Default to nil (Bug#11039).
+	Rewrite doc-string.
+	(help-window-setup): When the help window appears on another
+	frame and `help-window-select' is non-nil, give that frame input
+	focus too (Bug#19012).
+	(with-help-window): Store selected frame in
+	help-window-old-frame.
+
+2014-11-28  Ulf Jasper  <ulf.jasper@web.de>
+
+	* net/newst-treeview.el (newsticker--treeview-load): Take care of
+	nil value for `newsticker-groups-filename'.
+
+2014-11-28  Daiki Ueno  <ueno@gnu.org>
+
+	* epa.el (epa-sign-file, epa-encrypt-file, epa-decrypt-region)
+	(epa-sign-region, epa-encrypt-region):
+	Use `epg-context-set-{passphrase,progress}-callback', instead of
+	`setf'.  This partially reverts commit 9e48a95c (bug#19150).
+	Reported by José A. Romero L.
+
+2014-11-27  Lars Magne Ingebrigtsen  <larsi@gnus.org>
+
+	* net/eww.el (eww-restore-history):
+	Bind `inhibit-modification-hooks' instead of `after-change-functions'.
+
+2014-11-27  Ulf Jasper  <ulf.jasper@web.de>
+
+	* net/newst-backend.el (newsticker--parse-atom-1.0):
+	Handle embedded (x)html in summary node.
+
+2014-11-27  Sam Steingold  <sds@gnu.org>
+
+	* menu-bar.el (menu-bar-open): When everything else fails,
+	use (mouse-menu-bar-map).
+
+2014-11-27  Ulf Jasper  <ulf.jasper@web.de>
+
+	* net/newst-treeview.el (newsticker-groups-filename):
+	Change default value to nil.  Point out that variable is obsolete in doc
+	string.
+	(newsticker--treeview-load): Change wording of the questions the
+	user is asked when `newsticker-groups-filename' is found to be
+	used and we offer to read and remove the groups file. (bug#19165)
+
+2014-11-27  Lars Magne Ingebrigtsen  <larsi@gnus.org>
+
+	* net/eww.el (eww): Record the new URL immediately, so that if the
+	HTTP fetch fails, we have the right URL in the buffer.
+	(eww-process-text-input): Don't shorten the input field if
+	deleting at the last character (bug#19085).
+	(eww-restore-history): Inhibit change functions while restoring
+	the history.
+	(eww-process-text-input): Fix deletion at the start of the field, too.
+	(eww-mode): Revert mistanken removal of `buffer-disable-undo'.
+	(eww-process-text-input): Try to keep track of the size more reliably.
+
+	* dom.el (dom-pp): New function.
+
+2014-11-27  Eli Zaretskii  <eliz@gnu.org>
+
+	* vc/vc-bzr.el (vc-bzr-print-log, vc-bzr-expanded-log-entry):
+	Don't assume --long is the default for "bzr log", always specify
+	it explicitly, in case the user defined an alias for 'log' that
+	uses some other format.
+
+2014-11-27  Fabián Ezequiel Gallina  <fgallina@gnu.org>
+
+	* progmodes/python.el (python-eldoc--get-doc-at-point):
+	Strip shell output before returning.  (bug#18794)
+
+2014-11-27  Dmitry Gutov  <dgutov@yandex.ru>
+
+	Fix indentation before `!=' and after `+='.  Originally reported
+	in https://github.com/mooz/js2-mode/issues/174.
+	* progmodes/js.el (js--indent-operator-re): Make assignments and
+	(in)equality operator a separate case.
+	(js--continued-expression-p): Escape the second `+' in the regexp.
+
+2014-11-27  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* window.el (handle-select-window): Deactivate shift-region (bug#19003).
+
+2014-11-26  Lars Magne Ingebrigtsen  <larsi@gnus.org>
+
+	* net/nsm.el (nsm-new-fingerprint-ok-p): Display the certificate
+	when querying about new certificates.
+
+	* net/shr.el (shr-make-table-1): dom.el changes for table rendering.
+
+	* dom.el (dom-by-tag): Use `equal' for comparisons so that tags
+	can be strings.
+	(dom-elements): Protect against non-text nodes.
+	(dom-non-text-children): New function.
+
+	* net/eww.el (eww-tag-title): Use `dom-text'.
+
+2014-11-26  Sam Steingold  <sds@gnu.org>
+
+	* textmodes/sgml-mode.el (sgml-validate-command): Pass -utf8 to tidy.
+
+2014-11-26  Lars Magne Ingebrigtsen  <larsi@gnus.org>
+
+	* net/eww.el (eww-highest-readability): More dom.el fixes.
+
+2014-11-26  Ulf Jasper  <ulf.jasper@web.de>
+
+	* net/newst-backend.el (newsticker--parse-generic-items):
+	Take care of UIDs when adding elements to cache.
+
+2014-11-26  Alan Mackenzie  <acm@muc.de>
+
+	Remove spurious reference to symbol category_properties.
+	* progmodes/cc-engine.el (c-state-pp-to-literal): Fix here.
+
+2014-11-26  Lars Magne Ingebrigtsen  <larsi@gnus.org>
+
+	* net/eww.el: Use the new dom.el accessors throughout.
+
+	* net/shr.el: Ditto.
+
+	* dom.el: New file.
+
+2014-11-26  Glenn Morris  <rgm@gnu.org>
+
+	* arc-mode.el (archive-visit-single-files): Add :version.
+
+2014-11-25  Lars Magne Ingebrigtsen  <larsi@gnus.org>
+
+	* net/nsm.el (nsm-format-certificate): Don't bug out on missing
+	elements.
+	(nsm-warnings-ok-p): The new version of this function always
+	returned nil when everything was OK.
+
+2014-11-25  Teodor Zlatanov  <tzz@lifelogs.com>
+
+	* net/gnutls.el (gnutls): Set :group to 'comm so it's near NSM.
+
+	* net/nsm.el (nsm-check-tls-connection, nsm-save-host)
+	(nsm-warnings-ok-p): Use `gnutls-peer-status-warning-describe'.
+
+2014-11-20  Nicolas Richard  <theonewiththeevillook@yahoo.fr>
+
+	* emacs-lisp/byte-run.el (function-put): Match argument names to
+	docstring.
+
+2014-11-24  Sam Steingold  <sds@gnu.org>
+
+	* vc/vc-hooks.el (vc-directory-exclusion-list):
+	Fix a trivial typo (bug#19171).
+
+2014-11-24  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* vc/vc-hooks.el (vc-state-base-face): Don't override
+	mode-line-inactive.
+
+2014-11-24  Lars Magne Ingebrigtsen  <larsi@gnus.org>
+
+	* net/eww.el (eww-set-character-encoding): Use `read-coding-system'.
+	(eww-process-text-input): Inhibit read only so that input fields
+	don't get shortened (bug#19085).
+
+2014-11-24  Leo Liu  <sdl.web@gmail.com>
+
+	* emacs-lisp/macroexp.el (macroexp-let2*): New macro.
+
+	* window.el (with-temp-buffer-window)
+	(with-current-buffer-window, with-displayed-buffer-window):
+	* emacs-lisp/cl-macs.el (cl--compiler-macro-adjoin):
+	* emacs-lisp/cl-lib.el (substring):
+	* emacs-lisp/cl-extra.el (cl-getf): Use it.
+
+2014-11-24  Eli Zaretskii  <eliz@gnu.org>
+
+	* isearch.el (isearch-update): Don't assume
+	pos-visible-in-window-p will return nil when point is hscrolled
+	out of view.  (Bug#19157)
+
+2014-11-20  Andrey Kotlarski  <m00naticus@gmail.com>
+
+	* net/eww.el (eww-browse-url): Optionally create new eww buffer.
+	(eww-follow-link): Follow in new buffer in case of prefix
+	argument, open externally with double prefix (bug#19130).
+
+2014-11-23  Lars Magne Ingebrigtsen  <larsi@gnus.org>
+
+	* net/eww.el (eww-display-html): Decode the document-defined charset.
+	(eww): Pop to the *eww* buffer immediately after executing the
+	`M-x eww' command to avoid having buffers pop up later.
+	(eww-display-html): Don't pop the *eww* buffer.
+	(eww-display-raw): Ditto.
+	(eww-display-image): Ditto.
+	(eww-follow-link): Make going to #targets in the page work again.
+
+2014-11-23  Ivan Shmakov  <ivan@siamics.net>
+
+	* net/eww.el (eww-suggest-uris): New variable.
+	(eww-suggested-uris): New function.
+	(eww): Default to URL under point.
+	(eww-links-at-point): New function.
+
+2014-11-20  Mark Oteiza  <mvoteiza@udel.edu>  (tiny change)
+
+	* net/eww.el (eww-add-bookmark): Fix bookmark titles.
+
+2014-11-17  Mark Oteiza  <mvoteiza@udel.edu>  (tiny change)
+
+	* net/eww.el (eww-mode-map): Bind backtab to shr-previous-link.
+
+2014-11-23  Kenjiro Nakayama  <nakayamakenjiro@gmail.com>
+
+	* net/eww.el (eww-set-character-encoding): New command and keystroke.
+	(eww-display-raw): Use it (bug#16225).
+
+2014-11-23  Lars Magne Ingebrigtsen  <larsi@gnus.org>
+
+	* net/nsm.el (network-security-level): Rename from
+	`nsm-security-level' and documented.
+
+	* mail/smtpmail.el (smtpmail-via-smtp): Warn unless encrypted and
+	we're sending a password.
+
+	* net/nsm.el: New file that implements a Network Security Manager.
+
+	* net/network-stream.el (open-network-stream): Add a new
+	:warn-unless-encrypted parameter.
+	(network-stream-open-plain): Allow warning unless encrypted.
+	(network-stream-open-starttls): Call the Network Security Manager.
+	(network-stream-open-tls): Ditto.
+
 2014-11-23  Leo Liu  <sdl.web@gmail.com>
 
 	* calendar/cal-china.el (calendar-chinese-from-absolute-for-diary)
@@ -15,8 +358,8 @@
 
 2014-11-22  Ulf Jasper  <ulf.jasper@web.de>
 
-	* net/newst-backend.el (newsticker--sentinel-work): Tell
-	`libxml-parse-xml-region' to discard comments. Fixes bug#18787.
+	* net/newst-backend.el (newsticker--sentinel-work):
+	Tell `libxml-parse-xml-region' to discard comments. Fixes bug#18787.
 
 2014-11-22  Michael Albinus  <michael.albinus@gmx.de>
 
@@ -72,17 +415,17 @@
 	* vc/vc-src.el, vc/vc.el: Added support for SRC.  Needs more
 	testing and a real log-view mode.
 
-	* vc/vc-bzr.el, vc/vc-cvs.el, vc/vc-dav.el, vc/vc-git.el,
-	vc/vc-hg.el, vc/vc-mtn.el, vc/vc-rcs.el, vc/vc-sccs.el,
-	vc/vc-svn.el, vc/vc.el: Remove editable argument from the backend
+	* vc/vc-bzr.el, vc/vc-cvs.el, vc/vc-dav.el, vc/vc-git.el:
+	* vc/vc-hg.el, vc/vc-mtn.el, vc/vc-rcs.el, vc/vc-sccs.el:
+	* vc/vc-svn.el, vc/vc.el: Remove editable argument from the backend
 	checkout methods; where it matters (which is only in SCCS and RCS)
 	files are always checked out editable.  This may actually have
 	been dynamically true already - it looks like the vc-next-action
 	code evolved past visiting the other case.  Tested with RCS.
 
-	* vc/vc-arch.el, vc/vc-bzr.el, vc/vc-cvs.el, vc/vc-dav.el,
-	vc/vc-git.el, vc/vc-hg.el, vc/vc-mtn.el, vc/vc-rcs.el,
-	vc/vc-sccs.el, vc/vc-svn.el, vc/vc.el: Remove never-used rev
+	* vc/vc-arch.el, vc/vc-bzr.el, vc/vc-cvs.el, vc/vc-dav.el:
+	* vc/vc-git.el, vc/vc-hg.el, vc/vc-mtn.el, vc/vc-rcs.el:
+	* vc/vc-sccs.el, vc/vc-svn.el, vc/vc.el: Remove never-used rev
 	argument from the backend checkin methods.  Only the RCS, SCCS,
 	and CVS back ends tried to do anything with it, and that code was
 	never exercised.  Chiseling away the cruft of decades...
@@ -117,9 +460,13 @@
 
 2014-11-19  Rüdiger Sonderfeld  <ruediger@c-plusplus.net>
 
-	Fix bug#19099.
 	* vc/vc-git.el (vc-git-diff): Use "difftool -x diff" with
-	`diff-switches' if `vc-git-diff-switches' is nil.
+	`diff-switches' if `vc-git-diff-switches' is nil.  (Bug#19099)
+
+2014-11-19  Artur Malabarba  <bruce.connor.am@gmail.com>
+
+	* lisp/ido.el (ido-bury-buffer-at-head): New command.
+	(ido-buffer-completion-map): Bind it to C-S-b.
 
 2014-11-18  Juri Linkov  <juri@linkov.net>
 
@@ -201,9 +548,8 @@
 2014-11-18  Paul Pogonyshev  <pogonyshev@gmail.com>
 	    Rüdiger Sonderfeld  <ruediger@c-plusplus.net>
 
-	Fix bug#13871 (an alternative version of the patch).
-	* progmodes/cc-langs.el: Support some of the new keywords in
-	C++11.
+	* progmodes/cc-langs.el: Support some of the new keywords in C++11.
+	An alternative version of the patch from bug#13871.
 	(c-operators): Add "alignof".
 	(c-primitive-type-kwds): Add "char16_t", "char32_t".
 	(c-type-modifier-kwds): Add "constexpr", "noexcept".
@@ -255,9 +601,8 @@
 
 2014-11-17  Ulf Jasper  <ulf.jasper@web.de>
 
-	Fix bug#5433.
 	* calendar/icalendar.el (icalendar-export-alarms):
-	New customizable variable.
+	New customizable variable.  (Bug#5433)
 	(icalendar-export-region): Export alarms as specified in
 	`icalendar-export-alarms'.
 	(icalendar--create-ical-alarm, icalendar--do-create-ical-alarm):
@@ -2888,8 +3233,7 @@
 	(c-typeless-decl-kwds): Append "auto" onto the C++ value.
 	(c-not-decl-init-keywords): Also exclude c-typeof-kwds from value.
 
-	Make ">>" act as double template ender in C++ Mode.
-	Fix bug#11386.
+	Make ">>" act as double template ender in C++ Mode.  (Bug#11386)
 	* progmodes/cc-langs.el (c->-op-cont-tokens): New lang-const split
 	off from c->-op-cont-re.
 	(c->-op-cont-tokens): Change to use the above.
@@ -4322,7 +4666,7 @@
 	(bug#17818).
 
 	* mouse.el (mouse-drag-line): Don't re-add to unread-comment-events,
-	since it's already done inside the loop	(bug#17819).
+	since it's already done inside the loop (bug#17819).
 
 2014-06-21  Martin Rudalics  <rudalics@gmx.at>
 
@@ -5430,7 +5774,7 @@
 	* vc/emerge.el (emerge-make-temp-file): Simplify.
 
 2014-05-14  Stephen Berman <stephen.berman@gmx.net>
-            Stefan Monnier  <monnier@iro.umontreal.ca>
+	    Stefan Monnier  <monnier@iro.umontreal.ca>
 
 	* minibuffer.el (completion-pcm--merge-try): Merge trailing / with
 	suffix (bug#15419).
