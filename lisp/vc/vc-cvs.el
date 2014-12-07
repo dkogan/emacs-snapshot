@@ -48,9 +48,9 @@
                     ;; If the file is not writable (despite CVSREAD being
                     ;; undefined), this is probably because the file is being
                     ;; "watched" by other developers.
-                    ;; (If vc-mistrust-permissions was t, we actually shouldn't
-                    ;; trust this, but there is no other way to learn this from
-                    ;; CVS at the moment (version 1.9).)
+                    ;; (We actually shouldn't trust this, but there is
+                    ;; no other way to learn this from CVS at the
+                    ;; moment (version 1.9).)
                     (string-match "r-..-..-." (nth 8 attrib)))
                'announce
              'implicit))))))
@@ -110,7 +110,7 @@ This is only meaningful if you don't use the implicit checkout model
   :version "21.1"
   :group 'vc-cvs)
 
-(defcustom vc-cvs-stay-local 'only-file
+(defcustom vc-stay-local 'only-file
   "Non-nil means use local operations when possible for remote repositories.
 This avoids slow queries over the network and instead uses heuristics
 and past information to determine the current status of a file.
@@ -222,7 +222,7 @@ See also variable `vc-cvs-sticky-date-format-string'."
 
 (defun vc-cvs-state (file)
   "CVS-specific version of `vc-state'."
-  (if (vc-stay-local-p file 'CVS)
+  (if (vc-cvs-stay-local-p file)
       (let ((state (vc-file-getprop file 'vc-state)))
         ;; If we should stay local, use the heuristic but only if
         ;; we don't have a more precise state already available.
@@ -282,7 +282,7 @@ committed and support display of sticky tags."
 
 (autoload 'vc-switches "vc")
 
-(defun vc-cvs-register (files &optional _rev comment)
+(defun vc-cvs-register (files &optional comment)
   "Register FILES into the CVS version-control system.
 COMMENT can be used to provide an initial description of FILES.
 Passes either `vc-cvs-register-switches' or `vc-register-switches'
@@ -440,6 +440,35 @@ REV is the revision to check out."
       ;; Make the file read-only by switching off all w-bits
       (set-file-modes file (logand (file-modes file) 3950)))))
 
+(defun vc-cvs-merge-file (file)
+  "Accept a file merge request, prompting for revisions."
+  (let* ((first-revision
+        (vc-read-revision
+         (concat "Merge " file
+                 " from branch or revision "
+                 "(default news on current branch): ")
+         (list file)
+         'CVS))
+        second-revision
+        status)
+    (cond
+     ((string= first-revision "")
+      (setq status (vc-cvs-merge-news file)))
+     (t
+      (if (not (vc-branch-p first-revision))
+         (setq second-revision
+               (vc-read-revision
+                "Second revision: "
+                (list file) 'CVS nil
+                (concat (vc-branch-part first-revision) ".")))
+       ;; We want to merge an entire branch.  Set revisions
+       ;; accordingly, so that vc-cvs-merge understands us.
+       (setq second-revision first-revision)
+       ;; first-revision must be the starting point of the branch
+       (setq first-revision (vc-branch-part first-revision)))
+      (setq status (vc-cvs-merge file first-revision second-revision))))
+    status))
+
 (defun vc-cvs-merge (file first-revision &optional second-revision)
   "Merge changes into current working copy of FILE.
 The changes are between FIRST-REVISION and SECOND-REVISION."
@@ -527,7 +556,7 @@ Remaining arguments are ignored."
   ;; It's just the catenation of the individual logs.
   (vc-cvs-command
    buffer
-   (if (vc-stay-local-p files 'CVS) 'async 0)
+   (if (vc-cvs-stay-local-p files) 'async 0)
    files "log")
   (with-current-buffer buffer
     (vc-run-delayed (vc-rcs-print-log-cleanup)))
@@ -540,11 +569,10 @@ Remaining arguments are ignored."
 (autoload 'vc-version-backup-file "vc")
 (declare-function vc-coding-system-for-diff "vc" (file))
 
-(defun vc-cvs-diff (files &optional oldvers newvers buffer)
+(defun vc-cvs-diff (files &optional async oldvers newvers buffer)
   "Get a difference report using CVS between two revisions of FILE."
   (let* (process-file-side-effects
-	 (async (and (not vc-disable-async-diff)
-		     (vc-stay-local-p files 'CVS)))
+	 (async (and async (vc-cvs-stay-local-p files)))
 	 (invoke-cvs-diff-list nil)
 	 status)
     ;; Look through the file list and see if any files have backups
@@ -596,7 +624,7 @@ Remaining arguments are ignored."
   "Execute \"cvs annotate\" on FILE, inserting the contents in BUFFER.
 Optional arg REVISION is a revision to annotate from."
   (vc-cvs-command buffer
-                  (if (vc-stay-local-p file 'CVS)
+                  (if (vc-cvs-stay-local-p file)
 		      'async 0)
                   file "annotate"
                   (if revision (concat "-r" revision)))
@@ -733,7 +761,7 @@ If UPDATE is non-nil, then update (resynch) any affected buffers."
 
 (defun vc-cvs-make-version-backups-p (file)
   "Return non-nil if version backups should be made for FILE."
-  (vc-stay-local-p file 'CVS))
+  (vc-cvs-stay-local-p file))
 
 (defun vc-cvs-check-headers ()
   "Check if the current file has any headers in it."
@@ -757,8 +785,34 @@ and that it passes `vc-cvs-global-switches' to it before FLAGS."
            (append vc-cvs-global-switches
                    flags))))
 
-(defun vc-cvs-stay-local-p (file)  ;Back-compatibility.
-  (vc-stay-local-p file 'CVS))
+(defun vc-cvs-stay-local-p (file)
+  "Return non-nil if VC should stay local when handling FILE.
+If FILE is a list of files, return non-nil if any of them
+individually should stay local."
+  (if (listp file)
+      (delq nil (mapcar (lambda (arg) (vc-cvs-stay-local-p arg)) file))
+    (let* ((sym (vc-make-backend-sym 'CVS 'stay-local))
+          (stay-local (if (boundp sym) (symbol-value sym) vc-stay-local)))
+      (if (symbolp stay-local) stay-local
+       (let ((dirname (if (file-directory-p file)
+                          (directory-file-name file)
+                        (file-name-directory file))))
+         (eq 'yes
+             (or (vc-file-getprop dirname 'vc-cvs-stay-local-p)
+                 (vc-file-setprop
+                  dirname 'vc-cvs-stay-local-p
+                  (let ((hostname (vc-cvs-repository-hostname dirname)))
+                    (if (not hostname)
+                        'no
+                      (let ((default t))
+                        (if (eq (car-safe stay-local) 'except)
+                            (setq default nil stay-local (cdr stay-local)))
+                        (when (consp stay-local)
+                          (setq stay-local
+                                (mapconcat 'identity stay-local "\\|")))
+                        (if (if (string-match stay-local hostname)
+                                default (not default))
+                            'yes 'no))))))))))))
 
 (defun vc-cvs-repository-hostname (dirname)
   "Hostname of the CVS server associated to workarea DIRNAME."
@@ -1015,13 +1069,14 @@ state."
     (if basedir result
       (funcall update-function result))))
 
-(defun vc-cvs-dir-status (dir update-function)
-  "Create a list of conses (file . state) for DIR."
-  ;; FIXME check all files in DIR instead?
-  (let ((local (vc-stay-local-p dir 'CVS)))
-    (if (and local (not (eq local 'only-file)))
+(defun vc-cvs-dir-status-files (dir files update-function)
+  "Create a list of conses (file . state) for FILES in DIR.
+Query all files in DIR if files is nil."
+  (let ((local (vc-cvs-stay-local-p dir)))
+    (if (and (not files) local (not (eq local 'only-file)))
 	(vc-cvs-dir-status-heuristic dir update-function)
-      (vc-cvs-command (current-buffer) 'async dir "-f" "status")
+      (if (not files) (setq files (vc-expand-dirs (list dir) 'CVS)))
+      (vc-cvs-command (current-buffer) 'async dir "-f" "status" files)
       ;; Alternative implementation: use the "update" command instead of
       ;; the "status" command.
       ;; (vc-cvs-command (current-buffer) 'async
@@ -1029,12 +1084,6 @@ state."
       ;; 		  "-f" "-n" "update" "-d" "-P")
       (vc-run-delayed
        (vc-cvs-after-dir-status update-function)))))
-
-(defun vc-cvs-dir-status-files (dir files _default-state update-function)
-  "Create a list of conses (file . state) for DIR."
-  (apply 'vc-cvs-command (current-buffer) 'async dir "-f" "status" files)
-  (vc-run-delayed
-   (vc-cvs-after-dir-status update-function)))
 
 (defun vc-cvs-file-to-string (file)
   "Read the content of FILE and return it as a string."

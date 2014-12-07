@@ -1,3 +1,34 @@
+2014-12-06  Stephen Leake  <stephen_leake@stephe-leake.org>
+
+	* CONTRIBUTE: improve; add explicit web references, move some info
+	from admin/notes/* here.
+
+	* INSTALL.REPO: You can't "just run make" after a clean checkout.
+
+        * admin/notes/commits: deleted; merged into ./CONTRIBUTE
+
+	* admin/notes/repo: move commit, branch info into ./CONTRIBUTE
+
+2014-12-05  Stephen Leake  <stephen_leake@stephe-leake.org>
+
+	* etc/CONTRIBUTE: renamed to ./CONTRIBUTE, preparatory to further
+	changes/cleanup
+
+2014-12-05  Paul Eggert  <eggert@cs.ucla.edu>
+
+	* .gitignore: Remove redundant pattern (subsumed by _*).
+	Avoid "**", as it requires Git 1.8.2 or later.
+
+2014-12-05  Paul Eggert  <eggert@cs.ucla.edu>
+2014-12-05  Eli Zaretskii  <eliz@gnu.org>
+
+	* .gitignore: Ignore test/biditest.txt.
+
+2014-12-01  Lars Magne Ingebrigtsen  <larsi@gnus.org>
+
+	* .gitignore: Ignore loaddefs directly under lisp, and in
+	sub-sub-directories.
+
 2014-11-29  Paul Eggert  <eggert@cs.ucla.edu>
 
 	Add more of the old .bzrignore to .gitignore.

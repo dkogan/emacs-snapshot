@@ -1,3 +1,349 @@
+2014-12-06  Ulf Jasper  <ulf.jasper@web.de>
+
+	* net/newst-treeview.el (newsticker--treeview-list-add-item)
+	(newsticker--treeview-propertize-tag): Bind tree menu to mouse-3.
+	(newsticker--treeview-create-groups-menu)
+	(newsticker--treeview-create-tree-menu): Removed.
+	(newsticker--treeview-tree-open-menu): New.
+	(newsticker-treeview-tree-click): Pass event to
+	`newsticker-treeview-tree-do-click'.
+	(newsticker-treeview-tree-do-click): Open treemenu on mouse-3.
+
+2014-12-05  Juri Linkov  <juri@linkov.net>
+
+	* comint.el (comint-history-isearch-search)
+	(comint-history-isearch-wrap): Use field-beginning instead of
+	comint-line-beginning-position.
+	(comint-send-input): Go to the end of the field instead of the end
+	of the line to accept whole multi-line input.
+	http://lists.gnu.org/archive/html/emacs-devel/2014-12/msg00305.html
+
+2014-12-05  Juri Linkov  <juri@linkov.net>
+
+	* minibuffer.el (minibuffer-completion-help): Compare
+	selected-window with minibuffer-window to check whether
+	completions should be displayed near the minibuffer.  (Bug#17809)
+	http://lists.gnu.org/archive/html/emacs-devel/2014-12/msg00311.html
+
+2014-12-05  Michael Albinus  <michael.albinus@gmx.de>
+
+	* vc/vc-mtn.el (vc-mtn-root):
+	* vc/vc-svn.el (vc-svn-registered): Make FILE absolute.
+
+2014-12-05  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* progmodes/sh-script.el (sh-smie-sh-rules): Go back to the beginning
+	of the whole pipe when indenting an opening keyword after a |.
+	Generalize this treatment to opening keywords like "while" (bug#18031).
+
+2014-12-05  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* simple.el (newline): Place the hook buffer-locally,
+	to make sure it's first.
+
+	* progmodes/prog-mode.el (prettify-symbols--compose-symbol):
+	Fix handling of symbols with different syntax at beginning/end or with
+	symbol rather than word syntax.
+
+2014-12-05  Eli Zaretskii  <eliz@gnu.org>
+
+	* simple.el (line-move): If noninteractive, call line-move-1, not
+	forward-line, since the former is compatible with line-move-visual
+	both in terms of the column to which it moves and the return
+	value.  (Bug#19211)
+
+2014-12-05  Stephen Berman  <stephen.berman@gmx.net>
+2014-12-05  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* vc/ediff-init.el (ediff-odd-p): Remove.
+	(ediff-background-face): Use cl-oddp instead.
+	(ediff-buffer-live-p): Make it a defsubst.
+
+	* tooltip.el (tooltip-region-active-p): Remove.
+
+	* net/shr.el (shr-char-breakable-p, shr-char-kinsoku-bol-p)
+	(shr-char-kinsoku-eol-p, shr-char-nospace-p): Use define-inline.
+
+	* fringe.el (fringe-bitmap-p): Make it a plain function.
+
+	* emacs-lisp/eieio-core.el: Prefer inlinable functions over macros.
+	(class-p, generic-p, eieio-object-p, class-abstract-p):
+	Make them defsubst, so as to avoid corner case problems where
+	the arg might be evaluated in the condition-case, or it can't be passed
+	to higher-order functions like `cl-some'.
+
+2014-12-05  Nicolas Richard  <theonewiththeevillook@yahoo.fr>
+
+	* wid-edit.el (widget-choose): Let numeric keypad work (bug#19268)
+	and remove old menu-related code.
+
+2014-12-05  Lars Magne Ingebrigtsen  <larsi@gnus.org>
+
+	* net/eww.el (eww-display-pdf): Let mailcap determine how to
+	display PDF files (bug#19270).
+
+2014-12-05  Juri Linkov  <juri@linkov.net>
+
+	Compare with the most recent window by default.
+	* vc/compare-w.el (compare-windows-get-window-function): New defcustom.
+	(compare-windows-get-recent-window)
+	(compare-windows-get-next-window): New functions.
+	(compare-windows, compare-windows-sync-default-function):
+	Use `compare-windows-get-window-function' instead of `next-window'.
+	(compare-windows): Add diff/match messages with region boundaries.
+	(Bug#19170)
+
+2014-12-04  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* subr.el (filter): Remove.  Use `cl-remove-if-not' or `seq-filter'.
+
+2014-12-04  Lars Magne Ingebrigtsen  <larsi@gnus.org>
+
+	* net/shr.el (shr--extract-best-source): Ignore non-text children.
+
+2014-12-04  Eli Zaretskii  <eliz@gnu.org>
+
+	Implement copying of a buffer portion while preserving visual order.
+	* simple.el (bidi-directional-controls-chars)
+	(bidi-directional-non-controls-chars): New variables.
+	(squeeze-bidi-context-1, squeeze-bidi-context)
+	(line-substring-with-bidi-context)
+	(buffer-substring-with-bidi-context): New functions.
+
+	* files.el (file-tree-walk): Doc fix.
+
+2014-12-04  Rupert Swarbrick  <ruperts@broadcom.com> (tiny change)
+	    Rüdiger Sonderfeld  <ruediger@c-plusplus.net>
+
+	* autoinsert.el (auto-insert-alist): Update C/C++ header and
+	program support to match more extensions.  Replace non-alnum
+	characters when generating include guards (headers) and check for
+	more extensions when generating includes (programs)
+	(bug#19254).
+
+2014-12-03  Eric S. Raymond  <esr@snark.thyrsus.com>
+
+	* files.el (file-tree-walk): Fix docstring.
+
+2014-12-03  Karl Fogel  <kfogel@red-bean.com>
+
+	Fix bug whereby saving files hung in VC hook.
+
+	Saving a buffer visiting a file under SVN control would hang if
+	the remote repository were unreachable, because the VC hooks tried
+	to run "svn status -u" on the file, where the "-u" tells svn to
+	get update information from the remote repository.
+	http://lists.gnu.org/archive/html/emacs-devel/2014-12/msg00174.html
+
+	* vc/vc-svn.el (vc-svn-state): Remove optional `localp'
+	argument and always pass "-v" to "svn status", never "-u".
+
+2014-12-03  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* emacs-lisp/inline.el: Fix up copyright header.
+	(inline-quote, inline-const-p, inline-const-val, inline-error):
+	Silence compiler warnings.
+	(inline-letevals): Fix edebug spec.
+	(inline--testconst-p): Consider lambda expressions as const-p.
+	(inline--getconst-val): Use inline--testconst-p.
+
+	* minibuffer.el (completion-table-dynamic): Add arg `switch-buffer'
+	and change default to stay in the minibuffer when called from
+	the minibuffer (bug#19250).
+	(lazy-completion-table): Use this new argument to preserve the
+	old behavior.
+
+	* progmodes/elisp-mode.el (elisp--local-variables): Don't burp on
+	incorrect lexical elements (bug#19250).
+
+2014-12-03  Eric S. Raymond  <esr@snark.thyrsus.com>
+
+	* files.el (file-tree-walk): Lisp translation of ANSI ftw(3).
+
+2014-12-02  Glenn Morris  <rgm@gnu.org>
+
+	* whitespace.el (whitespace-big-indent-regexp): Add :version.
+
+2014-12-02  Eric S. Raymond  <esr@snark.thyrsus.com>
+
+	* subr.el (filter): New macro. Because it's just silly for a Lisp
+	not to have this in 2014.  And VC needs it.
+
+	* vc.el, all backends: API simplification: Abolish dir-status.
+	It's replaced by dir-status-files.
+
+	* vc.el, all backends: API simplification: Remove 4th
+	'default-state' argument from vc-dir-status files and its backend
+	methods - no backend method ever set it.  It was used only in the
+	fallback method to to set a default of 'up-to-date, though a
+	convoluted call chain obscured this.
+
+	* vc-hooks.el: Bind vc-delete-file to Ctrl-x v delete.
+
+	* vc.el (vc-expand-dirs): Now takes a second BACKEND argument,
+	improving behavior on directories using multiple file-oriented VCSes.
+
+	* vc/vc.el and all backends: API simplification; clear-headers
+	is no longer a public method.  It is now local to the one place
+	it's used, in the RCS steal-lock method.
+
+2014-12-01  Eric S. Raymond  <esr@snark.thyrsus.com>
+
+	* vc/vc.el and all backends: API simplification; could-register
+	is no longer a public method.  (vc-cvs.el still has a private
+	implementation.)
+
+	* vc/vc.el and all backends: API cleanup; the backend diff method
+	takes an explicit async flag.  This eliminates a particularly ugly
+	global.
+
+	* vc-bzr.el: Restore vc-bzr-state-heuristic as a private method.
+	VC randomly/unpredictably fails without it; cause not yet established.
+
+2014-12-01  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	Merge some of the differences from the standalone CC-mode.
+	The main change is to only use the `category' text-property only when
+	available.  For that many calls are changed to use c-get-char-property,
+	c-next-single-property-change, c-sc-scan-lists,
+	c-sc-parse-partial-sexp, c-unmark-<->-as-paren.
+
+	* progmodes/cc-mode.el (c-just-done-before-change): New var.
+	(c-basic-common-init): Initialize it.
+	(c-common-init): Only use mode-require-final-newline when available.
+	(c-before-change): Check and set c-just-done-before-change.
+	(c-after-change): Re-set c-just-done-before-change.
+	(c-advise-fl-for-region): New macro.
+	(lazy-lock-defer-rest-after-change, lazy-lock-defer-line-after-change)
+	(font-lock-after-change-function, jit-lock-after-change):
+	Advise if needed.
+
+	* progmodes/cc-langs.el (c-modified-constant): New lang var.
+	(c-known-type-key): Don't make a list just to throw it away.
+
+	* progmodes/cc-engine.el (c-invalidate-state-cache, c-parse-state):
+	Handle the case where categories are not available.
+	(c-record-parse-state-state, c-replay-parse-state-state):
+	Handle marker values.
+	(c-before-change-check-<>-operators): Look for the `syntax-table'
+	property rather than for the corresponding `category'.
+	(c-looking-at-decl-block): Remove unused var
+	`c-disallow-comma-in-<>-arglists'.
+	(c-forward-<>-arglist-recur): Remove unused var
+	`orig-record-found-types'.
+
+	* progmodes/cc-defs.el (c-version): Bump up to 5.33.
+	(c-use-category): New const.
+	(c-next-single-property-change): New macro.
+	(c-region-is-active-p): Prefer region-active-p when available.
+	(c-search-backward-char-property): Fix old min/max typo; probably
+	a copy/paste error.
+	(c-mark-<-as-paren, c-mark->-as-paren, c-unmark-<->-as-paren):
+	Turn them into macros that obey c-use-category.
+	(c-sc-scan-lists-no-category+1+1, c-sc-scan-lists-no-category+1-1)
+	(c-sc-scan-lists-no-category-1+1, c-sc-scan-lists-no-category-1-1)
+	(c-sc-scan-lists, c-sc-parse-partial-sexp)
+	(c-looking-at-non-alphnumspace): New macros.
+	(c-sc-parse-partial-sexp-no-category): New function.
+	(c-emacs-features): Add `category-properties' element.
+
+	* progmodes/cc-cmds.el (c-forward-into-nomenclature)
+	(c-backward-into-nomenclature): Use cc-subword if subword-mode is
+	not available.
+	(c-beginning-of-defun, c-end-of-defun, c-mark-function)
+	(c-indent-line-or-region): Use c-region-is-active-p.
+
+	* progmodes/cc-bytecomp.el (cc-bytecomp-unbound-variables)
+	(cc-bytecomp-original-functions, cc-bytecomp-original-properties)
+	(cc-bytecomp-loaded-files): Re-set each time the file is loaded.
+	(cc-bytecomp-obsolete-var, cc-bytecomp-ignore-obsolete)
+	(cc-bytecomp-obsolete-fun): Delete unused functions.
+
+	* progmodes/cc-align.el (c-lineup-respect-col-0): New function.
+
+2014-12-01  Lars Magne Ingebrigtsen  <larsi@gnus.org>
+
+	* net/shr.el (shr-dom-print): Fix up `shr-dom-print' after the
+	dom.el changes.
+
+2014-12-01  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* vc/vc.el (vc-find-conflicted-file): Look for conflicted files in the
+	current "project" rather than just the current directory.
+	* vc/vc-git.el (vc-git-conflicted-files): Clarify in which directory
+	the file names make sense.
+
+	* vc/smerge-mode.el (smerge-swap): New command.
+
+	* vc/diff-mode.el (diff-kill-applied-hunks): New command.
+
+2014-12-01  Ulf Jasper  <ulf.jasper@web.de>
+
+	* net/newst-treeview.el (newsticker--treeview-item-show):
+	Check window liveliness before measuring its width.
+
+	* net/newst-backend.el (newsticker--get-news-by-url-callback):
+	Pass correct status to `newsticker--sentinel-work'.
+	(newsticker--sentinel-work): Use "newsticker--download-error" as
+	guid in order to prevent multiple "Could not download..."
+	messages.  Fixes bug#19166.
+
+2014-12-01  Ivan Shmakov  <ivan@siamics.net>
+
+	* net/eww.el (eww-render): Call `eww-after-render-hook' in the
+	correct buffer (bug#19225).
+
+2014-12-01  Lars Magne Ingebrigtsen  <larsi@gnus.org>
+
+	* net/nsm.el (network-security-level): Change the default to `medium'.
+
+	* net/eww.el (eww): Leave point in a place that doesn't cause
+	scrolling when displaying "Loading...".
+
+2014-12-01  Eric S. Raymond  <esr@snark.thyrsus.com>
+
+	* vc/vc.el, vc/vc-cvs.el, vc/vc-rcs.el, vc/vc-svn.el: The 'merge'
+	backend method of RCS/CVS/SVN is now 'merge-file', to contrast with
+	'merge-branch'.  Prompting for merge revisions is pushed down to
+	the back ends; this fixes a layering violation that caused bad
+	behavior with SVN.
+
+	* vc/vc.el, vc-hooks.el, and all backends: API simplification;
+	vc-stay-local-p and repository-hostname are no longer public
+	methods.  Only the CVS and SVN backends used these, and the SVN
+	support was conditioned out because svn status -v is too slow.
+	The CVS back end retains this machibery and the vc-stay-local
+	configuration variable now only affects it.
+
+2014-12-01  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* emacs-lisp/inline.el: New file.
+
+2014-12-01  Eric S. Raymond  <esr@snark.thyrsus.com>
+
+	* vc/vc.el, vc-hooks.el, and all backends: API simplification;
+	vc-state-heuristic is no longer a public method, having been
+	removed where it is redundant, unnecessary, or known buggy.
+	This eliminated all backends except CVS.  Eliminates bug#7850.
+
+	* vc/vc-cvs.el, vc/vc-hooks.el, vc/vc-rcs.el, vc/vc-sccs.el:
+	Eliminate vc-mistrust-permissions.  It was only relevant to the
+	RCS and SCCS back ends and defaulted to t. Code now always
+	mistrusts permissions - by actual measurement the effect on
+	performance is negligible. As a side effect bug#11490 is now
+	irrelevant.
+
+	* vc/vc.el, vc-hooks.el, and all backends: API simplification;
+	vc-workfile-unchanged-p is no longer a public method (but the RCS
+	and SCCS back ends retain it as a private method used in state
+	computation). This method was redundant with vc-state and usually
+	implemented as a trivial call to same. Fixes the failure mode
+	described in bug#694.
+
+	* vc/vc.el and all backends: API simplification; init-revision is
+	gone, and vc-registered functions no longer take an
+	initial-revision argument.
+
 2014-11-29  Glenn Morris  <rgm@gnu.org>
 
 	* vc/vc-src.el (vc-src, vc-src-diff-switches)
@@ -16,8 +362,8 @@
 
 2014-11-29  Fabián Ezequiel Gallina  <fgallina@gnu.org>
 
-	* progmodes/python.el (python-shell-completion-setup-code): Use
-	__builtin__ module (or builtins in Python 3) and catch all errors
+	* progmodes/python.el (python-shell-completion-setup-code):
+	Use __builtin__ module (or builtins in Python 3) and catch all errors
 	when importing readline and rlcompleter.
 
 2014-11-29  Stephen Berman  <stephen.berman@gmx.net>
@@ -69,8 +415,8 @@
 
 2014-11-29  Eli Zaretskii  <eliz@gnu.org>
 
-	* vc/vc-git.el (vc-git-command, vc-git--call): Bind
-	coding-system-for-read and coding-system-for-write to
+	* vc/vc-git.el (vc-git-command, vc-git--call):
+	Bind coding-system-for-read and coding-system-for-write to
 	vc-git-commits-coding-system.
 	(vc-git-previous-revision): Use "~1" instead of "^", since the
 	latter is a special character for MS-Windows system shells.

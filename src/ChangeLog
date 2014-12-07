@@ -1,3 +1,65 @@
+2014-12-05  Lee Duhem  <lee.duhem@gmail.com>  (tiny change)
+
+	* eval.c (Fsignal): Remove duplicate test.
+	(Fautoload_do_load): Fix up docstring.
+
+2014-12-05  Jan Djärv  <jan.h.d@swipnet.se>
+
+	* nsterm.m (represented_filename, represented_frame): New variables.
+	(ns_set_represented_filename): New function.
+	(sendEvent:): Set represented filename here to avoid flicker,
+	related to Bug#18757.
+
+	* nsterm.h: Declare ns_set_represented_filename.
+
+	* nsfns.m (ns_set_name_as_filename): Don't set represented filename
+	at once, call ns_set_represented_filename instead.
+
+2014-12-05  Eli Zaretskii  <eliz@gnu.org>
+2014-12-05  Eli Zaretskii  <eliz@gnu.org>
+
+	* dispextern.h (enum bidi_dir_t): Force NEUTRAL_DIR to be zero.
+	(struct bidi_stack): Reduce size by using bit fields and by
+	packing sos, override, and isolate_status into a single 8-bit
+	byte called 'flags'.
+
+	* bidi.c (ISOLATE_STATUS, OVERRIDE): New macros.
+	(bidi_push_embedding_level): Construct flags from individual
+	bits.  Adapt to changes in prev_for_neutral and next_for_neutral
+	members.
+	(bidi_pop_embedding_level): Use ISOLATE_STATUS.  Extract 'sos'
+	from flags.  Adapt to changes in prev_for_neutral,
+	next_for_neutral, and last_strong members.
+	(bidi_line_init): Initialize flags to zero.
+	(bidi_resolve_explicit, bidi_resolve_weak, bidi_resolve_brackets)
+	(bidi_resolve_neutral): Use ISOLATE_STATUS and OVERRIDE.
+
+2014-12-04  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* eval.c (backtrace_eval_unrewind): Rewind also the excursions.
+	(Fapply): Try and simplify the control flow.
+
+2014-12-03  Chris Zheng  <chriszheng99@gmail.com>  (tiny change)
+
+	* gnutls.c (init_gnutls_functions, gnutls_certificate_details):
+	Use gnutls_sign_get_name directly because
+	gnutls_sign_algorithm_get_name is a macro on MinGW (bug#19231).
+	(init_gnutls_functions): Load missing gnutls_server_name_set.
+
+2014-12-02  Eli Zaretskii  <eliz@gnu.org>
+
+	* bidi.c (bidi_find_first_overridden): New function.
+
+	* xdisp.c (Fbidi_find_overridden_directionality): New function.
+	(syms_of_xdisp): Defsubr it.
+
+	* dispextern.h (bidi_find_first_overridden): Add prototype.
+
+2014-12-02  Jan Djärv  <jan.h.d@swipnet.se>
+
+	* nsimage.m (initFromSkipXBM:width:height:flip:length:): Set bmRep
+	to nil after release (Bug#9133).
+
 2014-11-30  Paul Eggert  <eggert@cs.ucla.edu>
 
 	Port better to AddressSanitizer.

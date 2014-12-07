@@ -170,80 +170,6 @@ control systems."
   :type 'boolean
   :group 'vc)
 
-;; If you fix bug#11490, probably you can set this back to nil.
-(defcustom vc-mistrust-permissions t
-  "If non-nil, don't assume permissions/ownership track version-control status.
-If nil, do rely on the permissions.
-See also variable `vc-consult-headers'."
-  :version "24.3"                       ; nil->t, bug#11490
-  :type 'boolean
-  :group 'vc)
-
-(defun vc-mistrust-permissions (file)
-  "Internal access function to variable `vc-mistrust-permissions' for FILE."
-  (or (eq vc-mistrust-permissions 't)
-      (and vc-mistrust-permissions
-	   (funcall vc-mistrust-permissions
-		    (vc-backend-subdirectory-name file)))))
-
-(defcustom vc-stay-local 'only-file
-  "Non-nil means use local operations when possible for remote repositories.
-This avoids slow queries over the network and instead uses heuristics
-and past information to determine the current status of a file.
-
-If value is the symbol `only-file', `vc-dir' will connect to the
-server, but heuristics will be used to determine the status for
-all other VC operations.
-
-The value can also be a regular expression or list of regular
-expressions to match against the host name of a repository; then VC
-only stays local for hosts that match it.  Alternatively, the value
-can be a list of regular expressions where the first element is the
-symbol `except'; then VC always stays local except for hosts matched
-by these regular expressions."
-  :type '(choice
-	  (const :tag "Always stay local" t)
-	  (const :tag "Only for file operations" only-file)
-	  (const :tag "Don't stay local" nil)
-	  (list :format "\nExamine hostname and %v" :tag "Examine hostname ..."
-		(set :format "%v" :inline t (const :format "%t" :tag "don't" except))
-		(regexp :format " stay local,\n%t: %v" :tag "if it matches")
-		(repeat :format "%v%i\n" :inline t (regexp :tag "or"))))
-  :version "23.1"
-  :group 'vc)
-
-(defun vc-stay-local-p (file &optional backend)
-  "Return non-nil if VC should stay local when handling FILE.
-This uses the `repository-hostname' backend operation.
-If FILE is a list of files, return non-nil if any of them
-individually should stay local."
-  (if (listp file)
-      (delq nil (mapcar (lambda (arg) (vc-stay-local-p arg backend)) file))
-    (setq backend (or backend (vc-backend file)))
-    (let* ((sym (vc-make-backend-sym backend 'stay-local))
-	   (stay-local (if (boundp sym) (symbol-value sym) vc-stay-local)))
-      (if (symbolp stay-local) stay-local
-	(let ((dirname (if (file-directory-p file)
-			   (directory-file-name file)
-			 (file-name-directory file))))
-	  (eq 'yes
-	      (or (vc-file-getprop dirname 'vc-stay-local-p)
-		  (vc-file-setprop
-		   dirname 'vc-stay-local-p
-		   (let ((hostname (vc-call-backend
-				    backend 'repository-hostname dirname)))
-		     (if (not hostname)
-			 'no
-		       (let ((default t))
-			 (if (eq (car-safe stay-local) 'except)
-			     (setq default nil stay-local (cdr stay-local)))
-			 (when (consp stay-local)
-			   (setq stay-local
-				 (mapconcat 'identity stay-local "\\|")))
-			 (if (if (string-match stay-local hostname)
-				 default (not default))
-			     'yes 'no))))))))))))
-
 ;;; This is handled specially now.
 ;; Tell Emacs about this new kind of minor mode
 ;; (add-to-list 'minor-mode-alist '(vc-mode vc-mode))
@@ -564,50 +490,11 @@ status of this file.  Otherwise, the value returned is one of:
   "Quickly recompute the `state' of FILE."
   (vc-file-setprop
    file 'vc-state
-   (vc-call-backend backend 'state-heuristic file)))
+   (vc-call-backend backend 'state file)))
 
 (defsubst vc-up-to-date-p (file)
   "Convenience function that checks whether `vc-state' of FILE is `up-to-date'."
   (eq (vc-state file) 'up-to-date))
-
-(defun vc-default-state-heuristic (backend file)
-  "Default implementation of vc-BACKEND-state-heuristic.
-It simply calls the real state computation function `vc-BACKEND-state'
-and does not employ any heuristic at all."
-   (vc-call-backend backend 'state file))
-
-(defun vc-workfile-unchanged-p (file)
-  "Return non-nil if FILE has not changed since the last checkout."
-  (let ((checkout-time (vc-file-getprop file 'vc-checkout-time))
-        (lastmod (nth 5 (file-attributes file))))
-    ;; This is a shortcut for determining when the workfile is
-    ;; unchanged.  It can fail under some circumstances; see the
-    ;; discussion in bug#694.
-    (if (and checkout-time
-	     ;; Tramp and Ange-FTP return this when they don't know the time.
-	     (not (equal lastmod '(0 0))))
-	(equal checkout-time lastmod)
-      (let ((unchanged (vc-call workfile-unchanged-p file)))
-	(vc-file-setprop file 'vc-checkout-time (if unchanged lastmod 0))
-	unchanged))))
-
-(defun vc-default-workfile-unchanged-p (backend file)
-  "Check if FILE is unchanged by diffing against the repository version.
-Return non-nil if FILE is unchanged."
-  (zerop (condition-case err
-             ;; If the implementation supports it, let the output
-             ;; go to *vc*, not *vc-diff*, since this is an internal call.
-             (vc-call-backend backend 'diff (list file) nil nil "*vc*")
-           (wrong-number-of-arguments
-            ;; If this error came from the above call to vc-BACKEND-diff,
-            ;; try again without the optional buffer argument (for
-            ;; backward compatibility).  Otherwise, resignal.
-            (if (or (not (eq (cadr err)
-                             (indirect-function
-                              (vc-find-backend-function backend 'diff))))
-                    (not (eq (cl-caddr err) 4)))
-                (signal (car err) (cdr err))
-              (vc-call-backend backend 'diff (list file)))))))
 
 (defun vc-working-revision (file &optional backend)
   "Return the repository version from which FILE was checked out.
@@ -1006,6 +893,7 @@ current, and kill the buffer that visits the link."
     (define-key map "=" 'vc-diff)
     (define-key map "D" 'vc-root-diff)
     (define-key map "~" 'vc-revision-other-window)
+    (define-key map "[delete]" 'vc-delete-file)
     map))
 (fset 'vc-prefix-map vc-prefix-map)
 (define-key ctl-x-map "v" 'vc-prefix-map)

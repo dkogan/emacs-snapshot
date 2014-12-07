@@ -43,22 +43,17 @@
 ;; STATE-QUERYING FUNCTIONS
 ;; * registered (file)                         OK
 ;; * state (file)                              OK
-;; - state-heuristic (file)                    NOT NEEDED
-;; - dir-status (dir update-function)          OK
-;; - dir-status-files (dir files ds uf)        OK
+;; - dir-status-files (dir files uf)           OK
 ;; - dir-extra-headers (dir)                   OK
 ;; - dir-printer (fileinfo)                    OK
 ;; * working-revision (file)                   OK
 ;; - latest-on-branch-p (file)                 ??
 ;; * checkout-model (files)                    OK
-;; - workfile-unchanged-p (file)               OK
 ;; - mode-line-string (file)                   NOT NEEDED
 ;; STATE-CHANGING FUNCTIONS
 ;; * register (files &optional rev comment)    OK
 ;; * create-repo ()                            OK
-;; - init-revision ()                          NOT NEEDED
 ;; - responsible-p (file)                      OK
-;; - could-register (file)                     OK
 ;; - receive-file (file rev)                   ?? PROBABLY NOT NEEDED
 ;; - unregister (file)                         OK
 ;; * checkin (files rev comment)               OK
@@ -86,11 +81,9 @@
 ;; - retrieve-tag (dir name update)            OK FIXME UPDATE BUFFERS
 ;; MISCELLANEOUS
 ;; - make-version-backups-p (file)             ??
-;; - repository-hostname (dirname)             ??
 ;; - previous-revision (file rev)              OK
 ;; - next-revision (file rev)                  OK
 ;; - check-headers ()                          ??
-;; - clear-headers ()                          ??
 ;; - delete-file (file)                        TEST IT
 ;; - rename-file (old new)                     OK
 ;; - find-file-hook ()                         added for bug#10709
@@ -320,7 +313,7 @@ If LIMIT is non-nil, show no more than this many entries."
 
 (autoload 'vc-switches "vc")
 
-(defun vc-hg-diff (files &optional oldvers newvers buffer)
+(defun vc-hg-diff (files &optional async oldvers newvers buffer)
   "Get a difference report using hg between two revisions of FILES."
   (let* ((firstfile (car files))
          (working (and firstfile (vc-working-revision firstfile))))
@@ -328,7 +321,10 @@ If LIMIT is non-nil, show no more than this many entries."
       (setq oldvers nil))
     (when (and (not oldvers) newvers)
       (setq oldvers working))
-    (apply #'vc-hg-command (or buffer "*vc-diff*") nil files "diff"
+    (apply #'vc-hg-command
+	   (or buffer "*vc-diff*")
+	   (if async 'async nil)
+	   files "diff"
            (append
             (vc-switches 'hg 'diff)
             (when oldvers
@@ -441,10 +437,8 @@ Optional arg REVISION is a revision to annotate from."
   "Rename file from OLD to NEW using `hg mv'."
   (vc-hg-command nil 0 new "mv" old))
 
-(defun vc-hg-register (files &optional _rev _comment)
-  "Register FILES under hg.
-REV is ignored.
-COMMENT is ignored."
+(defun vc-hg-register (files &optional _comment)
+  "Register FILES under hg. COMMENT is ignored."
   (vc-hg-command nil 0 files "add"))
 
 (defun vc-hg-create-repo ()
@@ -452,17 +446,6 @@ COMMENT is ignored."
   (vc-hg-command nil 0 nil "init"))
 
 (defalias 'vc-hg-responsible-p 'vc-hg-root)
-
-;; Modeled after the similar function in vc-bzr.el
-(defun vc-hg-could-register (file)
-  "Return non-nil if FILE could be registered under hg."
-  (and (vc-hg-responsible-p file)      ; shortcut
-       (condition-case ()
-           (with-temp-buffer
-             (vc-hg-command t nil file "add" "--dry-run"))
-             ;; The command succeeds with no output if file is
-             ;; registered.
-         (error))))
 
 (defun vc-hg-unregister (file)
   "Unregister FILE from hg."
@@ -531,10 +514,6 @@ REV is the revision to check out into WORKFILE."
     (add-hook 'after-save-hook 'vc-hg-resolve-when-done nil t)
     (message "There are unresolved conflicts in this file")))
 
-
-;; Modeled after the similar function in vc-bzr.el
-(defun vc-hg-workfile-unchanged-p (file)
-  (eq 'up-to-date (vc-hg-state file)))
 
 ;; Modeled after the similar function in vc-bzr.el
 (defun vc-hg-revert (file &optional contents-done)
@@ -633,12 +612,7 @@ REV is the revision to check out into WORKFILE."
 ;; Follows vc-exec-after.
 (declare-function vc-set-async-update "vc-dispatcher" (process-buffer))
 
-(defun vc-hg-dir-status (dir update-function)
-  (vc-hg-command (current-buffer) 'async dir "status" "-C")
-  (vc-run-delayed
-   (vc-hg-after-dir-status update-function)))
-
-(defun vc-hg-dir-status-files (dir files _default-state update-function)
+(defun vc-hg-dir-status-files (dir files update-function)
   (apply 'vc-hg-command (current-buffer) 'async dir "status" "-mardui" "-C" files)
   (vc-run-delayed
    (vc-hg-after-dir-status update-function)))

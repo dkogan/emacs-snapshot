@@ -50,18 +50,15 @@
 ;; STATE-QUERYING FUNCTIONS
 ;; * registered (file)                             OK
 ;; * state (file)                                  OK
-;; - state-heuristic (file)                        NOT NEEDED
+;; - dir-status-files (dir files uf)               OK
 ;; * working-revision (file)                       OK
 ;; - latest-on-branch-p (file)                     NOT NEEDED
 ;; * checkout-model (files)                        OK
-;; - workfile-unchanged-p (file)                   OK
 ;; - mode-line-string (file)                       OK
 ;; STATE-CHANGING FUNCTIONS
 ;; * create-repo ()                                OK
 ;; * register (files &optional rev comment)        OK
-;; - init-revision (file)                          NOT NEEDED
 ;; - responsible-p (file)                          OK
-;; - could-register (file)                         NOT NEEDED, DEFAULT IS GOOD
 ;; - receive-file (file rev)                       NOT NEEDED
 ;; - unregister (file)                             OK
 ;; * checkin (files rev comment)                   OK
@@ -69,13 +66,13 @@
 ;; * checkout (file &optional rev)                 OK
 ;; * revert (file &optional contents-done)         OK
 ;; - rollback (files)                              COULD BE SUPPORTED
-;; - merge (file rev1 rev2)                   It would be possible to merge
+;; - merge-file (file rev1 rev2)            It would be possible to merge
 ;;                                          changes into a single file, but
 ;;                                          when committing they wouldn't
 ;;                                          be identified as a merge
 ;;                                          by git, so it's probably
 ;;                                          not a good idea.
-;; - merge-news (file)                     see `merge'
+;; - merge-news (file)                      see `merge-file'
 ;; - steal-lock (file &optional revision)          NOT NEEDED
 ;; HISTORY FUNCTIONS
 ;; * print-log (files buffer &optional shortlog start-revision limit)   OK
@@ -94,11 +91,9 @@
 ;; - retrieve-tag (dir name update)                OK
 ;; MISCELLANEOUS
 ;; - make-version-backups-p (file)                 NOT NEEDED
-;; - repository-hostname (dirname)                 NOT NEEDED
 ;; - previous-revision (file rev)                  OK
 ;; - next-revision (file rev)                      OK
 ;; - check-headers ()                              COULD BE SUPPORTED
-;; - clear-headers ()                              NOT NEEDED
 ;; - delete-file (file)                            OK
 ;; - rename-file (old new)                         OK
 ;; - find-file-hook ()                             OK
@@ -247,9 +242,6 @@ matching the resulting Git log output, and KEYWORDS is a list of
             (match-string 2 str)
           str)
       (vc-git--rev-parse "HEAD"))))
-
-(defun vc-git-workfile-unchanged-p (file)
-  (eq 'up-to-date (vc-git-state file)))
 
 (defun vc-git-mode-line-string (file)
   "Return a string for `vc-mode-line' to put in the mode line for FILE."
@@ -481,15 +473,11 @@ or an empty string if none."
   (vc-run-delayed
    (vc-git-after-dir-status-stage stage files update-function)))
 
-(defun vc-git-dir-status (_dir update-function)
+(defun vc-git-dir-status-files (_dir files update-function)
   "Return a list of (FILE STATE EXTRA) entries for DIR."
   ;; Further things that would have to be fixed later:
   ;; - how to handle unregistered directories
   ;; - how to support vc-dir on a subdir of the project tree
-  (vc-git-dir-status-goto-stage 'update-index nil update-function))
-
-(defun vc-git-dir-status-files (_dir files _default-state update-function)
-  "Return a list of (FILE STATE EXTRA) entries for FILES in DIR."
   (vc-git-dir-status-goto-stage 'update-index files update-function))
 
 (defvar vc-git-stash-map
@@ -605,7 +593,7 @@ The car of the list is the current branch."
   "Create a new Git repository."
   (vc-git-command nil 0 nil "init"))
 
-(defun vc-git-register (files &optional _rev _comment)
+(defun vc-git-register (files &optional _comment)
   "Register FILES into the git version-control system."
   (let (flist dlist)
     (dolist (crt files)
@@ -784,7 +772,7 @@ This prompts for a branch to merge from."
           ;; See git-status(1).
           (when (member state '("AU" "UD" "UA" ;; "DD"
                                 "DU" "AA" "UU"))
-            (push file files)))))))
+            (push (expand-file-name file directory) files)))))))
 
 (defun vc-git-resolve-when-done ()
   "Call \"git add\" if the conflict markers have been removed."
@@ -991,11 +979,13 @@ or BRANCH^ (where \"^\" can be repeated)."
 
 (autoload 'vc-switches "vc")
 
-(defun vc-git-diff (files &optional rev1 rev2 buffer)
+(defun vc-git-diff (files &optional async rev1 rev2 buffer)
   "Get a difference report using Git between two revisions of FILES."
   (let (process-file-side-effects)
     (if vc-git-diff-switches
-        (apply #'vc-git-command (or buffer "*vc-diff*") 1 files
+        (apply #'vc-git-command (or buffer "*vc-diff*")
+	       (if async 'async 1)
+	       files
                (if (and rev1 rev2) "diff-tree" "diff-index")
                "--exit-code"
                (append (vc-switches 'git 'diff)

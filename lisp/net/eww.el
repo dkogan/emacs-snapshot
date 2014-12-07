@@ -258,7 +258,8 @@ word(s) will be searched for via `eww-search-prefix'."
     (plist-put eww-data :url url)
     (eww-update-header-line-format)
     (let ((inhibit-read-only t))
-      (insert (format "Loading %s..." url))))
+      (insert (format "Loading %s..." url))
+      (goto-char (point-min))))
   (url-retrieve url 'eww-render
 		(list url nil (current-buffer))))
 
@@ -308,14 +309,14 @@ See the `eww-search-prefix' variable for the search engine used."
 	   ((equal (car content-type) "application/pdf")
 	    (eww-display-pdf))
 	   ((string-match-p "\\`image/" (car content-type))
-	    (eww-display-image buffer)
-	    (eww-update-header-line-format))
+	    (eww-display-image buffer))
 	   (t
-	    (eww-display-raw buffer encode)
-	    (eww-update-header-line-format)))
-	  (plist-put eww-data :url url)
-	  (setq eww-history-position 0)
-	  (run-hooks 'eww-after-render-hook))
+	    (eww-display-raw buffer encode)))
+	  (with-current-buffer buffer
+	    (plist-put eww-data :url url)
+	    (eww-update-header-line-format)
+	    (setq eww-history-position 0)
+	    (run-hooks 'eww-after-render-hook)))
       (kill-buffer data-buffer))))
 
 (defun eww-parse-headers ()
@@ -403,10 +404,7 @@ See the `eww-search-prefix' variable for the search engine used."
 	  (while (and (not (eobp))
 		      (get-text-property (point) 'eww-form))
 	    (forward-line 1)))))
-      (plist-put eww-data :url url)
-      (setq eww-history-position 0)
-      (eww-size-text-inputs)
-      (eww-update-header-line-format))))
+      (eww-size-text-inputs))))
 
 (defun eww-handle-link (dom)
   (let* ((rel (dom-attr dom 'rel))
@@ -495,6 +493,7 @@ See the `eww-search-prefix' variable for the search engine used."
 	(shr-put-image data nil))
       (goto-char (point-min)))))
 
+(declare-function mailcap-view-mime "mailcap" (type))
 (defun eww-display-pdf ()
   (let ((data (buffer-substring (point) (point-max))))
     (switch-to-buffer (get-buffer-create "*eww pdf*"))
@@ -502,7 +501,7 @@ See the `eww-search-prefix' variable for the search engine used."
 	  (inhibit-read-only t))
       (erase-buffer)
       (insert data)
-      (doc-view-mode)))
+      (mailcap-view-mime "application/pdf")))
   (goto-char (point-min)))
 
 (defun eww-setup-buffer ()

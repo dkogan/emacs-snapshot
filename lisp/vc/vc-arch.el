@@ -231,8 +231,7 @@ Only the value `maybe' can be trusted :-(."
   "Return the administrative directory of FILE."
   (expand-file-name "{arch}" (vc-arch-root file)))
 
-(defun vc-arch-register (files &optional rev _comment)
-  (if rev (error "Explicit initial revision not supported for Arch"))
+(defun vc-arch-register (files &optional _comment)
   (dolist (file files)
     (let ((tagmet (vc-arch-tagging-method file)))
       (if (and (memq tagmet '(tagline implicit)) comment-start)
@@ -261,10 +260,6 @@ Only the value `maybe' can be trusted :-(."
 	       (insert-file-contents f)
 	       ;; Strip the terminating newline.
 	       (buffer-substring (point-min) (1- (point-max)))))))))
-
-(defun vc-arch-workfile-unchanged-p (_file)
-  "Stub: arch workfiles are always considered to be in a changed state,"
-  nil)
 
 (defun vc-arch-state (file)
   ;; There's no checkout operation and merging is not done from VC
@@ -315,10 +310,11 @@ Only the value `maybe' can be trusted :-(."
 		    'up-to-date
 		  'edited)))))))))
 
-;; -dir-status called from vc-dir, which loads vc, which loads vc-dispatcher.
+;; dir-status-files called from vc-dir, which loads vc,
+;; which loads vc-dispatcher.
 (declare-function vc-exec-after "vc-dispatcher" (code))
 
-(defun vc-arch-dir-status (dir callback)
+(defun vc-arch-dir-status-files (dir _files callback)
   "Run 'tla inventory' for DIR and pass results to CALLBACK.
 CALLBACK expects (ENTRIES &optional MORE-TO-COME); see
 `vc-dir-refresh'."
@@ -452,7 +448,7 @@ CALLBACK expects (ENTRIES &optional MORE-TO-COME); see
     (vc-arch-command nil 0 files "commit" "-s" summary "-L" comment "--"
 		     (vc-switches 'Arch 'checkin))))
 
-(defun vc-arch-diff (files &optional oldvers newvers buffer)
+(defun vc-arch-diff (files &optional async oldvers newvers buffer)
   "Get a difference report using Arch between two versions of FILES."
   ;; FIXME: This implementation only works for singleton filesets.  To make
   ;; it work for more cases, we have to either call `file-diffs' manually on
@@ -469,7 +465,6 @@ CALLBACK expects (ENTRIES &optional MORE-TO-COME); see
     (if newvers
         (error "Diffing specific revisions not implemented")
       (let* (process-file-side-effects
-	     (async (not vc-disable-async-diff))
              ;; Run the command from the root dir.
              (default-directory (vc-arch-root file))
              (status
@@ -495,8 +490,6 @@ CALLBACK expects (ENTRIES &optional MORE-TO-COME); see
 (defun vc-arch-command (buffer okstatus file &rest flags)
   "A wrapper around `vc-do-command' for use in vc-arch.el."
   (apply 'vc-do-command (or buffer "*vc*") okstatus vc-arch-program file flags))
-
-(defun vc-arch-init-revision () nil)
 
 ;;; Completion of versions and revisions.
 

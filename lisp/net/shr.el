@@ -412,25 +412,25 @@ size, and full-buffer size."
 	   (cdr (assq 'color shr-stylesheet))
 	   (cdr (assq 'background-color shr-stylesheet))))))))
 
-(defmacro shr-char-breakable-p (char)
+(define-inline shr-char-breakable-p (char)
   "Return non-nil if a line can be broken before and after CHAR."
-  `(aref fill-find-break-point-function-table ,char))
-(defmacro shr-char-nospace-p (char)
+  (inline-quote (aref fill-find-break-point-function-table ,char)))
+(define-inline shr-char-nospace-p (char)
   "Return non-nil if no space is required before and after CHAR."
-  `(aref fill-nospace-between-words-table ,char))
+  (inline-quote (aref fill-nospace-between-words-table ,char)))
 
 ;; KINSOKU is a Japanese word meaning a rule that should not be violated.
 ;; In Emacs, it is a term used for characters, e.g. punctuation marks,
 ;; parentheses, and so on, that should not be placed in the beginning
 ;; of a line or the end of a line.
-(defmacro shr-char-kinsoku-bol-p (char)
+(define-inline shr-char-kinsoku-bol-p (char)
   "Return non-nil if a line ought not to begin with CHAR."
-  `(let ((char ,char))
-     (and (not (eq char ?'))
-	  (aref (char-category-set char) ?>))))
-(defmacro shr-char-kinsoku-eol-p (char)
+  (inline-letevals (char)
+    (inline-quote (and (not (eq ,char ?'))
+                       (aref (char-category-set ,char) ?>)))))
+(define-inline shr-char-kinsoku-eol-p (char)
   "Return non-nil if a line ought not to end with CHAR."
-  `(aref (char-category-set ,char) ?<))
+  (inline-quote (aref (char-category-set ,char) ?<)))
 (unless (shr-char-kinsoku-bol-p (make-char 'japanese-jisx0208 33 35))
   (load "kinsoku" nil t))
 
@@ -1009,18 +1009,23 @@ ones, in case fg and bg are nil."
   "Convert DOM into a string containing the xml representation."
   (insert (format "<%s" (dom-tag dom)))
   (dolist (attr (dom-attributes dom))
-    ;; Ignore attributes that start with a colon.
+    ;; Ignore attributes that start with a colon because they are
+    ;; private elements.
     (unless (= (aref (format "%s" (car attr)) 0) ?:)
       (insert (format " %s=\"%s\"" (car attr) (cdr attr)))))
   (insert ">")
   (let (url)
     (dolist (elem (dom-children dom))
-      (when (or (not (eq (dom-tag elem) 'image))
-		(not (setq url (dom-attr elem ':xlink:href)))
-		(not shr-blocked-images)
-		(not (string-match shr-blocked-images url)))
+      (cond
+       ((stringp elem)
+	(insert elem))
+       ((or (not (eq (dom-tag elem) 'image))
+	    ;; Filter out blocked elements inside the SVG image.
+	    (not (setq url (dom-attr elem ':xlink:href)))
+	    (not shr-blocked-images)
+	    (not (string-match shr-blocked-images url)))
 	(insert " ")
-	(shr-dom-print elem))))
+	(shr-dom-print elem)))))
   (insert (format "</%s>" (dom-tag dom))))
 
 (defun shr-tag-svg (dom)
@@ -1179,7 +1184,7 @@ The preference is a float determined from `shr-prefer-media-type'."
   "Extract the best `:src' property from <source> blocks in DOM."
   (setq pref (or pref -1.0))
   (let (new-pref)
-    (dolist (elem (dom-children dom))
+    (dolist (elem (dom-non-text-children dom))
       (when (and (eq (dom-tag elem) 'source)
 		 (< pref
 		    (setq new-pref
@@ -1188,7 +1193,7 @@ The preference is a float determined from `shr-prefer-media-type'."
 	      url (dom-attr elem 'src))
         ;; libxml's html parser isn't HTML5 compliant and non terminated
         ;; source tags might end up as children.  So recursion it is...
-        (dolist (child (dom-children elem))
+        (dolist (child (dom-non-text-children elem))
           (when (eq (dom-tag child) 'source)
             (let ((ret (shr--extract-best-source (list child) url pref)))
               (when (< pref (cdr ret))

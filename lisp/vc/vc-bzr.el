@@ -493,12 +493,7 @@ in the branch repository (or whose status not be determined)."
     (add-hook 'after-save-hook 'vc-bzr-resolve-when-done nil t)
     (message "There are unresolved conflicts in this file")))
 
-(defun vc-bzr-workfile-unchanged-p (file)
-  (eq 'unchanged (car (vc-bzr-status file))))
-
 (defun vc-bzr-working-revision (file)
-  ;; Together with the code in vc-state-heuristic, this makes it possible
-  ;; to get the initial VC state of a Bzr file even if Bzr is not installed.
   (let* ((rootdir (vc-bzr-root file))
          (branch-format-file (expand-file-name vc-bzr-admin-branch-format-file
                                                rootdir))
@@ -580,10 +575,6 @@ in the branch repository (or whose status not be determined)."
   "Create a new Bzr repository."
   (vc-bzr-command "init" nil 0 nil))
 
-(defun vc-bzr-init-revision (&optional _file)
-  "Always return nil, as Bzr cannot register explicit versions."
-  nil)
-
 (defun vc-bzr-previous-revision (_file rev)
   (if (string-match "\\`[0-9]+\\'" rev)
       (number-to-string (1- (string-to-number rev)))
@@ -594,11 +585,8 @@ in the branch repository (or whose status not be determined)."
       (number-to-string (1+ (string-to-number rev)))
     (error "Don't know how to compute the next revision of %s" rev)))
 
-(defun vc-bzr-register (files &optional rev _comment)
-  "Register FILES under bzr.
-Signal an error unless REV is nil.
-COMMENT is ignored."
-  (if rev (error "Can't register explicit revision with bzr"))
+(defun vc-bzr-register (files &optional _comment)
+  "Register FILES under bzr. COMMENT is ignored."
   (vc-bzr-command "add" nil 0 files))
 
 ;; Could run `bzr status' in the directory and see if it succeeds, but
@@ -607,18 +595,6 @@ COMMENT is ignored."
   "Return non-nil if FILE is (potentially) controlled by bzr.
 The criterion is that there is a `.bzr' directory in the same
 or a superior directory.")
-
-(defun vc-bzr-could-register (file)
-  "Return non-nil if FILE could be registered under bzr."
-  (and (vc-bzr-responsible-p file)      ; shortcut
-       (condition-case ()
-           (with-temp-buffer
-             (vc-bzr-command "add" t 0 file "--dry-run")
-             ;; The command succeeds with no output if file is
-             ;; registered (in bzr 0.8).
-             (goto-char (point-min))
-             (looking-at "added "))
-         (error))))
 
 (defun vc-bzr-unregister (file)
   "Unregister FILE from bzr."
@@ -791,7 +767,7 @@ If LIMIT is non-nil, show no more than this many entries."
 
 (autoload 'vc-switches "vc")
 
-(defun vc-bzr-diff (files &optional rev1 rev2 buffer)
+(defun vc-bzr-diff (files &optional async rev1 rev2 buffer)
   "VC bzr backend for diff."
   (let* ((switches (vc-switches 'bzr 'diff))
          (args
@@ -807,7 +783,7 @@ If LIMIT is non-nil, show no more than this many entries."
                                 (or rev2 "")))))))
     ;; `bzr diff' exits with code 1 if diff is non-empty.
     (apply #'vc-bzr-command "diff" (or buffer "*vc-diff*")
-           (if vc-disable-async-diff 1 'async) files
+           (if async 1 'async) files
            args)))
 
 
@@ -991,9 +967,9 @@ stream.  Standard error output is discarded."
         (forward-line))
       (funcall update-function result)))
 
-(defun vc-bzr-dir-status (dir update-function)
+(defun vc-bzr-dir-status-files (dir files update-function)
   "Return a list of conses (file . state) for DIR."
-  (vc-bzr-command "status" (current-buffer) 'async dir "-v" "-S")
+  (apply 'vc-bzr-command "status" (current-buffer) 'async dir "-v" "-S" files)
   (vc-run-delayed
    (vc-bzr-after-dir-status update-function
                             ;; "bzr status" results are relative to
@@ -1003,13 +979,6 @@ stream.  Standard error output is discarded."
                             ;; We pass the relative directory here so
                             ;; that `vc-bzr-after-dir-status' can
                             ;; frob the results accordingly.
-                            (file-relative-name dir (vc-bzr-root dir)))))
-
-(defun vc-bzr-dir-status-files (dir files _default-state update-function)
-  "Return a list of conses (file . state) for DIR."
-  (apply 'vc-bzr-command "status" (current-buffer) 'async dir "-v" "-S" files)
-  (vc-run-delayed
-   (vc-bzr-after-dir-status update-function
                             (file-relative-name dir (vc-bzr-root dir)))))
 
 (defvar vc-bzr-shelve-map

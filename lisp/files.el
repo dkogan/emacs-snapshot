@@ -729,6 +729,39 @@ The path separator is colon in GNU and GNU-like systems."
                     (lambda (f) (and (file-directory-p f) 'dir-ok)))
        (error "No such directory found via CDPATH environment variable"))))
 
+(defun file-tree-walk (dir action &rest args)
+  "Walk DIR executing ACTION on each file, with ARGS as additional arguments.
+For each file, the function calls ACTION as follows:
+
+   \(ACTION DIRECTORY BASENAME ARGS\)
+
+Where DIRECTORY is the leading directory of the file,
+      BASENAME is the basename of the file,
+      and ARGS are as specified in the call to this function, or nil if omitted.
+
+The ACTION is applied to each subdirectory before descending into
+it, and if nil is returned at that point, the descent will be
+prevented.  Directory entries are sorted with string-lessp."
+  (cond ((file-directory-p dir)
+	 (or (char-equal ?/ (aref dir (1- (length dir))))
+	     (setq dir (file-name-as-directory dir)))
+	 (let ((lst (directory-files dir nil nil t))
+	       fullname file)
+	   (while lst
+	     (setq file (car lst))
+	     (setq lst (cdr lst))
+	     (cond ((member file '("." "..")))
+		   (t
+		    (and (apply action dir file args)
+			 (setq fullname (concat dir file))
+			 (file-directory-p fullname)
+			 (apply 'file-tree-walk fullname action args)))))))
+	(t
+	 (apply action
+		(file-name-directory dir)
+		(file-name-nondirectory dir)
+		args))))
+
 (defun load-file (file)
   "Load the Lisp file named FILE."
   ;; This is a case where .elc makes a lot of sense.

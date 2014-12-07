@@ -31,22 +31,17 @@
 ;; STATE-QUERYING FUNCTIONS
 ;; * registered (file)                         OK
 ;; * state (file)                              OK
-;; - state-heuristic (file)                    NOT NEEDED
-;; * dir-status (dir update-function)          OK
-;; - dir-status-files (dir files ds uf)        ??
+;; - dir-status-files (dir files uf)           OK
 ;; - dir-extra-headers (dir)                   NOT NEEDED
 ;; - dir-printer (fileinfo)                    ??
 ;; * working-revision (file)                   OK
 ;; - latest-on-branch-p (file)                 ??
 ;; * checkout-model (files)                    OK
-;; * workfile-unchanged-p (file)               OK
 ;; - mode-line-string (file)                   NOT NEEDED
 ;; STATE-CHANGING FUNCTIONS
 ;; * register (files &optional rev comment)    OK
 ;; * create-repo ()                            OK
-;; - init-revision ()                          NOT NEEDED
 ;; * responsible-p (file)                      OK
-;; * could-register (file)                     OK
 ;; - receive-file (file rev)                   NOT NEEDED
 ;; - unregister (file)                         NOT NEEDED
 ;; * checkin (files comment)                   OK
@@ -74,11 +69,9 @@
 ;; - retrieve-tag (dir name update)            ??
 ;; MISCELLANEOUS
 ;; - make-version-backups-p (file)             ??
-;; - repository-hostname (dirname)             NOT NEEDED
 ;; - previous-revision (file rev)              ??
 ;; - next-revision (file rev)                  ??
 ;; - check-headers ()                          ??
-;; - clear-headers ()                          ??
 ;; - delete-file (file)                        ??
 ;; * rename-file (old new)                     OK
 ;; - find-file-hook ()                         NOT NEEDED
@@ -185,16 +178,11 @@ For a description of possible values, see `vc-check-master-templates'."
 
 (autoload 'vc-expand-dirs "vc")
 
-(defun vc-src-dir-status (dir update-function)
-  ;; FIXME: this function should be rewritten or `vc-expand-dirs'
-  ;; should be changed to take a backend parameter.  Using
-  ;; `vc-expand-dirs' is not TRTD because it returns files from
-  ;; multiple backends.  It should also return 'unregistered files.
-
+(defun vc-src-dir-status-files (dir files update-function)
   ;; FIXME: Use one src status -a call for this
-  (let ((flist (vc-expand-dirs (list dir)))
-	(result nil))
-    (dolist (file flist)
+  (if (not files) (setq files (vc-expand-dirs (list dir) 'RCS)))
+  (let ((result nil))
+    (dolist (file files)
       (let ((state (vc-state file))
 	    (frel (file-relative-name file)))
 	(when (and (eq (vc-backend file) 'SRC)
@@ -214,9 +202,6 @@ This function differs from vc-do-command in that it invokes `vc-src-program'."
           (vc-src-command standard-output file "list" "-f{1}" "@")))
       "0"))
 
-(defun vc-src-workfile-unchanged-p (file)
-  (eq 'up-to-date (vc-src-state file)))
-
 ;;;
 ;;; State-changing functions
 ;;;
@@ -228,10 +213,8 @@ This function differs from vc-do-command in that it invokes `vc-src-program'."
 
 (autoload 'vc-switches "vc")
 
-(defun vc-src-register (files &optional _rev _comment)
-  "Register FILES under src.
-REV is ignored.
-COMMENT is ignored."
+(defun vc-src-register (files &optional _comment)
+  "Register FILES under src. COMMENT is ignored."
   (vc-src-command nil files "add"))
 
 (defun vc-src-responsible-p (file)
@@ -240,8 +223,6 @@ COMMENT is ignored."
                                       (if (file-directory-p file)
                                           file
                                         (file-name-directory file)))))
-
-(defalias 'vc-could-register 'vc-src-responsible-p)
 
 (defun vc-src-checkin (files comment)
   "SRC-specific version of `vc-backend-checkin'.
@@ -266,13 +247,13 @@ REV is the revision to check out into WORKFILE."
   "Revert FILE to the version it was based on.  If FILE is a directory,
 revert all registered files beneath it."
   (if (file-directory-p file)
-      (mapc 'vc-src-revert (vc-expand-dirs (list file)))
+      (mapc 'vc-src-revert (vc-expand-dirs (list file) 'SRC))
     (vc-src-command nil file "co")))
 
 (defun vc-src-modify-change-comment (files rev comment)
   "Modify the change comments change on FILES on a specified REV.  If FILE is a
 directory the operation is applied to all registered files beneath it."
-  (dolist (file (vc-expand-dirs files))
+  (dolist (file (vc-expand-dirs files 'SRC))
     (vc-src-command nil file "amend" "-m" comment rev)))
 
 ;; History functions
@@ -284,7 +265,7 @@ directory the operation is applied to all registered files beneath it."
                  (repeat :tag "Argument List" :value ("") string))
   :group 'vc-src)
 
-(defun vc-src-print-log (files buffer &optional shortlog start-revision limit)
+(defun vc-src-print-log (files buffer &optional shortlog _start-revision limit)
   "Print commit log associated with FILES into specified BUFFER.
 If SHORTLOG is non-nil, use the list method.
 If START-REVISION is non-nil, it is the newest revision to show.
@@ -304,7 +285,7 @@ If LIMIT is non-nil, show no more than this many entries."
 	      (when limit (list "-l" (format "%s" limit)))
 	      vc-src-log-switches)))))
 
-(defun vc-src-diff (files &optional oldvers newvers buffer)
+(defun vc-src-diff (files &optional _async oldvers newvers buffer)
   "Get a difference report using src between two revisions of FILES."
   (let* ((firstfile (car files))
          (working (and firstfile (vc-working-revision firstfile))))

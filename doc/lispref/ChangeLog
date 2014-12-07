@@ -1,3 +1,16 @@
+2014-12-04  Eli Zaretskii  <eliz@gnu.org>
+
+	* display.texi (Bidirectional Display): Document
+	'buffer-substring-with-bidi-context'.
+
+	* text.texi (Buffer Contents): Mention
+	'buffer-substring-with-bidi-context' with a cross-reference.
+
+2014-12-02  Eli Zaretskii  <eliz@gnu.org>
+
+	* display.texi (Bidirectional Display): Document
+	'bidi-find-overridden-directionality'.
+
 2014-11-29  Paul Eggert  <eggert@cs.ucla.edu>
 
 	Lessen focus on ChangeLog files, as opposed to change log entries.
