@@ -115,6 +115,7 @@ DEF_GNUTLS_FN (int, gnutls_credentials_set,
 DEF_GNUTLS_FN (void, gnutls_deinit, (gnutls_session_t));
 DEF_GNUTLS_FN (void, gnutls_dh_set_prime_bits,
 	       (gnutls_session_t, unsigned int));
+DEF_GNUTLS_FN (int, gnutls_dh_get_prime_bits, (gnutls_session_t));
 DEF_GNUTLS_FN (int, gnutls_error_is_fatal, (int));
 DEF_GNUTLS_FN (int, gnutls_global_init, (void));
 DEF_GNUTLS_FN (void, gnutls_global_set_log_function, (gnutls_log_func));
@@ -185,11 +186,22 @@ DEF_GNUTLS_FN (int, gnutls_x509_crt_get_key_id,
 	       (gnutls_x509_crt_t, unsigned int,
 		unsigned char *, size_t *_size));
 DEF_GNUTLS_FN (const char*, gnutls_sec_param_get_name, (gnutls_sec_param_t));
-DEF_GNUTLS_FN (const char*, gnutls_sign_get_name,
-	       (gnutls_sign_algorithm_t));
+DEF_GNUTLS_FN (const char*, gnutls_sign_get_name, (gnutls_sign_algorithm_t));
 DEF_GNUTLS_FN (int, gnutls_server_name_set, (gnutls_session_t,
 					     gnutls_server_name_type_t,
 					     const void *, size_t));
+DEF_GNUTLS_FN (gnutls_kx_algorithm_t, gnutls_kx_get, (gnutls_session_t));
+DEF_GNUTLS_FN (const char*, gnutls_kx_get_name, (gnutls_kx_algorithm_t));
+DEF_GNUTLS_FN (gnutls_protocol_t, gnutls_protocol_get_version,
+	       (gnutls_session_t));
+DEF_GNUTLS_FN (const char*, gnutls_protocol_get_version, (gnutls_protocol_t));
+DEF_GNUTLS_FN (gnutls_cipher_algorithm_t, gnutls_cipher_get,
+	       (gnutls_session_t));
+DEF_GNUTLS_FN (const char*, gnutls_cipher_get_name,
+	       (gnutls_cipher_algorithm_t));
+DEF_GNUTLS_FN (gnutls_mac_algorithm_t, gnutls_mac_get, (gnutls_session_t));
+DEF_GNUTLS_FN (const char*, gnutls_mac_get_name, (gnutls_mac_algorithm_t));
+
 
 static bool
 init_gnutls_functions (void)
@@ -221,6 +233,7 @@ init_gnutls_functions (void)
   LOAD_GNUTLS_FN (library, gnutls_credentials_set);
   LOAD_GNUTLS_FN (library, gnutls_deinit);
   LOAD_GNUTLS_FN (library, gnutls_dh_set_prime_bits);
+  LOAD_GNUTLS_FN (library, gnutls_dh_get_prime_bits);
   LOAD_GNUTLS_FN (library, gnutls_error_is_fatal);
   LOAD_GNUTLS_FN (library, gnutls_global_init);
   LOAD_GNUTLS_FN (library, gnutls_global_set_log_function);
@@ -267,6 +280,14 @@ init_gnutls_functions (void)
   LOAD_GNUTLS_FN (library, gnutls_sec_param_get_name);
   LOAD_GNUTLS_FN (library, gnutls_sign_get_name);
   LOAD_GNUTLS_FN (library, gnutls_server_name_set);
+  LOAD_GNUTLS_FN (library, gnutls_kx_get);
+  LOAD_GNUTLS_FN (library, gnutls_kx_get_name);
+  LOAD_GNUTLS_FN (library, gnutls_protocol_get_version);
+  LOAD_GNUTLS_FN (library, gnutls_protocol_get_name);
+  LOAD_GNUTLS_FN (library, gnutls_cipher_get);
+  LOAD_GNUTLS_FN (library, gnutls_cipher_get_name);
+  LOAD_GNUTLS_FN (library, gnutls_mac_get);
+  LOAD_GNUTLS_FN (library, gnutls_mac_get_name);
 
   max_log_level = global_gnutls_log_level;
 
@@ -299,6 +320,7 @@ init_gnutls_functions (void)
 #define fn_gnutls_credentials_set		gnutls_credentials_set
 #define fn_gnutls_deinit			gnutls_deinit
 #define fn_gnutls_dh_set_prime_bits		gnutls_dh_set_prime_bits
+#define fn_gnutls_dh_get_prime_bits		gnutls_dh_get_prime_bits
 #define fn_gnutls_error_is_fatal		gnutls_error_is_fatal
 #define fn_gnutls_global_init			gnutls_global_init
 #define fn_gnutls_global_set_log_function	gnutls_global_set_log_function
@@ -339,7 +361,15 @@ init_gnutls_functions (void)
 #define fn_gnutls_x509_crt_get_key_id           gnutls_x509_crt_get_key_id
 #define fn_gnutls_sec_param_get_name            gnutls_sec_param_get_name
 #define fn_gnutls_sign_get_name                 gnutls_sign_get_name
-#define fn_gnutls_server_name_set		gnutls_server_name_set
+#define fn_gnutls_server_name_set               gnutls_server_name_set
+#define fn_gnutls_kx_get                        gnutls_kx_get
+#define fn_gnutls_kx_get_name                   gnutls_kx_get_name
+#define fn_gnutls_protocol_get_version          gnutls_protocol_get_version
+#define fn_gnutls_protocol_get_name             gnutls_protocol_get_name
+#define fn_gnutls_cipher_get                    gnutls_cipher_get
+#define fn_gnutls_cipher_get_name               gnutls_cipher_get_name
+#define fn_gnutls_mac_get                       gnutls_mac_get
+#define fn_gnutls_mac_get_name                  gnutls_mac_get_name
 
 #endif /* !WINDOWSNT */
 
@@ -568,7 +598,7 @@ emacs_gnutls_handle_error (gnutls_session_t session, int err)
   if (fn_gnutls_error_is_fatal (err))
     {
       ret = 0;
-      GNUTLS_LOG2 (0, max_log_level, "fatal error:", str);
+      GNUTLS_LOG2 (1, max_log_level, "fatal error:", str);
     }
   else
     {
@@ -685,9 +715,9 @@ usage: (gnutls-errorp ERROR)  */)
 }
 
 DEFUN ("gnutls-error-fatalp", Fgnutls_error_fatalp, Sgnutls_error_fatalp, 1, 1, 0,
-       doc: /* Check if ERROR is fatal.
+       doc: /* Return non-nil if ERROR is fatal.
 ERROR is an integer or a symbol with an integer `gnutls-code' property.
-usage: (gnutls-error-fatalp ERROR)  */)
+Usage: (gnutls-error-fatalp ERROR)  */)
   (Lisp_Object err)
 {
   Lisp_Object code;
@@ -797,6 +827,7 @@ gnutls_certificate_details (gnutls_x509_crt_t cert)
 {
   Lisp_Object res = Qnil;
   int err;
+  size_t buf_size;
 
   /* Version. */
   {
@@ -807,37 +838,30 @@ gnutls_certificate_details (gnutls_x509_crt_t cert)
   }
 
   /* Serial. */
-  {
-    size_t serial_size = 0;
-
-    err = fn_gnutls_x509_crt_get_serial (cert, NULL, &serial_size);
-    if (err == GNUTLS_E_SHORT_MEMORY_BUFFER)
-      {
-	char *serial = malloc (serial_size);
-	err = fn_gnutls_x509_crt_get_serial (cert, serial, &serial_size);
-	if (err >= GNUTLS_E_SUCCESS)
-	  res = nconc2 (res, list2 (intern (":serial-number"),
-				    gnutls_hex_string (serial, serial_size,
-						       "")));
-	free (serial);
-      }
-  }
+  buf_size = 0;
+  err = fn_gnutls_x509_crt_get_serial (cert, NULL, &buf_size);
+  if (err == GNUTLS_E_SHORT_MEMORY_BUFFER)
+    {
+      char *serial = malloc (buf_size);
+      err = fn_gnutls_x509_crt_get_serial (cert, serial, &buf_size);
+      if (err >= GNUTLS_E_SUCCESS)
+	res = nconc2 (res, list2 (intern (":serial-number"),
+				  gnutls_hex_string (serial, buf_size, "")));
+      free (serial);
+    }
 
   /* Issuer. */
-  {
-    size_t dn_size = 0;
-
-    err = fn_gnutls_x509_crt_get_issuer_dn (cert, NULL, &dn_size);
-    if (err == GNUTLS_E_SHORT_MEMORY_BUFFER)
-      {
-	char *dn = malloc (dn_size);
-	err = fn_gnutls_x509_crt_get_issuer_dn (cert, dn, &dn_size);
-	if (err >= GNUTLS_E_SUCCESS)
-	  res = nconc2 (res, list2 (intern (":issuer"),
-				    make_string (dn, dn_size)));
-	free (dn);
-      }
-  }
+  buf_size = 0;
+  err = fn_gnutls_x509_crt_get_issuer_dn (cert, NULL, &buf_size);
+  if (err == GNUTLS_E_SHORT_MEMORY_BUFFER)
+    {
+      char *dn = malloc (buf_size);
+      err = fn_gnutls_x509_crt_get_issuer_dn (cert, dn, &buf_size);
+      if (err >= GNUTLS_E_SUCCESS)
+	res = nconc2 (res, list2 (intern (":issuer"),
+				  make_string (dn, buf_size)));
+      free (dn);
+    }
 
   /* Validity. */
   {
@@ -857,20 +881,17 @@ gnutls_certificate_details (gnutls_x509_crt_t cert)
   }
 
   /* Subject. */
-  {
-    size_t dn_size = 0;
-
-    err = fn_gnutls_x509_crt_get_dn (cert, NULL, &dn_size);
-    if (err == GNUTLS_E_SHORT_MEMORY_BUFFER)
-      {
-	char *dn = malloc (dn_size);
-	err = fn_gnutls_x509_crt_get_dn (cert, dn, &dn_size);
-	if (err >= GNUTLS_E_SUCCESS)
-	  res = nconc2 (res, list2 (intern (":subject"),
-				    make_string (dn, dn_size)));
-	free (dn);
-      }
-  }
+  buf_size = 0;
+  err = fn_gnutls_x509_crt_get_dn (cert, NULL, &buf_size);
+  if (err == GNUTLS_E_SHORT_MEMORY_BUFFER)
+    {
+      char *dn = malloc (buf_size);
+      err = fn_gnutls_x509_crt_get_dn (cert, dn, &buf_size);
+      if (err >= GNUTLS_E_SUCCESS)
+	res = nconc2 (res, list2 (intern (":subject"),
+				  make_string (dn, buf_size)));
+      free (dn);
+    }
 
   /* Versions older than 2.11 doesn't have these four functions. */
 #if GNUTLS_VERSION_NUMBER >= 0x020b00
@@ -894,95 +915,70 @@ gnutls_certificate_details (gnutls_x509_crt_t cert)
   }
 
   /* Unique IDs. */
-  {
-    size_t buf_size = 0;
+  buf_size = 0;
+  err = fn_gnutls_x509_crt_get_issuer_unique_id (cert, NULL, &buf_size);
+  if (err == GNUTLS_E_SHORT_MEMORY_BUFFER)
+    {
+      char *buf = malloc (buf_size);
+      err = fn_gnutls_x509_crt_get_issuer_unique_id (cert, buf, &buf_size);
+      if (err >= GNUTLS_E_SUCCESS)
+	res = nconc2 (res, list2 (intern (":issuer-unique-id"),
+				  make_string (buf, buf_size)));
+      free (buf);
+    }
 
-    err = fn_gnutls_x509_crt_get_issuer_unique_id (cert, NULL, &buf_size);
-    if (err == GNUTLS_E_SHORT_MEMORY_BUFFER)
-      {
-	char *buf = malloc (buf_size);
-	err = fn_gnutls_x509_crt_get_issuer_unique_id (cert, buf, &buf_size);
-	if (err >= GNUTLS_E_SUCCESS)
-	  res = nconc2 (res, list2 (intern (":issuer-unique-id"),
-				    make_string (buf, buf_size)));
-	free (buf);
-      }
-
-    buf_size = 0;
-    err = fn_gnutls_x509_crt_get_subject_unique_id (cert, NULL, &buf_size);
-    if (err == GNUTLS_E_SHORT_MEMORY_BUFFER)
-      {
-	char *buf = malloc (buf_size);
-	err = fn_gnutls_x509_crt_get_subject_unique_id (cert, buf, &buf_size);
-	if (err >= GNUTLS_E_SUCCESS)
-	  res = nconc2 (res, list2 (intern (":subject-unique-id"),
-				    make_string (buf, buf_size)));
-	free (buf);
-      }
-  }
+  buf_size = 0;
+  err = fn_gnutls_x509_crt_get_subject_unique_id (cert, NULL, &buf_size);
+  if (err == GNUTLS_E_SHORT_MEMORY_BUFFER)
+    {
+      char *buf = malloc (buf_size);
+      err = fn_gnutls_x509_crt_get_subject_unique_id (cert, buf, &buf_size);
+      if (err >= GNUTLS_E_SUCCESS)
+	res = nconc2 (res, list2 (intern (":subject-unique-id"),
+				  make_string (buf, buf_size)));
+      free (buf);
+    }
 #endif
 
   /* Signature. */
-  {
-    size_t buf_size = 0;
-
-    err = fn_gnutls_x509_crt_get_signature_algorithm (cert);
-    if (err >= GNUTLS_E_SUCCESS)
-      {
-	const char *name = fn_gnutls_sign_get_name (err);
-	if (name)
-	  res = nconc2 (res, list2 (intern (":signature-algorithm"),
-				    build_string (name)));
-
-	err = fn_gnutls_x509_crt_get_signature (cert, NULL, &buf_size);
-	if (err == GNUTLS_E_SHORT_MEMORY_BUFFER)
-	  {
-	    char *buf = malloc (buf_size);
-	    err = fn_gnutls_x509_crt_get_signature (cert, buf, &buf_size);
-	    if (err >= GNUTLS_E_SUCCESS) {
-	      res = nconc2 (res, list2 (intern (":signature"),
-					gnutls_hex_string (buf, buf_size, "")));
-	    }
-	    free (buf);
-	  }
-      }
-  }
+  err = fn_gnutls_x509_crt_get_signature_algorithm (cert);
+  if (err >= GNUTLS_E_SUCCESS)
+    {
+      const char *name = fn_gnutls_sign_get_name (err);
+      if (name)
+	res = nconc2 (res, list2 (intern (":signature-algorithm"),
+				  build_string (name)));
+    }
 
   /* Public key ID. */
-  {
-    size_t buf_size = 0;
-
-    err = fn_gnutls_x509_crt_get_key_id (cert, 0, NULL, &buf_size);
-    if (err == GNUTLS_E_SHORT_MEMORY_BUFFER)
-      {
-	unsigned char *buf = malloc (buf_size);
-	err = fn_gnutls_x509_crt_get_key_id (cert, 0, buf, &buf_size);
-	if (err >= GNUTLS_E_SUCCESS)
-	  res = nconc2 (res, list2 (intern (":public-key-id"),
-				    gnutls_hex_string ((char *)buf,
-						       buf_size, "sha1:")));
-	free (buf);
-      }
-  }
+  buf_size = 0;
+  err = fn_gnutls_x509_crt_get_key_id (cert, 0, NULL, &buf_size);
+  if (err == GNUTLS_E_SHORT_MEMORY_BUFFER)
+    {
+      unsigned char *buf = malloc (buf_size);
+      err = fn_gnutls_x509_crt_get_key_id (cert, 0, buf, &buf_size);
+      if (err >= GNUTLS_E_SUCCESS)
+	res = nconc2 (res, list2 (intern (":public-key-id"),
+				  gnutls_hex_string ((char *)buf,
+						     buf_size, "sha1:")));
+      free (buf);
+    }
 
   /* Certificate fingerprint. */
-  {
-    size_t buf_size = 0;
-
-    err = fn_gnutls_x509_crt_get_fingerprint (cert, GNUTLS_DIG_SHA1,
-					      NULL, &buf_size);
-    if (err == GNUTLS_E_SHORT_MEMORY_BUFFER)
-      {
-	unsigned char *buf = malloc (buf_size);
-	err = fn_gnutls_x509_crt_get_fingerprint (cert, GNUTLS_DIG_SHA1,
-						  buf, &buf_size);
-	if (err >= GNUTLS_E_SUCCESS)
-	  res = nconc2 (res, list2 (intern (":certificate-id"),
-				    gnutls_hex_string ((char *)buf,
-						       buf_size, "sha1:")));
-	free (buf);
-      }
-  }
+  buf_size = 0;
+  err = fn_gnutls_x509_crt_get_fingerprint (cert, GNUTLS_DIG_SHA1,
+					    NULL, &buf_size);
+  if (err == GNUTLS_E_SHORT_MEMORY_BUFFER)
+    {
+      unsigned char *buf = malloc (buf_size);
+      err = fn_gnutls_x509_crt_get_fingerprint (cert, GNUTLS_DIG_SHA1,
+						buf, &buf_size);
+      if (err >= GNUTLS_E_SUCCESS)
+	res = nconc2 (res, list2 (intern (":certificate-id"),
+				  gnutls_hex_string ((char *)buf,
+						     buf_size, "sha1:")));
+      free (buf);
+    }
 
   return res;
 }
@@ -1029,6 +1025,7 @@ The return value is a property list with top-level keys :warnings and
 {
   Lisp_Object warnings = Qnil, result = Qnil;
   unsigned int verification;
+  gnutls_session_t state;
 
   CHECK_PROCESS (proc);
 
@@ -1072,6 +1069,41 @@ The return value is a property list with top-level keys :warnings and
     result = nconc2 (result, list2
                      (intern (":certificate"),
                       gnutls_certificate_details (XPROCESS (proc)->gnutls_certificate)));
+
+  state = XPROCESS (proc)->gnutls_state;
+
+  /* Diffie-Hellman prime bits. */
+  {
+    int bits = fn_gnutls_dh_get_prime_bits (state);
+    if (bits > 0)
+      result = nconc2 (result, list2 (intern (":diffie-hellman-prime-bits"),
+				      make_number (bits)));
+  }
+
+  /* Key exchange. */
+  result = nconc2
+    (result, list2 (intern (":key-exchange"),
+		    build_string (fn_gnutls_kx_get_name
+				  (fn_gnutls_kx_get (state)))));
+
+  /* Protocol name. */
+  result = nconc2
+    (result, list2 (intern (":protocol"),
+		    build_string (fn_gnutls_protocol_get_name
+				  (fn_gnutls_protocol_get_version (state)))));
+
+  /* Cipler name. */
+  result = nconc2
+    (result, list2 (intern (":cipher"),
+		    build_string (fn_gnutls_cipher_get_name
+				  (fn_gnutls_cipher_get (state)))));
+
+  /* MAC name. */
+  result = nconc2
+    (result, list2 (intern (":mac"),
+		    build_string (fn_gnutls_mac_get_name
+				  (fn_gnutls_mac_get (state)))));
+
 
   return result;
 }

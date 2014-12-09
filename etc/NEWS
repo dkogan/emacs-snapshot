@@ -137,6 +137,9 @@ buffers to allow certain parts of the text to be writable.
 to all the files and subdirectories of a directory, similarly to the C
 library function `ftw'.
 
+** A new function `directory-files-recursively' returns all matching
+files (recursively) under a directory.
+
 
 * Editing Changes in Emacs 25.1
 
@@ -211,6 +214,10 @@ pages visited) is now preserved in the desktop file.
 *** `eww-after-render-hook' is now called after eww has rendered
 the data in the buffer.
 
+---
+*** The `eww-reload' command now takes a prefix to not reload via
+the net, but just use the local copy of the HTML.
+
 +++
 *** The DOM shr and eww uses has been changed to the general Emacs
 xml.el/libxml2 DOM, and a new package dom.el has been added to
@@ -219,6 +226,14 @@ details.
 
 +++
 *** `mailcap-mime-data' is now consulted when displaying PDF files.
+
++++
+*** The new `S' command will list all eww buffers, and allow managing
+them.
+
+---
+*** https pages with valid certificates have headers marked in green, while
+invalid certificates are marked in red.
 
 ** Message mode
 
@@ -302,6 +317,10 @@ plain text parts, if display of HTML email is possible; customize the
 ** In sh-mode, you can now use `sh-shell' as a file-local variable to
 specify the type of shell in use (bash, csh, etc).
 
+** TLS
+---
+*** Fatal TLS errors are now silent by default.
+
 ** URL
 
 *** The URL package accepts now the protocols "ssh", "scp" and "rsync".
@@ -315,6 +334,10 @@ a function.
 *** The new interface variable `url-request-noninteractive' can be used
 to specify that we're running in a noninteractive context, and that
 we should not be queried about things like TLS certificate validity.
+
+*** If URL is used with a https connection, the first callback argument
+plist will contain a :peer element that has the output of
+`gnutls-peer-status' (if Emacs is built with GnuTLS support).
 
 ** Tramp
 

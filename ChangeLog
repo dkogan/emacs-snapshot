@@ -19,7 +19,6 @@
 	* .gitignore: Remove redundant pattern (subsumed by _*).
 	Avoid "**", as it requires Git 1.8.2 or later.
 
-2014-12-05  Paul Eggert  <eggert@cs.ucla.edu>
 2014-12-05  Eli Zaretskii  <eliz@gnu.org>
 
 	* .gitignore: Ignore test/biditest.txt.
@@ -8693,7 +8692,7 @@
 
 	* configure.in (HAVE_XIM): Define if XIM is available.
 
-2003-07-29  Tim Van Holder  <tim.vanholder@anubex.com>  (tiny change)
+2003-07-29  Tim Van Holder  <tim.vanholder@anubex.com>
 
 	* configure.in: The function gtk_window_set_icon_from_file was
 	introduced in GTK+ 2.2, so check for that release.
@@ -8927,7 +8926,7 @@
 
 	* configure.in (*-sunos5.8*, *-solaris2.8*): New configurations.
 
-2002-11-11  Tim Van Holder  <tim.vanholder@anubex.com>  (tiny change)
+2002-11-11  Tim Van Holder  <tim.vanholder@anubex.com>
 
 	* Makefile.in (install-arch-indep): Prepend $(srcdir)/ to lisp.
 

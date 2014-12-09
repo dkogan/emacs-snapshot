@@ -1,3 +1,32 @@
+2014-12-08  Lars Magne Ingebrigtsen  <larsi@gnus.org>
+
+	* gnutls.c (Fgnutls_peer_status): Return the key exchange, cipher
+	and MAC algorithms.
+
+2014-12-08  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* process.c: Whitespace and line-break nitpicks.
+
+2014-12-08  Lars Magne Ingebrigtsen  <larsi@gnus.org>
+
+	* gnutls.c (gnutls_certificate_details): The :signature isn't
+	that useful, so remove it.
+	(gnutls_certificate_details): Clean up whitespace slightly.
+	(Fgnutls_peer_status): Return the Diffie-Hellman prime bits for
+	the connection.
+	(gnutls_certificate_details): Put :signature-algorithm back again,
+	which was removed by mistake.
+	(emacs_gnutls_handle_error): Fatal errors should be on level 1, so
+	that they are not messaged by default (bug#16253).
+	(Fgnutls_error_fatalp): Doc fix (bug#18210).
+
+	* gnutls.c: Add Windows specs for gnutls_dh_get_prime_bits.
+
+2014-12-07  Jan Djärv  <jan.h.d@swipnet.se>
+
+	* nsimage.m (setPixmapData): Make bmRep local so class member is not
+	set (Bug#19133).
+
 2014-12-05  Lee Duhem  <lee.duhem@gmail.com>  (tiny change)
 
 	* eval.c (Fsignal): Remove duplicate test.
@@ -15,7 +44,6 @@
 	* nsfns.m (ns_set_name_as_filename): Don't set represented filename
 	at once, call ns_set_represented_filename instead.
 
-2014-12-05  Eli Zaretskii  <eliz@gnu.org>
 2014-12-05  Eli Zaretskii  <eliz@gnu.org>
 
 	* dispextern.h (enum bidi_dir_t): Force NEUTRAL_DIR to be zero.

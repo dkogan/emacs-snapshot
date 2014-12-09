@@ -25,7 +25,9 @@
 
 ;;; Code:
 
-(eval-when-compile (require 'cl-lib))
+(eval-when-compile
+  (require 'cl-lib)
+  (require 'subr-x))
 
 (defvar url-callback-arguments)
 (defvar url-callback-function)
@@ -492,7 +494,14 @@ should be shown to the user."
   (url-http-mark-connection-as-free (url-host url-current-object)
 				    (url-port url-current-object)
 				    url-http-process)
-
+  ;; Pass the https certificate on to the caller.
+  (when (gnutls-available-p)
+    (let ((status (gnutls-peer-status url-http-process)))
+      (when (or status
+		(plist-get (car url-callback-arguments) :peer))
+	(setcar url-callback-arguments
+		(plist-put (car url-callback-arguments)
+			   :peer status)))))
   (if (or (not (boundp 'url-http-end-of-headers))
 	  (not url-http-end-of-headers))
       (error "Trying to parse headers in odd buffer: %s" (buffer-name)))
@@ -892,7 +901,8 @@ should be shown to the user."
   (url-http-mark-connection-as-free (url-host url-current-object)
 				    (url-port url-current-object)
 				    url-http-process)
-  (url-http-debug "Activating callback in buffer (%s)" (buffer-name))
+  (url-http-debug "Activating callback in buffer (%s): %S %S"
+		  (buffer-name) url-callback-function url-callback-arguments)
   (apply url-callback-function url-callback-arguments))
 
 ;; )

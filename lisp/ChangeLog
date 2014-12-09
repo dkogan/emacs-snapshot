@@ -1,9 +1,167 @@
+2014-12-09  Wilson Snyder  <wsnyder@wsnyder.org>
+
+	Sync with upstream verilog-mode revision aa4b777.
+	* progmodes/verilog-mode.el (verilog-mode-version): Update.
+	(verilog-auto-end-comment-lines-re, verilog-end-block-ordered-re)
+	(verilog-set-auto-endcomments): Automatically comment property/
+	endproperty blocks to match other similar blocks like sequence/
+	endsequence, function/endfunction, etc.  Reported by Alex Reed.
+	(verilog-set-auto-endcomments): Fix end comments for functions of
+	type void, etc.  Detect the function- or task-name when
+	auto-commenting blocks that lack an explicit portlist.
+	Reported by Alex Reed.
+	(verilog-nameable-item-re): Fix nameable items that can have an
+	end-identifier to include endchecker, endgroup, endprogram,
+	endproperty, and endsequence.  Reported by Alex Reed.
+	(verilog-preprocessor-re, verilog-beg-of-statement):
+	Fix indentation of property/endproperty around pre-processor
+	directives.  Reported by Alex Reed.
+	(verilog-label-be): When auto-commenting a buffer, consider
+	auto-comments on all known keywords (not just a subset thereof).
+	Reported by Alex Reed.
+	(verilog-beg-of-statement): Fix labeling do-while blocks, bug842.
+	Reported by Alex Reed.
+	(verilog-beg-of-statement-1, verilog-at-constraint-p):
+	Fix hanging with many curly-bracket pairs, bug663.
+	(verilog-do-indent): Fix electric tab deleting form-feeds.
+	Note caused by indent-line-to deleting tabls pre 24.5.
+	(verilog-auto-output, verilog-auto-input, verilog-auto-inout)
+	(verilog-auto-inout-module, verilog-auto-inout-in): Doc fixes.
+	(verilog-read-always-signals, verilog-auto-sense-sigs)
+	(verilog-auto-reset): Fix AUTORESET with always_comb and always_latch,
+	bug844.  Reported by Greg Hilton.
+
+2014-12-09  Alex Reed  <acreed4@gmail.com>  (tiny change)
+
+	* progmodes/verilog-mode.el (verilog-no-indent-begin-re):
+	Fix `verilog-indent-begin-after-if' nil not honoring 'forever',
+	'foreach', and 'do' keywords.
+	(verilog-endcomment-reason-re, verilog-beg-of-statement):
+	Fix labeling do-while blocks, bug842.
+	(verilog-backward-token): Fix indenting sensitivity lists with
+	named events, bug840.
+
+2014-12-09  Reto Zimmermann  <reto@gnu.org>
+
+	Sync with upstream vhdl mode v3.36.1.
+	* progmodes/vhdl-mode.el (vhdl-version, vhdl-time-stamp): Update.
+	(vhdl-compiler-alist): Anchor all error regexps.
+	(vhdl-compile-use-local-error-regexp): Change default to nil.
+	(vhdl-asort, vhdl-anot-head-p): Remove.
+	(vhdl-aput, vhdl-adelete, vhdl-aget): Simplify.
+	Remove optional argument of vhdl-aget and update all callers.
+	(vhdl-import-project): Also set `vhdl-compiler'.
+
+2014-12-09  Lars Magne Ingebrigtsen  <larsi@gnus.org>
+
+	* files.el (find-files): New function.
+
+	* net/shr.el (shr-dom-print): Don't print comments.
+	(shr-tag-svg): Give inline SVG images the right type.
+
+	* net/eww.el (eww-update-header-line-format): Mark valid/invalid
+	certificates in the header line.
+	(eww-invalid-certificate, eww-valid-certificate): New faces.
+
+2014-12-09  Fabián Ezequiel Gallina  <fgallina@gnu.org>
+
+	* progmodes/python.el (inferior-python-mode): Set
+	`comint-prompt-read-only` to `t` only locally.
+
+2014-12-08  Lars Magne Ingebrigtsen  <larsi@gnus.org>
+
+	* net/nsm.el (nsm-check-protocol): Test for RC4 on `high'.
+	(nsm-format-certificate): Include more data about the connection.
+	(nsm-query): Fill the text to that it looks nicer.
+	(nsm-check-protocol): Also warn if using SSL3 or older.
+
+2014-12-08  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* progmodes/gud.el (gud-gdb-completions): Remove unused var `start'.
+
+	* obsolete/gulp.el (gulp-create-m-p-alist): Remove unused var `mnt-tm'.
+
+	* net/tramp.el (tramp-handle-make-symbolic-link): Mark unused arg.
+
+	* info.el (Info-mode-map): Remove left-over binding.
+
+	* emacs-lisp/avl-tree.el: Use lexical-binding and cl-lib.
+	(avl-tree--root): Remove redundant defsetf.
+
+2014-12-08  Lars Magne Ingebrigtsen  <larsi@gnus.org>
+
+	* net/nsm.el (network-security-level): Remove the detailed
+	description, which was already outdated, and refer the users to
+	the manual.
+	(nsm-check-protocol): Check for weak Diffie-Hellman prime bits
+	(bug#19153).
+
+2014-12-06  Andrey Kotlarski  <m00naticus@gmail.com>
+
+	* net/eww.el (eww-buffers-mode): New major mode.
+	(eww-list-buffers, eww-buffer-select, eww-buffer-show-next)
+	(eww-buffer-show-previous, eww-buffer-kill, eww-buffer-show):
+	New commands/functions (bug#19131).
+
+2014-12-08  Lars Magne Ingebrigtsen  <larsi@gnus.org>
+
+	* net/gnutls.el (gnutls-negotiate): Ignore files found via
+	'file-name-handler-alist' since the gnutls library can't use those
+	(bug#15866).
+
+2014-12-08  Dmitry Gutov  <dgutov@yandex.ru>
+
+	* vc/vc-hg.el (vc-hg-dir-status-files): Only include ignores files
+	when FILES is non-nil (bug#19304).
+
+2014-12-08  Eric S. Raymond  <esr@snark.thyrsus.com>
+
+	* vc/vc-arch.el: Moved to obsolete directory so a test framework
+	won't trip over bit-rot in it.  There has been no Arch snapshot
+	for nine years.
+
+2014-12-07  Lars Magne Ingebrigtsen  <larsi@gnus.org>
+
+	* net/eww.el (eww-follow-link): Revert prefix behaviour to
+	previous behavior.
+	(eww-copy-page-url): Add doc string.
+
+2014-12-07  Ivan Shmakov  <ivan@siamics.net>
+
+	* net/eww.el (eww): Move history recording here...
+	(eww-browse-url): ... from here (bug#19253).
+
+	* net/eww.el (eww-browse-url): Use generate-new-buffer (was:
+	iterating over possible buffer names.)
+
+2014-12-07  Lars Magne Ingebrigtsen  <larsi@gnus.org>
+
+	* net/eww.el (eww-reload): Take a prefix to work locally (bug#19086).
+	(eww-current-buffer): Compilation fix for bug#18550 patch.
+
+2014-12-07  Ivan Shmakov  <ivan@siamics.net>
+
+	* net/eww.el (eww-list-histories): Restore the history in the
+	correct buffer (bug#18550).
+
+2014-12-07  Lars Magne Ingebrigtsen  <larsi@gnus.org>
+
+	* net/eww.el (eww-bookmark-prepare): Display URLs in first by
+	displaying shortened titles first (bug#16398).
+
+2014-12-07  Tom Willemse  <tom@ryuslash.org>  (tiny change)
+
+	* progmodes/python.el: Recognize docstrings.
+	(python-docstring-at-p, python-font-lock-syntactic-face-function):
+	New functions.
+	(python-mode): Use them.
+
 2014-12-06  Ulf Jasper  <ulf.jasper@web.de>
 
 	* net/newst-treeview.el (newsticker--treeview-list-add-item)
 	(newsticker--treeview-propertize-tag): Bind tree menu to mouse-3.
 	(newsticker--treeview-create-groups-menu)
-	(newsticker--treeview-create-tree-menu): Removed.
+	(newsticker--treeview-create-tree-menu): Remove.
 	(newsticker--treeview-tree-open-menu): New.
 	(newsticker-treeview-tree-click): Pass event to
 	`newsticker-treeview-tree-do-click'.
@@ -20,8 +178,8 @@
 
 2014-12-05  Juri Linkov  <juri@linkov.net>
 
-	* minibuffer.el (minibuffer-completion-help): Compare
-	selected-window with minibuffer-window to check whether
+	* minibuffer.el (minibuffer-completion-help):
+	Compare selected-window with minibuffer-window to check whether
 	completions should be displayed near the minibuffer.  (Bug#17809)
 	http://lists.gnu.org/archive/html/emacs-devel/2014-12/msg00311.html
 
@@ -52,7 +210,6 @@
 	both in terms of the column to which it moves and the return
 	value.  (Bug#19211)
 
-2014-12-05  Stephen Berman  <stephen.berman@gmx.net>
 2014-12-05  Stefan Monnier  <monnier@iro.umontreal.ca>
 
 	* vc/ediff-init.el (ediff-odd-p): Remove.
@@ -156,7 +313,7 @@
 	* progmodes/elisp-mode.el (elisp--local-variables): Don't burp on
 	incorrect lexical elements (bug#19250).
 
-2014-12-03  Eric S. Raymond  <esr@snark.thyrsus.com>
+2014-12-03  A. N. Other  <none@example.com>
 
 	* files.el (file-tree-walk): Lisp translation of ANSI ftw(3).
 

@@ -43,22 +43,13 @@ connection should be handled.
 The following values are possible:
 
 `low': Absolutely no checks are performed.
+`medium': This is the default level, should be reasonable for most usage.
+`high': This warns about additional things that many people would
+not find useful.
+`paranoid': On this level, the user is queried for most new connections.
 
-`medium': This is the default level, and the following things will
-be prompted for.
-
-* invalid, self-signed or otherwise unverifiable certificates
-* whether a previously accepted unverifiable certificate has changed
-* when a connection that was previously protected by STARTTLS is
-  now unencrypted
-
-`high': In addition to the above.
-
-* any certificate that changes its public key
-
-`paranoid': In addition to the above.
-
-* any new certificate that you haven't seen before"
+See the Emacs manual for a description of all things that are
+checked and warned against."
   :version "25.1"
   :group 'nsm
   :type '(choice (const :tag "Low" low)
@@ -124,6 +115,14 @@ unencrypted."
 	  process))))))
 
 (defun nsm-check-tls-connection (process host port status settings)
+  (let ((process (nsm-check-certificate process host port status settings)))
+    (if (and process
+	     (>= (nsm-level network-security-level) (nsm-level 'high)))
+	;; Do further protocol-level checks if the security is high.
+	(nsm-check-protocol process host port status settings)
+      process)))
+
+(defun nsm-check-certificate (process host port status settings)
   (let ((warnings (plist-get status :warnings)))
     (cond
 
@@ -165,7 +164,7 @@ unencrypted."
 	(if (and (not (nsm-warnings-ok-p status settings))
 		 (not (nsm-query
 		       host port status 'conditions
-		       "The TLS connection to %s:%s is insecure\nfor the following reason%s:\n\n%s"
+		       "The TLS connection to %s:%s is insecure for the following reason%s:\n\n%s"
 		       host port
 		       (if (> (length warnings) 1)
 			   "s" "")
@@ -176,6 +175,47 @@ unencrypted."
 	      (delete-process process)
 	      nil)
 	  process))))))
+
+(defun nsm-check-protocol (process host port status settings)
+  (let ((prime-bits (plist-get status :diffie-hellman-prime-bits))
+	(encryption (format "%s-%s-%s"
+			    (plist-get status :key-exchange)
+			    (plist-get status :cipher)
+			    (plist-get status :mac)))
+	(protocol (plist-get status :protocol)))
+    (cond
+     ((and prime-bits
+	   (< prime-bits 1024)
+	   (not (memq :diffie-hellman-prime-bits
+		      (plist-get settings :conditions)))
+	   (not
+	    (nsm-query
+	     host port status :diffie-hellman-prime-bits
+	     "The Diffie-Hellman prime bits (%s) used for this connection to %s:%s is less than what is considered safe (%s)."
+	     prime-bits host port 1024)))
+      (delete-process process)
+      nil)
+     ((and (string-match "\\bRC4\\b" encryption)
+	   (not (memq :rc4 (plist-get settings :conditions)))
+	   (not
+	    (nsm-query
+	     host port status :rc4
+	     "The connection to %s:%s uses the RC4 algorithm (%s), which is believed to be unsafe."
+	     host port encryption)))
+      (delete-process process)
+      nil)
+     ((and protocol
+	   (string-match "SSL" protocol)
+	   (not (memq :ssl (plist-get settings :conditions)))
+	   (not
+	    (nsm-query
+	     host port status :ssl
+	     "The connection to %s:%s uses the %s protocol, which is believed to be unsafe."
+	     host port protocol)))
+      (delete-process process)
+      nil)
+     (t
+      process))))
 
 (defun nsm-fingerprint (status)
   (plist-get (plist-get status :certificate) :public-key-id))
@@ -190,7 +230,7 @@ unencrypted."
 	      (setq did-query
 		    (nsm-query
 		     host port status 'fingerprint
-		     "The fingerprint for the connection to %s:%s has changed from\n%s to\n%s"
+		     "The fingerprint for the connection to %s:%s has changed from %s to %s"
 		     host port
 		     (plist-get settings :fingerprint)
 		     (nsm-fingerprint status)))))
@@ -205,7 +245,7 @@ unencrypted."
 (defun nsm-new-fingerprint-ok-p (host port status)
   (nsm-query
    host port status 'fingerprint
-   "The fingerprint for the connection to %s:%s is new:\n%s"
+   "The fingerprint for the connection to %s:%s is new: %s"
    host port
    (nsm-fingerprint status)))
 
@@ -219,7 +259,7 @@ unencrypted."
 	 (not
 	  (nsm-query
 	   host port nil 'conditions
-	   "The connection to %s:%s used to be an encrypted\nconnection, but is now unencrypted.  This might mean that there's a\nman-in-the-middle tapping this connection."
+	   "The connection to %s:%s used to be an encrypted connection, but is now unencrypted.  This might mean that there's a man-in-the-middle tapping this connection."
 	   host port)))
     (delete-process process)
     nil)
@@ -258,7 +298,12 @@ unencrypted."
 	(erase-buffer)
 	(when (> (length cert) 0)
 	  (insert cert "\n"))
-	(insert (apply 'format message args))))
+	(let ((start (point)))
+	  (insert (apply 'format message args))
+	  (goto-char start)
+	  ;; Fill the first line of the message, which usually
+	  ;; contains lots of explanatory text.
+	  (fill-region (point) (line-end-position)))))
     (let ((responses '((?n . no)
 		       (?s . session)
 		       (?a . always)))
@@ -293,14 +338,23 @@ unencrypted."
       (nconc saved (list :host (format "%s:%s" host port))))
     ;; We either want to save/update the fingerprint or the conditions
     ;; of the certificate/unencrypted connection.
-    (when (eq what 'conditions)
+    (cond
+     ((eq what 'conditions)
       (nconc saved (list :host (format "%s:%s" host port)))
       (cond
        ((not status)
-	(nconc saved `(:conditions (:unencrypted))))
+	(nconc saved '(:conditions (:unencrypted))))
        ((plist-get status :warnings)
 	(nconc saved
-	       `(:conditions ,(plist-get status :warnings))))))
+	       (list :conditions (plist-get status :warnings))))))
+     ((not (eq what 'fingerprint))
+      ;; Store additional protocol settings.
+      (let ((settings (nsm-host-settings id)))
+	(when settings
+	  (setq saved settings))
+	(if (plist-get saved :conditions)
+	    (nconc (plist-get saved :conditions) (list what))
+	  (nconc saved (list :conditions (list what)))))))
     (if (eq permanency 'always)
 	(progn
 	  (nsm-remove-temporary-setting id)
@@ -382,6 +436,15 @@ unencrypted."
 	  (insert
 	   "Public key:" (plist-get cert :public-key-algorithm)
 	   ", signature: " (plist-get cert :signature-algorithm) "\n"))
+	(when (and (plist-get status :key-exchange)
+		   (plist-get status :cipher)
+		   (plist-get status :mac)
+		   (plist-get status :protocol))
+	  (insert
+	   "Protocol:" (plist-get status :protocol)
+	   ", key: " (plist-get status :key-exchange)
+	   ", cipher: " (plist-get status :cipher)
+	   ", mac: " (plist-get status :mac) "\n"))
 	(when (plist-get cert :certificate-security-level)
 	  (insert
 	   "Security level:"

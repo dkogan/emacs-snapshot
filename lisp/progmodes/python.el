@@ -459,6 +459,23 @@ The type returned can be `comment', `string' or `paren'."
   'python-info-ppss-comment-or-string-p
   #'python-syntax-comment-or-string-p "24.3")
 
+(defun python-docstring-at-p (pos)
+  "Check to see if there is a docstring at POS."
+  (save-excursion
+    (goto-char pos)
+    (if (looking-at-p "'''\\|\"\"\"")
+        (progn
+          (python-nav-backward-statement)
+          (looking-at "\\`\\|class \\|def "))
+      nil)))
+
+(defun python-font-lock-syntactic-face-function (state)
+  (if (nth 3 state)
+      (if (python-docstring-at-p (nth 8 state))
+          font-lock-doc-face
+        font-lock-string-face)
+    font-lock-comment-face))
+
 (defvar python-font-lock-keywords
   ;; Keywords
   `(,(rx symbol-start
@@ -2424,8 +2441,8 @@ variable.
   (set (make-local-variable 'python-shell--prompt-calculated-input-regexp) nil)
   (set (make-local-variable 'python-shell--prompt-calculated-output-regexp) nil)
   (python-shell-prompt-set-calculated-regexps)
-  (setq comint-prompt-regexp python-shell--prompt-calculated-input-regexp
-        comint-prompt-read-only t)
+  (setq comint-prompt-regexp python-shell--prompt-calculated-input-regexp)
+  (set (make-local-variable 'comint-prompt-read-only) t)
   (setq mode-line-process '(":%s"))
   (set (make-local-variable 'comint-output-filter-functions)
        '(ansi-color-process-output
@@ -4312,7 +4329,10 @@ Arguments START and END narrow the buffer region to work on."
        'python-nav-forward-sexp)
 
   (set (make-local-variable 'font-lock-defaults)
-       '(python-font-lock-keywords nil nil nil nil))
+       '(python-font-lock-keywords
+         nil nil nil nil
+         (font-lock-syntactic-face-function
+          . python-font-lock-syntactic-face-function)))
 
   (set (make-local-variable 'syntax-propertize-function)
        python-syntax-propertize-function)
