@@ -534,8 +534,7 @@ buffer_memory_full (ptrdiff_t nbytes)
 /* Define XMALLOC_OVERRUN_SIZE_SIZE so that (1) it's large enough to
    hold a size_t value and (2) the header size is a multiple of the
    alignment that Emacs needs for C types and for USE_LSB_TAG.  */
-#define XMALLOC_BASE_ALIGNMENT				\
-  alignof (union { long double d; intmax_t i; void *p; })
+#define XMALLOC_BASE_ALIGNMENT alignof (max_align_t)
 
 #if USE_LSB_TAG
 # define XMALLOC_HEADER_ALIGNMENT \
@@ -2226,7 +2225,7 @@ make_string (const char *contents, ptrdiff_t nbytes)
   return val;
 }
 
-/* Make an unibyte string from LENGTH bytes at CONTENTS.  */
+/* Make a unibyte string from LENGTH bytes at CONTENTS.  */
 
 Lisp_Object
 make_unibyte_string (const char *contents, ptrdiff_t length)
@@ -2295,7 +2294,7 @@ make_specified_string (const char *contents,
 }
 
 
-/* Return an unibyte Lisp_String set up to hold LENGTH characters
+/* Return a unibyte Lisp_String set up to hold LENGTH characters
    occupying LENGTH bytes.  */
 
 Lisp_Object

@@ -1,3 +1,91 @@
+2014-12-13  Paul Eggert  <eggert@cs.ucla.edu>
+
+	* alloc.c (XMALLOC_BASE_ALIGNMENT): Use max_align_t instead of
+	a hack involving a union.
+
+2014-12-13  Eli Zaretskii  <eliz@gnu.org>
+
+	* gnutls.c (Fgnutls_available_p, syms_of_gnutls): Move
+	gnutls-available-p out of the HAVE_GNUTLS conditional, and define
+	them only once.
+
+2014-12-13  Teodor Zlatanov  <tzz@lifelogs.com>
+
+	* emacs.c (main): Always include gnutls.h and run syms_of_gnutls.
+
+	* gnutls.h: Always declare syms_of_gnutls.
+
+	* gnutls.c (Fgnutls_available_p syms_of_gnutls): Move later for
+	clarity.  Let the availability check return Qnil when the GnuTLS
+	integration is not available, instead of erroring out.
+	(Bug#19346)
+
+2014-12-13  Eli Zaretskii  <eliz@gnu.org>
+
+	* xdisp.c (move_it_in_display_line_to, display_line): Don't
+	disallow overflow-newline-into-fringe when word-wrap is in
+	effect.  (Bug#19300)
+
+2014-12-11  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* fileio.c: Better preserve window-points during revert (bug#19161).
+	(Qget_buffer_window_list): New var.
+	(get_window_points_and_markers, restore_window_points): New functions.
+	(Finsert_file_contents): Use them to save and restore window-points.
+
+2014-12-11  Dmitry Antipov  <dmantipov@yandex.ru>
+
+	* xterm.c (x_delete_terminal): Call emacs_close for X connection
+	descriptor if called from x_connection_closed and always delete
+	this descriptor from keyboard waiting set (Bug#19147).
+
+2014-12-10  Eli Zaretskii  <eliz@gnu.org>
+
+	* bidi.c (BIDI_CACHE_MAX_ELTS_PER_SLOT): New macro.
+	(bidi_cache_max_elts): New global variable.
+	(bidi_shelve_header_size): Add the sizeof bidi_cache_max_elts.
+	(bidi_cache_shrink, bidi_initialize): Reset bidi_cache_max_elts to
+	its initial value.
+	(bidi_cache_search): Handle overflown cache.  Improve commentary.
+	(bidi_cache_ensure_space): Limit allocations to the current value
+	of bidi_cache_max_elts.  Force xpalloc not to over-allocate.
+	If less than a full BIDI_CACHE_CHUNK is left to the limit, decrease
+	the increment to not exceed the limit.
+	(bidi_cache_iterator_state): Now returns non-zero if succeeded to
+	cache, zero otherwise (meaning the cache overflowed).  In the
+	latter case, set bidi_cache_last_idx to -1.
+	(bidi_peek_at_next_level): Handle overflown cache.
+	(bidi_push_it): Increase the cache limit for iterating the new object.
+	(bidi_pop_it): Decrease the cache limit back to previous value.
+	(bidi_shelve_cache): Shelve the current value of the cache limit.
+	(bidi_unshelve_cache): Restore the value of cache limit.
+	(bidi_find_bracket_pairs): If the cache overflows while looking
+	for the paired bracket, give up and let bidi_resolve_neutrals
+	process the bracket as a simple neutral.  (Bug#19322)
+	(bidi_find_other_level_edge): If the cache overflows, fall back on
+	Plan B, which effectively stops the reordering and restarts it on
+	the next character (after resetting the cache).
+	(bidi_move_to_visually_next): When the cache overflows, reset it
+	after processing the last cached character.
+
+2014-12-10  Paul Eggert  <eggert@cs.ucla.edu>
+
+	Fix glitches in gnutls.c, mostly memory-related
+	* gnutls.c: Sort macro definitions by name.
+	(fn_gnutls_transport_set_errno): Omit unreachable definition.
+	(fn_gnutls_x509_crt_get_signature): Omit unused symbol.
+	(gnutls_hex_string): Arg is now unsigned char *, to avoid a cast.
+	Prefer ptrdiff_t for sizes.  Check for arithmetic overflow when
+	calculating string length.  Use make_uninit_string, to avoid
+	copying the string.  Cast the char, not the pointer.
+	(gnutls_certificate_details): Use xmalloc and xfree, not malloc
+	and free.  Work even for dates past the year 9999.  Use void *
+	for buffers, to avoid casts.
+
+2014-12-09  Andy Moreton  <andrewjmoreton@gmail.com>  (tiny change)
+
+	* gnutls.c (gnutls_protocol_get_name): Fix a copy/paste typo.
+
 2014-12-08  Lars Magne Ingebrigtsen  <larsi@gnus.org>
 
 	* gnutls.c (Fgnutls_peer_status): Return the key exchange, cipher
@@ -226,8 +314,8 @@
 
 	* xml.c (parse_region): Take care of new optional parameter
 	'discard-comments' of 'libxml-parse(html|xml)-region'.
-	(Flibxml_parse_html_region, Flibxml_parse_xml_region): New
-	optional parameter 'discard-comments'.
+	(Flibxml_parse_html_region, Flibxml_parse_xml_region):
+	New optional parameter 'discard-comments'.
 
 2014-11-17  Paul Eggert  <eggert@cs.ucla.edu>
 
@@ -279,8 +367,8 @@
 2014-11-16  Eli Zaretskii  <eliz@gnu.org>
 
 	* window.c (window_scroll_pixel_based): Avoid truncation/rounding
-	errors in computing the number of pixels to scroll.  Suggested by
-	Kelly Dean <kelly@prtime.org>.  (Bug#19060)
+	errors in computing the number of pixels to scroll.
+	Suggested by Kelly Dean <kelly@prtime.org>.  (Bug#19060)
 
 2014-11-16  Jan Djärv  <jan.h.d@swipnet.se>
 
@@ -390,15 +478,15 @@
 	* frame.h (frame): Split `official' into `can_x_set_window_size'
 	and `can_run_window_configuration_change_hook'.
 	* nsfns.m (Fx_create_frame): Set f->can_x_set_window_size.
-	* w32fns.c (Fx_create_frame, x_create_tip_frame): Set
-	f->can_x_set_window_size.
-	* window.c (run_window_configuration_change_hook): Return
-	immediately if either f->can_x_set_window_size or
+	* w32fns.c (Fx_create_frame, x_create_tip_frame):
+	Set f->can_x_set_window_size.
+	* window.c (run_window_configuration_change_hook):
+	Return immediately if either f->can_x_set_window_size or
 	f->can_run_window_configuration_change_hook are false.
 	(Fset_window_configuration): Instead of f->official set
 	f->can_x_set_window_size.
-	* xfns.c (Fx_create_frame, x_create_tip_frame): Set
-	f->can_x_set_window_size.
+	* xfns.c (Fx_create_frame, x_create_tip_frame):
+	Set f->can_x_set_window_size.
 
 2014-11-08  Jan Djärv  <jan.h.d@swipnet.se>
 

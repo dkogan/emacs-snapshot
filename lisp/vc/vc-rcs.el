@@ -226,12 +226,10 @@ When VERSION is given, perform check for that version."
 
 (defun vc-rcs-register (files &optional comment)
   "Register FILES into the RCS version-control system.
+Automatically retrieve a read-only version of the file with keywords expanded.
 COMMENT can be used to provide an initial description for each FILES.
 Passes either `vc-rcs-register-switches' or `vc-register-switches'
-to the RCS command.
-
-Automatically retrieve a read-only version of the file with keywords
-expanded if `vc-keep-workfiles' is non-nil, otherwise, delete the workfile."
+to the RCS command."
   (let (subdir name)
     (dolist (file files)
       (and (not (file-exists-p
@@ -244,6 +242,7 @@ expanded if `vc-keep-workfiles' is non-nil, otherwise, delete the workfile."
       (apply #'vc-do-command "*vc*" 0 "ci" file
 	     ;; if available, use the secure registering option
 	     (and (vc-rcs-release-p "5.6.4") "-i")
+	     "-u"
 	     (and comment (concat "-t-" comment))
 	     (vc-switches 'RCS 'register))
       ;; parse output to find master file name and workfile version
@@ -328,7 +327,7 @@ whether to remove it."
 	(apply #'vc-do-command "*vc*" 0 "ci" (vc-master-name file)
 	       ;; if available, use the secure check-in option
 	       (and (vc-rcs-release-p "5.6.4") "-j")
-	       (concat (if vc-keep-workfiles "-u" "-r") rev)
+	       (concat "-u" rev)
 	       (concat "-m" comment)
 	       switches)
 	(vc-file-setprop file 'vc-working-revision nil)
@@ -432,43 +431,6 @@ attempt the checkout for all registered files beneath it."
 			(vc-branch-part new-version))
 		    new-version)))))
 	(message "Checking out %s...done" file))))))
-
-(defun vc-rcs-rollback (files)
-  "Roll back, undoing the most recent checkins of FILES.  Directories are
-expanded to all registered subfiles in them."
-  (if (not files)
-      (error "RCS backend doesn't support directory-level rollback"))
-  (dolist (file (vc-expand-dirs files 'RCS))
-	  (let* ((discard (vc-working-revision file))
-		 (previous (if (vc-rcs-trunk-p discard) "" (vc-branch-part discard)))
-		 (config (current-window-configuration))
-		 (done nil))
-	    (if (null (yes-or-no-p (format "Remove version %s from %s history? "
-					   discard file)))
-		(error "Aborted"))
-	    (message "Removing revision %s from %s." discard file)
-	    (vc-do-command "*vc*" 0 "rcs" (vc-master-name file) (concat "-o" discard))
-	    ;; Check out the most recent remaining version.  If it
-	    ;; fails, because the whole branch got deleted, do a
-	    ;; double-take and check out the version where the branch
-	    ;; started.
-	    (while (not done)
-	      (condition-case err
-		  (progn
-		    (vc-do-command "*vc*" 0 "co" (vc-master-name file) "-f"
-				   (concat "-u" previous))
-		    (setq done t))
-		(error (set-buffer "*vc*")
-		       (goto-char (point-min))
-		       (if (search-forward "no side branches present for" nil t)
-			   (progn (setq previous (vc-branch-part previous))
-				  (vc-rcs-set-default-branch file previous)
-				  ;; vc-do-command popped up a window with
-				  ;; the error message.  Get rid of it, by
-				  ;; restoring the old window configuration.
-				  (set-window-configuration config))
-			 ;; No, it was some other error: re-signal it.
-			 (signal (car err) (cdr err)))))))))
 
 (defun vc-rcs-revert (file &optional _contents-done)
   "Revert FILE to the version it was based on.  If FILE is a directory,

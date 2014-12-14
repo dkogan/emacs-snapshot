@@ -1,3 +1,128 @@
+2014-12-13  Andreas Schwab  <schwab@linux-m68k.org>
+
+	* net/shr.el (shr-next-link): Don't error out at eob.
+
+2014-12-05  Nicolas Richard  <theonewiththeevillook@yahoo.fr>
+
+	* isearch.el (isearch-open-necessary-overlays): Open overlay
+	ending at point (bug#19333).
+
+2014-12-13  Lars Magne Ingebrigtsen  <larsi@gnus.org>
+
+	* net/shr.el (shr-fold-text): New function.
+	(shr-show-alt-text, shr-urlify, shr-tag-img): Use it to fold long
+	alt/title texts.
+	(shr-fold-text): Inhibit state from being altered.
+
+	* files.el (directory-files-recursively): Really check whether
+	files are symlinks.
+	(directory-name-p): New function.
+	(directory-files-recursively): Use it.
+
+2014-12-13  Artur Malabarba  <bruce.connor.am@gmail.com>
+
+	* emacs-lisp/package.el (package--list-loaded-files): New function
+	to list files in a given directory which correspond to already
+	loaded files.
+	(package-activate-1): Reload files given by `package--list-loaded-files'.
+	Fix bug#10125, bug#18443, and bug#18448.
+
+2014-12-13  Eric S. Raymond  <esr@snark.thyrsus.com>
+
+	* vc/vc-svn.el (vc-svn-diff): Fix bug #19312.
+
+2014-12-13  Michael Albinus  <michael.albinus@gmx.de>
+
+	* simple.el (password-word-equivalents): Add "passcode", used for
+	numeric secrets like PINs or RSA tokens.
+
+2014-12-13  Michael Albinus  <michael.albinus@gmx.de>
+
+	* net/tramp-sh.el (tramp-get-remote-path): Use a login shell in
+	order to determine `tramp-own-remote-path'.
+
+2014-12-13  Fabián Ezequiel Gallina  <fgallina@gnu.org>
+
+	* progmodes/python.el (python-shell-parse-command): Quote
+	`python-shell-interpreter`.  (Bug#19289)
+
+2014-12-12  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* progmodes/python.el (python-indent-line): Use `noindent' in strings.
+	(python-indent-levels): Document extra value.
+	(python-indent-calculate-indentation): Return `noindent' in strings.
+	(python-indent-post-self-insert-function)
+	(python-indent-calculate-levels): Handle new value.
+
+2014-12-12  Lars Magne Ingebrigtsen  <larsi@gnus.org>
+
+	* net/network-stream.el (network-stream-open-starttls): No need to
+	check for the availability of `gnutls-available-p'.
+
+	* files.el (directory-files-recursively): Don't follow symlinks to
+	other directories.
+
+2014-12-12  Eric S. Raymond  <esr@snark.thyrsus.com>
+
+	* vc/vc-dav.el, vc/vc-git.el, vc/vc-hg.el, vc/vc-src.el,
+	vc/vc.el: latest-on-branch-p is no longer a public method.
+
+	* vc/vc.el, vc/vc-hg.el, vc/vc-git.el, vc/vc-hooks.el,
+	vc/vc-mtn.el, vc/vc-rcs.el, vc/vc-sccs.el, vc/vc-src.el: Remove `rollback'
+	method, to be replaced in the future by uncommit.
+
+2014-12-11  Michael Albinus  <michael.albinus@gmx.de>
+
+	* vc/vc-hg.el (vc-hg-state): Make FILE absolute.  Handle the case
+	that there is empty output.
+
+2014-12-11  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* emacs-lisp/eldoc.el (eldoc-documentation-function): Change default.
+	(eldoc-mode, eldoc-schedule-timer): Adjust to new default.
+
+2014-12-10  Artur Malabarba  <bruce.connor.am@gmail.com>
+
+	* let-alist.el: Add new package and macro.
+
+2014-12-10  Eric S. Raymond  <esr@snark.thyrsus.com>
+
+	* vc/vc-dispatcher.el, vc/vc-hooks.el, vc/vc-rcs.el,
+	vc/vc-sccs.el, vc/vc.el: Righteous featurectomy of
+	vc-keep-workfiles, it's a shoot-self-in-foot archaism.
+	Workfiles are always kept.
+
+2014-12-10  Rasmus Pank Roulund  <emacs@pank.eu>
+
+	* net/ange-ftp.el (ange-ftp-switches-ok): Disallow flags causing
+	trouble with ls over ftp.  These flags result in ls returning no
+	output, causing Tramp-breakage.  (bug#19192)
+
+2014-12-10  Andreas Schwab  <schwab@suse.de>
+
+	* files.el (file-tree-walk): Use file-name-as-directory unconditionally.
+
+2014-12-10  Lars Magne Ingebrigtsen  <larsi@gnus.org>
+
+	* files.el (directory-files-recursively):
+	Use `file-name-all-completions' instead of `directory-files' for
+	greater speed.
+
+	* net/shr.el (shr-tag-object): Don't bug out on text elements in
+	<object>.
+
+2014-12-09  Bozhidar Batsov  <bozhidar@batsov.com>
+
+	* progmodes/ruby-mode.el (auto-mode-alist): Add .rabl, Berksfile
+	and Puppetfile.
+	(ruby-toggle-string-quotes): New command that allows you to quickly
+	toggle between single-quoted and double-quoted string literals.
+
+2014-12-09  Eric S. Raymond  <esr@snark.thyrsus.com>
+
+	* vc/vc-src.el (vc-src-do-comand): Prepend -- to file argument
+	list, avoids problems witth names containing hyphens.
+
 2014-12-09  Wilson Snyder  <wsnyder@wsnyder.org>
 
 	Sync with upstream verilog-mode revision aa4b777.
@@ -65,8 +190,8 @@
 
 2014-12-09  Fabián Ezequiel Gallina  <fgallina@gnu.org>
 
-	* progmodes/python.el (inferior-python-mode): Set
-	`comint-prompt-read-only` to `t` only locally.
+	* progmodes/python.el (inferior-python-mode):
+	Set `comint-prompt-read-only` to `t` only locally.
 
 2014-12-08  Lars Magne Ingebrigtsen  <larsi@gnus.org>
 

@@ -1,3 +1,12 @@
+2014-12-13  Lars Magne Ingebrigtsen  <larsi@gnus.org>
+
+	* files.texi (Relative File Names): Mention `directory-name-p'.
+
+2014-12-13  Eli Zaretskii  <eliz@gnu.org>
+
+	* text.texi (Comparing Text): Prevent a text string from being
+	broken between 2 lines.  (Bug#19257)
+
 2014-12-09  Lars Magne Ingebrigtsen  <larsi@gnus.org>
 
 	* files.texi (Contents of Directories): Document

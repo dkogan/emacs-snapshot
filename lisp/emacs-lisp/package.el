@@ -524,15 +524,27 @@ Return the max version (as a string) if the package is held at a lower version."
       (error "Internal error: unable to find directory for `%s'"
 	     (package-desc-full-name pkg-desc)))
     ;; Add to load path, add autoloads, and activate the package.
-    (let ((old-lp load-path))
-      (with-demoted-errors
-        (load (expand-file-name (format "%s-autoloads" name) pkg-dir) nil t))
+    (let* ((old-lp load-path)
+           (autoloads-file (expand-file-name
+                            (format "%s-autoloads" name) pkg-dir))
+           (loaded-files-list (package--list-loaded-files pkg-dir)))
+      (with-demoted-errors (format "Error loading %s: %%s" name)
+        (load autoloads-file nil t))
       (when (and (eq old-lp load-path)
                  (not (or (member pkg-dir load-path)
                           (member pkg-dir-dir load-path))))
         ;; Old packages don't add themselves to the `load-path', so we have to
         ;; do it ourselves.
-        (push pkg-dir load-path)))
+        (push pkg-dir load-path))
+      ;; Call `load' on all files in `pkg-dir' already present in
+      ;; `load-history'.  This is done so that macros in these files are updated
+      ;; to their new definitions.  If another package is being installed which
+      ;; depends on this new definition, not doing this update would cause
+      ;; compilation errors and break the installation.
+      (with-demoted-errors (format "Error loading %s: %%s" name)
+	(mapc (lambda (feature) (load feature nil t))
+              ;; Skip autoloads file since we already evaluated it above.
+              (remove (file-truename autoloads-file) loaded-files-list))))
     ;; Add info node.
     (when (file-exists-p (expand-file-name "dir" pkg-dir))
       ;; FIXME: not the friendliest, but simple.
@@ -542,6 +554,38 @@ Return the max version (as a string) if the package is held at a lower version."
     (push name package-activated-list)
     ;; Don't return nil.
     t))
+
+(defun package--list-loaded-files (dir)
+  "Recursively list all files in DIR which correspond to loaded features.
+Returns the `file-name-sans-extension' of each file, relative to
+DIR, sorted by most recently loaded last."
+  (let* ((history (mapcar (lambda (x) (file-name-sans-extension
+                                  (file-truename (car x))))
+                    load-history))
+         (dir (file-truename dir))
+         ;; List all files that have already been loaded.
+         (list-of-conflicts
+          (remove
+           nil
+           (mapcar
+               (lambda (x) (let* ((file (file-relative-name x dir))
+                             ;; Previously loaded file, if any.
+                             (previous
+                              (ignore-errors
+                                (file-name-sans-extension
+                                 (file-truename (find-library-name file)))))
+                             (pos (when previous (member previous history))))
+                        ;; Return (RELATIVE-FILENAME . HISTORY-POSITION)
+                        (when pos
+                          (cons (file-name-sans-extension file) (length pos)))))
+             (directory-files-recursively dir "\\`[^\\.].*\\.el\\'")))))
+    ;; Turn the list of (FILENAME . POS) back into a list of features.  Files in
+    ;; subdirectories are returned relative to DIR (so not actually features).
+    (let ((default-directory (file-name-as-directory dir)))
+      (mapcar (lambda (x) (file-truename (car x)))
+        (sort list-of-conflicts
+              ;; Sort the files by ascending HISTORY-POSITION.
+              (lambda (x y) (< (cdr x) (cdr y))))))))
 
 (defun package-built-in-p (package &optional min-version)
   "Return true if PACKAGE is built-in to Emacs.

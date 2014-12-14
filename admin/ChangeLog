@@ -1,3 +1,26 @@
+2014-12-14  Paul Eggert  <eggert@cs.ucla.edu>
+
+	* notes/unicode: Track leim/quail file renames.
+	Correct coding system
+	of lisp/international/titdic-cnv.el.
+
+2014-12-14  Glenn Morris  <rgm@gnu.org>
+
+	* quick-install-emacs (PUBLIC_LIBSRC_SCRIPTS): Remove, and all uses.
+	* authors.el (authors-valid-file-names): Add grep-changelog.
+
+2014-12-13  Paul Eggert  <eggert@cs.ucla.edu>
+
+	* notes/unicode: Don't mention Czech and Slovakian refcards.
+
+	* merge-gnulib (GNULIB_MODULES): Add stddef, for max_align_t.
+
+2014-12-06  Stephen Leake  <stephen_leake@stephe-leake.org>
+
+	* notes/commits: Delete; merge into ./CONTRIBUTE.
+
+	* notes/repo: Move commit, branch info into ./CONTRIBUTE.
+
 2014-12-01  Glenn Morris  <rgm@gnu.org>
 
 	* update_autogen: Fix bogosity introduced in 2014-11-16 merge.

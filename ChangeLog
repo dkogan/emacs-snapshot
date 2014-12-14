@@ -1,18 +1,88 @@
+2014-12-14  Paul Eggert  <eggert@cs.ucla.edu>
+
+	Spelling fixes
+	All uses changed.
+	* lib-src/etags.c (analyze_regex): Rename from analyse_regex.
+	* lisp/cedet/semantic/lex-spp.el:
+	(semantic-lex-spp-analyzer-do-replace):
+	Rename from semantic-lex-spp-anlyzer-do-replace.
+	* lisp/emacs-lisp/cconv.el (cconv--analyze-use):
+	Rename from cconv--analyse-use.
+	(cconv--analyze-function): Rename from cconv--analyse-function.
+	(cconv-analyze-form): Rename from cconv-analyse-form.
+	* src/regex.c (analyze_first): Rename from analyze_first.
+
+2014-12-14  Glenn Morris  <rgm@gnu.org>
+
+	* make-dist: No more lib-src/grep-changelog.
+
+	* INSTALL.REPO: Revert 2014-12-06 change.
+
+2014-12-13  Paul Eggert  <eggert@cs.ucla.edu>
+
+	* lib/gnulib.mk: Regenerate.
+
+2014-12-13  Paul Eggert  <eggert@cs.ucla.edu>
+
+	Git ignore lib/std*.h
+	* .gitignore: Add lib/std*.h, to ignore stdarg.h, stdbool.h, and
+	stddef.h.  Remove subsumed entries.
+	Add !lib/std*.in.h, so as to not ignore the .in.h files.
+
+2014-12-13  Paul Eggert  <eggert@cs.ucla.edu>
+
+	Port commit-msg to mawk
+	Problem reported by Ted Zlatanov in:
+	http://lists.gnu.org/archive/html/emacs-devel/2014-12/msg01093.html
+	* build-aux/git-hooks/commit-msg (space, non_space, non_print):
+	New vars.  Use them as approximations to POSIX bracket expressions,
+	on implementations like mawk that do not support POSIX regexps.
+
+	Improve commit-msg messages and autosquash
+	Problem reported by Michal Nazarewicz in Bug#19337.
+	* build-aux/git-hooks/commit-msg: Add "commit message" to
+	diagnostics.  Distinguish better between tabs and other
+	unprintable chars in diagnostics.  Don't complain if a prefix
+	"fixup! " or "squash! " makes a summary line too long.
+
+2014-12-13  Paul Eggert  <eggert@cs.ucla.edu>
+
+	Port commit-message checking to FreeBSD 9.
+	This fixes a bug reported by Jan Djärv in:
+	http://lists.gnu.org/archive/html/emacs-devel/2014-12/msg00704.html
+	along with some other issues I noticed while testing with FreeBSD.
+	* build-aux/git-hooks/commit-msg: Prefer gawk if available.
+	Prefer en_US.UTF-8 to en_US.utf8, as it's more portable.
+	Work around bug in FreeBSD 9 awk, where /[[:cntrl:]]/ matches
+	ordinary text characters.
+	Be less tricky about quoting "'" in a shell script.
+
+2014-12-13  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* .gitignore: Ignore autosave files.
+
+2014-12-12  Paul Eggert  <eggert@cs.ucla.edu>
+
+	Merge from gnulib
+	2014-12-12 stddef: support C11's max_align_t
+	2014-12-11 unistd: fix iOS check conditional
+	2014-12-08 apply _GL_ATTRIBUTE_PURE to some inline functions
+	2014-12-02 support GNU format printf and scanf on mingw
+	* lib/stat-time.h, lib/stddef.in.h, lib/timespec.h:
+	* m4/extensions.m4, m4/stddef_h.m4, m4/stdio_h.m4: Update from gnulib.
+	* lib/gnulib.mk: Regenerate.
+
 2014-12-06  Stephen Leake  <stephen_leake@stephe-leake.org>
 
-	* CONTRIBUTE: improve; add explicit web references, move some info
+	* CONTRIBUTE: Improve; add explicit web references, move some info
 	from admin/notes/* here.
 
 	* INSTALL.REPO: You can't "just run make" after a clean checkout.
 
-        * admin/notes/commits: deleted; merged into ./CONTRIBUTE
-
-	* admin/notes/repo: move commit, branch info into ./CONTRIBUTE
-
 2014-12-05  Stephen Leake  <stephen_leake@stephe-leake.org>
 
-	* etc/CONTRIBUTE: renamed to ./CONTRIBUTE, preparatory to further
-	changes/cleanup
+	* CONTRIBUTE: Move here from etc/, preparatory to further
+	changes/cleanup.
 
 2014-12-05  Paul Eggert  <eggert@cs.ucla.edu>
 

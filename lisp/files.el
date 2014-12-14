@@ -743,8 +743,7 @@ The ACTION is applied to each subdirectory before descending into
 it, and if nil is returned at that point, the descent will be
 prevented.  Directory entries are sorted with string-lessp."
   (cond ((file-directory-p dir)
-	 (or (char-equal ?/ (aref dir (1- (length dir))))
-	     (setq dir (file-name-as-directory dir)))
+	 (setq dir (file-name-as-directory dir))
 	 (let ((lst (directory-files dir nil nil t))
 	       fullname file)
 	   (while lst
@@ -762,6 +761,11 @@ prevented.  Directory entries are sorted with string-lessp."
 		(file-name-nondirectory dir)
 		args))))
 
+(defsubst directory-name-p (name)
+  "Return non-nil if NAME ends with a slash character."
+  (and (> (length name) 0)
+       (char-equal (aref name (1- (length name))) ?/)))
+
 (defun directory-files-recursively (dir match &optional include-directories)
   "Return all files under DIR that have file names matching MATCH (a regexp).
 This function works recursively.  Files are returned in \"depth first\"
@@ -769,18 +773,21 @@ and alphabetical order.
 If INCLUDE-DIRECTORIES, also include directories that have matching names."
   (let ((result nil)
 	(files nil))
-    (dolist (file (directory-files dir t))
-      (let ((leaf (file-name-nondirectory file)))
-	(unless (member leaf '("." ".."))
-	  (if (file-directory-p file)
-	      (progn
-		(when (and include-directories
-			   (string-match match leaf))
-		  (push file files))
+    (dolist (file (sort (file-name-all-completions "" dir)
+			'string<))
+      (unless (member file '("./" "../"))
+	(if (directory-name-p file)
+	    (let* ((leaf (substring file 0 (1- (length file))))
+		   (path (expand-file-name leaf dir)))
+	      ;; Don't follow symlinks to other directories.
+	      (unless (file-symlink-p path)
 		(setq result (nconc result (directory-files-recursively
-					    file match include-directories))))
-	    (when (string-match match leaf)
-	      (push file files))))))
+					    path match include-directories))))
+	      (when (and include-directories
+			 (string-match match leaf))
+		(setq result (nconc result (list path)))))
+	  (when (string-match match file)
+	    (push (expand-file-name file dir) files)))))
     (nconc result (nreverse files))))
 
 (defun load-file (file)

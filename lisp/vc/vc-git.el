@@ -52,7 +52,6 @@
 ;; * state (file)                                  OK
 ;; - dir-status-files (dir files uf)               OK
 ;; * working-revision (file)                       OK
-;; - latest-on-branch-p (file)                     NOT NEEDED
 ;; * checkout-model (files)                        OK
 ;; - mode-line-string (file)                       OK
 ;; STATE-CHANGING FUNCTIONS
@@ -65,7 +64,6 @@
 ;; * find-revision (file rev buffer)               OK
 ;; * checkout (file &optional rev)                 OK
 ;; * revert (file &optional contents-done)         OK
-;; - rollback (files)                              COULD BE SUPPORTED
 ;; - merge-file (file rev1 rev2)            It would be possible to merge
 ;;                                          changes into a single file, but
 ;;                                          when committing they wouldn't

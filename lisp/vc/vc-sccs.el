@@ -195,12 +195,10 @@ Optional string REV is a revision."
 
 (defun vc-sccs-register (files &optional comment)
   "Register FILES into the SCCS version-control system.
+Automatically retrieve a read-only version of the files with keywords expanded.
 COMMENT can be used to provide an initial description of FILES.
 Passes either `vc-sccs-register-switches' or `vc-register-switches'
-to the SCCS command.
-
-Automatically retrieve a read-only version of the files with keywords
-expanded if `vc-keep-workfiles' is non-nil, otherwise, delete the workfile."
+to the SCCS command."
   (dolist (file files)
     (let* ((dirname (or (file-name-directory file) ""))
 	   (basename (file-name-nondirectory file))
@@ -214,8 +212,7 @@ expanded if `vc-keep-workfiles' is non-nil, otherwise, delete the workfile."
 	       (and comment (concat "-y" comment))
 	       (vc-switches 'SCCS 'register)))
       (delete-file file)
-      (if vc-keep-workfiles
-	  (vc-sccs-do-command nil 0 "get" (vc-master-name file))))))
+      (vc-sccs-do-command nil 0 "get" (vc-master-name file)))))
 
 (defun vc-sccs-responsible-p (file)
   "Return non-nil if SCCS thinks it would be responsible for registering FILE."
@@ -230,8 +227,7 @@ expanded if `vc-keep-workfiles' is non-nil, otherwise, delete the workfile."
     (apply 'vc-sccs-do-command nil 0 "delta" (vc-master-name file)
 	   (concat "-y" comment)
 	   (vc-switches 'SCCS 'checkin))
-    (if vc-keep-workfiles
-	(vc-sccs-do-command nil 0 "get" (vc-master-name file)))))
+	(vc-sccs-do-command nil 0 "get" (vc-master-name file))))
 
 (defun vc-sccs-find-revision (file rev buffer)
   (apply 'vc-sccs-do-command
@@ -274,22 +270,6 @@ locked.  REV is the revision to check out."
 		   (and rev (concat "-r" (vc-sccs-lookup-triple file rev)))
 		   switches))))
       (message "Checking out %s...done" file))))
-
-(defun vc-sccs-rollback (files)
-  "Roll back, undoing the most recent checkins of FILES.  Directories
-are expanded to all version-controlled subfiles."
-  (setq files (vc-expand-dirs files 'SCCS))
-  (if (not files)
-      (error "SCCS backend doesn't support directory-level rollback"))
-  (dolist (file files)
-	  (let ((discard (vc-working-revision file)))
-	    (if (null (yes-or-no-p (format "Remove version %s from %s history? "
-					   discard file)))
-		(error "Aborted"))
-	    (message "Removing revision %s from %s..." discard file)
-	    (vc-sccs-do-command nil 0 "rmdel"
-                                (vc-master-name file) (concat "-r" discard))
-	    (vc-sccs-do-command nil 0 "get" (vc-master-name file) nil))))
 
 (defun vc-sccs-revert (file &optional _contents-done)
   "Revert FILE to the version it was based on. If FILE is a directory,

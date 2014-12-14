@@ -46,15 +46,15 @@
 ;; If you maintain a client of the mode or customize it in your .emacs,
 ;; note that some backend functions which formerly took single file arguments
 ;; now take a list of files.  These include: register, checkin, print-log,
-;; rollback, and diff.
+;; and diff.
 
 ;;; Commentary:
 
 ;; This mode is fully documented in the Emacs user's manual.
 ;;
-;; Supported version-control systems presently include CVS, RCS, SRC, GNU
-;; Arch, Subversion, Bzr, Git, Mercurial, Monotone and SCCS
-;; (or its free replacement, CSSC).
+;; Supported version-control systems presently include CVS, RCS, SRC,
+;; GNU Subversion, Bzr, Git, Mercurial, Monotone and SCCS (or its free
+;; replacement, CSSC).
 ;;
 ;; If your site uses the ChangeLog convention supported by Emacs, the
 ;; function `log-edit-comment-to-change-log' could prove a useful checkin hook,
@@ -180,13 +180,6 @@
 ;;   head or tip revision.  Should return "0" for a file added but not yet
 ;;   committed.
 ;;
-;; - latest-on-branch-p (file)
-;;
-;;   Return non-nil if the working revision of FILE is the latest revision
-;;   on its branch (many VCSes call this the 'tip' or 'head' revision).
-;;   The default implementation always returns t, which means that
-;;   working with non-current revisions is not supported by default.
-;;
 ;; * checkout-model (files)
 ;;
 ;;   Indicate whether FILES need to be "checked out" before they can be
@@ -275,15 +268,6 @@
 ;;   only needs to update the status of FILE within the backend.
 ;;   If FILE is in the `added' state it should be returned to the
 ;;   `unregistered' state.
-;;
-;; - rollback (files)
-;;
-;;   Remove the tip revision of each of FILES from the repository.  If
-;;   this function is not provided, trying to cancel a revision is
-;;   caught as an error.  (Most backends don't provide it.)  (Also
-;;   note that older versions of this backend command were called
-;;   'cancel-version' and took a single file arg, not a list of
-;;   files.)
 ;;
 ;; - merge-file (file rev1 rev2)
 ;;
@@ -599,16 +583,32 @@
 ;;   variable are gone.  These have't made sense on anything shipped
 ;;   since RCS, and using them was a dumb stunt even on RCS.
 ;;
-;;   workfile-unchanged-p is no longer a public back-end method.  It
+;; - workfile-unchanged-p is no longer a public back-end method.  It
 ;;   was redundant with vc-state and usually implemented with a trivial
 ;;   call to it.  A few older back ends retain versions for internal use in
 ;;   their vc-state functions.
 ;;
-;;   could-register is no longer a public method.  Only vc-cvs ever used it
+;; - could-register is no longer a public method.  Only vc-cvs ever used it
+;;
+;;   The vc-keep-workfiles configuration variable is gone.  Used only by
+;;   the RCS and SCCS backends, it was an invitation to shoot self in foot
+;;   when set to the (non-default) value nil.  The original justification
+;;   for it (saving disk space) is long obsolete.
+;;
+;; - The rollback method (implemented by RCS and SCCS only) is gone. See
+;;   the to-do note on uncommit.
+;;
+;; - latest-on-branch-p is no longer a public method. It was to be used
+;;   for implementing rollback. RCS keeps its implementation (the only one)
+;;   for internal use.
+
 
 ;;; Todo:
 
 ;;;; New Primitives:
+;;
+;; - uncommit: undo last checkin, leave changes in place in the workfile,
+;;   stash the commit comment for re-use.
 ;;
 ;; - deal with push operations.
 ;;
@@ -632,16 +632,6 @@
 ;; - Add a primitives for switching to a branch (creating it if required.
 ;;
 ;; - Add the ability to list tags and branches.
-;;
-;;;; Internal cleanups:
-;;
-;; - Another important thing: merge all the status-like backend
-;;   operations.  We should remove dir-status-files and state and
-;;   replace them with just `status' which takes a fileset and a
-;;   continuation (like dir-status-files) and returns a buffer in
-;;   which the process(es) are run (or nil if it worked
-;;   synchronously).  Hopefully we can define the old operations in
-;;   term of this one.
 ;;
 ;;;; Unify two different versions of the amend capability
 ;;
@@ -1111,8 +1101,7 @@ For old-style locking-based version control systems, like RCS:
   If every file is registered and unlocked, check out (lock)
    the file(s) for editing.
   If every file is locked by you and has changes, pop up a
-   *vc-log* buffer to check in the changes.  If the variable
-   `vc-keep-workfiles' is non-nil (the default), leave a
+   *vc-log* buffer to check in the changes.  Leave a
    read-only copy of each changed file after checking in.
   If every file is locked by you and unchanged, unlock them.
   If every file is locked by someone else, offer to steal the lock."
@@ -1353,7 +1342,7 @@ first backend that could register the file is used."
        ;;   (make-local-variable 'backup-inhibited)
        ;;   (setq backup-inhibited t))
 
-       (vc-resynch-buffer file vc-keep-workfiles t))
+       (vc-resynch-buffer file t t))
      files)
     (when (derived-mode-p 'vc-dir-mode)
       (vc-dir-move-to-goal-column))
@@ -1461,9 +1450,7 @@ After check-out, runs the normal hook `vc-checkout-hook'."
          (signal (car err) (cdr err))))
       `((vc-state . ,(if (or (eq (vc-checkout-model backend (list file)) 'implicit)
                              nil)
-                         (if (vc-call-backend backend 'latest-on-branch-p file)
-                             'up-to-date
-                           'needs-update)
+			 'up-to-date
                        'edited))
         (vc-checkout-time . ,(nth 5 (file-attributes file))))))
   (vc-resynch-buffer file t t)
@@ -1515,9 +1502,6 @@ Type \\[vc-next-action] to check in changes.")
 buffer is popped up to accept a comment.  If INITIAL-CONTENTS is
 non-nil, then COMMENT is used as the initial contents of the log
 entry buffer.
-
-If `vc-keep-workfiles' is nil, FILE is deleted afterwards, provided
-that the version control system supports this mode of operation.
 
 Runs the normal hooks `vc-before-checkin-hook' and `vc-checkin-hook'."
   (when vc-before-checkin-hook
@@ -2432,58 +2416,6 @@ to the working revision (except for keyword expansion)."
       (message "Reverting %s...done" (vc-delistify files)))))
 
 ;;;###autoload
-(defun vc-rollback ()
-  "Roll back (remove) the most recent changeset committed to the repository.
-This may be either a file-level or a repository-level operation,
-depending on the underlying version-control system."
-  (interactive)
-  (let* ((vc-fileset (vc-deduce-fileset))
-	 (backend (car vc-fileset))
-	 (files (cadr vc-fileset))
-	 (granularity (vc-call-backend backend 'revision-granularity)))
-    (unless (vc-find-backend-function backend 'rollback)
-      (error "Rollback is not supported in %s" backend))
-    (when (and (not (eq granularity 'repository)) (/= (length files) 1))
-      (error "Rollback requires a singleton fileset or repository versioning"))
-    ;; FIXME: latest-on-branch-p should take the fileset.
-    (when (not (vc-call-backend backend 'latest-on-branch-p (car files)))
-      (error "Rollback is only possible at the tip revision"))
-    ;; If any of the files is visited by the current buffer, make
-    ;; sure buffer is saved.  If the user says `no', abort since
-    ;; we cannot show the changes and ask for confirmation to
-    ;; discard them.
-    (when (or (not files) (memq (buffer-file-name) files))
-      (vc-buffer-sync nil))
-    (dolist (file files)
-      (when (buffer-modified-p (get-file-buffer file))
-	(error "Please kill or save all modified buffers before rollback"))
-      (when (not (vc-up-to-date-p file))
-	(error "Please revert all modified workfiles before rollback")))
-    ;; Accumulate changes associated with the fileset
-    (vc-setup-buffer "*vc-diff*")
-    (set-buffer-modified-p nil)
-    (message "Finding changes...")
-    (let* ((tip (vc-working-revision (car files)))
-           ;; FIXME: `previous-revision' should take the fileset.
-	   (previous (vc-call-backend backend 'previous-revision
-                                      (car files) tip)))
-      (vc-diff-internal nil vc-fileset previous tip))
-    ;; Display changes
-    (unless (yes-or-no-p "Discard these revisions? ")
-      (error "Rollback canceled"))
-    (quit-windows-on "*vc-diff*")
-    ;; Do the actual reversions
-    (message "Rolling back %s..." (vc-delistify files))
-    (with-vc-properties
-     files
-     (vc-call-backend backend 'rollback files)
-     `((vc-state . ,'up-to-date)
-       (vc-checkout-time . , (nth 5 (file-attributes file)))
-       (vc-working-revision . nil)))
-    (dolist (f files) (vc-resynch-buffer f t t))
-    (message "Rolling back %s...done" (vc-delistify files))))
-
-;;;###autoload
 (define-obsolete-function-alias 'vc-revert-buffer 'vc-revert "23.1")
 
 ;;;###autoload
@@ -2790,12 +2722,6 @@ log entries should be gathered."
   "Indicate whether BACKEND is responsible for FILE.
 The default is to return nil always."
   nil)
-
-(defun vc-default-latest-on-branch-p (_backend _file)
-  "Return non-nil if FILE is the latest on its branch.
-This default implementation always returns non-nil, which means that
-editing non-current revisions is not supported by default."
-  t)
 
 (defun vc-default-find-revision (backend file rev buffer)
   "Provide the new `find-revision' op based on the old `checkout' op.
