@@ -3,9 +3,7 @@
 @PKG_NAME@: manpage-section-mismatch usr/share/man/man1/emacs.1@SRC_NAME@.gz:2 1@SRC_NAME@ != 1
 @PKG_NAME@: manpage-section-mismatch usr/share/man/man1/emacsclient.1@SRC_NAME@.gz:2 1@SRC_NAME@ != 1
 @PKG_NAME@: manpage-section-mismatch usr/share/man/man1/etags.1@SRC_NAME@.gz:2 1@SRC_NAME@ != 1
-@PKG_NAME@: manpage-section-mismatch usr/share/man/man1/grep-changelog.1@SRC_NAME@.gz:3 1@SRC_NAME@ != 1
 @PKG_NAME@: binary-without-manpage usr/bin/ebrowse.@SRC_NAME@
 @PKG_NAME@: binary-without-manpage usr/bin/ctags.@SRC_NAME@
 @PKG_NAME@: binary-without-manpage usr/bin/emacsclient.@SRC_NAME@
 @PKG_NAME@: binary-without-manpage usr/bin/etags.@SRC_NAME@
-@PKG_NAME@: binary-without-manpage usr/bin/grep-changelog.@SRC_NAME@

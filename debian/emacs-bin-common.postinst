@@ -10,7 +10,7 @@ ALTERNATIVES="@ALTERNATIVES@"
 BIN_PRIORITY=@BIN_PRIORITY@
 
 # update-alternatives on things that collide with xemacs, other editors
-for i in ctags ebrowse emacsclient etags grep-changelog
+for i in ctags ebrowse emacsclient etags
 do
   update-alternatives \
     --install /usr/bin/$i $i /usr/bin/$i.${BIN_NAME} ${BIN_PRIORITY} \
@@ -24,7 +24,6 @@ do
   test $i = ebrowse && continue
   test $i = emacsclient && continue
   test $i = etags && continue
-  test $i = grep-changelog && continue
   test $i = rcs-checkin && continue
   update-alternatives --install /usr/bin/$i $i /usr/bin/$i.${BIN_NAME} \
     ${BIN_PRIORITY}
