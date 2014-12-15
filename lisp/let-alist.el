@@ -1,10 +1,10 @@
-;;; let-alist.el --- Easily let-bind values of an assoc-list by their names
+;;; let-alist.el --- Easily let-bind values of an assoc-list by their names -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2014 Free Software Foundation, Inc.
 
 ;; Author: Artur Malabarba <bruce.connor.am@gmail.com>
 ;; Maintainer: Artur Malabarba <bruce.connor.am@gmail.com>
-;; Version: 1.0
+;; Version: 1.0.1
 ;; Keywords: extensions lisp
 ;; Prefix: let-alist
 ;; Separator: -
