@@ -516,7 +516,11 @@ Return the max version (as a string) if the package is held at a lower version."
              force))
           (t (error "Invalid element in `package-load-list'")))))
 
-(defun package-activate-1 (pkg-desc)
+(defun package-activate-1 (pkg-desc &optional reload)
+  "Activate package given by PKG-DESC, even if it was already active.
+If RELOAD is non-nil, also `load' any files inside the package which
+correspond to previously loaded files (those returned by
+`package--list-loaded-files')."
   (let* ((name (package-desc-name pkg-desc))
 	 (pkg-dir (package-desc-dir pkg-desc))
          (pkg-dir-dir (file-name-as-directory pkg-dir)))
@@ -527,8 +531,8 @@ Return the max version (as a string) if the package is held at a lower version."
     (let* ((old-lp load-path)
            (autoloads-file (expand-file-name
                             (format "%s-autoloads" name) pkg-dir))
-           (loaded-files-list (package--list-loaded-files pkg-dir)))
-      (with-demoted-errors (format "Error loading %s: %%s" name)
+           (loaded-files-list (and reload (package--list-loaded-files pkg-dir))))
+      (with-demoted-errors "Error in package-activate-1: %s"
         (load autoloads-file nil t))
       (when (and (eq old-lp load-path)
                  (not (or (member pkg-dir load-path)
@@ -541,7 +545,7 @@ Return the max version (as a string) if the package is held at a lower version."
       ;; to their new definitions.  If another package is being installed which
       ;; depends on this new definition, not doing this update would cause
       ;; compilation errors and break the installation.
-      (with-demoted-errors (format "Error loading %s: %%s" name)
+      (with-demoted-errors "Error in package-activate-1: %s"
 	(mapc (lambda (feature) (load feature nil t))
               ;; Skip autoloads file since we already evaluated it above.
               (remove (file-truename autoloads-file) loaded-files-list))))
@@ -555,17 +559,20 @@ Return the max version (as a string) if the package is held at a lower version."
     ;; Don't return nil.
     t))
 
+(declare-function find-library-name "find-func" (library))
 (defun package--list-loaded-files (dir)
   "Recursively list all files in DIR which correspond to loaded features.
 Returns the `file-name-sans-extension' of each file, relative to
 DIR, sorted by most recently loaded last."
-  (let* ((history (mapcar (lambda (x) (file-name-sans-extension
-                                  (file-truename (car x))))
-                    load-history))
+  (let* ((history (delq nil
+                        (mapcar (lambda (x)
+                                  (let ((f (car x)))
+                                    (and f (file-name-sans-extension f))))
+                                load-history)))
          (dir (file-truename dir))
          ;; List all files that have already been loaded.
          (list-of-conflicts
-          (remove
+          (delq
            nil
            (mapcar
                (lambda (x) (let* ((file (file-relative-name x dir))
@@ -636,14 +643,14 @@ If FORCE is true, (re-)activate it if it's already activated."
              (fail (catch 'dep-failure
                      ;; Activate its dependencies recursively.
                      (dolist (req (package-desc-reqs pkg-vec))
-                       (unless (package-activate (car req) (cadr req))
+                       (unless (package-activate (car req))
                          (throw 'dep-failure req))))))
 	(if fail
 	    (warn "Unable to activate package `%s'.
 Required package `%s-%s' is unavailable"
 		  package (car fail) (package-version-join (cadr fail)))
 	  ;; If all goes well, activate the package itself.
-	  (package-activate-1 pkg-vec)))))))
+	  (package-activate-1 pkg-vec force)))))))
 
 (defun define-package (_name-string _version-string
                                     &optional _docstring _requirements

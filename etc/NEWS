@@ -108,6 +108,17 @@ environment.  For the time being this is implemented for modern POSIX
 systems and for MS-Windows, for other systems they fall back to their
 counterparts `string-lessp' and `string-equal'.
 
+*** The ls-lisp package uses `string-collate-lessp' to sort file names.
+If you want the old, locale-independent sorting, customize the new
+option `ls-lisp-use-string-collate' to a nil value.
+
+*** The MS-Windows specific variable `w32-collate-ignore-punctuation',
+if set to a non-nil value, causes the above 2 functions to ignore
+symbol and punctuation characters when collating strings.  This
+emulates the behavior of modern Posix platforms when the locale's
+codeset is "UTF-8" (as in "en_US.UTF-8").  This is needed because
+MS-Windows doesn't support UTF-8 as codeset in its locales.
+
 +++
 ** The new function `bidi-find-overridden-directionality' allows to
 find characters whose directionality was, perhaps maliciously,
@@ -121,17 +132,6 @@ copy a portion of a buffer into a different location while preserving
 the visual appearance both of the copied text and the text at
 destination, even when the copied text includes mixed bidirectional
 text and directional control characters.
-
-*** The ls-lisp package uses `string-collate-lessp' to sort file names.
-If you want the old, locale-independent sorting, customize the new
-option `ls-lisp-use-string-collate' to a nil value.
-
-*** The MS-Windows specific variable `w32-collate-ignore-punctuation',
-if set to a non-nil value, causes the above 2 functions to ignore
-symbol and punctuation characters when collating strings.  This
-emulates the behavior of modern Posix platforms when the locale's
-codeset is "UTF-8" (as in "en_US.UTF-8").  This is needed because
-MS-Windows doesn't support UTF-8 as codeset in its locales.
 
 ** New variable `ns-use-fullscreen-animation' controls animation for
 non-native NS fullscreen.  The default is nil.  Set to t to enable
@@ -159,6 +159,10 @@ fontification during full screen scrolling operations, giving less
 hesitant operation during auto-repeat of C-v, M-v at the cost of
 possible inaccuracies in the end position.
 
+** The function `font-info' now returns more details about a font.
+In particular, it now returns the average width of the font's
+characters, which can be used for geometry-related calculations.
+
 
 * Editing Changes in Emacs 25.1
 
@@ -178,6 +182,8 @@ in Unicode Standard versions 6.3 and 7.0, and a few changes suggested
 for Unicode 8.0.  This includes full support for directional isolates
 and the Bidirectional Parentheses Algorithm (BPA) specified by these
 Unicode standards.
+
+** You can access `mouse-buffer-menu' (C-down-mouse-1) using C-f10.
 
 
 * Changes in Specialized Modes and Packages in Emacs 25.1
@@ -281,6 +287,12 @@ appending FUN to `minibuffer-setup-hook'.
 
 ** cl-lib
 *** New functions cl-fresh-line, cl-digit-char-p and cl-parse-integer.
+
+** seq
+*** New seq library:
+The seq library adds sequence manipulation functions and macros that
+complement basic functions provided by subr.el. All functions are
+prefixed with `seq-' and work on lists, strings and vectors.
 
 ** Calendar and diary
 
@@ -423,6 +435,10 @@ helper functions) obsolete.
 * New Modes and Packages in Emacs 25.1
 
 ** scss-mode (a minor variant of css-mode)
+
+** let-alist is a new macro (and a package) that allows one to easily
+let-bind the values stored in an alist.
+
 
 * Incompatible Lisp Changes in Emacs 25.1
 
@@ -560,6 +576,11 @@ fullwidth frames, the behavior may depend on the toolkit used.
    setting default font, menu bar, fringe width, or scroll bars of a
    specific frame does not resize that frame in order to preserve the
    number of columns or lines it displays.
+
++++
+** New function `window-preserve-size' allows to preserve the size of
+windows without "fixing" it.  It's supported by `fit-window-to-buffer',
+`temp-buffer-resize-mode' and `display-buffer'.
 
 ** Tearoff menus and detachable toolbars for Gtk+ has been removed.
 Those features have been deprecated in Gtk+ for a long time.

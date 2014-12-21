@@ -1,3 +1,25 @@
+2014-12-19  Artur Malabarba  <bruce.connor.am@gmail.com>
+
+	* automated/let-alist.el: require `cl-lib'
+	New tests for accessing alists inside alists.
+
+2014-12-18  Artur Malabarba  <bruce.connor.am@gmail.com>
+
+	* automated/let-alist.el: New file.
+
+2014-12-16  Nicolas Petton <petton.nicolas@gmail.com>
+
+	* automated/seq-tests.el: New file.
+
+2014-12-16  Glenn Morris  <rgm@gnu.org>
+
+	* automated/data/flymake/Makefile (check-syntax):
+	Prevent colorized gcc output from confusing flymake.
+
+	* automated/flymake-tests.el (flymake-tests-data-directory):
+	Change from flymake/warnpred to more standard data/flymake.
+	* automated/flymake/warnpred/: Rename to automated/data/flymake/.
+
 2014-12-11  Michael Albinus  <michael.albinus@gmx.de>
 
 	* automated/vc-tests.el (vc-test--revision-granularity-function):

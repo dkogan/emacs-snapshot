@@ -1,3 +1,183 @@
+2014-12-20  Michael Albinus  <michael.albinus@gmx.de>
+
+	* net/tramp-sh.el (tramp-histfile-override): Add :version.
+
+2014-12-20  Teodor Zlatanov  <tzz@lifelogs.com>
+
+	* net/tramp-sh.el (tramp-histfile-override): Clarify docstring.
+
+2014-12-19  Artur Malabarba  <bruce.connor.am@gmail.com>
+
+	* let-alist.el (let-alist): Enable access to deeper alists by
+	using dots inside the dotted symbols.
+
+2014-12-19  Alan Mackenzie  <acm@muc.de>
+
+	Make C++11 uniform init syntax work.  New keywords "final" and "override"
+
+	* progmodes/cc-engine.el (c-back-over-member-initializer-braces):
+	New function.
+	(c-guess-basic-syntax): Set `containing-sex' and `lim' using the
+	new function.
+
+	* progmodes/cc-fonts.el (c-font-lock-declarations): Check more
+	carefully for "are we at a declarator?" using
+	c-back-over-member-initializers.
+
+	* progmodes/cc-langs.el (c-type-modifier-kwds): include "final"
+	and "override" in the C++ value.
+
+2014-12-19  Martin Rudalics  <rudalics@gmx.at>
+
+	* textmodes/ispell.el (ispell-command-loop): Don't use
+	`next-window'.
+
+2014-12-18  Sam Steingold  <sds@gnu.org>
+
+	Keyboard interface (C-f10) to `mouse-buffer-menu' (C-down-mouse-1).
+	* mouse.el (mouse-buffer-menu-map): Extract from `mouse-buffer-menu'.
+	(mouse-buffer-menu): Use `mouse-buffer-menu-map'.
+	* menu-bar.el (menu-bar-buffer-vector): Extract from
+	`menu-bar-update-buffers'.
+	(menu-bar-update-buffers): Use `menu-bar-buffer-vector'.
+	(buffer-menu-open): New user command, bound globally to C-f10,
+	provides a keyboard interface to `mouse-buffer-menu' (C-down-mouse-1).
+	(mouse-buffer-menu-keymap): Use `menu-bar-buffer-vector' to
+	convert the value returned by `mouse-buffer-menu-map' to a list
+	acceptable to `popup-menu' for `buffer-menu-open'.
+
+2014-12-18  Artur Malabarba  <bruce.connor.am@gmail.com>
+
+	* let-alist.el (let-alist): Evaluate the `alist' argument only
+	once.
+
+2014-12-18  Sam Steingold  <sds@gnu.org>
+
+	* emacs-lisp/package.el: Avoid compilation warning by declaring
+	the `find-library-name' function.
+	(package-activate-1): Fix the `with-demoted-errors' calls:
+	the first argument must be a string literal.
+
+2014-12-18  Martin Rudalics  <rudalics@gmx.at>
+
+	Add code for "preserving" window sizes.
+	* dired.el (dired-pop-to-buffer): Call fit-window-to-buffer with
+	`preserve-size' t.
+	(dired-mark-pop-up): Preserve size of window showing marked
+	files.
+	* electric.el (Electric-pop-up-window):
+	* help.el (resize-temp-buffer-window): Call fit-window-to-buffer
+	with `preserve-size' t.
+	* minibuffer.el (minibuffer-completion-help): Use
+	`resize-temp-buffer-window' instead of `fit-window-to-buffer'
+	(Bug#19355).  Preserve size of completions window.
+	* register.el (register-preview): Preserve size of register
+	preview window.
+	* tmm.el (tmm-add-prompt): Call fit-window-to-buffer
+	with `preserve-size' t (Bug#1291).
+	* window.el (with-displayed-buffer-window): Add calls to
+	`window-preserve-size'.
+	(window-min-pixel-size, window--preservable-size)
+	(window-preserve-size, window-preserved-size)
+	(window--preserve-size, window--min-size-ignore-p): New
+	functions.
+	(window-min-size, window-min-delta, window--resizable)
+	(window--resize-this-window, split-window-below)
+	(split-window-right): Amend doc-string.
+	(window--min-size-1, window-sizable, window--size-fixed-1)
+	(window-size-fixed-p, window--min-delta-1)
+	(frame-windows-min-size, window--max-delta-1, window-resize)
+	(window--resize-child-windows, window--resize-siblings)
+	(enlarge-window, shrink-window, split-window): Handle preserving
+	window sizes.
+	(adjust-window-trailing-edge): Handle preserving window
+	sizes.  Signal user-error instead of an error when there's no
+	window above or below.
+	(window--state-put-2): Handle horizontal scroll bars.
+	(window--display-buffer): Call `preserve-size' if asked for.
+	(display-buffer): Mention `preserve-size' alist member in
+	doc-string.
+	(fit-window-to-buffer): New argument PRESERVE-SIZE.
+	* textmodes/ispell.el (ispell-command-loop): Suppress horizontal
+	scroll bar on ispell's windows.  Don't count window lines and
+	don't deal with dedicated windows.
+	(ispell-show-choices, ispell-help): Let `ispell-display-buffer'
+	do the window handling.
+	(ispell-adjusted-window-height, ispell-overlay-window): Remove.
+	(ispell-display-buffer): New function to reuse, create and fit
+	window to ispell's buffers. (Bug#3413)
+
+2014-12-18  Dmitry Gutov  <dgutov@yandex.ru>
+
+	* emacs-lisp/package.el (package-activate): Do not re-activate or
+	reload the dependencies (bug#19390).
+
+2014-12-18  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* progmodes/cc-cmds.el (c-subword-mode): Alias to subword-mode.
+	(c-update-modeline):
+	* progmodes/cc-langs.el (c-mode-menu): Use c-subword-mode.
+	* progmodes/cc-mode.el (subword-mode): Move autoload to cc-cmds.el.
+	(c-mode-base-map): Use c-subword-mode.
+
+2014-12-18  Eli Zaretskii  <eliz@gnu.org>
+
+	* international/mule-diag.el (describe-font-internal):
+	Display additional info returned by font-info.
+
+	* linum.el (linum--face-width): Rename from linum--face-height,
+	and use the new functionality of font-info.
+	(linum-update-window): Use linum--face-width and frame-char-width,
+	instead of approximating with height.
+
+2014-12-18  Dmitry Gutov  <dgutov@yandex.ru>
+
+	* vc/vc-svn.el (vc-svn-dir-status-files): Revert the 2014-12-02
+	change (bug#19387).  Use `apply' on `vc-dir-command'  (bug#19405).
+
+	* emacs-lisp/package.el (package-activate-1): Add RELOAD argument
+	and a docstring.
+	(package-activate): Call itself on dependencies on PACKAGE with
+	the same FORCE argument.  Pass FORCE as RELOAD into
+	`package-activate-1'  (bug#19390).
+
+2014-12-17  Sam Steingold  <sds@gnu.org>
+
+	* emacs-lisp/package.el (package--list-loaded-files):
+	Handle `(nil ...)' elements in `load-history'.
+
+2014-12-17  Teodor Zlatanov  <tzz@lifelogs.com>
+
+	* net/tramp-sh.el (tramp-histfile-override): New variable.
+	(tramp-open-shell, tramp-maybe-open-connection): Use it.
+
+2014-12-17  Dmitry Gutov  <dgutov@yandex.ru>
+
+	* vc/vc.el: Improve `dir-status-files' description.
+
+	* emacs-lisp/package.el (package--list-loaded-files): Don't call
+	file-truename on load-history elements (bug#19390).
+
+2014-12-16  Nicolas Petton <petton.nicolas@gmail.com>
+
+	* emacs-lisp/seq.el: New file.
+
+2014-12-16  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* jit-lock.el (jit-lock-function): Don't defer if jit-lock-defer-time
+	is 0 and there is no input pending.
+
+2014-12-15  Juri Linkov  <juri@linkov.net>
+
+	* replace.el (query-replace-read-from): Use query-replace-compile-replacement
+	only on the return value (bug#19383).
+
+2014-12-15  Juri Linkov  <juri@linkov.net>
+
+	* isearch.el (isearch-lazy-highlight-search): Extend the bound of
+	the wrapped search by the length of the search string to be able
+	to lazy-highlight the whole search string at point (bug#19353).
+
 2014-12-15  Lars Magne Ingebrigtsen  <larsi@gnus.org>
 
 	* net/shr.el (shr-fold-text): Don't bug out on zero-length text.
@@ -94,8 +274,8 @@
 
 2014-12-13  Fabián Ezequiel Gallina  <fgallina@gnu.org>
 
-	* progmodes/python.el (python-shell-parse-command): Quote
-	`python-shell-interpreter`.  (Bug#19289)
+	* progmodes/python.el (python-shell-parse-command):
+	Quote `python-shell-interpreter`.  (Bug#19289)
 
 2014-12-12  Stefan Monnier  <monnier@iro.umontreal.ca>
 

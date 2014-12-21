@@ -1,3 +1,19 @@
+2014-12-18  Eric Abrahamsen  <eric@ericabrahamsen.net>
+
+	* gnus.texi (Gnus Registry Setup): Explain pruning changes. Mention
+	gnus-registry-prune-factor. Explain sorting changes and
+	gnus-registry-default-sort-function. Correct file extension.
+
+2014-12-17  Jay Belanger  <jay.p.belanger@gmail.com>
+
+	* calc.texi (About This Manual): Update instructions
+	for building the manual.
+
+2014-12-15  Alan Mackenzie  <acm@muc.de>
+
+	"Advice" is a mass noun.  Amend text accordingly.
+	* cl.texi (Obsolete Macros): Replace "an advice" with "advice".
+
 2014-12-12  Paul Eggert  <eggert@cs.ucla.edu>
 
 	* texinfo.tex: Update from gnulib.

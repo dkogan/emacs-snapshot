@@ -1,3 +1,116 @@
+2014-12-20  Paul Eggert  <eggert@cs.ucla.edu>
+
+	* composite.h (struct composition.width): Now int
+	instead of unsigned short, as we prefer signed integers.
+
+	Let charset tick grow past USHRT_MAX
+	* charset.c, charset.h (charset_ordered_list_tick):
+	Now EMACS_UINT, not unsigned short.
+	* fontset.c (reorder_font_vector): Allow the tick to grow to the
+	maximum representable Emacs integer value before wrapping it around.
+
+	Simplify unexec file mode setting
+	* unexaix.c, unexcoff.c, unexelf.c, unexmacosx.c:
+	Don't include <sys/stat.h> when no longer needed.
+	(unexec): Create file with correct mode in the first place,
+	rather than overwriting the mode later and fiddling with the
+	global umask in the mean time.  Avoid bogus usage like
+	'umask (777)', which should have been 'umask (0777)'.
+	(mark_x): Remove. All callers removed.
+
+2014-12-19  Paul Eggert  <eggert@cs.ucla.edu>
+
+	Minor cleanups for Lisp objects and symbols
+	* alloc.c (next_vector, set_next_vector):
+	* lisp.h (lisp_h_INTEGERP, make_number, XFASTINT, make_natnum):
+	(lisp_h_make_number) [USE_LSB_TAG]:
+	Use Lisp_Int0 instead of the mystery constant 0.
+	* alloc.c (mark_object): Always set and use po; that's simpler.
+	(CHECK_LIVE, CHECK_ALLOCATED_AND_LIVE):
+	Properly parenthesize definientia.
+	* bidi.c (bidi_initialize):
+	* buffer.c (init_buffer_once):
+	* nsfns.m (syms_of_nsfns):
+	* nsmenu.m (syms_of_nsmenu):
+	* nsselect.m (syms_of_nsselect):
+	Prefer DEFSYM to defining by hand.
+	* buffer.c (syms_of_buffer): Omit unneeded staticpros.
+	* data.c: Fix too-long line.
+	* lisp.h (DECLARE_GDB_SYM): New macro.
+	(DEFINE_GDB_SYMBOL_BEGIN): Use it.
+	(DEFINE_GDB_SYMBOL_BEGIN, DEFINE_GDB_SYMBOL_END) [!MAIN_PROGRAM]:
+	Declare the symbol, so it's visible to everywhere lisp.h is included.
+	Move forward decls as far forward as they can go,
+	to allow future changes to use them.
+
+2014-12-18  Paul Eggert  <eggert@cs.ucla.edu>
+
+	* gnutls.c: Include gnutls.h.
+	This to check syms_of_gnutls's API even when !HAVE_GNUTLS.
+	* image.c (svg_load): Fix pointer signedness.
+
+2014-12-18  Martin Rudalics  <rudalics@gmx.at>
+
+	* frame.c (frame_windows_min_size): New argument IGNORE.
+	(adjust_frame_size): When called from change_frame_size call
+	frame_windows_min_size with IGNORE Qt so we can ignore size
+	restrictions.
+
+2014-12-18  Eli Zaretskii  <eliz@gnu.org>
+
+	* font.c (Ffont_info): Add more font information to the vector
+	returned by the function, inspired by query-font.  Doc fix.
+	(Bug#19395)
+
+2014-12-18  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* keyboard.c (input_was_pending): New var.
+	(read_char): Use it to make sure we only skip redisplay when we can't
+	keep up with the repeat rate.
+
+2014-12-17  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* keyboard.c (swallow_events): Don't redisplay if there's input pending.
+
+2014-12-17  Ulf Jasper  <ulf.jasper@web.de>
+
+	* image.c (svg_load): Watch out for nil value of current buffer's
+	filename.  Re-enable filename thing for not-a-file case.
+
+2014-12-17  Ulf Jasper  <ulf.jasper@web.de>
+
+	Partially disabled previous change.
+
+	* image.c (svg_load): Temporarily disabled filename thing for
+	not-a-file case as it can cause crashs.
+
+2014-12-17  Ulf Jasper  <ulf.jasper@web.de>
+
+	Fix problem with images referenced within svg files. (bug#19373)
+
+	* image.c: Additional parameter 'filename' for
+	svg_load_image. Include "buffer.h".  Define library function
+	rsvg_handle_set_base_uri for WINDOWSNT.
+	(init_svg_functions): Initialize rsvg_handle_set_base_uri.
+	(fn_rsvg_handle_set_base_uri): Define fn_rsvg_handle_set_base_uri.
+	(svg_load): Pass a filename to svg_load_image: either name of
+	actual file or of current buffer's file.
+	(svg_load_image): New parameter 'filename', used for setting
+	base_uri, necessary for loading referenced images. (bug#19373)
+
+2014-12-16  Paul Eggert  <eggert@cs.ucla.edu>
+
+	* lread.c (init_obarray): Declare Qt as special.
+	This fixes a typo in the 2012-05-15 patch that
+	tried to declare Qt as special.
+
+2014-12-15  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	Various fixes to use bool type and constants.
+	* dispnew.c (update_single_window): Remove arg `force_p' since it's
+	always true.
+	* xfaces.c (clear_face_cache): Use bool for the argument type.
+
 2014-12-15  Paul Eggert  <eggert@cs.ucla.edu>
 
 	Correct same_at_end when restoring window points
@@ -10,14 +123,12 @@
 
 	New feature optionally to accelerate auto-repeated scrolling.
 
-	* xdisp.c: Remove "static" from declaration of
-	Qfontification_functions.
+	* xdisp.c: Remove "static" from declaration of Qfontification_functions.
 
-	* window.c (window_scroll): bind fontification-functions to nil
+	* window.c (window_scroll): Bind fontification-functions to nil
 	when scrolling by whole screens and
 	fast-but-imprecise-scrolling is non-nil.
-	(syms_of_window): New DEFVAR_BOOL
-	fast-but-imprecise-scrolling.
+	(syms_of_window): New DEFVAR_BOOL fast-but-imprecise-scrolling.
 
 	* lisp.h (bool): Declare Qfontification_functions extern.
 
@@ -28,10 +139,10 @@
 	[GNUTLS >= 3.0.20]: Declare for WINDOWSNT.
 	(init_gnutls_functions)(gnutls_certificate_set_x509_system_trust)
 	[GNUTLS >= 3.0.20]: Load from shared library for WINDOWSNT.
-	(fn_gnutls_certificate_set_x509_system_trust) [!WINDOWSNT]: Define
-	new macro.
-	(Fgnutls_boot) [GNUTLS >= 3.0.20]: Call
-	gnutls_certificate_set_x509_system_trust.  Log an error message if
+	(fn_gnutls_certificate_set_x509_system_trust) [!WINDOWSNT]:
+	Define new macro.
+	(Fgnutls_boot) [GNUTLS >= 3.0.20]:
+	Call gnutls_certificate_set_x509_system_trust.  Log an error message if
 	it fails.
 
 2014-12-13  Paul Eggert  <eggert@cs.ucla.edu>
@@ -41,8 +152,8 @@
 
 2014-12-13  Eli Zaretskii  <eliz@gnu.org>
 
-	* gnutls.c (Fgnutls_available_p, syms_of_gnutls): Move
-	gnutls-available-p out of the HAVE_GNUTLS conditional, and define
+	* gnutls.c (Fgnutls_available_p, syms_of_gnutls):
+	Move gnutls-available-p out of the HAVE_GNUTLS conditional, and define
 	them only once.
 
 2014-12-13  Teodor Zlatanov  <tzz@lifelogs.com>
@@ -58,8 +169,8 @@
 
 2014-12-13  Eli Zaretskii  <eliz@gnu.org>
 
-	* xdisp.c (move_it_in_display_line_to, display_line): Don't
-	disallow overflow-newline-into-fringe when word-wrap is in
+	* xdisp.c (move_it_in_display_line_to, display_line):
+	Don't disallow overflow-newline-into-fringe when word-wrap is in
 	effect.  (Bug#19300)
 
 2014-12-11  Stefan Monnier  <monnier@iro.umontreal.ca>
