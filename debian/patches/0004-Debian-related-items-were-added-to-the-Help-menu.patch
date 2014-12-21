@@ -8,7 +8,7 @@ Signed-off-by: Julien Danjou <julien@danjou.info>
  1 file changed, 33 insertions(+)
 
 diff --git a/lisp/menu-bar.el b/lisp/menu-bar.el
-index 12fb192..94abc0d 100644
+index 8f33641..b54dcbf 100644
 --- a/lisp/menu-bar.el
 +++ b/lisp/menu-bar.el
 @@ -1596,6 +1596,28 @@ key, a click, or a menu-item"))
