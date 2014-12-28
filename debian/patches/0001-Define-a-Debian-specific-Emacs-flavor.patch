@@ -8,7 +8,7 @@ Signed-off-by: Julien Danjou <julien@danjou.info>
  1 file changed, 11 insertions(+), 1 deletion(-)
 
 diff --git a/lisp/startup.el b/lisp/startup.el
-index c04b16c..79aeda7 100644
+index 8e981bb..94f9680 100644
 --- a/lisp/startup.el
 +++ b/lisp/startup.el
 @@ -405,6 +405,10 @@ from being initialized."
