@@ -4,7 +4,7 @@
 
 ;; Author: Artur Malabarba <bruce.connor.am@gmail.com>
 ;; Maintainer: Artur Malabarba <bruce.connor.am@gmail.com>
-;; Version: 1.0.2
+;; Version: 1.0.3
 ;; Keywords: extensions lisp
 ;; Prefix: let-alist
 ;; Separator: -
@@ -77,7 +77,7 @@ symbol, and each cdr is the same symbol without the `.'."
         (mapcar #'let-alist--deep-dot-search data)))))
 
 (defun let-alist--access-sexp (symbol variable)
-  "Return a sexp used to acess SYMBOL inside VARIABLE."
+  "Return a sexp used to access SYMBOL inside VARIABLE."
   (let* ((clean (let-alist--remove-dot symbol))
          (name (symbol-name clean)))
     (if (string-match "\\`\\." name)
@@ -131,7 +131,7 @@ the variables of the outer one. You can, however, access alists
 inside the original alist by using dots inside the symbol, as
 displayed in the example above."
   (declare (indent 1) (debug t))
-  (let ((var (gensym "alist")))
+  (let ((var (make-symbol "alist")))
     `(let ((,var ,alist))
        (let ,(mapcar (lambda (x) `(,(car x) ,(let-alist--access-sexp (car x) var)))
                (delete-dups (let-alist--deep-dot-search body)))

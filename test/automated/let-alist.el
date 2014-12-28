@@ -21,6 +21,7 @@
 
 (require 'ert)
 (require 'cl-lib)
+(require 'let-alist)
 
 (ert-deftest let-alist-surface-test ()
   "Tests basic macro expansion for `let-alist'."
@@ -30,7 +31,7 @@
                    (.test-two (cdr (assq 'test-two symbol))))
                (list .test-one .test-two
                      .test-two .test-two)))
-          (cl-letf (((symbol-function #'gensym) (lambda (x) 'symbol)))
+          (cl-letf (((symbol-function #'make-symbol) (lambda (x) 'symbol)))
             (macroexpand
              '(let-alist data (list .test-one .test-two
                                     .test-two .test-two))))))
@@ -62,7 +63,7 @@
       '(nil 1 1 2 nil)))))
 
 (ert-deftest let-alist-remove-dot ()
-  "Remove firt dot from symbol."
+  "Remove first dot from symbol."
   (should (equal (let-alist--remove-dot 'hi) 'hi))
   (should (equal (let-alist--remove-dot '.hi) 'hi))
   (should (equal (let-alist--remove-dot '..hi) '.hi)))
