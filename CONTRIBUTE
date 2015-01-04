@@ -57,7 +57,7 @@ following modifications:
   the rationale for a change; that can be done in the commit message
   between the summary line and the file entries.
 
-** Changelog notes
+** ChangeLog notes
 
 - Emacs generally follows the GNU coding standards when it comes to
   ChangeLogs:
@@ -67,7 +67,7 @@ following modifications:
   now), because `...' is so widely used elsewhere in Emacs.
 
 - Some of the rules in the GNU coding standards section 5.2
-  "Commenting Your Work" also apply to Changelog entries: they must be
+  "Commenting Your Work" also apply to ChangeLog entries: they must be
   in English, and be complete sentences starting with a capital and
   ending with a period (except the summary line should not end in a
   period).
@@ -180,10 +180,12 @@ by following links from http://savannah.gnu.org/mail/?group=emacs .
 
 Any change that matters to end-users should have an entry in etc/NEWS.
 
-Think about whether your change requires updating the documentation
-(both manuals and doc-strings).  If you know it does not, mark the NEWS
-entry with "---".  If you know that *all* the necessary documentation
-updates have been made, mark the entry with "+++". Otherwise do not mark it.
+Doc-strings should be updated together with the code.
+
+Think about whether your change requires updating the manuals.  If you
+know it does not, mark the NEWS entry with "---".  If you know
+that *all* the necessary documentation updates have been made, mark
+the entry with "+++". Otherwise do not mark it.
 
 ** Understanding Emacs Internals.
 

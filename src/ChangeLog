@@ -1,3 +1,76 @@
+2015-01-04  Paul Eggert  <eggert@cs.ucla.edu>
+
+	Less 'make' chatter for lisp dir
+	* Makefile.in (%.elc): Adjust to compile-onefile change in
+	../lisp/Makefile.in.
+
+	batch write-region no longer says "Wrote FOO"
+	This cuts down on 'make' chatter a bit.
+	* fileio.c (Fwrite_region):
+	Don't output "Wrote /whatever/foo.elc" if noninteractive.
+
+2015-01-03  Paul Eggert  <eggert@cs.ucla.edu>
+
+	Revert previous change to produce_composite_glyph
+	* term.c (produce_composite_glyph): Revert previous change (Bug#19496).
+
+	Pacify gcc -Wparentheses
+	* frame.c (x_set_frame_parameters): Add parens (Bug#19428).
+
+2015-01-03  Martin Rudalics  <rudalics@gmx.at>
+
+	* frame.c (x_set_frame_parameters): Call Fset_frame_size only if
+	f->can_x_set_window_size is true.
+	* xterm.c (x_set_window_size_1): Call change_frame_size with
+	text sizes instead of pixel sizes (Bug#19428).
+
+2015-01-01  Eli Zaretskii  <eliz@gnu.org>
+
+	* xdisp.c (pos_visible_p): Fix up the X coordinate for
+	right-to-left screen lines.  (Bug#19473)
+
+2015-01-01  Eli Zaretskii  <eliz@gnu.org>
+
+	* w32proc.c (Fw32_get_codepage_charset): Doc fix.  (Bug#19458)
+
+2014-12-31  Paul Eggert  <eggert@cs.ucla.edu>
+
+	Simplify setfattr use by assuming GNU make
+	* Makefile.in (PAXCTL_if_present, SETFATTR_if_present): New macros.
+	(emacs$(EXEEXT), temacs$(EXEEXT), bootstrap-emacs$(EXEEXT)): Use them.
+	Simplify by using GNU make rather than shell conditionals,
+	by using ln -f rather than rm -f followed by ln,
+	and by preferring $@ to spelling out the destination.
+
+2014-12-29  Eli Zaretskii  <eliz@gnu.org>
+
+	* sysdep.c [WINDOWSNT]: Include sys/socket.h, without which this
+	file doesn't compile on MS-Windows.
+
+2014-12-29  Paul Eggert  <eggert@cs.ucla.edu>
+
+	Allow return value of system-name to vary.  (Bug#19438)
+	* filelock.c (current_lock_owner):
+	* xrdb.c (get_environ_db):
+	* xterm.c (same_x_server):
+	* xterm.c (x_term_init):
+	Prefer (system-name) to system-name, and avoid naming
+	locals 'system-name'.
+	* editfns.c (cached_system_name): New static var.
+	(init_and_cache_system_name): New function.
+	(init_editfns, Fsystem_name): Use it.
+	(syms_of_editfns): Initialize it and Vsystem_name to the same value.
+	* sysdep.c [HAVE_SOCKETS]: Don't include <sys/socket.h>, <netdb.h>.
+	(h_errno) [TRY_AGAIN && !HAVE_H_ERRNO]: Remove decl.
+	(init_system_name) [HAVE_SOCKETS]: Don't canonicalize the name.
+	Don't create a new string if the current value is already correct.
+
+2014-12-28  Paul Eggert  <eggert@cs.ucla.edu>
+
+	Fix produce_composite_width typo
+	* term.c (produce_composite_glyph):
+	Fix typo that confused number of columns for pixel width.
+
 2014-12-28  Paul Eggert  <eggert@Penguin.CS.UCLA.EDU>
 
 	Wrap dll functions more simply
@@ -114,6 +187,24 @@
 	Use bool for boolean.
 	(x_session_initialize, Fhandle_save_session):
 	Prefer NILP (x) to EQ (x, Qnil).
+
+2014-12-25  Paul Eggert  <eggert@cs.ucla.edu>
+
+	* callproc.c (child_setup):
+	* dbusbind.c (xd_signature_cat):
+	* doc.c (get_doc_string, Fsnarf_documentation):
+	* editfns.c (Fuser_full_name):
+	* frame.c (xrdb_get_resource):
+	* gtkutil.c (xg_get_file_with_chooser):
+	* tparam.c (tparam1):
+	* xfns.c (xic_create_fontsetname):
+	* xrdb.c (gethomedir, get_user_db, get_environ_db):
+	* xsmfns.c (smc_save_yourself_CB):
+	Rewrite to avoid the need for strcat, typically by using stpcpy
+	and/or lispstpcpy.  strcat tends to be part of O(N**2) algorithms.
+	* doc.c (sibling_etc):
+	* xrdb.c (xdefaults):
+	Now a top-level static constant.
 
 2014-12-23  Didier Verna  <didier@didierverna.net> (tiny change).
 
@@ -522,7 +613,7 @@
 2014-11-29  Paul Eggert  <eggert@cs.ucla.edu>
 
 	Improve clarity of USE_LSB_TAG definition.
-	Problem reported by Lee Duhem.  Suggestion by Andreas Schwab in:
+	Reported by Lee Duhem.  Suggested by Andreas Schwab in:
 	http://lists.gnu.org/archive/html/emacs-devel/2014-11/msg02222.html
 	* lisp.h (USE_LSB_TAG): Define in terms of the (simpler)
 	VAL_MAX / 2 rather than in terms of the (more complicated)
@@ -548,7 +639,7 @@
 
 2014-11-27  Oscar Fuentes  <ofv@wanadoo.es>
 
-	* src/w32.c, src/w32heap.c, src/w32term.c:
+	* w32.c, w32heap.c, w32term.c:
 	Use MINGW_W64 instead of _W64.
 
 2014-11-27  Stefan Monnier  <monnier@iro.umontreal.ca>
@@ -1018,7 +1109,7 @@
 
 2014-10-25  Noam Postavsky  <npostavs@users.sourceforget.net>
 
-	* src/w32proc.c (create_child): If calling a quoted batch file,
+	* w32proc.c (create_child): If calling a quoted batch file,
 	pass NULL for exe.  (Bug#18745)
 
 2014-10-24  Eli Zaretskii  <eliz@gnu.org>
@@ -1437,7 +1528,7 @@
 	On x86 platforms this works around GCC bug 63495
 	<https://gcc.gnu.org/bugzilla/show_bug.cgi?id=63495>,
 	and more generally should fix a portability problem in Emacs.
-	Problem reported by Stefan Monnier in:
+	Reported by Stefan Monnier in:
 	http://lists.gnu.org/archive/html/emacs-devel/2014-10/msg00261.html
 
 2014-10-08  Leo Liu  <sdl.web@gmail.com>
@@ -1953,7 +2044,7 @@
 2014-09-23  Paul Eggert  <eggert@cs.ucla.edu>
 
 	Fix SAFE_ALLOCA to not exhaust the stack when in a loop.
-	Problem reported by Dmitry Antipov in thread leading to:
+	Reported by Dmitry Antipov in thread leading to:
 	http://lists.gnu.org/archive/html/emacs-devel/2014-09/msg00713.html
 	This patch fixes only SAFE_ALLOCA, SAFE_NALLOCA, and SAFE_ALLOCA_LISP;
 	the experimental local_* macros enabled by USE_LOCAL_ALLOCATORS
@@ -2286,7 +2377,7 @@
 2014-09-10  Paul Eggert  <eggert@cs.ucla.edu>
 
 	Simplify lisp.h by removing the __COUNTER__ business.
-	Problem reported by Dmitry Antipov in:
+	Reported by Dmitry Antipov in:
 	http://lists.gnu.org/archive/html/emacs-devel/2014-09/msg00220.html
 	* lisp.h (make_local_vector, make_local_string)
 	(build_local_string): Simplify by not bothering with __COUNTER__.
@@ -2317,7 +2408,7 @@
 	* lisp.h (DEFINE_GDB_SYMBOL_ENUM): Remove.
 	These can generate a constant with the correct value but the wrong
 	width, which doesn't work as a printf argument.  All uses removed.
-	Problem reported by Dmitry Antipov in:
+	Reported by Dmitry Antipov in:
 	http://lists.gnu.org/archive/html/emacs-devel/2014-09/msg00213.html
 	(ENUMABLE): Remove; no longer needed.
 	(ARRAY_MARK_FLAG_val, PSEUDOVECTOR_FLAG_val, VALMASK_val):
@@ -4808,7 +4899,7 @@
 2014-06-03  Paul Eggert  <eggert@cs.ucla.edu>
 
 	* emacs.c: Include "sysselect.h", to define its inline functions.
-	Problem reported by Glenn Morris in:
+	Reported by Glenn Morris in:
 	http://lists.gnu.org/archive/html/emacs-devel/2014-06/msg00077.html
 
 	Do not require libXt-devel when building with gtk.
@@ -5908,7 +5999,7 @@
 2014-03-27  Paul Eggert  <eggert@cs.ucla.edu>
 
 	Port recent signal-related changes to FreeBSD.
-	Problem reported by Herbert J. Skuhra.
+	Reported by Herbert J. Skuhra.
 	* lisp.h (block_tty_out_signal, unblock_tty_out_signal):
 	Move decls from here ...
 	* syssignal.h: ... to here, so that lisp.h doesn't depend on signal.h.
@@ -6886,7 +6977,7 @@
 2014-01-20  Paul Eggert  <eggert@cs.ucla.edu>
 
 	Avoid undefined behavior by initializing buffer redisplay bit.
-	Problem reported by Dmitry Antipov in
+	Reported by Dmitry Antipov in
 	<http://lists.gnu.org/archive/html/emacs-devel/2014-01/msg01756.html>.
 	* buffer.c (Fget_buffer_create): Initialize redisplay bit.
 
@@ -8727,7 +8818,7 @@
 2013-11-21  Paul Eggert  <eggert@cs.ucla.edu>
 
 	Fix some dependency problems that cause unnecessary recompiles.
-	Problem reported by RMS in
+	Reported by RMS in
 	<http://lists.gnu.org/archive/html/emacs-devel/2013-11/msg00421.html>.
 	* Makefile.in (OLDXMENU_TARGET, OLDXMENU, OLDXMENU_DEPS)
 	(really-lwlib, really-oldXMenu, stamp-oldxmenu)
@@ -9472,8 +9563,7 @@
 
 2013-10-23  Paul Eggert  <eggert@cs.ucla.edu>
 
-	Port to Solaris 10 and its bundled GCC.
-	Problem reported by Timothy C. Burt.
+	Port to Solaris 10 and its bundled GCC.  Reported by Timothy C. Burt.
 	* floatfns.c (isfinite, isnan): Redefine unconditionally.
 
 2013-10-21  Dmitry Antipov  <dmantipov@yandex.ru>
@@ -9877,7 +9967,7 @@
 	so it shouldn't be used all the time.  Perhaps we need two
 	flavors of 'eassert', one for where 'assume' is far more likely
 	to help or to hurt; but that can be done later.
-	Problem reported by Dmitry Antipov in
+	Reported by Dmitry Antipov in
 	<http://lists.gnu.org/archive/html/emacs-devel/2013-10/msg00276.html>.
 	Also, don't include <verify.h>; no longer needed.
 
@@ -13605,8 +13695,7 @@
 
 2013-07-07  Paul Eggert  <eggert@cs.ucla.edu>
 
-	Port to Ubuntu 10 (Bug#14803).
-	Problem reported by T.V. Raman.
+	Port to Ubuntu 10 (Bug#14803).  Reported by T.V. Raman.
 	* process.c (close_on_exec, accept4, process_socket):
 	Define these if !HAVE_ACCEPT4, not if !SOCK_CLOEXEC.
 
@@ -13871,7 +13960,7 @@
 	* emacs.c (malloc_enable_thread): Hoist extern decl to top level.
 	(main) [HAVE_PTHREAD && !SYSTEM_MALLOC && !DOUG_LEA_MALLOC]:
 	Invoke malloc_enable_thread even when not interactive.
-	Problem reported by Ken Brown in <http://bugs.gnu.org/14569#275>.
+	Reported by Ken Brown in <http://bugs.gnu.org/14569#275>.
 	* process.c (init_process_emacs) [CYGWIN]: Tickle glib even
 	in this case, since the underlying bug has now been fixed.
 
@@ -15096,7 +15185,7 @@
 	* unexelf.c: Don't assume ElfW (Half) fits in int.
 	(entry_address, find_section, unexec): Use ptrdiff_t, not int,
 	when dealing with ElfW (Half) values, since they can exceed 2**31
-	on 64-bit OpenBSD hosts.  Problem reported privately by Han Boetes.
+	on 64-bit OpenBSD hosts.  Reported by Han Boetes (privately).
 	(entry_address): Omit unused NUM arg.  All uses changed.
 
 2013-05-07  Juri Linkov  <juri@jurta.org>
@@ -16062,7 +16151,7 @@ See ChangeLog.12 for earlier changes.
 ;; coding: utf-8
 ;; End:
 
-  Copyright (C) 2011-2014 Free Software Foundation, Inc.
+  Copyright (C) 2011-2015 Free Software Foundation, Inc.
 
   This file is part of GNU Emacs.
 

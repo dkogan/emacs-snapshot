@@ -1,6 +1,6 @@
 /* Generic frame functions.
 
-Copyright (C) 1993-1995, 1997, 1999-2014 Free Software Foundation, Inc.
+Copyright (C) 1993-1995, 1997, 1999-2015 Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -3219,7 +3219,7 @@ x_set_frame_parameters (struct frame *f, Lisp_Object alist)
 
     if ((width_change && width != FRAME_TEXT_WIDTH (f))
 	|| (height_change && height != FRAME_TEXT_HEIGHT (f))
-	|| f->new_height || f->new_width)
+	|| (f->can_x_set_window_size && (f->new_height || f->new_width)))
       {
 	/* If necessary provide default values for HEIGHT and WIDTH.  Do
 	   that here since otherwise a size change implied by an
@@ -5057,7 +5057,7 @@ keep it unchanged if this option is either `t' or a list containing
 `vertical-scroll-bars'.
 
 The default value is '(tool-bar-lines) on Lucid, Motif and Windows
-(which means that adding/removing a tool bar does not change the frame
+\(which means that adding/removing a tool bar does not change the frame
 height), nil on all other window systems including GTK+ (which means
 that changing any of the parameters listed above may change the size of
 the frame), and `t' otherwise (which means the frame size never changes

@@ -1,6 +1,6 @@
 ;;; org-clock.el --- The time clocking code for Org-mode
 
-;; Copyright (C) 2004-2014 Free Software Foundation, Inc.
+;; Copyright (C) 2004-2015 Free Software Foundation, Inc.
 
 ;; Author: Carsten Dominik <carsten at orgmode dot org>
 ;; Keywords: outlines, hypermedia, calendar, wp
@@ -2811,8 +2811,8 @@ The details of what will be saved are regulated by the variable
 	  (delete-region (point-min) (point-max))
 	  ;;Store clock
 	  (insert (format ";; org-persist.el - %s at %s\n"
-			  system-name (format-time-string
-				       (cdr org-time-stamp-formats))))
+			  (system-name) (format-time-string
+					 (cdr org-time-stamp-formats))))
 	  (if (and (memq org-clock-persist '(t clock))
 		   (setq b (org-clocking-buffer))
 		   (setq b (or (buffer-base-buffer b) b))

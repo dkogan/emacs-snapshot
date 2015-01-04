@@ -1,6 +1,6 @@
 ### @configure_input@
 
-# Copyright (C) 2000-2014 Free Software Foundation, Inc.
+# Copyright (C) 2000-2015 Free Software Foundation, Inc.
 
 # This file is part of GNU Emacs.
 
@@ -27,6 +27,14 @@ VPATH = $(srcdir)
 # Empty for all systems except MinGW, where xargs needs an explicit
 # limitation.
 XARGS_LIMIT = @XARGS_LIMIT@
+
+# 'make' verbosity.
+AM_DEFAULT_VERBOSITY = @AM_DEFAULT_VERBOSITY@
+
+AM_V_GEN = $(am__v_GEN_@AM_V@)
+am__v_GEN_ = $(am__v_GEN_@AM_DEFAULT_V@)
+am__v_GEN_0 = @echo "  GEN     " $@;
+am__v_GEN_1 =
 
 # You can specify a different executable on the make command line,
 # e.g. "make EMACS=../src/emacs ...".
@@ -156,7 +164,7 @@ all: compile-main $(lisp)/cus-load.el $(lisp)/finder-inf.el
 $(lisp)/cus-load.el:
 	$(MAKE) custom-deps
 custom-deps:
-	$(setwins_almost); \
+	$(AM_V_GEN)$(setwins_almost); \
 	echo Directories: $$wins; \
 	$(emacs) -l cus-dep \
 	  --eval '(setq generated-custom-dependencies-file (unmsys--file-name "$(srcdir)/cus-load.el"))' \
@@ -165,7 +173,7 @@ custom-deps:
 $(lisp)/finder-inf.el:
 	$(MAKE) finder-data
 finder-data:
-	$(setwins_finder); \
+	$(AM_V_GEN)$(setwins_finder); \
 	echo Directories: $$wins; \
 	$(emacs) -l finder \
 	  --eval '(setq generated-finder-keywords-file (unmsys--file-name "$(srcdir)/finder-inf.el"))' \
@@ -178,7 +186,7 @@ finder-data:
 # If you want to allow autoloads in such files, remove that,
 # and make this depend on leim.
 autoloads: $(LOADDEFS)
-	$(setwins_almost); \
+	$(AM_V_GEN)$(setwins_almost); \
 	echo Directories: $$wins; \
 	$(emacs) -l autoload \
 	    --eval '(setq autoload-ensure-writable t)' \
@@ -191,7 +199,7 @@ autoloads: $(LOADDEFS)
 $(lisp)/subdirs.el:
 	$(MAKE) update-subdirs
 update-subdirs:
-	$(setwins_for_subdirs); \
+	$(AM_V_GEN)$(setwins_for_subdirs); \
 	for file in $$wins; do \
 	   $(srcdir)/../build-aux/update-subdirs $$file; \
 	done;
@@ -249,12 +257,10 @@ TAGS: $(lisptagsfiles1) $(lisptagsfiles2) $(lisptagsfiles3) $(lisptagsfiles4)
 # src/Makefile.in to rebuild a particular Lisp file, no questions asked.
 # Use byte-compile-refresh-preloaded to try and work around some of
 # the most common problems of not bootstrapping from a clean state.
-.PHONY: compile-onefile
-compile-onefile:
-	@echo Compiling $(THEFILE)
-	@# Use byte-compile-refresh-preloaded to try and work around some of
-	@# the most common bootstrapping problems.
-	@$(emacs) $(BYTE_COMPILE_FLAGS) \
+THEFILE = no-such-file
+.PHONY: $(THEFILE)c
+$(THEFILE)c:
+	$(AM_V_GEN)$(emacs) $(BYTE_COMPILE_FLAGS) \
 		-l bytecomp -f byte-compile-refresh-preloaded \
 		-f batch-byte-compile $(THEFILE)
 
@@ -270,12 +276,7 @@ compile-onefile:
 # An old-fashioned suffix rule, which, according to the GNU Make manual,
 # cannot have prerequisites.
 .el.elc:
-	@echo Compiling $<
-	@# The BIG_STACK_OPTS are only needed to byte-compile the byte-compiler
-	@# files, which is normally done in compile-first, but may also be
-	@# recompiled via this rule.
-	@$(emacs) $(BYTE_COMPILE_FLAGS) \
-		-f batch-byte-compile $<
+	$(AM_V_GEN)$(emacs) $(BYTE_COMPILE_FLAGS) -f batch-byte-compile $<
 
 .PHONY: compile-first compile-main compile compile-always
 
@@ -325,13 +326,8 @@ compile-clean:
 leim:
 	$(MAKE) -C ../leim all EMACS="$(EMACS)"
 
-# FIXME.  Yuck.
 semantic:
-	case ${EMACS} in \
-	  .*) EMACS="../${EMACS}" ;; \
-	   *) EMACS="${EMACS}" ;; \
-	esac; \
-	$(MAKE) -C ../admin/grammars all EMACS="$${EMACS}"
+	$(MAKE) -C ../admin/grammars all EMACS="$(EMACS:.%=../.%)"
 
 # Compile all Lisp files, but don't recompile those that are up to
 # date.  Some .el files don't get compiled because they set the
@@ -401,7 +397,7 @@ MH_E_SRC = $(MH_E_DIR)/mh-acros.el $(MH_E_DIR)/mh-alias.el    \
 .PHONY: mh-autoloads
 mh-autoloads: $(MH_E_DIR)/mh-loaddefs.el
 $(MH_E_DIR)/mh-loaddefs.el: $(MH_E_SRC)
-	$(emacs) -l autoload \
+	$(AM_V_GEN)$(emacs) -l autoload \
 	   --eval "(setq generate-autoload-cookie \";;;###mh-autoload\")" \
 	   --eval "(setq generated-autoload-file (expand-file-name (unmsys--file-name \"$@\")))" \
 	   -f batch-update-autoloads $(MH_E_DIR)
@@ -418,7 +414,7 @@ TRAMP_SRC = $(TRAMP_DIR)/tramp.el    $(TRAMP_DIR)/tramp-adb.el	\
 	$(TRAMP_DIR)/tramp-uu.el     $(TRAMP_DIR)/trampver.el
 
 $(TRAMP_DIR)/tramp-loaddefs.el: $(TRAMP_SRC)
-	$(emacs) -l autoload \
+	$(AM_V_GEN)$(emacs) -l autoload \
 	   --eval "(setq generate-autoload-cookie \";;;###tramp-autoload\")" \
 	   --eval "(setq generated-autoload-file (expand-file-name (unmsys--file-name \"$@\")))" \
 	   -f batch-update-autoloads $(TRAMP_DIR)
@@ -439,19 +435,19 @@ CAL_SRC = $(CAL_DIR)/cal-bahai.el $(CAL_DIR)/cal-china.el  \
 	$(CAL_DIR)/solar.el
 
 $(CAL_DIR)/cal-loaddefs.el: $(CAL_SRC)
-	$(emacs) -l autoload \
+	$(AM_V_GEN)$(emacs) -l autoload \
 	   --eval "(setq generate-autoload-cookie \";;;###cal-autoload\")" \
 	   --eval "(setq generated-autoload-file (expand-file-name (unmsys--file-name \"$@\")))" \
 	   -f batch-update-autoloads $(CAL_DIR)
 
 $(CAL_DIR)/diary-loaddefs.el: $(CAL_SRC) $(CAL_DIR)/cal-loaddefs.el
-	$(emacs) -l autoload \
+	$(AM_V_GEN)$(emacs) -l autoload \
 	   --eval "(setq generate-autoload-cookie \";;;###diary-autoload\")" \
 	   --eval "(setq generated-autoload-file (expand-file-name (unmsys--file-name \"$@\")))" \
 	   -f batch-update-autoloads $(CAL_DIR)
 
 $(CAL_DIR)/hol-loaddefs.el: $(CAL_SRC) $(CAL_DIR)/diary-loaddefs.el
-	$(emacs) -l autoload \
+	$(AM_V_GEN)$(emacs) -l autoload \
 	   --eval "(setq generate-autoload-cookie \";;;###holiday-autoload\")" \
 	   --eval "(setq generated-autoload-file (expand-file-name (unmsys--file-name \"$@\")))" \
 	   -f batch-update-autoloads $(CAL_DIR)

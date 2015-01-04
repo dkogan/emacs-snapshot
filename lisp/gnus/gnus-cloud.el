@@ -1,6 +1,6 @@
 ;;; gnus-cloud.el --- storing and retrieving data via IMAP
 
-;; Copyright (C) 2014 Free Software Foundation, Inc.
+;; Copyright (C) 2014-2015 Free Software Foundation, Inc.
 
 ;; Author: Lars Magne Ingebrigtsen <larsi@gnus.org>
 ;; Keywords: mail
@@ -328,6 +328,15 @@
 
 (defun gnus-cloud-server-p (server)
   (member server gnus-cloud-covered-servers))
+
+(defun gnus-cloud-collect-full-newsrc ()
+  (let ((infos nil))
+    (dolist (info (cdr gnus-newsrc-alist))
+      (when (gnus-cloud-server-p
+	     (gnus-method-to-server
+	      (gnus-find-method-for-group (gnus-info-group info))))
+	(push info infos)))
+    ))
 
 (provide 'gnus-cloud)
 

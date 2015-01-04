@@ -1,6 +1,6 @@
 GNU Emacs NEWS -- history of user-visible changes.
 
-Copyright (C) 2014 Free Software Foundation, Inc.
+Copyright (C) 2014-2015 Free Software Foundation, Inc.
 See the end of the file for license conditions.
 
 Please send Emacs bug reports to bug-gnu-emacs@gnu.org.
@@ -338,6 +338,11 @@ The remainder were:
 ---
 ** `Info-fontify-maximum-menu-size' can be t for no limit.
 
++++
+** `info-display-manual' can now be given a prefix argument which (any
+non-nil value) directs the command to limit the completion
+alternatives to currently visited manuals.
+
 ---
 ** ntlm.el has support for NTLM2.
 
@@ -456,6 +461,11 @@ easier binding, which is now unoccupied (`M-,').
 alias for a private variable.  `xref-push-marker-stack' and
 `xref-pop-marker-stack' should be used to mutate it instead.
 
+** etags
+As a result of the above, these commands are now obsolete:
+`find-tag-other-window', `find-tag-other-frame', `find-tag-regexp',
+`tags-apropos' and `tags-loop-continue'.
+
 ** Obsolete packages
 
 ---
@@ -535,6 +545,14 @@ permissions set to temporary values (e.g., for creating private files).
 optional repeat-count argument.
 
 ** Function `sort' can deal with vectors.
+
+** Function `system-name' now returns an updated value if the current
+system's name has changed or if the Emacs process has changed systems,
+and to avoid long waits it no longer consults DNS to canonicalize the
+name.  The variable `system-name' is now obsolete.
+
++++
+** Function `write-region' no longer outputs "Wrote FILE" in batch mode.
 
 ---
 ** New utilities in subr-x.el:

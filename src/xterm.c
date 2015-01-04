@@ -1,6 +1,6 @@
 /* X Communication module for terminals which understand the X protocol.
 
-Copyright (C) 1989, 1993-2014 Free Software Foundation, Inc.
+Copyright (C) 1989, 1993-2015 Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -9542,7 +9542,7 @@ x_set_window_size_1 (struct frame *f, bool change_gravity,
     x_wait_for_event (f, ConfigureNotify);
   else
     {
-      change_frame_size (f, pixelwidth, pixelheight, false, true, false, true);
+      change_frame_size (f, width, height, false, true, false, true);
       x_sync (f);
     }
 }
@@ -10497,8 +10497,9 @@ static bool
 same_x_server (const char *name1, const char *name2)
 {
   bool seen_colon = false;
-  const char *system_name = SSDATA (Vsystem_name);
-  ptrdiff_t system_name_length = SBYTES (Vsystem_name);
+  Lisp_Object sysname = Fsystem_name ();
+  const char *system_name = SSDATA (sysname);
+  ptrdiff_t system_name_length = SBYTES (sysname);
   ptrdiff_t length_until_period = 0;
 
   while (system_name[length_until_period] != 0
@@ -10890,14 +10891,15 @@ x_term_init (Lisp_Object display_name, char *xrm_option, char *resource_name)
 #endif
 
   lim = min (PTRDIFF_MAX, SIZE_MAX) - sizeof "@";
-  if (lim - SBYTES (Vinvocation_name) < SBYTES (Vsystem_name))
+  Lisp_Object system_name = Fsystem_name ();
+  if (lim - SBYTES (Vinvocation_name) < SBYTES (system_name))
     memory_full (SIZE_MAX);
   dpyinfo->x_id = ++x_display_id;
   dpyinfo->x_id_name = xmalloc (SBYTES (Vinvocation_name)
-				+ SBYTES (Vsystem_name) + 2);
+				+ SBYTES (system_name) + 2);
   char *nametail = lispstpcpy (dpyinfo->x_id_name, Vinvocation_name);
   *nametail++ = '@';
-  lispstpcpy (nametail, Vsystem_name);
+  lispstpcpy (nametail, system_name);
 
   /* Figure out which modifier bits mean what.  */
   x_find_modifier_meanings (dpyinfo);
