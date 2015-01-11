@@ -324,51 +324,8 @@ along with GNU Emacs.  If not, see <http://www.gnu.org/licenses/>.  */
 
 #define INFINITY 10000000
 
-Lisp_Object Qoverriding_local_map, Qoverriding_terminal_local_map;
-Lisp_Object Qwindow_scroll_functions;
-static Lisp_Object Qwindow_text_change_functions;
-static Lisp_Object Qredisplay_end_trigger_functions;
-Lisp_Object Qinhibit_point_motion_hooks;
-static Lisp_Object QCeval, QCpropertize;
-Lisp_Object QCfile, QCdata;
-static Lisp_Object Qfontified;
-static Lisp_Object Qgrow_only;
-static Lisp_Object Qinhibit_eval_during_redisplay;
-static Lisp_Object Qbuffer_position, Qposition, Qobject;
-static Lisp_Object Qright_to_left, Qleft_to_right;
-
-/* Cursor shapes.  */
-Lisp_Object Qbar, Qhbar, Qbox, Qhollow;
-
-/* Pointer shapes.  */
-static Lisp_Object Qarrow, Qhand;
-Lisp_Object Qtext;
-
 /* Holds the list (error).  */
 static Lisp_Object list_of_error;
-
-Lisp_Object Qfontification_functions;
-
-static Lisp_Object Qwrap_prefix;
-static Lisp_Object Qline_prefix;
-static Lisp_Object Qredisplay_internal;
-
-/* Non-nil means don't actually do any redisplay.  */
-
-Lisp_Object Qinhibit_redisplay;
-
-/* Names of text properties relevant for redisplay.  */
-
-Lisp_Object Qdisplay;
-
-Lisp_Object Qspace, QCalign_to;
-static Lisp_Object QCrelative_width, QCrelative_height;
-Lisp_Object Qleft_margin, Qright_margin;
-static Lisp_Object Qspace_width, Qraise;
-static Lisp_Object Qslice;
-Lisp_Object Qcenter;
-static Lisp_Object Qmargin, Qpointer;
-static Lisp_Object Qline_height;
 
 #ifdef HAVE_WINDOW_SYSTEM
 
@@ -402,31 +359,6 @@ static Lisp_Object Qline_height;
        || (IT_BYTEPOS (*it) < ZV_BYTE					\
 	   && (*BYTE_POS_ADDR (IT_BYTEPOS (*it)) == ' '			\
 	       || *BYTE_POS_ADDR (IT_BYTEPOS (*it)) == '\t'))))		\
-
-/* Name of the face used to highlight trailing whitespace.  */
-
-static Lisp_Object Qtrailing_whitespace;
-
-/* Name and number of the face used to highlight escape glyphs.  */
-
-static Lisp_Object Qescape_glyph;
-
-/* Name and number of the face used to highlight non-breaking spaces.  */
-
-static Lisp_Object Qnobreak_space;
-
-/* The symbol `image' which is the car of the lists used to represent
-   images in Lisp.  Also a tool bar style.  */
-
-Lisp_Object Qimage;
-
-/* The image map types.  */
-Lisp_Object QCmap;
-static Lisp_Object QCpointer;
-static Lisp_Object Qrect, Qcircle, Qpoly;
-
-/* Tool bar styles */
-Lisp_Object Qboth, Qboth_horiz, Qtext_image_horiz;
 
 /* Non-zero means print newline to stdout before next mini-buffer
    message.  */
@@ -476,21 +408,6 @@ static struct text_pos this_line_min_pos;
 /* Buffer that this_line_.* variables are referring to.  */
 
 static struct buffer *this_line_buffer;
-
-
-/* Values of those variables at last redisplay are stored as
-   properties on `overlay-arrow-position' symbol.  However, if
-   Voverlay_arrow_position is a marker, last-arrow-position is its
-   numerical position.  */
-
-static Lisp_Object Qlast_arrow_position, Qlast_arrow_string;
-
-/* Alternative overlay-arrow-string and overlay-arrow-bitmap
-   properties on a symbol in overlay-arrow-variable-list.  */
-
-static Lisp_Object Qoverlay_arrow_string, Qoverlay_arrow_bitmap;
-
-Lisp_Object Qmenu_bar_update_hook;
 
 /* Nonzero if an overlay arrow has been displayed in this window.  */
 
@@ -566,11 +483,6 @@ static bool display_last_displayed_message_p;
    message.  */
 
 static bool message_buf_print;
-
-/* The symbol `inhibit-menubar-update' and its DEFVAR_BOOL variable.  */
-
-static Lisp_Object Qinhibit_menubar_update;
-static Lisp_Object Qmessage_truncate_lines;
 
 /* Set to 1 in clear_message to make redisplay_internal aware
    of an emptied echo area.  */
@@ -691,8 +603,6 @@ int trace_move;
 #define TRACE_MOVE(x)	(void) 0
 #endif
 
-static Lisp_Object Qauto_hscroll_mode;
-
 /* Buffer being redisplayed -- for redisplay_window_error.  */
 
 static struct buffer *displayed_buffer;
@@ -712,8 +622,8 @@ enum prop_handled
 
 struct props
 {
-  /* The name of the property.  */
-  Lisp_Object *name;
+  /* The symbol index of the name of the property.  */
+  short name;
 
   /* A unique index for the property.  */
   enum prop_idx idx;
@@ -734,14 +644,14 @@ static enum prop_handled handle_fontified_prop (struct it *);
 
 static struct props it_props[] =
 {
-  {&Qfontified,		FONTIFIED_PROP_IDX,	handle_fontified_prop},
+  {SYMBOL_INDEX (Qfontified),	FONTIFIED_PROP_IDX,	handle_fontified_prop},
   /* Handle `face' before `display' because some sub-properties of
      `display' need to know the face.  */
-  {&Qface,		FACE_PROP_IDX,		handle_face_prop},
-  {&Qdisplay,		DISPLAY_PROP_IDX,	handle_display_prop},
-  {&Qinvisible,		INVISIBLE_PROP_IDX,	handle_invisible_prop},
-  {&Qcomposition,	COMPOSITION_PROP_IDX,	handle_composition_prop},
-  {NULL,		0,			NULL}
+  {SYMBOL_INDEX (Qface),	FACE_PROP_IDX,		handle_face_prop},
+  {SYMBOL_INDEX (Qdisplay),	DISPLAY_PROP_IDX,	handle_display_prop},
+  {SYMBOL_INDEX (Qinvisible),	INVISIBLE_PROP_IDX,	handle_invisible_prop},
+  {SYMBOL_INDEX (Qcomposition),	COMPOSITION_PROP_IDX, handle_composition_prop},
+  {0,				0,			NULL}
 };
 
 /* Value is the position described by X.  If X is a marker, value is
@@ -796,9 +706,6 @@ static struct glyph_slice null_glyph_slice = { 0, 0, 0, 0 };
 
 bool redisplaying_p;
 
-static Lisp_Object Qinhibit_free_realized_faces;
-static Lisp_Object Qmode_line_default_help_echo;
-
 /* If a string, XTread_socket generates an event to display that string.
    (The display is done in read_char.)  */
 
@@ -823,15 +730,6 @@ static bool hourglass_shown_p;
 static struct atimer *hourglass_atimer;
 
 #endif /* HAVE_WINDOW_SYSTEM */
-
-/* Name of the face used to display glyphless characters.  */
-static Lisp_Object Qglyphless_char;
-
-/* Symbol for the purpose of Vglyphless_char_display.  */
-static Lisp_Object Qglyphless_char_display;
-
-/* Method symbols for Vglyphless_char_display.  */
-static Lisp_Object Qhex_code, Qempty_box, Qthin_space, Qzero_width;
 
 /* Default number of seconds to wait before displaying an hourglass
    cursor.  */
@@ -2696,8 +2594,6 @@ safe__call1 (bool inhibit_quit, Lisp_Object fn, ...)
   return retval;
 }
 
-static Lisp_Object Qeval;
-
 Lisp_Object
 safe_eval (Lisp_Object sexpr)
 {
@@ -3620,7 +3516,8 @@ compute_stop_pos (struct it *it)
 
       /* Get properties here.  */
       for (p = it_props; p->handler; ++p)
-	values_here[p->idx] = textget (iv->plist, *p->name);
+	values_here[p->idx] = textget (iv->plist,
+				       builtin_lisp_symbol (p->name));
 
       /* Look for an interval following iv that has different
 	 properties.  */
@@ -3632,9 +3529,8 @@ compute_stop_pos (struct it *it)
 	{
 	  for (p = it_props; p->handler; ++p)
 	    {
-	      Lisp_Object new_value;
-
-	      new_value = textget (next_iv->plist, *p->name);
+	      Lisp_Object new_value = textget (next_iv->plist,
+					       builtin_lisp_symbol (p->name));
 	      if (!EQ (values_here[p->idx], new_value))
 		break;
 	    }
@@ -8038,7 +7934,7 @@ next_element_from_c_string (struct it *it)
   eassert (!it->bidi_p || it->s == it->bidi_it.string.s);
   it->what = IT_CHARACTER;
   BYTEPOS (it->position) = CHARPOS (it->position) = 0;
-  it->object = Qnil;
+  it->object = make_number (0);
 
   /* With bidi reordering, the character to display might not be the
      character at IT_CHARPOS.  BIDI_IT.FIRST_ELT non-zero means that
@@ -13478,7 +13374,7 @@ redisplay_internal (void)
   specbind (Qinhibit_free_realized_faces, Qnil);
 
   /* Record this function, so it appears on the profiler's backtraces.  */
-  record_in_backtrace (Qredisplay_internal, &Qnil, 0);
+  record_in_backtrace (Qredisplay_internal, 0, 0);
 
   FOR_EACH_FRAME (tail, frame)
     XFRAME (frame)->already_hscrolled_p = 0;
@@ -14385,14 +14281,14 @@ set_cursor_from_row (struct window *w, struct glyph_row *row,
       if (!row->reversed_p)
 	{
 	  while (glyph < end
-		 && INTEGERP (glyph->object)
+		 && NILP (glyph->object)
 		 && glyph->charpos < 0)
 	    {
 	      x += glyph->pixel_width;
 	      ++glyph;
 	    }
 	  while (end > glyph
-		 && INTEGERP ((end - 1)->object)
+		 && NILP ((end - 1)->object)
 		 /* CHARPOS is zero for blanks and stretch glyphs
 		    inserted by extend_face_to_end_of_line.  */
 		 && (end - 1)->charpos <= 0)
@@ -14410,20 +14306,20 @@ set_cursor_from_row (struct window *w, struct glyph_row *row,
 	  glyph += row->used[TEXT_AREA] - 1;
 
 	  while (glyph > end + 1
-		 && INTEGERP (glyph->object)
+		 && NILP (glyph->object)
 		 && glyph->charpos < 0)
 	    {
 	      --glyph;
 	      x -= glyph->pixel_width;
 	    }
-	  if (INTEGERP (glyph->object) && glyph->charpos < 0)
+	  if (NILP (glyph->object) && glyph->charpos < 0)
 	    --glyph;
 	  /* By default, in reversed rows we put the cursor on the
 	     rightmost (first in the reading order) glyph.  */
 	  for (g = end + 1; g < glyph; g++)
 	    x += g->pixel_width;
 	  while (end < glyph
-		 && INTEGERP ((end + 1)->object)
+		 && NILP ((end + 1)->object)
 		 && (end + 1)->charpos <= 0)
 	    ++end;
 	  glyph_before = glyph + 1;
@@ -14454,7 +14350,7 @@ set_cursor_from_row (struct window *w, struct glyph_row *row,
     while (/* not marched to end of glyph row */
 	   glyph < end
 	   /* glyph was not inserted by redisplay for internal purposes */
-	   && !INTEGERP (glyph->object))
+	   && !NILP (glyph->object))
       {
 	if (BUFFERP (glyph->object))
 	  {
@@ -14542,7 +14438,7 @@ set_cursor_from_row (struct window *w, struct glyph_row *row,
 	++glyph;
       }
   else if (glyph > end)	/* row is reversed */
-    while (!INTEGERP (glyph->object))
+    while (!NILP (glyph->object))
       {
 	if (BUFFERP (glyph->object))
 	  {
@@ -14619,16 +14515,16 @@ set_cursor_from_row (struct window *w, struct glyph_row *row,
 	&& BUFFERP (glyph->object) && glyph->charpos == pt_old)
       && !(bpos_max <= pt_old && pt_old <= bpos_covered))
     {
-      /* An empty line has a single glyph whose OBJECT is zero and
+      /* An empty line has a single glyph whose OBJECT is nil and
 	 whose CHARPOS is the position of a newline on that line.
 	 Note that on a TTY, there are more glyphs after that, which
 	 were produced by extend_face_to_end_of_line, but their
 	 CHARPOS is zero or negative.  */
       int empty_line_p =
 	(row->reversed_p ? glyph > glyphs_end : glyph < glyphs_end)
-	&& INTEGERP (glyph->object) && glyph->charpos > 0
+	&& NILP (glyph->object) && glyph->charpos > 0
 	/* On a TTY, continued and truncated rows also have a glyph at
-	   their end whose OBJECT is zero and whose CHARPOS is
+	   their end whose OBJECT is nil and whose CHARPOS is
 	   positive (the continuation and truncation glyphs), but such
 	   rows are obviously not "empty".  */
 	&& !(row->continued_p || row->truncated_on_right_p);
@@ -14905,7 +14801,7 @@ set_cursor_from_row (struct window *w, struct glyph_row *row,
 			  && string_from_text_prop)
 		      /* this candidate is from newline and its
 			 position is not an exact match */
-		      || (INTEGERP (glyph->object)
+		      || (NILP (glyph->object)
 			  && glyph->charpos != pt_old)))))
 	return 0;
       /* If this candidate gives an exact match, use that.  */
@@ -14914,7 +14810,7 @@ set_cursor_from_row (struct window *w, struct glyph_row *row,
 	       terminating newline of a line, and point is on that
 	       newline, it wins because it's an exact match.  */
 	    || (!row->continued_p
-		&& INTEGERP (glyph->object)
+		&& NILP (glyph->object)
 		&& glyph->charpos == 0
 		&& pt_old == MATRIX_ROW_END_CHARPOS (row) - 1))
 	  /* Otherwise, keep the candidate that comes from a row
@@ -15757,7 +15653,7 @@ try_cursor_movement (Lisp_Object window, struct text_pos startp, int *scroll_ste
 
 			  exact_match_p =
 			    (BUFFERP (g->object) && g->charpos == PT)
-			    || (INTEGERP (g->object)
+			    || (NILP (g->object)
 				&& (g->charpos == PT
 				    || (g->charpos == 0 && endpos - 1 == PT)));
 			}
@@ -18611,7 +18507,7 @@ dump_glyph (struct glyph_row *row, struct glyph *glyph, int area)
 		? 'B'
 		: (STRINGP (glyph->object)
 		   ? 'S'
-		   : (INTEGERP (glyph->object)
+		   : (NILP (glyph->object)
 		      ? '0'
 		      : '-'))),
 	       glyph->pixel_width,
@@ -18634,7 +18530,7 @@ dump_glyph (struct glyph_row *row, struct glyph *glyph, int area)
 		? 'B'
 		: (STRINGP (glyph->object)
 		   ? 'S'
-		   : (INTEGERP (glyph->object)
+		   : (NILP (glyph->object)
 		      ? '0'
 		      : '-'))),
 	       glyph->pixel_width,
@@ -18655,7 +18551,7 @@ dump_glyph (struct glyph_row *row, struct glyph *glyph, int area)
 		? 'B'
 		: (STRINGP (glyph->object)
 		   ? 'S'
-		   : (INTEGERP (glyph->object)
+		   : (NILP (glyph->object)
 		      ? '0'
 		      : '-'))),
 	       glyph->pixel_width,
@@ -18676,7 +18572,7 @@ dump_glyph (struct glyph_row *row, struct glyph *glyph, int area)
 		? 'B'
 		: (STRINGP (glyph->object)
 		   ? 'S'
-		   : (INTEGERP (glyph->object)
+		   : (NILP (glyph->object)
 		      ? '0'
 		      : '-'))),
 	       glyph->pixel_width,
@@ -18776,7 +18672,7 @@ dump_glyph_row (struct glyph_row *row, int vpos, int glyphs)
 	      struct glyph *glyph = row->glyphs[area] + i;
 	      if (i == row->used[area] - 1
 		  && area == TEXT_AREA
-		  && INTEGERP (glyph->object)
+		  && NILP (glyph->object)
 		  && glyph->type == CHAR_GLYPH
 		  && glyph->u.ch == ' ')
 		{
@@ -19006,7 +18902,7 @@ insert_left_trunc_glyphs (struct it *it)
   truncate_it.area = TEXT_AREA;
   truncate_it.glyph_row->used[TEXT_AREA] = 0;
   CHARPOS (truncate_it.position) = BYTEPOS (truncate_it.position) = -1;
-  truncate_it.object = make_number (0);
+  truncate_it.object = Qnil;
   produce_special_glyphs (&truncate_it, IT_TRUNCATION);
 
   /* Overwrite glyphs from IT with truncation glyphs.  */
@@ -19289,7 +19185,7 @@ append_space_for_newline (struct it *it, int default_face_p)
 
 	  it->what = IT_CHARACTER;
 	  memset (&it->position, 0, sizeof it->position);
-	  it->object = make_number (0);
+	  it->object = Qnil;
 	  it->c = it->char_to_display = ' ';
 	  it->len = 1;
 
@@ -19481,7 +19377,7 @@ extend_face_to_end_of_line (struct it *it)
 	      else
 		it->face_id = face->id;
 	      it->start_of_box_run_p = 0;
-	      append_stretch_glyph (it, make_number (0), stretch_width,
+	      append_stretch_glyph (it, Qnil, stretch_width,
 				    it->ascent + it->descent, stretch_ascent);
 	      it->position = saved_pos;
 	      it->avoid_cursor_p = saved_avoid_cursor;
@@ -19511,7 +19407,7 @@ extend_face_to_end_of_line (struct it *it)
 
       it->what = IT_CHARACTER;
       memset (&it->position, 0, sizeof it->position);
-      it->object = make_number (0);
+      it->object = Qnil;
       it->c = it->char_to_display = ' ';
       it->len = 1;
 
@@ -19640,14 +19536,14 @@ highlight_trailing_whitespace (struct frame *f, struct glyph_row *row)
 	{
 	  while (glyph >= start
 		 && glyph->type == CHAR_GLYPH
-		 && INTEGERP (glyph->object))
+		 && NILP (glyph->object))
 	    --glyph;
 	}
       else
 	{
 	  while (glyph <= start
 		 && glyph->type == CHAR_GLYPH
-		 && INTEGERP (glyph->object))
+		 && NILP (glyph->object))
 	    ++glyph;
 	}
 
@@ -20010,10 +19906,9 @@ find_row_edges (struct it *it, struct glyph_row *row,
 	    {
 	      start = r1->glyphs[TEXT_AREA];
 	      end = start + r1->used[TEXT_AREA];
-	      /* Glyphs inserted by redisplay have an integer (zero)
-		 as their object.  */
+	      /* Glyphs inserted by redisplay have nil as their object.  */
 	      while (end > start
-		     && INTEGERP ((end - 1)->object)
+		     && NILP ((end - 1)->object)
 		     && (end - 1)->charpos <= 0)
 		--end;
 	      if (end > start)
@@ -20034,7 +19929,7 @@ find_row_edges (struct it *it, struct glyph_row *row,
 	      end = r1->glyphs[TEXT_AREA] - 1;
 	      start = end + r1->used[TEXT_AREA];
 	      while (end < start
-		     && INTEGERP ((end + 1)->object)
+		     && NILP ((end + 1)->object)
 		     && (end + 1)->charpos <= 0)
 		++end;
 	      if (end < start)
@@ -21187,7 +21082,7 @@ Value is the new character position of point.  */)
 
 #define ROW_GLYPH_NEWLINE_P(ROW,GLYPH)		\
   (!(ROW)->continued_p				\
-   && INTEGERP ((GLYPH)->object)		\
+   && NILP ((GLYPH)->object)			\
    && (GLYPH)->type == CHAR_GLYPH		\
    && (GLYPH)->u.ch == ' '			\
    && (GLYPH)->charpos >= 0			\
@@ -21229,7 +21124,7 @@ Value is the new character position of point.  */)
 	      w->cursor.vpos = -1;
 	      return make_number (PT);
 	    }
-	  else if (!INTEGERP (g->object) && !EQ (g->object, gpt->object))
+	  else if (!NILP (g->object) && !EQ (g->object, gpt->object))
 	    {
 	      ptrdiff_t new_pos;
 
@@ -21266,7 +21161,7 @@ Value is the new character position of point.  */)
 	      return make_number (PT);
 	    }
 	}
-      if (g == e || INTEGERP (g->object))
+      if (g == e || NILP (g->object))
 	{
 	  if (row->truncated_on_left_p || row->truncated_on_right_p)
 	    goto simulate_display;
@@ -21299,7 +21194,7 @@ Value is the new character position of point.  */)
 			 EOB also has one glyph, but its charpos is -1.  */
 		      || (row->ends_at_zv_p
 			  && !row->reversed_p
-			  && INTEGERP (g->object)
+			  && NILP (g->object)
 			  && g->type == CHAR_GLYPH
 			  && g->u.ch == ' '))
 		    {
@@ -21337,7 +21232,7 @@ Value is the new character position of point.  */)
 		      || g->type == STRETCH_GLYPH
 		      || (row->ends_at_zv_p
 			  && row->reversed_p
-			  && INTEGERP (g->object)
+			  && NILP (g->object)
 			  && g->type == CHAR_GLYPH
 			  && g->u.ch == ' '))
 		    {
@@ -21701,13 +21596,13 @@ Emacs UBA implementation, in particular with the test suite.  */)
 	  /* Skip over glyphs at the start of the row that was
 	     generated by redisplay for its own needs.  */
 	  while (g < e
-		 && INTEGERP (g->object)
+		 && NILP (g->object)
 		 && g->charpos < 0)
 	    g++;
 	  g1 = g;
 
 	  /* Count the "interesting" glyphs in this row.  */
-	  for (nglyphs = 0; g < e && !INTEGERP (g->object); g++)
+	  for (nglyphs = 0; g < e && !NILP (g->object); g++)
 	    nglyphs++;
 
 	  /* Create and fill the array.  */
@@ -21720,11 +21615,11 @@ Emacs UBA implementation, in particular with the test suite.  */)
 	  g = row->glyphs[TEXT_AREA] + row->used[TEXT_AREA] - 1;
 	  e = row->glyphs[TEXT_AREA] - 1;
 	  while (g > e
-		 && INTEGERP (g->object)
+		 && NILP (g->object)
 		 && g->charpos < 0)
 	    g--;
 	  g1 = g;
-	  for (nglyphs = 0; g > e && !INTEGERP (g->object); g--)
+	  for (nglyphs = 0; g > e && !NILP (g->object); g--)
 	    nglyphs++;
 	  levels = make_uninit_vector (nglyphs);
 	  for (i = 0; g1 > g; i++, g1--)
@@ -26049,7 +25944,7 @@ produce_special_glyphs (struct it *it, enum display_element_type what)
   GLYPH glyph;
 
   temp_it = *it;
-  temp_it.object = make_number (0);
+  temp_it.object = Qnil;
   memset (&temp_it.current, 0, sizeof temp_it.current);
 
   if (what == IT_CONTINUATION)
@@ -26112,7 +26007,7 @@ produce_special_glyphs (struct it *it, enum display_element_type what)
 	    (((temp_it.ascent + temp_it.descent)
 	      * FONT_BASE (font)) / FONT_HEIGHT (font));
 
-	  append_stretch_glyph (&temp_it, make_number (0), stretch_width,
+	  append_stretch_glyph (&temp_it, Qnil, stretch_width,
 				temp_it.ascent + temp_it.descent,
 				stretch_ascent);
 	}
@@ -28287,7 +28182,7 @@ rows_from_pos_range (struct window *w,
 
 	  while (g < e)
 	    {
-	      if (((BUFFERP (g->object) || INTEGERP (g->object))
+	      if (((BUFFERP (g->object) || NILP (g->object))
 		   && start_charpos <= g->charpos && g->charpos < end_charpos)
 		  /* A glyph that comes from DISP_STRING is by
 		     definition to be highlighted.  */
@@ -28342,7 +28237,7 @@ rows_from_pos_range (struct window *w,
 
 	  while (g < e)
 	    {
-	      if (((BUFFERP (g->object) || INTEGERP (g->object))
+	      if (((BUFFERP (g->object) || NILP (g->object))
 		   && ((start_charpos <= g->charpos && g->charpos < end_charpos)
 		       /* If the buffer position of the first glyph in
 			  the row is equal to END_CHARPOS, it means
@@ -28424,7 +28319,7 @@ mouse_face_from_buffer_pos (Lisp_Object window,
 	{
 	  struct glyph *beg = prev->glyphs[TEXT_AREA];
 	  glyph = beg + prev->used[TEXT_AREA];
-	  while (--glyph >= beg && INTEGERP (glyph->object));
+	  while (--glyph >= beg && NILP (glyph->object));
 	  if (glyph < beg
 	      || !(EQ (glyph->object, before_string)
 		   || EQ (glyph->object, disp_string)))
@@ -28488,7 +28383,7 @@ mouse_face_from_buffer_pos (Lisp_Object window,
       /* Skip truncation glyphs at the start of the glyph row.  */
       if (MATRIX_ROW_DISPLAYS_TEXT_P (r1))
 	for (; glyph < end
-	       && INTEGERP (glyph->object)
+	       && NILP (glyph->object)
 	       && glyph->charpos < 0;
 	     ++glyph)
 	  x += glyph->pixel_width;
@@ -28497,7 +28392,7 @@ mouse_face_from_buffer_pos (Lisp_Object window,
 	 or DISP_STRING, and the first glyph from buffer whose
 	 position is between START_CHARPOS and END_CHARPOS.  */
       for (; glyph < end
-	     && !INTEGERP (glyph->object)
+	     && !NILP (glyph->object)
 	     && !EQ (glyph->object, disp_string)
 	     && !(BUFFERP (glyph->object)
 		  && (glyph->charpos >= start_charpos
@@ -28539,7 +28434,7 @@ mouse_face_from_buffer_pos (Lisp_Object window,
       /* Skip truncation glyphs at the start of the glyph row.  */
       if (MATRIX_ROW_DISPLAYS_TEXT_P (r1))
 	for (; glyph > end
-	       && INTEGERP (glyph->object)
+	       && NILP (glyph->object)
 	       && glyph->charpos < 0;
 	     --glyph)
 	  ;
@@ -28548,7 +28443,7 @@ mouse_face_from_buffer_pos (Lisp_Object window,
 	 or DISP_STRING, and the first glyph from buffer whose
 	 position is between START_CHARPOS and END_CHARPOS.  */
       for (; glyph > end
-	     && !INTEGERP (glyph->object)
+	     && !NILP (glyph->object)
 	     && !EQ (glyph->object, disp_string)
 	     && !(BUFFERP (glyph->object)
 		  && (glyph->charpos >= start_charpos
@@ -28605,7 +28500,7 @@ mouse_face_from_buffer_pos (Lisp_Object window,
 	 row, and also blanks and stretch glyphs inserted by
 	 extend_face_to_end_of_line.  */
       while (end > glyph
-	     && INTEGERP ((end - 1)->object))
+	     && NILP ((end - 1)->object))
 	--end;
       /* Scan the rest of the glyph row from the end, looking for the
 	 first glyph that comes from BEFORE_STRING, AFTER_STRING, or
@@ -28613,7 +28508,7 @@ mouse_face_from_buffer_pos (Lisp_Object window,
 	 and END_CHARPOS */
       for (--end;
 	     end > glyph
-	     && !INTEGERP (end->object)
+	     && !NILP (end->object)
 	     && !EQ (end->object, disp_string)
 	     && !(BUFFERP (end->object)
 		  && (end->charpos >= start_charpos
@@ -28651,7 +28546,7 @@ mouse_face_from_buffer_pos (Lisp_Object window,
       x = r2->x;
       end++;
       while (end < glyph
-	     && INTEGERP (end->object))
+	     && NILP (end->object))
 	{
 	  x += end->pixel_width;
 	  ++end;
@@ -28662,7 +28557,7 @@ mouse_face_from_buffer_pos (Lisp_Object window,
 	 and END_CHARPOS */
       for ( ;
 	     end < glyph
-	     && !INTEGERP (end->object)
+	     && !NILP (end->object)
 	     && !EQ (end->object, disp_string)
 	     && !(BUFFERP (end->object)
 		  && (end->charpos >= start_charpos
@@ -29594,12 +29489,12 @@ note_mouse_highlight (struct frame *f, int x, int y)
       if (glyph == NULL
 	  || area != TEXT_AREA
 	  || !MATRIX_ROW_DISPLAYS_TEXT_P (MATRIX_ROW (w->current_matrix, vpos))
-	  /* Glyph's OBJECT is an integer for glyphs inserted by the
+	  /* Glyph's OBJECT is nil for glyphs inserted by the
 	     display engine for its internal purposes, like truncation
 	     and continuation glyphs and blanks beyond the end of
 	     line's text on text terminals.  If we are over such a
 	     glyph, we are not over any text.  */
-	  || INTEGERP (glyph->object)
+	  || NILP (glyph->object)
 	  /* R2L rows have a stretch glyph at their front, which
 	     stands for no text, whereas L2R rows have no glyphs at
 	     all beyond the end of text.  Treat such stretch glyphs
@@ -30571,7 +30466,9 @@ syms_of_xdisp (void)
   Vmessage_stack = Qnil;
   staticpro (&Vmessage_stack);
 
+  /* Non-nil means don't actually do any redisplay.  */
   DEFSYM (Qinhibit_redisplay, "inhibit-redisplay");
+
   DEFSYM (Qredisplay_internal, "redisplay_internal (C function)");
 
   message_dolog_marker1 = Fmake_marker ();
@@ -30610,6 +30507,8 @@ syms_of_xdisp (void)
   DEFSYM (Qinhibit_point_motion_hooks, "inhibit-point-motion-hooks");
   DEFSYM (Qeval, "eval");
   DEFSYM (QCdata, ":data");
+
+  /* Names of text properties relevant for redisplay.  */
   DEFSYM (Qdisplay, "display");
   DEFSYM (Qspace_width, "space-width");
   DEFSYM (Qraise, "raise");
@@ -30629,40 +30528,69 @@ syms_of_xdisp (void)
   DEFSYM (QCfile, ":file");
   DEFSYM (Qfontified, "fontified");
   DEFSYM (Qfontification_functions, "fontification-functions");
+
+  /* Name of the face used to highlight trailing whitespace.  */
   DEFSYM (Qtrailing_whitespace, "trailing-whitespace");
+
+  /* Name and number of the face used to highlight escape glyphs.  */
   DEFSYM (Qescape_glyph, "escape-glyph");
+
+  /* Name and number of the face used to highlight non-breaking spaces.  */
   DEFSYM (Qnobreak_space, "nobreak-space");
+
+  /* The symbol 'image' which is the car of the lists used to represent
+     images in Lisp.  Also a tool bar style.  */
   DEFSYM (Qimage, "image");
+
+  /* Tool bar styles.  */
   DEFSYM (Qtext, "text");
   DEFSYM (Qboth, "both");
   DEFSYM (Qboth_horiz, "both-horiz");
   DEFSYM (Qtext_image_horiz, "text-image-horiz");
+
+  /* The image map types.  */
   DEFSYM (QCmap, ":map");
   DEFSYM (QCpointer, ":pointer");
   DEFSYM (Qrect, "rect");
   DEFSYM (Qcircle, "circle");
   DEFSYM (Qpoly, "poly");
-  DEFSYM (Qmessage_truncate_lines, "message-truncate-lines");
-  DEFSYM (Qgrow_only, "grow-only");
+
+  /* The symbol `inhibit-menubar-update' and its DEFVAR_BOOL variable.  */
   DEFSYM (Qinhibit_menubar_update, "inhibit-menubar-update");
+  DEFSYM (Qmessage_truncate_lines, "message-truncate-lines");
+
+  DEFSYM (Qgrow_only, "grow-only");
   DEFSYM (Qinhibit_eval_during_redisplay, "inhibit-eval-during-redisplay");
   DEFSYM (Qposition, "position");
   DEFSYM (Qbuffer_position, "buffer-position");
   DEFSYM (Qobject, "object");
+
+  /* Cursor shapes.  */
   DEFSYM (Qbar, "bar");
   DEFSYM (Qhbar, "hbar");
   DEFSYM (Qbox, "box");
   DEFSYM (Qhollow, "hollow");
+
+  /* Pointer shapes.  */
   DEFSYM (Qhand, "hand");
   DEFSYM (Qarrow, "arrow");
+  /* also Qtext */
+
   DEFSYM (Qinhibit_free_realized_faces, "inhibit-free-realized-faces");
 
   list_of_error = list1 (list2 (intern_c_string ("error"),
 				intern_c_string ("void-variable")));
   staticpro (&list_of_error);
 
+  /* Values of those variables at last redisplay are stored as
+     properties on 'overlay-arrow-position' symbol.  However, if
+     Voverlay_arrow_position is a marker, last-arrow-position is its
+     numerical position.  */
   DEFSYM (Qlast_arrow_position, "last-arrow-position");
   DEFSYM (Qlast_arrow_string, "last-arrow-string");
+
+  /* Alternative overlay-arrow-string and overlay-arrow-bitmap
+     properties on a symbol in overlay-arrow-variable-list.  */
   DEFSYM (Qoverlay_arrow_string, "overlay-arrow-string");
   DEFSYM (Qoverlay_arrow_bitmap, "overlay-arrow-bitmap");
 
@@ -31162,7 +31090,10 @@ cursor shapes.  */);
   hourglass_shown_p = 0;
 #endif /* HAVE_WINDOW_SYSTEM */
 
+  /* Name of the face used to display glyphless characters.  */
   DEFSYM (Qglyphless_char, "glyphless-char");
+
+  /* Method symbols for Vglyphless_char_display.  */
   DEFSYM (Qhex_code, "hex-code");
   DEFSYM (Qempty_box, "empty-box");
   DEFSYM (Qthin_space, "thin-space");
@@ -31175,6 +31106,7 @@ be redisplayed.  This set can be nil (meaning, only the selected window),
 or t (meaning all windows).  */);
   Vpre_redisplay_function = intern ("ignore");
 
+  /* Symbol for the purpose of Vglyphless_char_display.  */
   DEFSYM (Qglyphless_char_display, "glyphless-char-display");
   Fput (Qglyphless_char_display, Qchar_table_extra_slots, make_number (1));
 
