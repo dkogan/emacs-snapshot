@@ -8,10 +8,10 @@ Signed-off-by: Julien Danjou <julien@danjou.info>
  1 file changed, 11 insertions(+), 1 deletion(-)
 
 diff --git a/lisp/startup.el b/lisp/startup.el
-index 8e981bb..94f9680 100644
+index 999e53e..9fa82de 100644
 --- a/lisp/startup.el
 +++ b/lisp/startup.el
-@@ -405,6 +405,10 @@ from being initialized."
+@@ -408,6 +408,10 @@ from being initialized."
  
  (defvar normal-top-level-add-subdirs-inode-list nil)
  
@@ -22,7 +22,7 @@ index 8e981bb..94f9680 100644
  (defvar no-blinking-cursor nil)
  
  (defvar pure-space-overflow nil
-@@ -1033,7 +1037,13 @@ please check its value")
+@@ -1036,7 +1040,13 @@ please check its value")
      ;; should check init-file-user instead, since that is already set.
      ;; See cus-edit.el for an example.
      (if site-run-file

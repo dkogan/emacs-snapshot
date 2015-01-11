@@ -8,7 +8,7 @@ Signed-off-by: Julien Danjou <julien@danjou.info>
  1 file changed, 1 insertion(+), 9 deletions(-)
 
 diff --git a/lisp/org/ob-ditaa.el b/lisp/org/ob-ditaa.el
-index 26f0e4f..4812510 100644
+index dbf63f1..b26ce8d 100644
 --- a/lisp/org/ob-ditaa.el
 +++ b/lisp/org/ob-ditaa.el
 @@ -45,15 +45,7 @@

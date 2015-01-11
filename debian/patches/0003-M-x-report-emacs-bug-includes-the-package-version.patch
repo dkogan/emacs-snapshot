@@ -7,7 +7,7 @@ Subject: M-x report-emacs-bug includes the package version
  1 file changed, 5 insertions(+)
 
 diff --git a/lisp/mail/emacsbug.el b/lisp/mail/emacsbug.el
-index 5dde90b..5b59ccc 100644
+index 8cd5900..4dba5a3 100644
 --- a/lisp/mail/emacsbug.el
 +++ b/lisp/mail/emacsbug.el
 @@ -237,6 +237,11 @@ usually do not have translators for other languages.\n\n")))
