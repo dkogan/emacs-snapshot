@@ -1,3 +1,9 @@
+emacs-snapshot (2:20150118+emacs-pretest-24.0.05-14350-g253d44b-1) unstable; urgency=medium
+
+  * New snapshot
+
+ -- Dima Kogan <dima@secretsauce.net>  Sun, 18 Jan 2015 01:55:45 -0800
+
 emacs-snapshot (2:20150111+emacs-pretest-24.0.05-14274-g9a57bda-1) unstable; urgency=medium
 
   * New snapshot
