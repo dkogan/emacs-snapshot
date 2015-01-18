@@ -740,20 +740,24 @@ This function works recursively.  Files are returned in \"depth first\"
 and alphabetical order.
 If INCLUDE-DIRECTORIES, also include directories that have matching names."
   (let ((result nil)
-	(files nil))
+	(files nil)
+	;; When DIR is "/", remote file names like "/method:" could
+	;; also be offered.  We shall suppress them.
+	(tramp-mode (and tramp-mode (file-remote-p dir))))
     (dolist (file (sort (file-name-all-completions "" dir)
 			'string<))
       (unless (member file '("./" "../"))
 	(if (directory-name-p file)
 	    (let* ((leaf (substring file 0 (1- (length file))))
-		   (path (expand-file-name leaf dir)))
+		   (full-file (expand-file-name leaf dir)))
 	      ;; Don't follow symlinks to other directories.
-	      (unless (file-symlink-p path)
-		(setq result (nconc result (directory-files-recursively
-					    path match include-directories))))
+	      (unless (file-symlink-p full-file)
+		(setq result
+		      (nconc result (directory-files-recursively
+				     full-file match include-directories))))
 	      (when (and include-directories
 			 (string-match match leaf))
-		(setq result (nconc result (list path)))))
+		(setq result (nconc result (list full-file)))))
 	  (when (string-match match file)
 	    (push (expand-file-name file dir) files)))))
     (nconc result (nreverse files))))
@@ -1485,8 +1489,9 @@ expand wildcards (if any) and visit multiple files."
     (if (listp value)
 	(progn
 	  (setq value (nreverse value))
-	  (cons (switch-to-buffer-other-window (car value))
-		(mapcar 'switch-to-buffer (cdr value))))
+	  (switch-to-buffer-other-window (car value))
+	  (mapc 'switch-to-buffer (cdr value))
+	  value)
       (switch-to-buffer-other-window value))))
 
 (defun find-file-other-frame (filename &optional wildcards)
@@ -1508,8 +1513,9 @@ expand wildcards (if any) and visit multiple files."
     (if (listp value)
 	(progn
 	  (setq value (nreverse value))
-	  (cons (switch-to-buffer-other-frame (car value))
-		(mapcar 'switch-to-buffer (cdr value))))
+	  (switch-to-buffer-other-frame (car value))
+	  (mapc 'switch-to-buffer (cdr value))
+	  value)
       (switch-to-buffer-other-frame value))))
 
 (defun find-file-existing (filename)
@@ -3596,7 +3602,9 @@ Returns the new list."
   "Collect entries from CLASS-VARIABLES into VARIABLES.
 ROOT is the root directory of the project.
 Return the new variables list."
-  (let* ((file-name (buffer-file-name))
+  (let* ((file-name (or (buffer-file-name)
+			;; Handle non-file buffers, too.
+			(expand-file-name default-directory)))
 	 (sub-file-name (if file-name
                             ;; FIXME: Why not use file-relative-name?
 			    (substring file-name (length root)))))

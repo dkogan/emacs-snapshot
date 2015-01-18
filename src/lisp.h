@@ -608,9 +608,9 @@ INLINE bool SUBRP (Lisp_Object);
 INLINE bool (SYMBOLP) (Lisp_Object);
 INLINE bool (VECTORLIKEP) (Lisp_Object);
 INLINE bool WINDOWP (Lisp_Object);
+INLINE bool TERMINALP (Lisp_Object);
 INLINE struct Lisp_Save_Value *XSAVE_VALUE (Lisp_Object);
 INLINE struct Lisp_Symbol *(XSYMBOL) (Lisp_Object);
-INLINE enum Lisp_Type (XTYPE) (Lisp_Object);
 INLINE void *(XUNTAG) (Lisp_Object, int);
 
 /* Defined in chartab.c.  */
@@ -820,9 +820,6 @@ DEFINE_GDB_SYMBOL_END (VALMASK)
 #define MOST_POSITIVE_FIXNUM (EMACS_INT_MAX >> INTTYPEBITS)
 #define MOST_NEGATIVE_FIXNUM (-1 - MOST_POSITIVE_FIXNUM)
 
-/* Extract the pointer hidden within A.  */
-LISP_MACRO_DEFUN (XPNTR, void *, (Lisp_Object a), (a))
-
 #if USE_LSB_TAG
 
 LISP_MACRO_DEFUN (make_number, Lisp_Object, (EMACS_INT n), (n))
@@ -912,6 +909,9 @@ XUNTAG (Lisp_Object a, int type)
 
 #endif /* ! USE_LSB_TAG */
 
+/* Extract the pointer hidden within A.  */
+LISP_MACRO_DEFUN (XPNTR, void *, (Lisp_Object a), (a))
+
 /* Extract A's value as an unsigned integer.  */
 INLINE EMACS_UINT
 XUINT (Lisp_Object a)
@@ -999,6 +999,7 @@ XWINDOW (Lisp_Object a)
 INLINE struct terminal *
 XTERMINAL (Lisp_Object a)
 {
+  eassert (TERMINALP (a));
   return XUNTAG (a, Lisp_Vectorlike);
 }
 
@@ -1059,12 +1060,6 @@ INLINE Lisp_Object
 builtin_lisp_symbol (int index)
 {
   return make_lisp_symbol (lispsym + index);
-}
-
-INLINE Lisp_Object
-make_lisp_proc (struct Lisp_Process *p)
-{
-  return make_lisp_ptr (p, Lisp_Vectorlike);
 }
 
 #define XSETINT(a, b) ((a) = make_number (b))
@@ -1689,10 +1684,9 @@ CHAR_TABLE_EXTRA_SLOTS (struct Lisp_Char_Table *ct)
 	  - CHAR_TABLE_STANDARD_SLOTS);
 }
 
-/* Make sure that sub char-table contents slot
-   is aligned on a multiple of Lisp_Objects.  */
-verify ((offsetof (struct Lisp_Sub_Char_Table, contents)
-	 - offsetof (struct Lisp_Sub_Char_Table, depth)) % word_size == 0);
+/* Make sure that sub char-table contents slot is where we think it is.  */
+verify (offsetof (struct Lisp_Sub_Char_Table, contents)
+	== offsetof (struct Lisp_Vector, contents[SUB_CHAR_TABLE_OFFSET]));
 
 /***********************************************************************
 			       Symbols
@@ -3782,16 +3776,25 @@ make_uninit_sub_char_table (int depth, int min_char)
   return v;
 }
 
-extern struct Lisp_Vector *allocate_pseudovector (int, int, enum pvec_type);
-#define ALLOCATE_PSEUDOVECTOR(typ,field,tag)				\
-  ((typ*)								\
-   allocate_pseudovector						\
-       (VECSIZE (typ), PSEUDOVECSIZE (typ, field), tag))
-extern struct Lisp_Hash_Table *allocate_hash_table (void);
-extern struct window *allocate_window (void);
-extern struct frame *allocate_frame (void);
-extern struct Lisp_Process *allocate_process (void);
-extern struct terminal *allocate_terminal (void);
+extern struct Lisp_Vector *allocate_pseudovector (int, int, int,
+						  enum pvec_type);
+
+/* Allocate partially initialized pseudovector where all Lisp_Object
+   slots are set to Qnil but the rest (if any) is left uninitialized.  */
+
+#define ALLOCATE_PSEUDOVECTOR(type, field, tag)			       \
+  ((type *) allocate_pseudovector (VECSIZE (type),		       \
+				   PSEUDOVECSIZE (type, field),	       \
+				   PSEUDOVECSIZE (type, field), tag))
+
+/* Allocate fully initialized pseudovector where all Lisp_Object
+   slots are set to Qnil and the rest (if any) is zeroed.  */
+
+#define ALLOCATE_ZEROED_PSEUDOVECTOR(type, field, tag)		       \
+  ((type *) allocate_pseudovector (VECSIZE (type),		       \
+				   PSEUDOVECSIZE (type, field),	       \
+				   VECSIZE (type), tag))
+
 extern bool gc_in_progress;
 extern bool abort_on_gc;
 extern Lisp_Object make_float (double);
@@ -4055,10 +4058,23 @@ struct re_registers;
 extern struct re_pattern_buffer *compile_pattern (Lisp_Object,
 						  struct re_registers *,
 						  Lisp_Object, bool, bool);
-extern ptrdiff_t fast_string_match (Lisp_Object, Lisp_Object);
+extern ptrdiff_t fast_string_match_internal (Lisp_Object, Lisp_Object,
+					     Lisp_Object);
+
+INLINE ptrdiff_t
+fast_string_match (Lisp_Object regexp, Lisp_Object string)
+{
+  return fast_string_match_internal (regexp, string, Qnil);
+}
+
+INLINE ptrdiff_t
+fast_string_match_ignore_case (Lisp_Object regexp, Lisp_Object string)
+{
+  return fast_string_match_internal (regexp, string, Vascii_canon_table);
+}
+
 extern ptrdiff_t fast_c_string_match_ignore_case (Lisp_Object, const char *,
 						  ptrdiff_t);
-extern ptrdiff_t fast_string_match_ignore_case (Lisp_Object, Lisp_Object);
 extern ptrdiff_t fast_looking_at (Lisp_Object, ptrdiff_t, ptrdiff_t,
                                   ptrdiff_t, ptrdiff_t, Lisp_Object);
 extern ptrdiff_t find_newline (ptrdiff_t, ptrdiff_t, ptrdiff_t, ptrdiff_t,
