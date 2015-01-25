@@ -433,7 +433,7 @@ Return the compile-time value of FORM."
   ;; 3.2.3.1, "Processing of Top Level Forms".  The semantics are very
   ;; subtle: see test/automated/bytecomp-tests.el for interesting
   ;; cases.
-  (setf form (macroexpand form byte-compile-macro-environment))
+  (setf form (macroexp-macroexpand form byte-compile-macro-environment))
   (if (eq (car-safe form) 'progn)
       (cons 'progn
             (mapcar (lambda (subform)
@@ -1863,8 +1863,8 @@ The value is non-nil if there were no errors, nil if errors."
 	    (signal 'file-error
 		    (list "Opening output file"
 			  (if (file-exists-p target-file)
-			      "cannot overwrite file"
-			    "directory not writable or nonexistent")
+			      "Cannot overwrite file"
+			    "Directory not writable or nonexistent")
 			  target-file)))
 	  (kill-buffer (current-buffer)))
 	(if (and byte-compile-generate-call-tree

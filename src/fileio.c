@@ -186,37 +186,17 @@ void
 report_file_errno (char const *string, Lisp_Object name, int errorno)
 {
   Lisp_Object data = CONSP (name) || NILP (name) ? name : list1 (name);
-  Lisp_Object errstring;
-  char *str;
-
   synchronize_system_messages_locale ();
-  str = strerror (errorno);
-  errstring = code_convert_string_norecord (build_unibyte_string (str),
-					    Vlocale_coding_system, 0);
+  char *str = strerror (errorno);
+  Lisp_Object errstring
+    = code_convert_string_norecord (build_unibyte_string (str),
+				    Vlocale_coding_system, 0);
+  Lisp_Object errdata = Fcons (errstring, data);
 
-  while (1)
-    switch (errorno)
-      {
-      case EEXIST:
-	xsignal (Qfile_already_exists, Fcons (errstring, data));
-	break;
-      default:
-	/* System error messages are capitalized.  Downcase the initial
-	   unless it is followed by a slash.  (The slash case caters to
-	   error messages that begin with "I/O" or, in German, "E/A".)  */
-	if (STRING_MULTIBYTE (errstring)
-	    && ! EQ (Faref (errstring, make_number (1)), make_number ('/')))
-	  {
-	    int c;
-
-	    str = SSDATA (errstring);
-	    c = STRING_CHAR ((unsigned char *) str);
-	    Faset (errstring, make_number (0), make_number (downcase (c)));
-	  }
-
-	xsignal (Qfile_error,
-		 Fcons (build_string (string), Fcons (errstring, data)));
-      }
+  if (errorno == EEXIST)
+    xsignal (Qfile_already_exists, errdata);
+  else
+    xsignal (Qfile_error, Fcons (build_string (string), errdata));
 }
 
 /* Signal a file-access failure that set errno.  STRING describes the
@@ -2812,7 +2792,8 @@ or if SELinux is disabled, or if Emacs lacks SELinux support.  */)
   (Lisp_Object filename)
 {
   Lisp_Object absname;
-  Lisp_Object values[4];
+  Lisp_Object user = Qnil, role = Qnil, type = Qnil, range = Qnil;
+
   Lisp_Object handler;
 #if HAVE_LIBSELINUX
   security_context_t con;
@@ -2830,10 +2811,6 @@ or if SELinux is disabled, or if Emacs lacks SELinux support.  */)
 
   absname = ENCODE_FILE (absname);
 
-  values[0] = Qnil;
-  values[1] = Qnil;
-  values[2] = Qnil;
-  values[3] = Qnil;
 #if HAVE_LIBSELINUX
   if (is_selinux_enabled ())
     {
@@ -2842,20 +2819,20 @@ or if SELinux is disabled, or if Emacs lacks SELinux support.  */)
 	{
 	  context = context_new (con);
 	  if (context_user_get (context))
-	    values[0] = build_string (context_user_get (context));
+	    user = build_string (context_user_get (context));
 	  if (context_role_get (context))
-	    values[1] = build_string (context_role_get (context));
+	    role = build_string (context_role_get (context));
 	  if (context_type_get (context))
-	    values[2] = build_string (context_type_get (context));
+	    type = build_string (context_type_get (context));
 	  if (context_range_get (context))
-	    values[3] = build_string (context_range_get (context));
+	    range = build_string (context_range_get (context));
 	  context_free (context);
 	  freecon (con);
 	}
     }
 #endif
 
-  return Flist (ARRAYELTS (values), values);
+  return list4 (user, role, type, range);
 }
 
 DEFUN ("set-file-selinux-context", Fset_file_selinux_context,

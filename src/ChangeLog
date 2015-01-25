@@ -1,3 +1,131 @@
+2015-01-25  Paul Eggert  <eggert@cs.ucla.edu>
+
+	Use gnustep-config if available
+	* emacs.c [NS_IMPL_GNUSTEP]: Don't include <GNUstepBase/GSConfig.h>.
+	It doesn't appear to be needed, and the inclusion breaks on
+	Ubuntu 14.10 when 'configure' uses 'gnustep-config'.
+
+2015-01-22  Eli Zaretskii  <eliz@gnu.org>
+
+	* xdisp.c (init_iterator): Restore a comment lost in transition.
+
+2015-01-22  Paul Eggert  <eggert@cs.ucla.edu>
+
+	Use bool for boolean in xfont.c, xftfont.c, xgselect.c
+	* xfont.c (xfont_driver, xfont_chars_supported)
+	(xfont_text_extents):
+	* xftfont.c (xftfont_get_colors, xftfont_open)
+	(xftfont_prepare_face, xftfont_done_face)
+	(xftfont_cached_font_ok):
+	* xgselect.c (xg_select):
+	Use bool for boolean.
+
+	Don't downcase system diagnostics' first letters
+	* fileio.c (report_file_errno): Don't downcase, and simplify.
+	Fixes: bug#19642
+
+	Isolate NIL_IS_ZERO-assuming code better
+	Suggested by Stefan Monnier in:
+	http://lists.gnu.org/archive/html/emacs-devel/2015-01/msg00588.html
+	* alloc.c (allocate_pseudovector):
+	Use memclear, not memsetnil, to remove a 'verify'.
+	* callint.c (Fcall_interactively):
+	* dispnew.c (realloc_glyph_pool):
+	* xdisp.c (init_iterator):
+	Use memclear, not memset, to remove a 'verify'.
+	* lisp.h (memclear): Rename from memsetnil, and take a byte
+	count rather than a word count.  All callers changed.
+
+2015-01-20  Paul Eggert  <eggert@cs.ucla.edu>
+
+	Undo port to hypothetical nonzero Qnil case
+	This mostly undoes the previous change in this area.  See:
+	http://lists.gnu.org/archive/html/emacs-devel/2015-01/msg00570.html
+	* alloc.c (allocate_pseudovector):
+	* callint.c (Fcall_interactively):
+	* dispnew.c (realloc_glyph_pool):
+	* fringe.c (init_fringe):
+	* lisp.h (memsetnil):
+	* xdisp.c (init_iterator):
+	Simplify by assuming that Qnil is zero, but verify the assumption.
+	* lisp.h (NIL_IS_ZERO): Revert back to this symbol, removing
+	NIL_IS_NONZERO.  All uses changed.
+
+2015-01-20  Jan Djärv  <jan.h.d@swipnet.se>
+
+	* nsterm.m (EV_TRAILER2): Set Vinhibit_quit to Qt (Bug#19531).
+
+2015-01-20  Dmitry Antipov  <dmantipov@yandex.ru>
+
+	Prefer xlispstrdup to avoid dumb calls to strlen.
+	* nsfont.m (ns_get_family):
+	* nsterm.m (ns_term_init):
+	* w32fns.c (w32_window):
+	* xfns.c (x_window, Fx_select_font): Use xlispstrdup.
+
+2015-01-20  Paul Eggert  <eggert@cs.ucla.edu>
+
+	Correct an old fix for GTK font selection
+	* gtkutil.c (xg_get_font): Fix off-by-2 typo.
+	Fixes: bug#3228
+
+	Fix minor bugs with printing null bytes
+	* minibuf.c (read_minibuf_noninteractive):
+	* xdisp.c (Ftrace_to_stderr) [GLYPH_DEBUG]:
+	Work even if the Lisp string contains a null byte.
+
+	Port to hypothetical case where Qnil is nonzero
+	* alloc.c (allocate_pseudovector):
+	* callint.c (Fcall_interactively):
+	* coding.c (syms_of_coding):
+	* dispnew.c (realloc_glyph_pool):
+	* fringe.c (init_fringe):
+	* lisp.h (memsetnil):
+	* xdisp.c (init_iterator):
+	Port to the currently-hypothetical case where Qnil is nonzero.
+	* dispnew.c (adjust_glyph_matrix): Remove unnecessary verification,
+	as there are no Lisp_Object values in the data here.
+	* lisp.h (NIL_IS_NONZERO): New symbol, replacing NIL_IS_ZERO.
+	All uses changed.  Define only if not already defined, so that one
+	can debug with -DNIL_IS_NONZERO.
+	* xdisp.c (init_iterator): Remove unnecessary initializations to 0.
+
+2015-01-19  Eli Zaretskii  <eliz@gnu.org>
+
+	* dispnew.c (adjust_glyph_matrix, realloc_glyph_pool): Verify that
+	Qnil is represented as zero, before using that to initialize parts
+	of the glyph structure.
+
+	* xdisp.c (init_iterator): Verify that Qnil is represented as
+	zero, before using that to initialize parts of the iterator
+	structure.
+
+2015-01-19  Paul Eggert  <eggert@cs.ucla.edu>
+
+	Prefer memset to repeatedly assigning Qnil
+	* alloc.c (allocate_pseudovector): Catch more bogus values.
+	* alloc.c (allocate_pseudovector):
+	* callint.c (Fcall_interactively):
+	* coding.c (syms_of_coding):
+	* fringe.c (init_fringe):
+	Verify that Qnil == 0.
+	* callint.c (Fcall_interactively):
+	* eval.c (Fapply, Ffuncall):
+	* fns.c (mapcar1, larger_vector):
+	* font.c (font_expand_wildcards):
+	* fringe.c (init_fringe):
+	Prefer memset to assigning zeros by hand.
+	* callint.c (Fcall_interactively):
+	Remove duplicate assignment of Qnil to args[i].
+	* coding.c (syms_of_coding):
+	Prefer LISP_INITIALLY_ZERO to assigning zeros by hand.
+	* fileio.c (Ffile_selinux_context):
+	Rewrite to avoid need for Lisp_Object array.
+	* lisp.h (XLI_BUILTIN_LISPSYM): New macro.
+	(DEFINE_LISP_SYMBOL_END): Use it.
+	(NIL_IS_ZERO): New constant.
+	(memsetnil): New function.
+
 2015-01-16  Dmitry Antipov  <dmantipov@yandex.ru>
 
 	Tune pseudovector allocation assuming Qnil == 0.

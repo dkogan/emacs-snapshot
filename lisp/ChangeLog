@@ -1,3 +1,351 @@
+2015-01-25  Dmitry Gutov  <dgutov@yandex.ru>
+
+	* emacs-lisp/find-func.el (find-function-regexp): Don't match
+	`defgroup' (regression from the previous change here).
+
+2015-01-23  Thomas Fitzsimmons  <fitzsim@fitzsim.org>
+
+	* net/ldap.el (ldap-search-internal): Mention binddn in invalid
+	credentials error message.
+
+2015-01-23  Thomas Fitzsimmons  <fitzsim@fitzsim.org>
+
+	* net/ldap.el (ldap-password-read): Validate password before
+	caching it.
+	(ldap-search-internal): Handle ldapsearch error conditions.
+
+2015-01-23  Thomas Fitzsimmons  <fitzsim@fitzsim.org>
+
+	* net/ldap.el (ldap-password-read): Handle password-cache being nil.
+
+2015-01-23  Thomas Fitzsimmons  <fitzsim@fitzsim.org>
+
+	* net/eudc.el (eudc-expand-inline): Always restore former server
+	and protocol.
+
+2015-01-23  Thomas Fitzsimmons  <fitzsim@fitzsim.org>
+
+	* net/eudcb-ldap.el: Don't nag the user in case a default base is
+	provided by the LDAP system configuration file.
+
+2015-01-23  Thomas Fitzsimmons  <fitzsim@fitzsim.org>
+
+	* net/eudc.el (eudc-format-query): Preserve the
+	eudc-inline-query-format ordering of attributes in the returned list.
+	* net/eudcb-ldap.el (eudc-ldap-format-query-as-rfc1558):
+	Append the LDAP wildcard character to the last attribute value.
+
+2015-01-23  Thomas Fitzsimmons  <fitzsim@fitzsim.org>
+
+	* net/eudcb-ldap.el (eudc-ldap-cleanup-record-simple):
+	Downcase field names of LDAP results.
+	(eudc-ldap-cleanup-record-filtering-addresses): Likewise.
+
+2015-01-23  Thomas Fitzsimmons  <fitzsim@fitzsim.org>
+
+	* net/ldap.el (ldap-ldapsearch-password-prompt): New defcustom.
+	(ldap-search-internal): Send password to ldapsearch through a pipe
+	instead of via the command line.
+
+2015-01-23  Thomas Fitzsimmons  <fitzsim@fitzsim.org>
+
+	* net/ldap.el: Require password-cache.
+	(ldap-password-read): New function.
+	(ldap-search-internal): Call ldap-password-read when it is
+	configured to be called.
+
+2015-01-23  Thomas Fitzsimmons  <fitzsim@fitzsim.org>
+
+	* net/eudc-vars.el (eudc-expansion-overwrites-query):
+	Change default to nil.
+
+2015-01-23  Thomas Fitzsimmons  <fitzsim@fitzsim.org>
+
+	* net/eudc.el (eudc-expand-inline): Ignore text properties of
+	string-to-expand.
+
+2015-01-23  Thomas Fitzsimmons  <fitzsim@fitzsim.org>
+
+	* net/eudc-vars.el (eudc-inline-expansion-format): Default to a
+	format that includes first name and surname.
+
+2015-01-23  Thomas Fitzsimmons  <fitzsim@fitzsim.org>
+
+	* net/eudc-vars.el (eudc-inline-query-format): Change default to
+	query email and first name instead of surname.
+
+2015-01-23  Thomas Fitzsimmons  <fitzsim@fitzsim.org>
+
+	* net/ldap.el (ldap-search-internal): Support new-style LDAP URIs.
+
+2015-01-23  Thomas Fitzsimmons  <fitzsim@fitzsim.org>
+
+	* net/eudc-vars.el (eudc-server): Adjust docstring to mention
+	eudc-server-hotlist.
+	(eudc-server-hotlist): Move from eudc.el and make defcustom.
+	* net/eudc.el (eudc-server-hotlist): Move to eudc-vars.el.
+	(eudc-set-server): Allow setting protocol to nil.
+	(eudc-expand-inline): Support hotlist-only expansions when server
+	is not set.
+
+2015-01-23  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* emacs-lisp/cl-generic.el (cl-no-primary-method): New fun and error.
+	(cl--generic-build-combined-method): Use it.
+
+2015-01-22  Paul Eggert  <eggert@cs.ucla.edu>
+
+	Don't downcase system diagnostics' first letters
+	* emacs-lisp/bytecomp.el (byte-compile-file):
+	* ffap.el (find-file-at-point):
+	* files.el (insert-file-1):
+	* net/ange-ftp.el (ange-ftp-barf-if-not-directory)
+	(ange-ftp-copy-file-internal):
+	* progmodes/etags.el (visit-tags-table):
+	Keep diagnostics consistent with system's.
+	* ffap.el (ffap-machine-p):
+	Ignore case while comparing diagnostics.
+
+2015-01-22  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* help.el (help-make-usage): Don't turn a "_" arg into an empty-string
+	arg (bug#19645).
+	* emacs-lisp/cl-generic.el (cl--generic-lambda): Don't confuse a string
+	body with a docstring.
+
+2015-01-22  Dmitry Gutov  <dgutov@yandex.ru>
+
+	* progmodes/xref.el (xref-location-marker, xref-location-group):
+	Use `cl-defgeneric' and `cl-defmethod' instead of the EIEIO
+	counterparts.
+
+	* progmodes/etags.el (xref-location-marker): Same.
+
+	* progmodes/xref.el (xref--current): Rename from `xref--selected'.
+	(xref--inhibit-mark-current): Rename from
+	`xref--inhibit-mark-selected'.  Update the usages.
+	(xref-quit): Reword the docstring.  Kill buffers after quitting
+	windows instead of before.
+	(xref--insert-xrefs): Tweak help-echo.
+	(xref--read-identifier-history, xref--read-pattern-history):
+	New variables.
+	(xref--read-identifier, xref-find-apropos): Use them.
+
+2015-01-21  Ulrich Müller  <ulm@gentoo.org>
+
+	* play/gamegrid.el (gamegrid-add-score-with-update-game-score):
+	Allow the 'update-game-score' helper program to run suid or sgid.
+
+2015-01-21  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* emacs-lisp/eieio.el: Use cl-defmethod.
+	(defclass): Generate cl-defmethod calls; use setf methods for :accessor.
+	(eieio-object-name-string): Declare as obsolete.
+
+	* emacs-lisp/eieio-opt.el: Adapt to cl-generic.
+	(eieio--specializers-apply-to-class-p):	New function.
+	(eieio-all-generic-functions): Use it.
+	(eieio-method-documentation): Use it as well as cl--generic-method-info.
+	Change format of return value.
+	(eieio-help-class): Adapt accordingly.
+
+	* emacs-lisp/eieio-compat.el (eieio--defmethod): Avoid no-next-method
+	errors when there's a `before' but no `primary' (bug#19645).
+	(next-method-p): Return nil rather than signal an error.
+	(eieio-defgeneric): Remove bogus (fboundp 'method).
+
+	* emacs-lisp/eieio-speedbar.el:
+	* emacs-lisp/eieio-datadebug.el:
+	* emacs-lisp/eieio-custom.el:
+	* emacs-lisp/eieio-base.el: Use cl-defmethod.
+
+	* emacs-lisp/cl-generic.el (cl-defgeneric): Add support for `declare'.
+	(cl--generic-setf-rewrite): Setup the setf expander right away.
+	(cl-defmethod): Make sure the setf expander is setup before we expand
+	the body.
+	(cl-defmethod): Silence byte-compiler warnings.
+	(cl-generic-define-method): Shuffle code to change return value.
+	(cl--generic-method-info): New function, extracted from
+	cl--generic-describe.
+	(cl--generic-describe): Use it.
+
+2015-01-21  Dmitry Gutov  <dgutov@yandex.ru>
+
+	* progmodes/xref.el (xref--xref-buffer-mode-map): Define before
+	the major mode.  Remap `quit-window' to `xref-quit'.
+	(xref--xref-buffer-mode): Inherit from special-mode.
+
+	xref: Keep track of temporary buffers  (bug#19466).
+	* progmodes/xref.el (xref--temporary-buffers, xref--selected)
+	(xref--inhibit-mark-selected): New variables.
+	(xref--mark-selected): New function.
+	(xref--show-location): Maybe add the buffer to
+	`xref--temporary-buffers', add `xref--mark-selected' to
+	`buffer-list-update-hook' there.
+	(xref--window): Add docstring.
+	(xref-quit): Rename from `xref--quit'.  Update both references.
+	Add KILL argument.  When it's non-nil, kill the temporary buffers
+	that haven't been selected by the user.
+	(xref--show-xref-buffer): Change the second argument to alist,
+	extract the values for `xref--window' and
+	`xref--temporary-buffers' from it.  Add `xref--mark-selected' to
+	`buffer-list-update-hook' to each buffer in the list.
+	(xref--show-xrefs): Move the logic of calling `xref-find-function'
+	here.  Save the difference between buffer lists before and after
+	it's called as "temporary buffers", and `pass it to
+	`xref-show-xrefs-function'.
+	(xref--find-definitions, xref-find-references)
+	(xref-find-apropos): Update accordingly.
+
+2015-01-20  Artur Malabarba  <bruce.connor.am@gmail.com>
+
+	* emacs-lisp/package.el (package-dir-info): Fix `while' logic.
+
+2015-01-20  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* emacs-lisp/eieio-generic.el: Remove.
+	(defgeneric, defmethod): Move to eieio-compat.el.  Mark obsolete.
+	* emacs-lisp/eieio-compat.el: New file.
+	* emacs-lisp/eieio.el: Don't require eieio-generic any more.
+	* emacs-lisp/eieio-core.el (eieio--slot-originating-class-p):
+	Remove unused function.
+	(eieio-defclass): Move to eieio-compat.el.
+	* emacs-lisp/macroexp.el (macroexp-macroexpand): New function.
+	(macroexp--expand-all): Use it.
+	* emacs-lisp/bytecomp.el (byte-compile-recurse-toplevel): Here too.
+
+2015-01-20  Michal Nazarewicz  <mina86@mina86.com>
+
+	* emacs-lisp/eldoc.el (eldoc-documentation-function): Describe how
+	major modes should use `add-function' to alter value of the variable.
+	* hexl.el (hexl-mode):
+	* ielm.el (inferior-emacs-lisp-mode):
+	* progmodes/cfengine.el (cfengine3-mode):
+	* progmodes/elisp-mode (emacs-lisp-mode):
+	* progmodes/octave.el (octave-mode):
+	* progmodes/python.el (python-mode):
+	* simple.el (read--expression): Set `eldoc-documentation-function'
+	using `add-function' so the default value is always used.
+
+	* descr-text.el (describe-char-eldoc): New function returning
+	basic Unicode codepoint information (e.g. name) about character
+	at point.  It is meant to be used as a default value of the
+	`eldoc-documentation-function' variable.
+	(describe-char-eldoc--format, describe-char-eldoc--truncate):
+	New helper functions for `describe-char-eldoc' function.
+
+2015-01-20  Michal Nazarewicz  <mina86@mina86.com>
+
+	* textmodes/paragraphs.el (sentence-end-base): Include an
+	ellipsis (…) and interrobang (‽) characters as end of a sentence,
+	and a closing single quote (’) as an end of a quote.
+
+2015-01-20  Michal Nazarewicz  <mina86@mina86.com>
+
+	* textmodes/tildify.el (tildify-double-space-undos): A new
+	variable specifying whether pressing space in `tildify-mode' after
+	a space has been replaced with hard space undos the substitution.
+	(tildify-space): Add code branch for handling `tildify-doule-space'.
+
+	* textmodes/tildify.el (tildify-space): A new function
+	which can be used as a `post-self-insert-hook' to automatically
+	convert spaces into hard spaces.
+	(tildify-space-pattern): A new variable specifying pattern where
+	`tildify-space' should take effect.
+	(tildify-space-predicates): A new variable specifying list of
+	predicate functions that all must return non-nil for
+	`tildify-space' to take effect.
+	(tildify-space-region-predicate): A new functions meant to be
+	used as a predicate in `tildify-space-predicates' list.
+	(tildify-mode): A new minor mode enabling `tildify-space' as a
+	`post-self-insert-hook'
+
+2015-01-20  Daniel Colascione  <dancol@dancol.org>
+
+	* vc/vc-dir.el (vc-dir): Default to repository root, not
+	default-directory.
+
+2015-01-20  Dmitry Gutov  <dgutov@yandex.ru>
+
+	* progmodes/etags.el (xref-etags-location): New class.
+	(xref-make-etags-location): New function.
+	(etags--xref-find-definitions): Use it.
+	(xref-location-marker): New method implementation.
+
+	* progmodes/xref.el: Mention that xref-location is an EIEIO class.
+	(xref--insert-xrefs): Expand help-echo string.
+
+2015-01-19  Dmitry Gutov  <dgutov@yandex.ru>
+
+	* ido.el: Update Customization instructions.
+
+2015-01-19  Jonas Bernoulli  <jonas@bernoul.li>
+
+	Define Ido keymaps once (bug#17000).
+	* ido.el (ido-common-completion-map)
+	(ido-file-dir-completion-map)
+	(ido-file-completion-map, ido-buffer-completion-map): Set up key
+	bindings when each variable is defined.
+	(ido-completion-map): Move definition.
+	(ido-init-completion-maps): Noop.
+	(ido-common-initialization): Don't call it.
+	(ido-setup-completion-map): Improve doc-string, cleanup.
+
+2015-01-19  Ivan Shmakov  <ivan@siamics.net>
+
+	* cus-dep.el (custom-make-dependencies): Ensure that
+	default-directory is interpreted as a directory (see bug#19140.)
+
+2015-01-19  Dmitry Gutov  <dgutov@yandex.ru>
+
+	* progmodes/xref.el (xref--display-position):
+	Set `other-window-scroll-buffer'.
+	(xref-goto-xref): Use `user-error'.
+
+2015-01-19  Dmitry Gutov  <dgutov@yandex.ru>
+
+	* progmodes/xref.el (xref--display-history): New variable.
+	(xref--window-configuration): Remove.
+	(xref--save-to-history): New function.
+	(xref--display-position): Use it.  Add new argument.
+	(xref--restore-window-configuration): Remove.
+	(xref--show-location, xref-show-location-at-point):
+	Update accordingly.
+	(xref--xref-buffer-mode): Don't use `pre-command-hook'.
+	(xref--quit): New command.
+	(xref-goto-xref): Use it.
+	(xref--xref-buffer-mode-map): Bind `q' to it.
+
+2015-01-18  Dmitry Gutov  <dgutov@yandex.ru>
+
+	* progmodes/xref.el (xref-goto-xref): Perform the jump even inside
+	indentation or at eol.
+
+2015-01-18  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* emacs-lisp/eieio-core.el: Add `subclass' specializer for cl-generic.
+	(eieio--generic-subclass-tagcode, eieio--generic-subclass-tag-types):
+	New functions.
+	(cl-generic-tagcode-function, cl-generic-tag-types-function): Use them.
+
+	* emacs-lisp/eieio.el (defclass): Add obsolescence warning for the
+	`newname' argument.
+
+	* emacs-lisp/cl-generic.el (cl-generic-define-method): Correctly handle
+	introduction of a new dispatch argument.
+	(cl--generic-cache-miss): Handle dispatch on an argument which was not
+	considered as dispatchable for this method.
+	(cl-defmethod): Warn when adding a method to an obsolete generic function.
+	(cl--generic-lambda): Make sure it works if cl-lib is not yet loaded.
+
+	* emacs-lisp/eieio-generic.el (eieio--defgeneric-init-form): Use autoloadp.
+
+2015-01-18  Artur Malabarba  <bruce.connor.am@gmail.com>
+
+	* emacs-lisp/package.el (package--append-to-alist): Rename from
+	`package--add-to-alist'
+	Updated docstring due to new name.
+
 2015-01-18  Leo Liu  <sdl.web@gmail.com>
 
 	* emacs-lisp/cl-extra.el (cl-subseq): Use seq-subseq and fix
@@ -7,6 +355,11 @@
 	error.  (Bug#19434)
 
 2015-01-18  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* emacs-lisp/eieio-core.el: Add `subclass' specializer for cl-generic.
+	(eieio--generic-subclass-tagcode, eieio--generic-subclass-tag-types):
+	New functions.
+	(cl-generic-tagcode-function, cl-generic-tag-types-function): Use them.
 
 	* emacs-lisp/cl-macs.el (cl-defstruct): Minor optimization when include
 	or print is nil.
@@ -132,8 +485,8 @@
 2015-01-16  Artur Malabarba  <bruce.connor.am@gmail.com>
 
 	* emacs-lisp/package.el (package--read-pkg-desc):
-	New function. Read a `define-package' form in current buffer. Return
-	the pkg-desc, with desc-kind set to KIND.
+	New function. Read a `define-package' form in current buffer.
+	Return the pkg-desc, with desc-kind set to KIND.
 	(package-dir-info): New function. Find package information for a
 	directory. The return result is a `package-desc'.
 	(package-install-from-buffer): Install packages from dired buffer.
@@ -856,8 +1209,8 @@
 2014-12-27  Eli Zaretskii  <eliz@gnu.org>
 
 	* language/misc-lang.el (composition-function-table): Add Syriac
-	characters and also ZWJ/ZWNJ.  See
-	http://lists.gnu.org/archive/html/help-gnu-emacs/2014-12/msg00248.html
+	characters and also ZWJ/ZWNJ.
+	See http://lists.gnu.org/archive/html/help-gnu-emacs/2014-12/msg00248.html
 	for the details.
 
 2014-12-27  Fabián Ezequiel Gallina  <fgallina@gnu.org>

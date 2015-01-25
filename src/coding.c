@@ -11273,12 +11273,9 @@ internal character representation.  */);
 
   {
     Lisp_Object args[coding_arg_undecided_max];
+    memclear (args, sizeof args);
+
     Lisp_Object plist[16];
-    int i;
-
-    for (i = 0; i < coding_arg_undecided_max; i++)
-      args[i] = Qnil;
-
     plist[0] = intern_c_string (":name");
     plist[1] = args[coding_arg_name] = Qno_conversion;
     plist[2] = intern_c_string (":mnemonic");

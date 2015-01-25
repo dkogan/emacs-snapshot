@@ -1025,20 +1025,6 @@ Fills in the default value in CLASS' in SLOT with VALUE."
 
 ;;; EIEIO internal search functions
 ;;
-(defun eieio--slot-originating-class-p (start-class slot)
-  "Return non-nil if START-CLASS is the first class to define SLOT.
-This is for testing if the class currently in scope is the class that defines SLOT
-so that we can protect private slots."
-  (let ((par (eieio--class-parent start-class))
-	(ret t))
-    (or (not par)
-        (progn
-          (while (and par ret)
-            (if (gethash slot (eieio--class-symbol-hashtable (car par)))
-                (setq ret nil))
-            (setq par (cdr par)))
-          ret))))
-
 (defun eieio--slot-name-index (class obj slot)
   "In CLASS for OBJ find the index of the named SLOT.
 The slot is a symbol which is installed in CLASS by the `defclass'
@@ -1227,6 +1213,8 @@ method invocation orders of the involved classes."
 
 (require 'cl-generic)
 
+;;;; General support to dispatch based on the type of the argument.
+
 (add-function :before-until cl-generic-tagcode-function
               #'eieio--generic-tagcode)
 (defun eieio--generic-tagcode (type name)
@@ -1246,13 +1234,120 @@ method invocation orders of the involved classes."
        (mapcar #'eieio--class-symbol
                (eieio--class-precedence-list (symbol-value tag)))))
 
-;;; Backward compatibility functions
-;; To support .elc files compiled for older versions of EIEIO.
+;;;; Dispatch for arguments which are classes.
 
-(defun eieio-defclass (cname superclasses slots options)
-  (declare (obsolete eieio-defclass-internal "25.1"))
-  (eval `(defclass ,cname ,superclasses ,slots ,@options)))
+;; Since EIEIO does not support metaclasses, users can't easily use the
+;; "dispatch on argument type" for class arguments.  That's why EIEIO's
+;; `defmethod' added the :static qualifier.  For cl-generic, such a qualifier
+;; would not make much sense (e.g. to which argument should it apply?).
+;; Instead, we add a new "subclass" specializer.
 
+(add-function :before-until cl-generic-tagcode-function
+              #'eieio--generic-subclass-tagcode)
+(defun eieio--generic-subclass-tagcode (type name)
+  (when (eq 'subclass (car-safe type))
+    `(60 . (and (symbolp ,name) (eieio--class-v ,name)))))
+
+(add-function :before-until cl-generic-tag-types-function
+              #'eieio--generic-subclass-tag-types)
+(defun eieio--generic-subclass-tag-types (tag)
+  (when (eieio--class-p tag)
+    (mapcar (lambda (class)
+              `(subclass
+                ,(if (symbolp class) class (eieio--class-symbol class))))
+            (eieio--class-precedence-list tag))))
+
+
+;;;### (autoloads nil "eieio-compat" "eieio-compat.el" "57805f02023795a01567781e70aaf9f9")
+;;; Generated autoloads from eieio-compat.el
+
+(autoload 'eieio--defalias "eieio-compat" "\
+Like `defalias', but with less side-effects.
+More specifically, it has no side-effects at all when the new function
+definition is the same (`eq') as the old one.
+
+\(fn NAME BODY)" nil nil)
+
+(autoload 'defgeneric "eieio-compat" "\
+Create a generic function METHOD.
+DOC-STRING is the base documentation for this class.  A generic
+function has no body, as its purpose is to decide which method body
+is appropriate to use.  Uses `defmethod' to create methods, and calls
+`defgeneric' for you.  With this implementation the ARGS are
+currently ignored.  You can use `defgeneric' to apply specialized
+top level documentation to a method.
+
+\(fn METHOD ARGS &optional DOC-STRING)" nil t)
+
+(function-put 'defgeneric 'doc-string-elt '3)
+
+(make-obsolete 'defgeneric 'cl-defgeneric '"25.1")
+
+(autoload 'defmethod "eieio-compat" "\
+Create a new METHOD through `defgeneric' with ARGS.
+
+The optional second argument KEY is a specifier that
+modifies how the method is called, including:
+   :before  - Method will be called before the :primary
+   :primary - The default if not specified
+   :after   - Method will be called after the :primary
+   :static  - First arg could be an object or class
+The next argument is the ARGLIST.  The ARGLIST specifies the arguments
+to the method as with `defun'.  The first argument can have a type
+specifier, such as:
+  ((VARNAME CLASS) ARG2 ...)
+where VARNAME is the name of the local variable for the method being
+created.  The CLASS is a class symbol for a class made with `defclass'.
+A DOCSTRING comes after the ARGLIST, and is optional.
+All the rest of the args are the BODY of the method.  A method will
+return the value of the last form in the BODY.
+
+Summary:
+
+ (defmethod mymethod [:before | :primary | :after | :static]
+                     ((typearg class-name) arg2 &optional opt &rest rest)
+    \"doc-string\"
+     body)
+
+\(fn METHOD &rest ARGS)" nil t)
+
+(function-put 'defmethod 'doc-string-elt '3)
+
+(make-obsolete 'defmethod 'cl-defmethod '"25.1")
+
+(autoload 'eieio--defgeneric-init-form "eieio-compat" "\
+
+
+\(fn METHOD DOC-STRING)" nil nil)
+
+(autoload 'eieio--defmethod "eieio-compat" "\
+
+
+\(fn METHOD KIND ARGCLASS CODE)" nil nil)
+
+(autoload 'eieio-defmethod "eieio-compat" "\
+Obsolete work part of an old version of the `defmethod' macro.
+
+\(fn METHOD ARGS)" nil nil)
+
+(make-obsolete 'eieio-defmethod 'cl-defmethod '"24.1")
+
+(autoload 'eieio-defgeneric "eieio-compat" "\
+Obsolete work part of an old version of the `defgeneric' macro.
+
+\(fn METHOD DOC-STRING)" nil nil)
+
+(make-obsolete 'eieio-defgeneric 'cl-defgeneric '"24.1")
+
+(autoload 'eieio-defclass "eieio-compat" "\
+
+
+\(fn CNAME SUPERCLASSES SLOTS OPTIONS)" nil nil)
+
+(make-obsolete 'eieio-defclass 'eieio-defclass-internal '"25.1")
+
+;;;***
+
 
 (provide 'eieio-core)
 

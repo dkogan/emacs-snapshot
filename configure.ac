@@ -392,14 +392,31 @@ OPTION_DEFAULT_ON([compress-install],
 make GZIP_PROG= install])
 
 AC_ARG_WITH(gameuser,dnl
-[AS_HELP_STRING([--with-gameuser=USER],[user for shared game score files])])
-test "X${with_gameuser}" != X && test "${with_gameuser}" != yes \
-  && gameuser="${with_gameuser}"
-test "X$gameuser" = X && gameuser=games
+[AS_HELP_STRING([--with-gameuser=USER_OR_GROUP],
+		[user for shared game score files.
+		An argument prefixed by ':' specifies a group instead.])])
+gameuser=
+gamegroup=
+case ${with_gameuser} in
+  no) ;;
+  "" | yes)
+    AC_MSG_CHECKING([whether a 'games' user exists])
+    if id -u games >/dev/null 2>&1; then
+      AC_MSG_RESULT([yes])
+      gameuser=games
+    else
+      AC_MSG_RESULT([no])
+    fi
+    ;;
+  :*) gamegroup=`echo "${with_gameuser}" | sed -e "s/://"` ;;
+  *) gameuser=${with_gameuser} ;;
+esac
 
 AC_ARG_WITH([gnustep-conf],dnl
 [AS_HELP_STRING([--with-gnustep-conf=FILENAME],
-   [name of GNUstep.conf; default $GNUSTEP_CONFIG_FILE, or /etc/GNUstep/GNUstep.conf])])
+   [name of GNUstep configuration file to use on systems where the command
+    'gnustep-config' does not work; default $GNUSTEP_CONFIG_FILE, or
+    /etc/GNUstep/GNUstep.conf])])
 test "X${with_gnustep_conf}" != X && test "${with_gnustep_conf}" != yes && \
   GNUSTEP_CONFIG_FILE="${with_gnustep_conf}"
 test "X$GNUSTEP_CONFIG_FILE" = "X" && \
@@ -1737,6 +1754,7 @@ else
 fi
 
 HAVE_NS=no
+NS_GNUSTEP_CONFIG=no
 NS_IMPL_COCOA=no
 NS_IMPL_GNUSTEP=no
 tmp_CPPFLAGS="$CPPFLAGS"
@@ -1753,13 +1771,13 @@ if test "${with_ns}" != no; then
      ns_appresdir=${ns_appdir}/Contents/Resources
      ns_appsrc=Cocoa/Emacs.base
      ns_fontfile=macfont.o
+  elif flags=$( (gnustep-config --objc-flags) 2>/dev/null); then
+     NS_IMPL_GNUSTEP=yes
+     NS_GNUSTEP_CONFIG=yes
+     GNU_OBJC_CFLAGS=$flags
+     LIBS_GNUSTEP=$(gnustep-config --gui-libs) || exit
   elif test -f $GNUSTEP_CONFIG_FILE; then
      NS_IMPL_GNUSTEP=yes
-     ns_appdir=`pwd`/nextstep/Emacs.app
-     ns_appbindir=${ns_appdir}
-     ns_appresdir=${ns_appdir}/Resources
-     ns_appsrc=GNUstep/Emacs.base
-     ns_fontfile=nsfont.o
      dnl FIXME sourcing this several times in subshells seems inefficient.
      GNUSTEP_SYSTEM_HEADERS="$(. $GNUSTEP_CONFIG_FILE; echo $GNUSTEP_SYSTEM_HEADERS)"
      GNUSTEP_SYSTEM_LIBRARIES="$(. $GNUSTEP_CONFIG_FILE; echo $GNUSTEP_SYSTEM_LIBRARIES)"
@@ -1792,8 +1810,16 @@ fail;
        GNU_OBJC_CFLAGS="-fobjc-exceptions"
      fi
   fi
+  if test $NS_IMPL_GNUSTEP = yes; then
+     ns_appdir=`pwd`/nextstep/Emacs.app
+     ns_appbindir=${ns_appdir}
+     ns_appresdir=${ns_appdir}/Resources
+     ns_appsrc=GNUstep/Emacs.base
+     ns_fontfile=nsfont.o
+  fi
 
   dnl This is only used while we test the NS headers, it gets reset below.
+  CPPFLAGS="$CPPFLAGS $GNU_OBJC_CFLAGS"
   CFLAGS="$CFLAGS $GNU_OBJC_CFLAGS"
 
   AC_CHECK_HEADER([AppKit/AppKit.h], [HAVE_NS=yes],
@@ -3360,11 +3386,13 @@ if test "${HAVE_NS}" = "yes"; then
   fi
   if test "${NS_IMPL_GNUSTEP}" = "yes"; then
     AC_DEFINE(NS_IMPL_GNUSTEP, 1, [Define to 1 if you are using NS windowing under GNUstep.])
-    # See also .m.o rule in Makefile.in */
-    # FIXME: are all these flags really needed?  Document here why.  */
-    GNUSTEP_CFLAGS="-D_REENTRANT -fPIC -fno-strict-aliasing -I${GNUSTEP_SYSTEM_HEADERS} ${GNUSTEP_LOCAL_HEADERS}"
-    ## Extra CFLAGS applied to src/*.m files.
-    GNU_OBJC_CFLAGS="$GNU_OBJC_CFLAGS -fgnu-runtime -Wno-import -fconstant-string-class=NSConstantString -DGNUSTEP_BASE_LIBRARY=1 -DGNU_GUI_LIBRARY=1 -DGNU_RUNTIME=1 -DGSWARN -DGSDIAGNOSE"
+    if test $NS_GNUSTEP_CONFIG != yes; then
+      # See also .m.o rule in src/Makefile.in.  */
+      # FIXME: are all these flags really needed?  Document here why.  */
+      GNUSTEP_CFLAGS="-D_REENTRANT -fPIC -fno-strict-aliasing -I${GNUSTEP_SYSTEM_HEADERS} ${GNUSTEP_LOCAL_HEADERS}"
+      ## Extra CFLAGS applied to src/*.m files.
+      GNU_OBJC_CFLAGS="$GNU_OBJC_CFLAGS -fgnu-runtime -Wno-import -fconstant-string-class=NSConstantString -DGNUSTEP_BASE_LIBRARY=1 -DGNU_GUI_LIBRARY=1 -DGNU_RUNTIME=1 -DGSWARN -DGSDIAGNOSE"
+    fi
   fi
   OTHER_FILES=ns-app
 fi
@@ -4684,6 +4712,7 @@ AC_SUBST(etcdocdir)
 AC_SUBST(bitmapdir)
 AC_SUBST(gamedir)
 AC_SUBST(gameuser)
+AC_SUBST(gamegroup)
 ## FIXME? Nothing uses @LD_SWITCH_X_SITE@.
 ## src/Makefile.in did add LD_SWITCH_X_SITE (as a cpp define) to the
 ## end of LIBX_BASE, but nothing ever set it.

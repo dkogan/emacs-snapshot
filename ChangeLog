@@ -1,3 +1,20 @@
+2015-01-25  Paul Eggert  <eggert@cs.ucla.edu>
+
+	Use gnustep-config if available
+	* configure.ac (--with-gnustep): Document this.
+	(NS_GNUSTEP_CONFIG): New variable, set if gnustep-config works.
+	If gnustep-config works, use 'gnustep-config --objc-flags' and
+	'gnustep-config --gui-libs' to compute GNUstep configuration
+	variables, instead of attempting to infer them individually.
+	Fixes: bug#19507
+
+2015-01-21  Ulrich Müller  <ulm@gentoo.org>
+
+	* configure.ac (gamegroup): New AC_SUBST.
+	(--with-gameuser): Allow to specify a group instead of a user.
+	In the default case, check at configure time if a 'games' user
+	exists.
+
 2015-01-16  Paul Eggert  <eggert@cs.ucla.edu>
 
 	Give up on -Wsuggest-attribute=const

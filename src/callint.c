@@ -509,12 +509,7 @@ invoke it.  If KEYS is omitted or nil, the return value of
   visargs = args + nargs;
   varies = (signed char *) (visargs + nargs);
 
-  for (i = 0; i < nargs; i++)
-    {
-      args[i] = Qnil;
-      visargs[i] = Qnil;
-      varies[i] = 0;
-    }
+  memclear (args, nargs * (2 * word_size + 1));
 
   GCPRO5 (prefix_arg, function, *args, *visargs, up_event);
   gcpro3.nvars = nargs;
@@ -781,7 +776,7 @@ invoke it.  If KEYS is omitted or nil, the return value of
 				   argument if no prefix.  */
 	  if (NILP (prefix_arg))
 	    {
-	      args[i] = Qnil;
+	      /* args[i] = Qnil; */
 	      varies[i] = -1;
 	    }
 	  else

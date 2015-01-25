@@ -1,7 +1,66 @@
+2015-01-25  Paul Eggert  <eggert@cs.ucla.edu>
+
+	* indent/shell.sh (bar): Use '[ $# -eq 0 ]', not '[ $# == 0 ]'.
+	This is more portable in shell scripts.
+	Fixes: bug#19658
+
+2015-01-23  Dmitry Gutov  <dgutov@yandex.ru>
+
+	Fix package tests when TMPDIR is in HOME.  (Bug#19657)
+	* automated/package-test.el (with-package-test):
+	Bind `abbreviated-home-dir' to nil.
+	(package-test-describe-package, package-test-signed):
+	Expect abbreviated directory names.
+
+2015-01-22  Jorgen Schaefer  <contact@jorgenschaefer.de>
+
+	* automated/package-test.el (package-test-install-prioritized):
+	Re-add the test case and add priority to the correct repository
+	this time around.
+
+2015-01-21  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* automated/cl-generic-tests.el (setf cl--generic-2): Make sure
+	the setf can be used already in the body of the method.
+
+2015-01-20  Michal Nazarewicz  <mina86@mina86.com>
+
+	* automated/descr-text-test.el: New file with tests for
+	`describe-char-eldoc--truncate', `describe-char-eldoc--format',
+	and `describe-char-eldoc'.
+
+2015-01-20  Michal Nazarewicz  <mina86@mina86.com>
+
+	* automated/tildify-tests.el (tildify-space-undo-test--test):
+	A new helper function for testing `tildify-double-space-undos'
+	behaviour in the `tildify-space' function.
+	(tildify-space-undo-test-html, tildify-space-undo-test-html-nbsp)
+	(tildify-space-undo-test-xml, tildify-space-undo-test-tex):
+	New tests for `tildify-doule-space-undos' behaviour.
+
+	* automated/tildify-tests.el (tildify-space-test--test):
+	A new helper function for testing `tildify-space' function.
+	(tildify-space-test-html, tildify-space-test-html-nbsp)
+	(tildify-space-test-xml, tildify-space-test-tex): New tests for
+	`tildify-space' function.
+
+2015-01-18  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* automated/Makefile.in (EMACS_EXTRAOPT): New var.
+	(EMACSOPT): Use it.
+
+	* automated/cl-generic-tests.el (cl-generic-test-10-weird): New test.
+	Rename other tests to preserve ordering.
+
 2015-01-18  Leo Liu  <sdl.web@gmail.com>
 
 	* automated/seq-tests.el (test-seq-subseq): Add more tests.
 	(Bug#19434)
+
+2015-01-18  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* automated/eieio-test-methodinvoke.el (eieio-test-cl-generic-1):
+	Test `subclass' specializer.
 
 2015-01-17  Stefan Monnier  <monnier@iro.umontreal.ca>
 
