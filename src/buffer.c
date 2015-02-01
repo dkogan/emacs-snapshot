@@ -42,6 +42,9 @@ along with GNU Emacs.  If not, see <http://www.gnu.org/licenses/>.  */
 #include "keymap.h"
 #include "frame.h"
 
+#ifdef HAVE_XWIDGETS
+#include "xwidget.h"
+#endif  /* HAVE_XWIDGETS */
 #ifdef WINDOWSNT
 #include "w32heap.h"		/* for mmap_* */
 #endif
@@ -387,7 +390,6 @@ followed by the rest of the buffers.  */)
   if (FRAMEP (frame))
     {
       Lisp_Object framelist, prevlist, tail;
-      Lisp_Object args[3];
 
       framelist = Fcopy_sequence (XFRAME (frame)->buffer_list);
       prevlist = Fnreverse (Fcopy_sequence
@@ -408,10 +410,7 @@ followed by the rest of the buffers.  */)
 	  tail = XCDR (tail);
 	}
 
-      args[0] = framelist;
-      args[1] = general;
-      args[2] = prevlist;
-      return Fnconc (3, args);
+      return CALLN (Fnconc, framelist, general, prevlist);
     }
   else
     return general;
@@ -1654,15 +1653,14 @@ cleaning up all windows currently displaying the buffer to be killed. */)
   /* Run hooks with the buffer to be killed the current buffer.  */
   {
     ptrdiff_t count = SPECPDL_INDEX ();
-    Lisp_Object arglist[1];
 
     record_unwind_protect (save_excursion_restore, save_excursion_save ());
     set_buffer_internal (b);
 
     /* First run the query functions; if any query is answered no,
        don't kill the buffer.  */
-    arglist[0] = Qkill_buffer_query_functions;
-    tem = Frun_hook_with_args_until_failure (1, arglist);
+    tem = CALLN (Frun_hook_with_args_until_failure,
+		 Qkill_buffer_query_functions);
     if (NILP (tem))
       return unbind_to (count, Qnil);
 
@@ -1760,6 +1758,11 @@ cleaning up all windows currently displaying the buffer to be killed. */)
   kill_buffer_processes (buffer);
   UNGCPRO;
 
+#ifdef HAVE_XWIDGETS
+  GCPRO1 (buffer);
+  kill_buffer_xwidgets (buffer);
+  UNGCPRO;
+#endif  /* HAVE_XWIDGETS */
   /* Killing buffer processes may run sentinels which may have killed
      our buffer.  */
   if (!BUFFER_LIVE_P (b))

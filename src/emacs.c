@@ -65,6 +65,9 @@ along with GNU Emacs.  If not, see <http://www.gnu.org/licenses/>.  */
 #include "buffer.h"
 #include "window.h"
 
+#ifdef HAVE_XWIDGETS
+#include "xwidget.h"
+#endif
 #include "systty.h"
 #include "atimer.h"
 #include "blockinput.h"
@@ -231,7 +234,7 @@ Initialization options:\n\
     "\
 --no-desktop                do not load a saved desktop\n\
 --no-init-file, -q          load neither ~/.emacs nor default.el\n\
---no-shared-memory, -nl     do not use shared memory\n\
+--no-loadup, -nl            do not load loadup.el into bare Emacs\n\
 --no-site-file              do not load site-start.el\n\
 --no-site-lisp, -nsl        do not add site-lisp directories to load-path\n\
 --no-splash                 do not display a splash screen on startup\n\
@@ -1434,6 +1437,9 @@ Using an Emacs configured with --with-x-toolkit=lucid does not have this problem
       syms_of_xfns ();
       syms_of_xmenu ();
       syms_of_fontset ();
+#ifdef HAVE_XWIDGETS
+      syms_of_xwidget();
+#endif
       syms_of_xsettings ();
 #ifdef HAVE_X_SM
       syms_of_xsmfns ();
@@ -2392,9 +2398,7 @@ hpux, irix, usg-unix-v) indicates some sort of Unix system.  */);
   /* See configure.ac (and config.nt) for the possible SYSTEM_TYPEs.  */
 
   DEFVAR_LISP ("system-configuration", Vsystem_configuration,
-	       doc: /* Value is string indicating configuration Emacs was built for.
-On MS-Windows, the value reflects the OS flavor and version on which
-Emacs is running.  */);
+	       doc: /* Value is string indicating configuration Emacs was built for.  */);
   Vsystem_configuration = build_string (EMACS_CONFIGURATION);
 
   DEFVAR_LISP ("system-configuration-options", Vsystem_configuration_options,

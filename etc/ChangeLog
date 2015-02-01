@@ -1,3 +1,27 @@
+2015-01-29  Francesc Rocher  <francesc.rocher@gmail.com>
+
+	* images/splash.svg, images/splash.png:
+	* images/splash.pbm, images/splash.xpm, images/README:
+	Splash images refurbished.
+
+2015-01-28  Eli Zaretskii  <eliz@gnu.org>
+
+	* tutorials/TUTORIAL.he: Use u+05f4 HEBREW PUNCTUATION GERSHAYIM
+	instead of u+0022 QUOTATION MARK in Hebrew acronyms.
+
+2015-01-27  Ivan Shmakov  <ivan@siamics.net>
+
+	* NEWS: Mention the new tar-new-entry command.  (Bug#19274)
+
+2015-01-27  Thomas Fitzsimmons  <fitzsim@fitzsim.org>
+
+	* NEWS: Document EUDC improvements.
+
+2015-01-26  Lars Ingebrigtsen  <larsi@gnus.org>
+
+	* publicsuffix.txt: Install an updated version of the file from
+	https://publicsuffix.org/list/effective_tld_names.dat.
+
 2015-01-25  Paul Eggert  <eggert@cs.ucla.edu>
 
 	Use gnustep-config if available

@@ -4075,7 +4075,9 @@ If DONT-SCAN is non-nil, scan non-activated groups as well."
       (gnus-group-remove-mark group)
       ;; Bypass any previous denials from the server.
       (gnus-remove-denial (setq method (gnus-find-method-for-group group)))
-      (if (gnus-activate-group group (if dont-scan nil 'scan) nil method)
+      (if (or (and (not dont-scan)
+		   (gnus-request-group-scan group (gnus-get-info group)))
+	      (gnus-activate-group group (if dont-scan nil 'scan) nil method))
 	  (let ((info (gnus-get-info group))
 		(active (gnus-active group)))
 	    (when info
@@ -4312,6 +4314,11 @@ The hook `gnus-suspend-gnus-hook' is called before actually suspending."
 	(gnus-kill-buffer buf)))
     (setq gnus-backlog-articles nil)
     (gnus-kill-gnus-frames)
+    ;; Closing all the backends is useful (for instance) when when the
+    ;; IP addresses have changed and you need to reconnect.
+    (dolist (elem gnus-opened-servers)
+      (gnus-close-server (car elem))
+      (setcar (cdr elem) 'closed))
     (when group-buf
       (bury-buffer group-buf)
       (delete-windows-on group-buf t))))

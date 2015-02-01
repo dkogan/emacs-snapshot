@@ -44,6 +44,9 @@ along with GNU Emacs.  If not, see <http://www.gnu.org/licenses/>.  */
 #ifdef MSDOS
 #include "msdos.h"
 #endif
+#ifdef HAVE_XWIDGETS
+#include "xwidget.h"
+#endif
 
 static int displayed_window_lines (struct window *);
 static int count_windows (struct window *);
@@ -2426,16 +2429,14 @@ window_list (void)
       Vwindow_list = Qnil;
       FOR_EACH_FRAME (tail, frame)
 	{
-	  Lisp_Object args[2];
+	  Lisp_Object arglist = Qnil;
 
 	  /* We are visiting windows in canonical order, and add
 	     new windows at the front of args[1], which means we
 	     have to reverse this list at the end.  */
-	  args[1] = Qnil;
-	  foreach_window (XFRAME (frame), add_window_to_list, &args[1]);
-	  args[0] = Vwindow_list;
-	  args[1] = Fnreverse (args[1]);
-	  Vwindow_list = Fnconc (2, args);
+	  foreach_window (XFRAME (frame), add_window_to_list, &arglist);
+	  arglist = Fnreverse (arglist);
+	  Vwindow_list = CALLN (Fnconc, Vwindow_list, arglist);
 	}
     }
 
@@ -4561,6 +4562,9 @@ Signal an error when WINDOW is the only window on its frame.  */)
 
       /* Block input.  */
       block_input ();
+#ifdef HAVE_XWIDGETS
+      xwidget_view_delete_all_in_window(w);
+#endif
       window_resize_apply (p, horflag);
       /* If this window is referred to by the dpyinfo's mouse
 	 highlight, invalidate that slot to be safe (Bug#9904).  */

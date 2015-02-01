@@ -348,6 +348,10 @@ enum glyph_type
 
   /* Glyph is a space of fractional width and/or height.  */
   STRETCH_GLYPH
+#ifdef HAVE_XWIDGETS
+  /* Glyph is an external widget drawn by the GUI toolkit.   */
+  ,XWIDGET_GLYPH
+#endif
 };
 
 
@@ -499,6 +503,9 @@ struct glyph
     /* Image ID for image glyphs (type == IMAGE_GLYPH).  */
     int img_id;
 
+#ifdef HAVE_XWIDGETS
+    struct xwidget* xwidget;
+#endif
     /* Sub-structure for type == STRETCH_GLYPH.  */
     struct
     {
@@ -1353,6 +1360,9 @@ struct glyph_string
   /* Image, if any.  */
   struct image *img;
 
+#ifdef HAVE_XWIDGETS
+  struct xwidget* xwidget;
+#endif
   /* Slice */
   struct glyph_slice slice;
 
@@ -1850,10 +1860,10 @@ GLYPH_CODE_P (Lisp_Object gc)
 	       : TYPE_MAXIMUM (EMACS_INT)))));
 }
 
-/* Non-zero means face attributes have been changed since the last
+/* True means face attributes have been changed since the last
    redisplay.  Used in redisplay_internal.  */
 
-extern int face_change_count;
+extern bool face_change;
 
 /* For reordering of bidirectional text.  */
 
@@ -2097,6 +2107,10 @@ enum display_element_type
 
   /* Continuation glyphs.  See the comment for IT_TRUNCATION.  */
   IT_CONTINUATION
+
+#ifdef HAVE_XWIDGETS
+  ,IT_XWIDGET
+#endif
 };
 
 
@@ -2160,6 +2174,9 @@ enum it_method {
   GET_FROM_C_STRING,
   GET_FROM_IMAGE,
   GET_FROM_STRETCH,
+#ifdef HAVE_XWIDGETS
+  GET_FROM_XWIDGET,
+#endif
   NUM_IT_METHODS
 };
 
@@ -2381,6 +2398,12 @@ struct it
       struct {
 	Lisp_Object object;
       } stretch;
+#ifdef HAVE_XWIDGETS
+      /* method == GET_FROM_XWIDGET */
+      struct {
+	Lisp_Object object;
+      } xwidget;
+#endif
     } u;
 
     /* Current text and display positions.  */
@@ -2505,6 +2528,10 @@ struct it
   /* If what == IT_IMAGE, the id of the image to display.  */
   ptrdiff_t image_id;
 
+#ifdef HAVE_XWIDGETS
+  /* If what == IT_XWIDGET*/
+  struct xwidget* xwidget;
+#endif
   /* Values from `slice' property.  */
   struct it_slice slice;
 
@@ -3380,23 +3407,20 @@ char *choose_face_font (struct frame *, Lisp_Object *, Lisp_Object,
 #ifdef HAVE_WINDOW_SYSTEM
 void prepare_face_for_display (struct frame *, struct face *);
 #endif
-int lookup_named_face (struct frame *, Lisp_Object, int);
+int lookup_named_face (struct frame *, Lisp_Object, bool);
 int lookup_basic_face (struct frame *, int);
 int smaller_face (struct frame *, int, int);
 int face_with_height (struct frame *, int, int);
-int lookup_derived_face (struct frame *, Lisp_Object, int, int);
+int lookup_derived_face (struct frame *, Lisp_Object, int, bool);
 void init_frame_faces (struct frame *);
 void free_frame_faces (struct frame *);
 void recompute_basic_faces (struct frame *);
-int face_at_buffer_position (struct window *w, ptrdiff_t pos,
-                             ptrdiff_t *endptr, ptrdiff_t limit,
-                             int mouse, int base_face_id);
-int face_for_overlay_string (struct window *w, ptrdiff_t pos,
-                             ptrdiff_t *endptr, ptrdiff_t limit,
-                             int mouse, Lisp_Object overlay);
-int face_at_string_position (struct window *w, Lisp_Object string,
-                             ptrdiff_t pos, ptrdiff_t bufpos,
-                             ptrdiff_t *endptr, enum face_id, int mouse);
+int face_at_buffer_position (struct window *, ptrdiff_t, ptrdiff_t *, ptrdiff_t,
+                             bool, int);
+int face_for_overlay_string (struct window *, ptrdiff_t, ptrdiff_t *, ptrdiff_t,
+                             bool, Lisp_Object);
+int face_at_string_position (struct window *, Lisp_Object, ptrdiff_t, ptrdiff_t,
+                             ptrdiff_t *, enum face_id, bool);
 int merge_faces (struct frame *, Lisp_Object, int, int);
 int compute_char_face (struct frame *, int, Lisp_Object);
 void free_all_realized_faces (Lisp_Object);

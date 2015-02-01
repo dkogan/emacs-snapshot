@@ -37,6 +37,10 @@ along with GNU Emacs.  If not, see <http://www.gnu.org/licenses/>.  */
 #include "termhooks.h"		/* For struct terminal.  */
 #include "font.h"
 
+#ifdef HAVE_XWIDGETS
+#include "xwidget.h"
+#endif
+
 #include <float.h>
 #include <ftoastr.h>
 
@@ -1171,12 +1175,7 @@ print_preprocess (Lisp_Object obj)
   if (PRINT_CIRCLE_CANDIDATE_P (obj))
     {
       if (!HASH_TABLE_P (Vprint_number_table))
-	{
-	  Lisp_Object args[2];
-	  args[0] = QCtest;
-	  args[1] = Qeq;
-	  Vprint_number_table = Fmake_hash_table (2, args);
-	}
+	Vprint_number_table = CALLN (Fmake_hash_table, QCtest, Qeq);
 
       /* In case print-circle is nil and print-gensym is t,
 	 add OBJ to Vprint_number_table only when OBJ is a symbol.  */
@@ -1777,6 +1776,18 @@ print_object (Lisp_Object obj, Lisp_Object printcharfun, bool escapeflag)
 	  strout (XSUBR (obj)->symbol_name, -1, -1, printcharfun);
 	  PRINTCHAR ('>');
 	}
+#ifdef HAVE_XWIDGETS
+      else if (XWIDGETP (obj))
+	{
+	  strout ("#<xwidget ", -1, -1, printcharfun);
+	  PRINTCHAR ('>');
+	}
+      else if (XWIDGET_VIEW_P (obj))
+	{
+	  strout ("#<xwidget-view ", -1, -1, printcharfun);
+	  PRINTCHAR ('>');
+	}
+#endif
       else if (WINDOWP (obj))
 	{
 	  int len;
