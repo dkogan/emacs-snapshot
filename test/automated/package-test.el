@@ -73,6 +73,24 @@
                        :kind 'single)
   "Expected `package-desc' parsed from new-pkg-1.0.el.")
 
+(defvar simple-depend-desc-1
+  (package-desc-create :name 'simple-depend-1
+                       :version '(1 0)
+                       :summary "A single-file package with a dependency."
+                       :kind 'single
+                       :reqs '((simple-depend (1 0))
+                               (multi-file (0 1))))
+  "`package-desc' used for testing dependencies.")
+
+(defvar simple-depend-desc-2
+  (package-desc-create :name 'simple-depend-2
+                       :version '(1 0)
+                       :summary "A single-file package with a dependency."
+                       :kind 'single
+                       :reqs '((simple-depend-1 (1 0))
+                               (multi-file (0 1))))
+  "`package-desc' used for testing dependencies.")
+
 (defvar package-test-data-dir (expand-file-name "data/package" package-test-file-dir)
   "Base directory of package test files.")
 
@@ -478,6 +496,61 @@ Must called from within a `tar-mode' buffer."
                (buffer-substring (point-min) (point-max)))))
       (should (equal archive-contents
                      (list 1 package-x-test--single-archive-entry-1-4))))))
+
+(ert-deftest package-test-get-deps ()
+  "Test `package--get-deps' with complex structures."
+  (let ((package-alist
+         (mapcar (lambda (p) (list (package-desc-name p) p))
+           (list simple-single-desc
+                 simple-depend-desc
+                 multi-file-desc
+                 new-pkg-desc
+                 simple-depend-desc-1
+                 simple-depend-desc-2))))
+    (should
+     (equal (package--get-deps 'simple-depend)
+            '(simple-single)))
+    (should
+     (equal (package--get-deps 'simple-depend 'indirect)
+            nil))
+    (should
+     (equal (package--get-deps 'simple-depend 'direct)
+            '(simple-single)))
+    (should
+     (equal (package--get-deps 'simple-depend-2)
+            '(simple-depend-1 multi-file simple-depend simple-single)))
+    (should
+     (equal (package--get-deps 'simple-depend-2 'indirect)
+            '(simple-depend multi-file simple-single)))
+    (should
+     (equal (package--get-deps 'simple-depend-2 'direct)
+            '(simple-depend-1 multi-file)))))
+
+(ert-deftest package-test-sort-by-dependence ()
+  "Test `package--sort-by-dependence' with complex structures."
+  (let ((package-alist
+         (mapcar (lambda (p) (list (package-desc-name p) p))
+           (list simple-single-desc
+                 simple-depend-desc
+                 multi-file-desc
+                 new-pkg-desc
+                 simple-depend-desc-1
+                 simple-depend-desc-2)))
+        (delete-list
+         (list simple-single-desc
+               simple-depend-desc
+               multi-file-desc
+               new-pkg-desc
+               simple-depend-desc-1
+               simple-depend-desc-2)))
+    (should
+     (equal (package--sort-by-dependence delete-list)
+            (list simple-depend-desc-2 simple-depend-desc-1 new-pkg-desc
+                  multi-file-desc simple-depend-desc simple-single-desc)))
+    (should
+     (equal (package--sort-by-dependence (reverse delete-list))
+            (list new-pkg-desc simple-depend-desc-2 simple-depend-desc-1
+                  multi-file-desc simple-depend-desc simple-single-desc)))))
 
 (provide 'package-test)
 

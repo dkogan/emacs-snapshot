@@ -44,9 +44,6 @@ along with GNU Emacs.  If not, see <http://www.gnu.org/licenses/>.  */
 #ifdef MSDOS
 #include "msdos.h"
 #endif
-#ifdef HAVE_XWIDGETS
-#include "xwidget.h"
-#endif
 
 static int displayed_window_lines (struct window *);
 static int count_windows (struct window *);
@@ -3332,7 +3329,7 @@ run_window_configuration_change_hook (struct frame *f)
 
   if (NILP (Vrun_hooks)
       || !(f->can_x_set_window_size)
-      || !(f->can_run_window_configuration_change_hook))
+      || !(f->after_make_frame))
     return;
 
   /* Use the right buffer.  Matters when running the local hooks.  */
@@ -4562,9 +4559,6 @@ Signal an error when WINDOW is the only window on its frame.  */)
 
       /* Block input.  */
       block_input ();
-#ifdef HAVE_XWIDGETS
-      xwidget_view_delete_all_in_window(w);
-#endif
       window_resize_apply (p, horflag);
       /* If this window is referred to by the dpyinfo's mouse
 	 highlight, invalidate that slot to be safe (Bug#9904).  */
