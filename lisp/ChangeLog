@@ -1,10 +1,74 @@
+2015-02-09  Simen Heggestøyl  <simenheg@gmail.com>  (tiny change)
+
+	* textmodes/css-mode.el (css-smie-rules): Fix paren indent (bug#19815).
+
+2015-02-09  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* emacs-lisp/cl-generic.el (cl--generic-lambda): Use macroexp-parse-body.
+
+	* emacs-lisp/eieio-core.el (eieio-oset-default): Catch the unexpected
+	case where the default value would be re-interpreted as a form!
+
+2015-02-09  Christopher Genovese  <genovese@cmu.edu>  (tiny change)
+
+	* help-fns.el (help-fns--signature): Keep doc for keymap.
+
+2015-02-09  Kelly Dean  <kelly@prtime.org>
+
+	* desktop.el: Save mark-ring less verbosely.
+	(desktop-var-serdes-funs): New var.
+	(desktop-buffer-info, desktop-create-buffer): Use it.
+	(desktop-file-version): Update to 208.
+
+2015-02-09  Leo Liu  <sdl.web@gmail.com>
+
+	* emacs-lisp/pcase.el (pcase-lambda): New Macro.  (Bug#19814)
+
+	* emacs-lisp/lisp-mode.el (el-kws-re): Include `pcase-lambda'.
+
+	* emacs-lisp/macroexp.el (macroexp-parse-body): New function.
+
+2015-02-08  Paul Eggert  <eggert@cs.ucla.edu>
+
+	Port to platforms lacking test -a and -o
+	* Makefile.in (compile-clean):
+	* net/tramp-sh.el (tramp-find-executable):
+	Prefer '&&' and '||' to 'test -a' and 'test -o'.
+
+2015-02-08  Artur Malabarba  <bruce.connor.am@gmail.com>
+
+	* newcomment.el (comment-line): Fix missing paren.
+
+2015-02-08  Ulrich Müller  <ulm@gentoo.org>
+
+	* play/gamegrid.el: Update comment to reflect that the
+	'update-game-score' helper program is now setgid by default.
+
+2015-02-08  David Kastrup  <dak@gnu.org>
+
+	* subr.el (apply-partially): Use lexical binding here.
+
+2015-02-08  Artur Malabarba  <bruce.connor.am@gmail.com>
+
+	* newcomment.el (comment-line): New command.
+
+	* bindings.el (ctl-x-map): Bind to `C-x C-;'.
+
+2015-02-08  Oleh Krehel  <ohwoeowho@gmail.com>
+
+	* outline.el (outline-show-entry): Fix one invisible char for the
+	file's last outline.  Fixes Bug#19493.
+
+2015-02-08  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* subr.el (indirect-function): Change advertised calling convention.
+
 2015-02-08  Fabián Ezequiel Gallina  <fgallina@gnu.org>
 
 	python.el: Fix completion-at-point.  (Bug#19667)
 
 	* progmodes/python.el
-	(python-shell-completion-native-get-completions): Force process
-	buffer.
+	(python-shell-completion-native-get-completions): Force process buffer.
 	(python-shell-completion-at-point): Handle case where call is not
 	in a shell buffer.
 
@@ -13,17 +77,16 @@
 	python.el: Fix shell font-lock multiline input.  (Bug#19744)
 
 	* progmodes/python.el
-	(python-shell-font-lock-post-command-hook): Handle multiline
-	input.
+	(python-shell-font-lock-post-command-hook): Handle multiline input.
 
 2015-02-08  Fabián Ezequiel Gallina  <fgallina@gnu.org>
 
 	python.el: Make shell font-lock respect markers.  (Bug#19650)
 
-	* progmodes/python.el (python-shell-font-lock-cleanup-buffer): Use
-	`erase-buffer`.
-	(python-shell-font-lock-comint-output-filter-function): Handle
-	newlines.
+	* progmodes/python.el (python-shell-font-lock-cleanup-buffer):
+	Use `erase-buffer`.
+	(python-shell-font-lock-comint-output-filter-function):
+	Handle newlines.
 	(python-shell-font-lock-post-command-hook): Respect markers on
 	text fontification.
 
@@ -31,8 +94,8 @@
 
 	python.el: Keep eldoc visible while typing args.  (Bug#19637)
 
-	* progmodes/python.el (python-eldoc--get-symbol-at-point): New
-	function based on Carlos Pita <carlosjosepita@gmail.com> patch.
+	* progmodes/python.el (python-eldoc--get-symbol-at-point):
+	New function based on Carlos Pita <carlosjosepita@gmail.com> patch.
 	(python-eldoc--get-doc-at-point, python-eldoc-at-point): Use it.
 
 2015-02-07  Fabián Ezequiel Gallina  <fgallina@gnu.org>
@@ -52,10 +115,10 @@
 
 2015-02-07  Martin Rudalics  <rudalics@gmx.at>
 
-	* frame.el (frame-notice-user-settings): Update
-	`frame-size-history'.
-	(make-frame): Update `frame-size-history'.  Call
-	`frame-after-make-frame'.
+	* frame.el (frame-notice-user-settings):
+	Update `frame-size-history'.
+	(make-frame): Update `frame-size-history'.
+	Call `frame-after-make-frame'.
 	* faces.el (face-set-after-frame-default): Remove call to
 	frame-can-run-window-configuration-change-hook.
 
@@ -91,8 +154,8 @@
 
 2015-02-05  Artur Malabarba  <bruce.connor.am@gmail.com>
 
-	* emacs-lisp/package.el (package--sort-by-dependence): New
-	function.  Return PACKAGE-LIST sorted by dependencies.
+	* emacs-lisp/package.el (package--sort-by-dependence):
+	New function.  Return PACKAGE-LIST sorted by dependencies.
 	(package-menu-execute): Use it to delete packages in order.
 	(package--sort-deps-in-alist): New function.
 	(package-menu-mark-install): Can mark dependencies.

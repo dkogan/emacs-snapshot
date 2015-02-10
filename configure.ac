@@ -397,17 +397,12 @@ AC_ARG_WITH(gameuser,dnl
 		An argument prefixed by ':' specifies a group instead.])])
 gameuser=
 gamegroup=
+# We don't test if we can actually chown/chgrp here, because configure
+# may run without root privileges.  lib-src/Makefile.in will handle
+# any errors due to missing user/group gracefully.
 case ${with_gameuser} in
   no) ;;
-  "" | yes)
-    AC_MSG_CHECKING([whether a 'games' user exists])
-    if id -u games >/dev/null 2>&1; then
-      AC_MSG_RESULT([yes])
-      gameuser=games
-    else
-      AC_MSG_RESULT([no])
-    fi
-    ;;
+  "" | yes) gamegroup=games ;;
   :*) gamegroup=`echo "${with_gameuser}" | sed -e "s/://"` ;;
   *) gameuser=${with_gameuser} ;;
 esac
@@ -3496,7 +3491,7 @@ if test "${with_xml2}" != "no"; then
   ### I'm not sure what the version number should be, so I just guessed.
   EMACS_CHECK_MODULES([LIBXML2], [libxml-2.0 > 2.6.17])
   # Built-in libxml2 on OS X 10.8 lacks libxml-2.0.pc.
-  if test "${HAVE_LIBXML2}" != "yes" -a "$opsys" = "darwin"; then
+  if test "${HAVE_LIBXML2}" != "yes" && test "$opsys" = "darwin"; then
     SAVE_CPPFLAGS="$CPPFLAGS"
     CPPFLAGS="$CPPFLAGS -I$xcsdkdir/usr/include/libxml2"
     AC_CHECK_HEADER(libxml/HTMLparser.h,
@@ -3510,7 +3505,7 @@ if test "${with_xml2}" != "no"; then
   fi
   if test "${HAVE_LIBXML2}" = "yes"; then
     if test "${opsys}" != "mingw32"; then
-      AC_CHECK_LIB(xml2, htmlReadMemory, HAVE_LIBXML2=yes, HAVE_LIBXML2=no
+      AC_CHECK_LIB(xml2, htmlReadMemory, HAVE_LIBXML2=yes, HAVE_LIBXML2=no,
         [$LIBXML2_LIBS])
     else
       LIBXML2_LIBS=""
@@ -4513,10 +4508,10 @@ if test $emacs_cv_func_sigsetjmp = yes; then
 fi
 
 # We need all of these features to handle C stack overflows.
-if test "$ac_cv_header_sys_resource_h" = "yes" -a \
-	"$ac_cv_func_getrlimit" = "yes" -a \
-	"$emacs_cv_func_sigsetjmp" = "yes" -a \
-	"$emacs_cv_alternate_stack" = yes; then
+if test "$ac_cv_header_sys_resource_h" = "yes" &&
+   test "$ac_cv_func_getrlimit" = "yes" &&
+   test "$emacs_cv_func_sigsetjmp" = "yes" &&
+   test "$emacs_cv_alternate_stack" = yes; then
   AC_DEFINE([HAVE_STACK_OVERFLOW_HANDLING], 1,
     [Define to 1 if C stack overflow can be handled in some cases.])
 fi
