@@ -9271,7 +9271,15 @@ do_ewmh_fullscreen (struct frame *f)
 	    }
           break;
         case FULLSCREEN_MAXIMIZED:
-	  if (x_frame_normalize_before_maximize && cur == FULLSCREEN_WIDTH)
+	  if (x_frame_normalize_before_maximize && cur == FULLSCREEN_BOTH)
+	    {
+	      set_wm_state (frame, false,
+			    dpyinfo->Xatom_net_wm_state_fullscreen, None);
+	      set_wm_state (frame, true,
+			    dpyinfo->Xatom_net_wm_state_maximized_horz,
+			    dpyinfo->Xatom_net_wm_state_maximized_vert);
+	    }
+	  else if (x_frame_normalize_before_maximize && cur == FULLSCREEN_WIDTH)
 	    {
 	      set_wm_state (frame, false,
 			    dpyinfo->Xatom_net_wm_state_maximized_horz, None);
@@ -11721,9 +11729,11 @@ default is nil, which is the same as `super'.  */);
   DEFVAR_BOOL ("x-frame-normalize-before-maximize",
 	       x_frame_normalize_before_maximize,
     doc: /* Non-nil means normalize frame before maximizing.
-If this variable is t, Emacs asks the window manager to give the frame
-intermediately its normal size whenever changing from a full-height or
-full-width state to the fully maximized one and vice versa.
+If this variable is t, Emacs first asks the window manager to give the
+frame its normal size, and only then the final state, whenever changing
+from a full-height, full-width or full-both state to the maximized one
+or when changing from the maximized to the full-height or full-width
+state.
 
 Set this variable only if your window manager cannot handle the
 transition between the various maximization states.  */);

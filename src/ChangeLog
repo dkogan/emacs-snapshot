@@ -1,3 +1,64 @@
+2015-02-14  Martin Rudalics  <rudalics@gmx.at>
+
+	* xterm.c (x_frame_normalize_before_maximize): Fix doc-string.
+	Suggested by Alan Mackenzie <acm@muc.de>.
+
+2015-02-14  Eli Zaretskii  <eliz@gnu.org>
+
+	* menu.c (Fx_popup_menu) [HAVE_X_WINDOWS]: Call
+	x_relative_mouse_position only for X frames.  (Bug#19862)
+
+2015-02-13  Paul Eggert  <eggert@cs.ucla.edu>
+
+	Better support for future plugins
+	* lisp.h (DEFINE_LISP_SYMBOL): New macro, replacing and simplifying
+	DEFINE_LISP_SYMBOL_BEGIN / DEFINE_LISP_SYMBOL_END.  All uses changed.
+	(DEFINE_NONNIL_Q_SYMBOL_MACROS): New macro, defaulting to true.
+
+2015-02-11  Martin Rudalics  <rudalics@gmx.at>
+
+	* w32term.c (w32_read_socket): In SIZE_MAXIMIZED and
+	SIZE_RESTORED cases correctly handle `maximized' value for the
+	`fullscreen' parameter.  Don't use 'maximized' frame parameter
+	any more.
+	(w32fullscreen_hook): Include menu bar height when calculating
+	new text height in FULLSCREEN_BOTH case.
+	* xterm.c (do_ewmh_fullscreen): Handle transition from
+	FULLSCREEN_BOTH to FULLSCREEN_MAXIMIZED when
+	x_frame_normalize_before_maximize is set.
+
+2015-02-10  Paul Eggert  <eggert@cs.ucla.edu>
+
+	Use bool for boolean in xdisp.c
+	* dispextern.h (display_prop_intangible_p, resize_mini_window)
+	(pixel_to_glyph_coords, mark_window_display_accurate)
+	(compute_display_string_pos, handle_tool_bar_click)
+	(x_intersect_rectangles, clear_mouse_face, display_tty_menu_item):
+	* lisp.h (setup_echo_area_for_printing, message_with_string)
+	(pos_visible_p): Use bool for boolean.
+	* xdisp.c: Use bool, true, false intstead of int, 1, 0.
+	Remove unnecessary forward decls.
+	(trace_move) [DEBUG_TRACE_MOVE]: Now static.
+	(CHECK_IT, CHECK_WINDOW_END):
+	Now an inline function that is always defined.
+	(check_it) [0]:
+	(check_window_end) [oGLYPH_DEBUG && ENABLE_CHECKING]:
+	Remove; no longer needed.
+	(handle_stop): Prefer (X && !Y) to (X ? !Y : 0).
+	(get_overlay_strings): Omit unnecessary casts.
+	(forward_to_next_line_start):
+	(Ftool_bar_height):
+	Prefer !BOOL to (BOOL ? 0 : 1).
+	(next_element_function): New typedef.
+	(get_next_element): Use it.  Now const.
+	(IT_POS_VALID_AFTER_MOVE_P): Prefer !X || Y==0 to (X ? Y==0 : 1).
+	(vmessage): Now ATTRIBUTE_FORMAT_PRINTF (1, 0), to pacify GCC 4.9.2
+	(display_echo_area): Prefer BOOLEXPR to BOOLEXPR ? 1 : 0.
+	(tool_bar_item_info): Simplify.
+	(invisible_prop): Rename from invisible_p, since it doesn't
+	return bool.  All callers changed.
+	(x_produce_glyphs): Simplify.
+
 2015-02-09  Paul Eggert  <eggert@cs.ucla.edu>
 
 	Check for some overflows in vertical-motion
