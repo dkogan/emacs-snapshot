@@ -10,7 +10,7 @@ my $version = '';
 my $found_init = 0;
 while (<$config_file>)
 {
-  if(/^AC_INIT\(emacs,\s*(\S+)\s*\)$/o)
+  if(/^AC_INIT\((?:GNU Emacs|emacs),\s*(\S+)(?:,.*|\s*)\)$/o)
   {
     $found_init and die 'found duplicate AC_INIT() in configure.ac';
     $version = $1;
