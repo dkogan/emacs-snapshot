@@ -22,7 +22,7 @@ index eba9b94..c12b782 100644
 + 
 +* Debian specific changes to Emacs
 +
-+Please see /usr/share/doc/emacs24-common/README.Debian.gz.
++Please see /usr/share/doc/emacs-snapshot-common/README.Debian.gz.
 +
  
  * Installation Changes in Emacs 24.4

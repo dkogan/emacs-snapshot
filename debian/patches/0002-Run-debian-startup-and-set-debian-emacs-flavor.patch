@@ -8,7 +8,7 @@ Emacs runs debian-startup and sets debian-emacs-flavor.
 * Emacs runs debian-startup during the startup process unless
   site-run-file is false.
 
-* The global variable debian-emacs-flavor is bound to 'emacs24.
+* The global variable debian-emacs-flavor is bound to 'emacs-snapshot.
   Author: Rob Browning <rlb@defaultvalue.org>
 ---
  lisp/startup.el | 21 +++++++++++++++++++--
@@ -22,7 +22,7 @@ index 58e9708..c4f9f79 100644
                  (match-string 1 subdir) subdir))
            "-pkg.el"))
  
-+(defconst debian-emacs-flavor 'emacs24
++(defconst debian-emacs-flavor 'emacs-snapshot
 +  "A symbol representing the particular debian flavor of emacs running.
 +Something like 'emacs20, 'xemacs20, etc.")
 +
