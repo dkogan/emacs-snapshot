@@ -1,0 +1,55 @@
+From 5be85719ea7f157bba912a3f611db2a42343f2b7 Mon Sep 17 00:00:00 2001
+From: Rob Browning <rlb@defaultvalue.org>
+Date: Mon, 4 Apr 2011 22:46:22 -0500
+Subject: Run debian-startup and set debian-emacs-flavor.
+
+Emacs runs debian-startup and sets debian-emacs-flavor.
+
+* Emacs runs debian-startup during the startup process unless
+  site-run-file is false.
+
+* The global variable debian-emacs-flavor is bound to 'emacs24.
+  Author: Rob Browning <rlb@defaultvalue.org>
+---
+ lisp/startup.el | 21 +++++++++++++++++++--
+ 1 file changed, 19 insertions(+), 2 deletions(-)
+
+diff --git a/lisp/startup.el b/lisp/startup.el
+index 58e9708..c4f9f79 100644
+--- a/lisp/startup.el
++++ b/lisp/startup.el
+@@ -435,6 +435,10 @@ as a list.")
+                 (match-string 1 subdir) subdir))
+           "-pkg.el"))
+ 
++(defconst debian-emacs-flavor 'emacs24
++  "A symbol representing the particular debian flavor of emacs running.
++Something like 'emacs20, 'xemacs20, etc.")
++
+ (defun normal-top-level-add-subdirs-to-load-path ()
+   "Add all subdirectories of `default-directory' to `load-path'.
+ More precisely, this uses only the subdirectories whose names
+@@ -1065,8 +1069,21 @@ please check its value")
+     ;; be loaded from site-run-file and wants to test if -q was given
+     ;; should check init-file-user instead, since that is already set.
+     ;; See cus-edit.el for an example.
+-    (if site-run-file
+-	(load site-run-file t t))
++
++    ;; Original upstream startup
++    ;; (if site-run-file
++    ;;     (load site-run-file t t))
++    ;;
++
++    ;; Debian startup
++     (if site-run-file
++        (progn
++          ;; Load all the debian package snippets.
++          ;; It's in here because we want -q to kill it too.
++          (if (load "debian-startup" t t nil)
++              (debian-startup debian-emacs-flavor))
++          ;; Now the normal site file...
++          (load site-run-file t t)))
+ 
+     ;; Sites should not disable this.  Only individuals should disable
+     ;; the startup screen.

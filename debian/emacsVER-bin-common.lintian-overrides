@@ -1,0 +1,8 @@
+@PKG_NAME@ binary: setgid-binary @MOVEMAIL_BIN@ 2755 root/mail
+@PKG_NAME@ binary: binary-without-manpage usr/bin/b2m.@DEB_FLAVOR@
+@PKG_NAME@ binary: binary-without-manpage usr/bin/ctags.@DEB_FLAVOR@
+@PKG_NAME@ binary: binary-without-manpage usr/bin/ebrowse.@DEB_FLAVOR@
+@PKG_NAME@ binary: binary-without-manpage usr/bin/emacsclient.@DEB_FLAVOR@
+@PKG_NAME@ binary: binary-without-manpage usr/bin/etags.@DEB_FLAVOR@
+@PKG_NAME@ binary: binary-without-manpage usr/bin/grep-changelog.@DEB_FLAVOR@
+@PKG_NAME@ binary: binary-without-manpage usr/bin/rcs-checkin.@DEB_FLAVOR@

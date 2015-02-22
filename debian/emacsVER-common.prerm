@@ -1,0 +1,15 @@
+#!/bin/sh
+
+set -e
+
+MAJOR=@MAJOR_VERSION@
+MINOR=@MINOR_VERSION@
+FULL=@FULL_VERSION@
+
+set +e
+# Only remove these directories if they're empty.
+rmdir /usr/local/share/emacs/${FULL}/site-lisp 2>/dev/null
+rmdir /usr/local/share/emacs/${FULL} 2>/dev/null
+set -e
+
+#DEBHELPER#

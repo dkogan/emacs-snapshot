@@ -1,0 +1,20 @@
+From edfdb22f674312389ccf5d5e37efa4d3f1516994 Mon Sep 17 00:00:00 2001
+From: Glenn Morris <rgm@gnu.org>
+Date: Sun, 9 Nov 2014 23:12:37 -0800
+Subject: [PATCH] * lisp/startup.el (command-line): Handle nil elements in
+ load-path.
+
+---
+ lisp/startup.el | 1 +
+ 1 file changed, 1 insertions(+)
+
+--- a/lisp/startup.el
++++ b/lisp/startup.el
+@@ -1336,6 +1336,7 @@
+   (let (warned)
+     (dolist (dir load-path)
+       (and (not warned)
++	   (stringp dir)
+ 	   (string-match-p "/[._]emacs\\.d/?\\'" dir)
+ 	   (string-equal (file-name-as-directory (expand-file-name dir))
+ 			 (expand-file-name user-emacs-directory))

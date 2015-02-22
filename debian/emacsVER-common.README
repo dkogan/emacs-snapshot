@@ -1,0 +1,34 @@
+This file details the Debian specific changes to Emacs.
+
+The following tags may be used in the sections below: Patch, Status,
+Author, Added-by, Provided-by, and Date.  When known, Author is used
+to indicate the person believed to have written the relevant code.
+Provided-by may be used to indicate the person who submitted the code
+to Debian, and Added-by indicates the person who actually added the
+code to the Debian package.
+
+* The Debian copy of the upstream source contains no .elc files.
+
+  The .elc files have been removed because we always regenerate them
+  and because Emacs modifies them in the source tree during the build
+  process, even when using a VPATH build.  This means that a "make
+  clean" can't easily return the tree to the upstream state, resulting
+  in a giant Debian binary diff.  There are other solutions if this
+  turns out to be a problem.  If nothing else, we can keep the current
+  infrastructure and just add the .elc files to protected_files in
+  debian/rules.  Removing the .elc files doesn't affect whether or not
+  our source archive would match the upstream md5sum because we have
+  to repackage it anyway to add leim support.
+
+* Those who prefer the old-style scrollbars can edit debian/rules
+
+  If you prefer the old-style, non-toolkit scrollbars, just edit
+  debian/rules to add --without-toolkit-scrollbars where indicated and
+  rebuild.
+
+@@PATCH_LIST_HERE@@
+
+Local Variables:
+mode: outline
+outline-regexp: " *\\*+"
+End:

@@ -1,7 +1,0 @@
-To build emacs-snapshot from Git repository, you need to generate some
-missing files from the debian/ directory. Just call:
-
-$ ./debian/rules debian/control
-$ ./debian/rules debian/copyright
-
- -- Dima Kogan <dima@secretsauce.net>, Fri,  6 Jun 2014 01:56:42 -0700

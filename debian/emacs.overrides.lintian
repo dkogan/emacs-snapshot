@@ -1,2 +1,0 @@
-@PKG_NAME@: menu-icon-missing usr/share/emacs/@FULL_VERSION@/etc/emacs.xpm
-@PKG_NAME@: binary-without-manpage usr/bin/@PKG_NAME@-x

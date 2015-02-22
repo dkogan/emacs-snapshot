@@ -1,0 +1,27 @@
+From ab7f768c51efc79f100d01ce4f3d6c5bad12be32 Mon Sep 17 00:00:00 2001
+From: Rob Browning <rlb@defaultvalue.org>
+Date: Thu, 23 Oct 2014 10:24:22 -0500
+Subject: A race to create info/ has been eliminated
+
+Previously something like "make -j2 info" might fail because there was
+a race to create info/.  This backport was adapted from the broader
+patch listed below.
+
+Origin: backport, commit: r118181, a385f9e187ceec0610f000158305c9d5cb987dbd
+Added-by: Rob Browning <rlb@defaultvalue.org>
+---
+ Makefile.in | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/Makefile.in b/Makefile.in
+index e5d98d2..540b4b3 100644
+--- a/Makefile.in
++++ b/Makefile.in
+@@ -969,6 +969,7 @@ info_dir_deps = ${srcdir}/build-aux/dir_top \
+ ## but then we would need to depend on info-real, which would
+ ## slow down parallelization.
+ ${srcdir}/info/dir: ${info_dir_deps}
++	${MKDIR_P} ${srcdir}/info
+ 	tempfile=info-dir.$$$$; \
+ 	rm -f $${tempfile}; \
+ 	thisdir=`pwd`; \

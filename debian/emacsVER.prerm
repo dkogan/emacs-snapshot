@@ -1,0 +1,18 @@
+#!/bin/sh
+
+set -e
+
+MAJOR=@MAJOR_VERSION@
+FLAVOR=@DEB_FLAVOR@
+
+# update-alternatives on things that collide with xemacs, other editors
+if [ "$1" != "upgrade" ]
+then
+  update-alternatives --remove emacs /usr/bin/${FLAVOR}-@X_SUPPORT@
+  update-alternatives --remove editor /usr/bin/${FLAVOR}
+fi
+
+# emacsen-common registration.
+/usr/lib/emacsen-common/emacs-remove ${FLAVOR}
+
+#DEBHELPER#

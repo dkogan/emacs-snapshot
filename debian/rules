@@ -1,23 +1,27 @@
 #!/usr/bin/make -f
+# -*- makefile -*-
 
-# Copyright 1994, 1995 Ian Jackson.
-# Copyright 1998-2003 Rob Browning <rlb@defaultvalue.org>.
-# Copyright 2004, 2005 JÃ©rÃ´me Marant <jerome@debian.org>.
-# Copyright 2005-2010 Romain Francoise <rfrancoise@debian.org>.
-# Copyright 2007 Michael Olson <mwolson@gnu.org>.
-# Copyright 2011-2012 Julien Danjou <acid@debian.org>.
+# This file is licensed under the terms of the Gnu Public License.
+# With the one additional provision that Ian Jackson's name may not be
+# removed from the file.
+
+# Copyright 1994,1995 Ian Jackson
+# Copyright 2004-2005 Jérôme Marant <jerome@debian.org>
+# Copyright 1998-2013 Rob Browning <rlb@defaultvalue.org>
 
 # Originally copied from the GNU Hello Debian rules file (1.3).
-# modified for emacs by Mark Eichin <eichin@kitten.gen.ma.us>
-# modified for emacs20 by Rob Browning <rlb@defaultvalue.org>
-# modified for emacs21 by Rob Browning <rlb@defaultvalue.org>
-# modified for emacs-snapshot by Romain Francoise <rfrancoise@debian.org>
-# modified for emacs22 by Michael Olson <mwolson@gnu.org>
+# Modified for emacs by Mark Eichin <eichin@kitten.gen.ma.us>.
+# Debhelper support added via one of Joey Hess' example files.
+# See the debian/changelog for further historical information.
 
 # Uncomment this to turn on verbose mode.
-# export DH_VERBOSE=1
+#export DH_VERBOSE=1
 
-SHELL = /bin/bash
+SHELL := /bin/bash
+quilt := QUILT_PATCHES=debian/patches quilt
+pf := set -o pipefail
+
+# This package uses debian/source/format 3.0 (quilt).
 
 # For now we assume that emacs' versioning scheme is always
 # MAJOR.MINORtinyrev where MAJOR and MINOR are integers and tinyrev is
@@ -26,573 +30,604 @@ SHELL = /bin/bash
 # way.  So far that's always been true.  If it becomes false, some of
 # the values below will have to be set manually.
 
-# At the moment, we try to make it so that a "debian/rules clean" will
-# get you back to the same state you were in before "debian/rules
-# build".  With the original upstream source that's somewhat tricky
-# because they ship the .elc files, but we need to re-build them when
-# we patch the corresponding .el files.  This is further complicated
-# by the fact that any of these .el files may have macros, and if
-# those are changed, then any other .el files that use those macros
-# must also be recompiled.  Over time (over the years), we've tried
-# various ways to handle this problem, originally by trying to keep
-# track of which files need to be recompiled and only recompiling
-# those, then later by just re-building all the .elc files with "make
-# bootstrap".  In either case, if you don't want to have diff bloat,
-# you have to do something to keep track of the original .elc files so
-# you can restore them during make clean.
+# (You might imagine that a VPATH build would allow us to avoid having
+#  to copy the entire source tree for each of the three builds, but it
+#  turns out that without additional complexity, VPATH builds will
+#  cause diff bloat.  That's because the emacs build process doesn't
+#  completely respect the .elc files; some are modified in srcdir, not
+#  builddir.)
 
-# All of this was a lot of work, and was using quite a bit of
-# unnecessary storage both in the .orig.tar.gz and during the package
-# build.  So in order to avoid this, and to dramatically simplify
-# things, we now just remove the .elc files from the upstream
-# distribution whenever we create the debian .orig.tar.gz file for a
-# given upstream release.  Since were always clobbering all of the
-# .elc files during the package build anyway, this shouldn't be any
-# great loss, and it also means that "debian/rules clean" is now a
-# simple matter of little more than a "make distclean" followed by a
-# purge of all the remaining .elc files.
-
-# NOTE -- emacs doesn't respect .elc files in VPATH build.  They're
-# modified in srcdir, not builddir.  We don't worry about this because
-# it shouldn't affect our builds ATM, but if we ever have more than
-# one emacs configuration which could produce differing .elc files,
-# we'll need to be careful -- probably have to build completely
-# separate packages from completely separate source trees.
-
-###### Flavour-dependent variables ###
-
-# Generic title of menu entries
-menu_title = Emacs Snapshot
-flav_desc = development snapshot
-
-# Alternative priority
-bin_priority = 23
-
-# Info files subdirectory
-info_emacsdir = emacs-snapshot
-
-info_title = Emacs Snapshot
-
-######################################
-
-# The name of the Debian source package
-src_name := $(shell dpkg-parsechangelog | egrep '^Source:')
-src_name := $(shell echo ${src_name} | perl -pe 's/Source:\s+//o')
-
-# The binary package prefix is currently equal to the source name
-bin_name := ${src_name}
-
-# The version from the changelog (i.e. 20.5-1)
-debian_ver := $(shell dpkg-parsechangelog | egrep '^Version:')
-debian_ver := $(shell echo ${debian_ver} | perl -pe 's/Version:\s+//o')
-# The Debian revision (i.e. the 1 from 20.5-1)
-# Always everything after the last '-'
-debian_rev := $(shell echo ${debian_ver} | perl -pe 's/.*-//o')
-
-# This is the official upstream version defined by src/emacs.c
-nominal_ver := $(shell grep 'AC_INIT' configure.ac | cut -d, -f2 | sed 's/[^a-z0-9\.]//g')
+# The official upstream version defined by AC_INIT in configure.in.
+upstream_ver := $(shell debian/upstream-version)
+ifeq (,$(upstream_ver))
+  $(error 'Unable to find upstream version number.')
+endif
 
 # This must be the version that's actually used at runtime for things
 # like load-path.  It may not be the same as the upstream version
 # (i.e. when you have upstream 20.5a, the functional version may still
-# be 20.5), so we do this by hand.
-runtime_ver := $(shell echo ${nominal_ver} | perl -pe 's/[a-z]+$$//o')
+# be 20.5), so sometimes we may have to do this by hand.
+runtime_ver := $(shell $(pf); echo $(upstream_ver) | perl -pe 's/[a-z]+$$//o')
+major_ver := $(shell $(pf); echo $(runtime_ver) | perl -pe 's/\..*$$//o')
+minor_ver := $(shell $(pf); echo $(runtime_ver) | perl -pe 's/^[^.]*\.//o')
 
-major_ver := $(shell echo ${runtime_ver} | perl -pe 's/\..*$$//o')
-minor_ver := $(shell echo ${runtime_ver} | perl -pe 's/^[^.]*\.//o')
+# The name of the Debian source package
+src_name := $(shell $(pf); dpkg-parsechangelog | egrep '^Source:')
+src_name := $(shell $(pf); echo $(src_name) | perl -pe 's/Source:\s+//o')
 
-# version for the debian source, i.e. if the upstream is 21.3, this
-# might be 21.3, or it might be 21.3+1 if we've had to have more than
-# one re-release of the upstream source.  Rare, but it happens...
-# Always everything before the last '-'
-debsrc_ver := $(shell echo ${debian_ver} | perl -pe 's/-[^-]+$$//o')
-upstream_ver := $(shell echo ${debian_ver} | cut -d: -f2 | cut -d- -f1)
+# The version from the changelog (i.e. 20.5-1)
+debian_ver := $(shell $(pf); dpkg-parsechangelog | egrep '^Version:')
+debian_ver := $(shell $(pf); echo $(debian_ver) | perl -pe 's/Version:\s+//o')
 
-has_gtk3 := $(shell pkg-config --exists gtk+-3.0 && echo yes || echo no)
+# The Debian revision (i.e. the 1 from 20.5-1)
+# Always everything after the last '-'
+debian_rev := $(shell $(pf); echo $(debian_ver) | perl -pe 's/.*-//o')
 
-# Thse are used for cross-compiling and for saving the configure script
-# from having to guess our platform (since we know it already)
-DEB_HOST_GNU_TYPE   ?= $(shell dpkg-architecture -qDEB_HOST_GNU_TYPE)
-DEB_BUILD_GNU_TYPE  ?= $(shell dpkg-architecture -qDEB_BUILD_GNU_TYPE)
+# Might be 21.3, or it might be 21.3+1 if we've had to have more than
+# one re-release of the upstream source (rare, but it happens), or if
+# we have to split the package for DFSG purposes.  Always everything
+# before the last '-'
+debsrc_ver := $(shell $(pf); echo $(debian_ver) | perl -pe 's/-[^-]+$$//o')
 
-# We need extra pure space for Debian menu entries.
-CFLAGS    := -DDEBIAN -DSITELOAD_PURESIZE_EXTRA=5000 -g
+# The flavor (i.e. emacs21) currently matches the source package name.
+flavor := $(src_name)
 
-ifneq (,$(findstring noopt,$(DEB_BUILD_OPTIONS)))
-  CFLAGS += -O0
+info_subdir := emacs-$(major_ver)
+
+######################################################################
+# Customizable variables
+
+bin_priority := 27
+
+# This might also be something like 2006-09-09 for snapshots.
+menu_ver := $(major_ver)
+
+######################################################################
+
+# Should these be exported like this (as autotools-dev recommends for
+# the two vars below) or not?
+export DEB_HOST_ARCH ?= $(shell dpkg-architecture -qDEB_HOST_ARCH)
+export DEB_HOST_GNU_CPU ?= $(shell dpkg-architecture -qDEB_HOST_GNU_CPU)
+
+# As recommended by /usr/share/doc/autotools-dev/README.Debian.gz.
+# Handle cross-compiling and don't make ./configure guess.
+export DEB_HOST_GNU_TYPE ?= $(shell dpkg-architecture -qDEB_HOST_GNU_TYPE)
+export DEB_BUILD_GNU_TYPE ?= $(shell dpkg-architecture -qDEB_BUILD_GNU_TYPE)
+
+# FOR AUTOCONF 2.52 AND NEWER ONLY
+ifeq ($(DEB_BUILD_GNU_TYPE), $(DEB_HOST_GNU_TYPE))
+  confflags += --build $(DEB_HOST_GNU_TYPE)
 else
-  CFLAGS += -O2
+  confflags += --build $(DEB_BUILD_GNU_TYPE) --host $(DEB_HOST_GNU_TYPE)
 endif
 
-LDFLAGS   := -g -Wl,--as-needed -znocombreloc
+deb_host_multiarch := $(shell dpkg-architecture -qDEB_HOST_MULTIARCH)
 
-INSTALL = install
+CFLAGS = $(shell dpkg-buildflags --get CFLAGS)
+CFLAGS += -Wall
+LDFLAGS = $(shell dpkg-buildflags --get LDFLAGS)
+CPPFLAGS = $(shell dpkg-buildflags --get CPPFLAGS)
 
-confflags += --build $(DEB_BUILD_GNU_TYPE) --host $(DEB_HOST_GNU_TYPE)
+ifeq (,$(findstring noopt,$(DEB_BUILD_OPTIONS)))
+  ifneq (,$(filter $(DEB_HOST_ARCH),ia64))
+    # Fix a problem with newer versions of gcc on ia64.
+    # See bugs #582439 and #679986.
+    CFLAGS += -O1
+  endif # eq ia64
+endif
+
+joblimit := $(patsubst parallel=%,%,$(filter parallel=%,$(DEB_BUILD_OPTIONS)))
+ifeq (,$(joblimit))
+  joblimit := 1
+endif
 
 target := $(DEB_HOST_GNU_TYPE)
+movemail_bin := usr/lib/emacs/$(runtime_ver)/$(target)/movemail
 
-PACKAGES=${bin_name} ${bin_name}-nox ${bin_name}-lucid ${bin_name}-el ${bin_name}-common ${bin_name}-bin-common ${bin_name}-gtk ${bin_name}-dbg
+# Info files that are going to show up in the main dir.
+main_dir_info_files := efaq.info
 
-# Build directories
-EMACS_COMMON = $(CURDIR)/debian/${bin_name}-common
-EMACS_BIN_COMMON = $(CURDIR)/debian/${bin_name}-bin-common
-EMACS = $(CURDIR)/debian/${bin_name}
-EMACS_NOX = $(CURDIR)/debian/${bin_name}-nox
-EMACS_LUCID = $(CURDIR)/debian/${bin_name}-lucid
-EMACS_EL = $(CURDIR)/debian/${bin_name}-el
-
-local_lpath := /etc/${bin_name}:/etc/emacs
-local_lpath := ${local_lpath}:/usr/local/share/emacs/${runtime_ver}/site-lisp
-local_lpath := ${local_lpath}:/usr/local/share/emacs/site-lisp
-local_lpath := ${local_lpath}:/usr/share/emacs/${runtime_ver}/site-lisp
-local_lpath := ${local_lpath}:/usr/share/emacs/site-lisp
-
-# Installation local_lpath
-local_lpath_install := $(EMACS_COMMON)/$(subst :,:$(EMACS_COMMON)/,${local_lpath})
+# Files that the build stage depends on (may also be listed in other vars).
+persistent_autogen_build_files := debian/control debian/copyright
+nonpersistent_autogen_build_files :=
 
 # These files must always exist, i.e. can't ever be cleaned.
-PERSISTENT_AUTOGEN_FILES := debian/control debian/copyright
+persistent_autogen_install_files :=
 
-NONPERSISTENT_AUTOGEN_FILES := \
-  debian/bug-presubj \
-  debian/bug-script \
-  debian/bug-control \
-  debian/emacs.xpm \
-  debian/emacsclient-${bin_name}.desktop \
-  debian/${bin_name}.menu \
-  debian/${bin_name}.preinst \
-  debian/${bin_name}.postinst \
-  debian/${bin_name}.prerm \
-  debian/${bin_name}.overrides.lintian \
-  debian/${bin_name}.desktop \
-  debian/${bin_name}-nox.preinst \
-  debian/${bin_name}-nox.postinst \
-  debian/${bin_name}-nox.prerm \
-  debian/${bin_name}-nox.overrides.lintian \
-  debian/${bin_name}-lucid.preinst \
-  debian/${bin_name}-lucid.postinst \
-  debian/${bin_name}-lucid.prerm \
-  debian/${bin_name}-lucid.overrides.lintian \
-  debian/${bin_name}-common.postinst \
-  debian/${bin_name}-common.prerm \
-  debian/${bin_name}-common.overrides.lintian \
-  debian/${bin_name}-common.menu \
-  debian/${bin_name}-bin-common.postinst \
-  debian/${bin_name}-bin-common.preinst \
-  debian/${bin_name}-bin-common.prerm \
-  debian/${bin_name}-bin-common.overrides.lintian
+nonpersistent_autogen_install_files := \
+  debian/$(flavor)-bin-common.lintian-overrides \
+  debian/$(flavor)-bin-common.postinst \
+  debian/$(flavor)-bin-common.prerm \
+  debian/$(flavor)-common.README.Debian \
+  debian/$(flavor)-common.docs \
+  debian/$(flavor)-common.lintian-overrides \
+  debian/$(flavor)-common.postinst \
+  debian/$(flavor)-common.prerm \
+  debian/$(flavor)-nox.README.Debian \
+  debian/$(flavor)-nox.lintian-overrides \
+  debian/$(flavor)-nox.menu \
+  debian/$(flavor)-nox.postinst \
+  debian/$(flavor)-nox.prerm \
+  debian/$(flavor)-lucid.README.Debian \
+  debian/$(flavor)-lucid.desktop \
+  debian/$(flavor)-lucid.lintian-overrides \
+  debian/$(flavor)-lucid.menu \
+  debian/$(flavor)-lucid.postinst \
+  debian/$(flavor)-lucid.prerm \
+  debian/$(flavor).README.Debian \
+  debian/$(flavor).desktop \
+  debian/$(flavor).menu \
+  debian/$(flavor).lintian-overrides \
+  debian/$(flavor).postinst \
+  debian/$(flavor).prerm
 
-DEBPKGFILES := ${PERSISTENT_AUTOGEN_FILES} ${NONPERSISTENT_AUTOGEN_FILES}
+autogen_build_files := \
+  $(nonpersistent_autogen_build_files) $(persistent_autogen_build_files)
 
-UPSTREAM_AUTOGEN_FILES := \
- aclocal.m4 \
- build-aux/compile \
- build-aux/config.guess \
- build-aux/config.sub \
- build-aux/depcomp \
- build-aux/install-sh \
- build-aux/missing \
- configure \
- lib/Makefile.in \
- src/config.in \
- src/stamp-h1
+autogen_install_files := \
+  $(nonpersistent_autogen_install_files) $(persistent_autogen_install_files)
 
-movemail_bin := usr/lib/emacs/${runtime_ver}/${target}/movemail
+persistent_autogen_files := \
+  $(persistent_autogen_build_files) $(persistent_autogen_install_files)
 
-define expand_file_subst_vars
-	sed -e "s%@SRC_NAME@%${src_name}%g" \
-	    -e "s%@BIN_NAME@%${bin_name}%g" \
-	    -e "s%@PKG_NAME@%${pkg_name}%g" \
-	    -e "s%@FULL_VERSION@%${runtime_ver}%g" \
-	    -e "s%@MAJOR_VERSION@%${major_ver}%g" \
-	    -e "s%@MINOR_VERSION@%${minor_ver}%g" \
-	    -e "s%@PACKAGE_VERSION@%${debian_ver}%g" \
-	    -e "s%@DEBIAN_REV@%${deb_rev}%g" \
-	    -e "s%@NOMINAL_VERSION@%${nominal_ver}%g" \
-	    -e "s%@X_SUPPORT@%${xsupport}%g" \
-	    -e "s%@BIN_PRIORITY@%${bin_priority}%g" \
-	    -e "s%@MENU_TITLE@%${menu_title}%g" \
-	    -e "s%@TARGET@%${target}%g" \
-	    -e "s%@FLAVOUR_DESC@% (${flav_desc})%g" \
-	    -e "s%@SUB_FLAVOR@%${sub_flavor}%g" \
-		> $@ < $<
+nonpersistent_autogen_files := \
+  $(nonpersistent_autogen_build_files) $(nonpersistent_autogen_install_files)
+
+
+# Build directories
+pkgdir_common := $(CURDIR)/debian/$(flavor)-common
+pkgdir_bin_common := $(CURDIR)/debian/$(flavor)-bin-common
+pkgdir_x := $(CURDIR)/debian/$(flavor)
+pkgdir_nox := $(CURDIR)/debian/$(flavor)-nox
+pkgdir_lucid := $(CURDIR)/debian/$(flavor)-lucid
+pkgdir_el := $(CURDIR)/debian/$(flavor)-el
+
+install_dir_x := $(CURDIR)/debian/install-x
+install_dir_nox := $(CURDIR)/debian/install-nox
+install_dir_lucid := $(CURDIR)/debian/install-lucid
+
+local_lpath := /etc/$(flavor):/etc/emacs
+local_lpath := $(local_lpath):/usr/local/share/emacs/$(runtime_ver)/site-lisp
+local_lpath := $(local_lpath):/usr/local/share/emacs/site-lisp
+local_lpath := $(local_lpath):/usr/share/emacs/$(runtime_ver)/site-lisp
+local_lpath := $(local_lpath):/usr/share/emacs/site-lisp
+
+# Installation local_lpath
+local_lpath_install \
+  := $(pkgdir_common)/$(subst :,:$(pkgdir_common)/,$(local_lpath))
+
+define testdir
+  dh_testdir debian/emacsVER.postinst
 endef
+
+# If we ever need to do the stripping outside of dh_strip, just add an
+# INSTALL_STRIP="-s" to the make vars below.
+
+define emacs_inst
+  $(MAKE) -C debian/$(1) install \
+    DESTDIR=$(2) \
+    infodir=/usr/share/info/emacs-$(major_ver) \
+    localstatedir=/var
+endef
+
+# If we ever need it, we can create a copy that doesn't assume ./debian/
+define deb_sub
+  perl -p \
+    -e "s|\@PKG_NAME\@|$(pkg_name)|go;" \
+    -e "s|\@MAJOR_VERSION\@|$(major_ver)|go;" \
+    -e "s|\@MINOR_VERSION\@|$(minor_ver)|go;" \
+    -e "s|\@FULL_VERSION\@|$(runtime_ver)|go;" \
+    -e "s|\@PACKAGE_VERSION\@|$(debian_ver)|go;" \
+    -e "s|\@DEBIAN_REV\@|$(deb_rev)|go;" \
+    -e "s|\@UPSTREAM_VERSION\@|$(upstream_ver)|go;" \
+    -e "s|\@DEBSRC_VERSION\@|$(debsrc_ver)|go;" \
+    -e "s|\@DEB_FLAVOR\@|$(flavor)|go;" \
+    -e "s|\@MENU_VERSION\@|$(menu_ver)|go;" \
+    -e "s|\@INFO_FILES\@|$(main_dir_info_files)|go;" \
+    -e "s|\@INFO_SUBDIR\@|$(info_subdir)|go;" \
+    -e "s|\@X_SUPPORT\@|$(xsupport)|go;" \
+    -e "s|\@BIN_PRIORITY\@|$(bin_priority)|go;" \
+    -e "s|\@MOVEMAIL_BIN\@|$(movemail_bin)|go;" \
+      < $(1) > $(2)
+endef
+
+%:
+	dh $@ --parallel
 
 check-vars:
-	@echo "current directory: $(CURDIR)"
-	@echo "debian_ver: ${debian_ver}"
-	@echo "debsrc_ver: ${debsrc_ver}"
-	@echo "debian_rev: ${debian_rev}"
-	@echo "nominal_ver: ${nominal_ver}"
-	@echo "runtime_ver: ${runtime_ver}"
-	@echo "major_ver: ${major_ver}"
-	@echo "minor_ver: ${minor_ver}"
-.PHONY: check-vars
+	@echo "src_name: $(src_name)"
+	@echo "upstream_ver: $(upstream_ver)"
+	@echo "debian_ver: $(debian_ver)"
+	@echo "debsrc_ver: $(debsrc_ver)"
+	@echo "debian_rev: $(debian_rev)"
+	@echo "runtime_ver: $(runtime_ver)"
+	@echo "major_ver: $(major_ver)"
+	@echo "minor_ver: $(minor_ver)"
+	@echo "movemail_bin: $(movemail_bin)"
 
-MASTER = $(shell git show `git rev-list --merges master..HEAD | head -1`  | grep ^Merge | cut -d' ' -f3)
-get-orig-source:
-	@echo Master is: $(MASTER)
-	@git --no-pager show --format=short $(MASTER)
-	git archive --format=tar --prefix=emacs-snapshot-$(upstream_ver)/ $(MASTER) | xz -9 > ../emacs-snapshot_$(upstream_ver).orig.tar.xz
-.PHONY: get-orig-source
+debian-sync: $(persistent_autogen_files)
+        # so dh pattern rule doesn't try to handle this target
+	true
 
-debian/patches/series:
-	test -d $(CURDIR)/.git && \
-		cd $(CURDIR)/debian/patches && rm -f * && git format-patch origin/master..debian/patches > series
+debian/$(flavor).%: xsupport := "x"
+debian/$(flavor).%: pkg_name := $(flavor)
 
-debian/%: debian/%.in debian/changelog
-	${expand_file_subst_vars}
+debian/$(flavor)-nox.%: xsupport := "nox"
+debian/$(flavor)-nox.%: pkg_name := $(flavor)-nox
 
-debian/${bin_name}.%: xsupport := "gtk"
-debian/${bin_name}.%: pkg_name := ${bin_name}
-debian/${bin_name}.%: sub_flavor := "GTK"
+debian/$(flavor)-lucid.%: xsupport := "lucid"
+debian/$(flavor)-lucid.%: pkg_name := $(flavor)-lucid
 
-debian/${bin_name}-nox.%: xsupport := "nox"
-debian/${bin_name}-nox.%: pkg_name := ${bin_name}-nox
+debian/$(flavor)-common.%: pkg_name := $(flavor)-common
+debian/$(flavor)-bin-common.%: pkg_name := $(flavor)-bin-common
 
-debian/${bin_name}-lucid.%: xsupport := "lucid"
-debian/${bin_name}-lucid.%: pkg_name := ${bin_name}-lucid
+debian/%: debian/%.in debian/changelog debian/rules
+	$(call deb_sub,$<,$@)
 
-debian/${bin_name}-common.%: pkg_name := ${bin_name}-common
+debian/$(flavor)-bin-common.%: debian/emacsVER-bin-common.% debian/changelog
+	$(call deb_sub,$<,$@)
 
-debian/${bin_name}-bin-common.%: pkg_name := ${bin_name}-bin-common
+debian/$(flavor)-common.%: debian/emacsVER-common.% debian/changelog
+	$(call deb_sub,$<,$@)
 
-debian/${bin_name}.%: debian/emacs.%
-	${expand_file_subst_vars}
+debian/$(flavor)-el.%: debian/emacsVER-el.% debian/changelog
+	$(call deb_sub,$<,$@)
 
-debian/${bin_name}-nox.%: debian/emacs.%
-	${expand_file_subst_vars}
+debian/$(flavor).%: debian/emacsVER.% debian/changelog
+	$(call deb_sub,$<,$@)
 
-debian/${bin_name}-lucid.%: debian/emacs.%
-	${expand_file_subst_vars}
+debian/$(flavor)-nox.%: debian/emacsVER.% debian/changelog
+	$(call deb_sub,$<,$@)
 
-debian/${bin_name}-el.%: debian/emacs-el.%
-	${expand_file_subst_vars}
+debian/$(flavor)-lucid.%: debian/emacsVER.% debian/changelog
+	$(call deb_sub,$<,$@)
 
-debian/${bin_name}-common.%: debian/emacs-common.%
-	${expand_file_subst_vars}
+debian/$(flavor)-common.README.Debian: \
+  debian/emacsVER-common.README debian/patches/*.patch debian/patches/series \
+  debian/rules debian/patch-to-news
+	cd debian && \
+	  csplit -s -f emacsVER-common.README. \
+	  emacsVER-common.README '/@@PATCH_LIST_HERE@@/'
+	cp debian/emacsVER-common.README.00 debian/emacsVER-common.README.tmp
+	for p in $$($(quilt) series); do \
+	  debian/patch-to-news "$$p" >> debian/emacsVER-common.README.tmp \
+	  && echo >> debian/emacsVER-common.README.tmp; \
+	done
+	tail -n +2 \
+	  < debian/emacsVER-common.README.01 \
+	  >> debian/emacsVER-common.README.tmp
+	mv debian/emacsVER-common.README.tmp $@
 
-debian/${bin_name}-bin-common.%: debian/emacs-bin-common.%
-	${expand_file_subst_vars}
+debian/setup-stamp:
+	$(testdir)
+	./autogen.sh
+	mkdir -p $(dir $@) && touch $@
 
-debian/emacsclient-${bin_name}.%: debian/emacsclient.%
-	${expand_file_subst_vars}
-
-debian/emacs.xpm: src/emacs-icon.h
-	sed -e '/HAVE_XPM/,//!d' -e '//c\/* XPM */' < $< > $@
-
-define build_cmd
-	${MAKE} CFLAGS="${CFLAGS}" LDFLAGS="${LDFLAGS}"
-endef
-
-define check_pure_space
-	src/emacs -Q -batch --eval "(print pure-space-overflow)" 2>/dev/null \
-	| grep -qx nil
-endef
-
-define emacs_build
-	$(MAKE) clean
-	# Build emacs
-	CFLAGS="${CFLAGS}" ./configure ${1}
-	${build_cmd}
-	# Check for pure space overflow
-	${check_pure_space}
-	# save binary from deletion
-	mv src/emacs src/${2}
-endef
-
-define inst_desktop
-	# Install desktop entry
-	$(INSTALL) -D -m 0644 debian/${2}.desktop \
-		${1}/usr/share/applications/${2}.desktop
-endef
-
-define inst_overrides
-	# Install overrides
-	$(INSTALL) -D -m 0644 debian/${3}.overrides.${1} \
-		${2}/usr/share/${1}/overrides/${3}
-endef
-
-define inst_binary
-	$(INSTALL) -d ${2}/usr/bin
-	cp src/${1} ${2}/usr/bin/${3}
-endef
-
-define inst_manpage
-	$(INSTALL) -d ${1}/usr/share/man/man1
-	dh_link -p${4} usr/share/man/man1/emacs.1${2}.gz \
-		usr/share/man/man1/${3}.1.gz
-endef
-
-# Common confflags
+# common configure flags
 confflags += --prefix=/usr
 confflags += --sharedstatedir=/var/lib
 confflags += --libexecdir=/usr/lib
-confflags += --localstatedir=/var
-confflags += --infodir=/usr/share/info/${info_emacsdir}
+confflags += --localstatedir=/var/lib
+confflags += --infodir=/usr/share/info
 confflags += --mandir=/usr/share/man
 confflags += --with-pop=yes
-confflags += --enable-locallisppath=${local_lpath}
-confflags += --with-crt-dir=/usr/lib/$(shell dpkg-architecture -qDEB_HOST_MULTIARCH)/
+confflags += --enable-locallisppath=$(local_lpath)
 
-# Emacs confflags
-emacs_confflags := ${confflags}
-emacs_confflags += --with-x=yes
-ifeq ($(has_gtk3),yes)
-emacs_confflags += --with-x-toolkit=gtk3
-else
-emacs_confflags += --with-x-toolkit=gtk
-endif
-emacs_confflags += --with-imagemagick=yes
+# x configure flags
+confflags_x := $(confflags) 
+confflags_x += --with-x=yes
+confflags_x += --with-x-toolkit=gtk3
+# For those who prefer the old-style non-toolkit scrollbars, just
+# change the assignment below to --without-toolkit-scroll-bars.  The
+# resulting emacsXY package will have the old scrollbars.
+confflags_x += --with-toolkit-scroll-bars
 
-# Emacs-nox confflags
-emacs_nox_confflags := ${confflags}
-emacs_nox_confflags += --with-x=no
-emacs_nox_confflags += --without-dbus --without-sound
+# nox configure flags
+confflags_nox := $(confflags) 
+confflags_nox += --with-x=no
+confflags_nox += --without-gconf
+confflags_nox += --without-gsettings
 
-# Emacs-lucid confflags
-emacs_lucid_confflags := ${confflags}
-emacs_lucid_confflags += --with-x=yes
-emacs_lucid_confflags += --with-x-toolkit=lucid
+# lucid configure flags
+confflags_lucid := $(confflags)
+confflags_lucid += --with-x=yes
+confflags_lucid += --with-x-toolkit=lucid
+confflags_lucid += --with-toolkit-scroll-bars
+confflags_lucid += --without-gconf
+confflags_lucid += --without-gsettings
 
-distrib_id := $(shell lsb_release -s -i)
-distrib_name := $(shell lsb_release -s -c)
+define cfg_tree
+  rm -rf $(1)
+  mkdir $(1)
+  cp -a $$(ls -A | egrep -v '^(\.git|\.pc|debian)$$') "$(1)"
+  cd $(1) && CFLAGS="$(CFLAGS)" CPPFLAGS="$(CPPFLAGS)" LDFLAGS="$(LDFLAGS)" ./configure $(confflags) $(2)
+endef
 
-override_dh_auto_configure:
+define build_cmd
+  $(MAKE) -C $(1) -j $(joblimit)
+  # If we don't use bootstrap, we need to explicitly build info.
+  $(MAKE) -C $(1) -j $(joblimit) info
+  # Make sure we chose liblockfile.
+  ldd $(1)/lib-src/movemail | grep liblockfile
+endef
 
-override_dh_auto_build: src/nox-emacs src/lucid-emacs src/gtk-emacs $(DEBPKGFILES)
+override_dh_auto_configure: debian/setup-stamp
+        # Can't use dh --with autotools_dev because it only works if
+        # you haven't removed the config.sub and config.guess files
+        # from the source tree.
+	cp -a /usr/share/misc/config.guess .
+	cp -a /usr/share/misc/config.sub .
+	$(call cfg_tree,debian/build-x,$(confflags_x))
+	$(call cfg_tree,debian/build-nox,$(confflags_nox))
+	$(call cfg_tree,debian/build-lucid,$(confflags_lucid))
 
-bootstrap:
-	# Emacs must be bootstrapped at least once in order to
-	# generate .elc files
-	./autogen.sh
-	CFLAGS="${CFLAGS}" ./configure ${emacs_confflags}
-	${build_cmd} bootstrap
-	${build_cmd} distclean
+override_dh_auto_build: $(autogen_build_files)
+	$(call build_cmd,debian/build-x)
+	$(call build_cmd,debian/build-nox)
+	$(call build_cmd,debian/build-lucid)
 
-src/gtk-emacs: bootstrap
-	$(call emacs_build,${emacs_confflags},gtk-emacs)
+define install_common_binpkg_bits
+  # args: (1) srcdir (2) pkgdir (3) pkgname (4) bin-suffix
 
-src/nox-emacs: bootstrap
-	$(call emacs_build,${emacs_nox_confflags},nox-emacs)
+  install -d $(2)/usr/bin/
+  test -f $(1)/usr/bin/emacs-*
+  cp -a $(1)/usr/bin/emacs-* $(2)/usr/bin/$(flavor)-$(4)
+  dh_link -p$(3) usr/bin/$(flavor)-$(4) usr/bin/$(flavor)
 
-src/lucid-emacs: bootstrap
-	$(call emacs_build,${emacs_lucid_confflags},lucid-emacs)
+  install -d $(2)/usr/share/emacs/$(runtime_ver)/etc
+  cp -a $(1)/usr/share/emacs/$(runtime_ver)/etc/DOC \
+	$(2)/usr/share/emacs/$(runtime_ver)/etc/
 
-debian-clean:
-	dh_testdir
-	dh_testroot
+  install -d $(2)/usr/share/man/man1
+  dh_link -p$(3) \
+    usr/share/man/man1/emacs.$(flavor).1.gz \
+    usr/share/man/man1/$(flavor).1.gz
+  dh_link -p$(3) \
+    usr/share/man/man1/emacs.$(flavor).1.gz \
+    usr/share/man/man1/$(flavor)-$(4).1.gz
+endef
 
-	rm -f ${NONPERSISTENT_AUTOGEN_FILES}
-	rm -f ${DEB_TRASH}
+override_dh_auto_install: $(autogen_install_files)
+	rm -rf \
+	  $(install_dir_x) $(install_dir_nox) $(install_dir_lucid) \
+	  $(pkgdir_common)/* \
+	  $(pkgdir_bin_common)/* \
+	  $(pkgdir_x)/* \
+	  $(pkgdir_nox)/* \
+	  $(pkgdir_lucid)/* \
+	  $(pkgdir_el)/*
 
-	dh_clean
+	$(call emacs_inst,build-x,$(install_dir_x))
 
-clean: debian-clean
+        ##################################################
+        # emacsXY-common
+        ifneq (,$(findstring $(flavor)-common, $(shell dh_listpackages)))
+	  install -d $(pkgdir_common)
+	  cp -a $(install_dir_x)/* $(pkgdir_common)
 
-	rm -f *-stamp
+	  rm -r $(pkgdir_common)/usr/bin
+	  rm -r $(pkgdir_common)/usr/lib
 
-	# Force configuration in order to prevent any problem
-	# that may have been happening during the previous
-	# build
-	[ ! -f configure ] || CFLAGS="${CFLAGS}" ./configure ${emacs_confflags}
-	[ ! -f Makefile ] || $(MAKE) maintainer-clean
+	cd $(pkgdir_common)/usr/share/emacs/$(runtime_ver)/etc \
+	  && test -f DOC
+	cd $(pkgdir_common)/usr/share/emacs/$(runtime_ver)/etc \
+	  && rm DOC
 
-	rm -f src/{gtk,nox,lucid}-emacs
+	  # lisp path directories
+	  install -d $(pkgdir_common)/etc/$(flavor)/site-start.d
+	  install -d $(pkgdir_common)/usr/share/$(flavor)
 
-	# Remove byte compiled files
-	find -name "*.elc" | xargs --no-run-if-empty rm
+	  # The version-specific site-lisp dir, say emacs/21.1/site-lisp, needs
+	  # to be in share/FLAVOR so that as we upgrade from 21.1 to 21.2,
+	  # etc., add-on package bits don't get left behind.
+	  mv $(pkgdir_common)/usr/share/emacs/$(runtime_ver)/site-lisp \
+		  $(pkgdir_common)/usr/share/$(flavor)
+	  dh_link -p$(flavor)-common usr/share/$(flavor)/site-lisp \
+			  usr/share/emacs/$(runtime_ver)/site-lisp
 
-	# Remove autogenerated files not present in the tarball
-	rm -f ${UPSTREAM_AUTOGEN_FILES}
+	  # This is a duplicate of the file in FLAVOR/site-lisp
+	  rm $(pkgdir_common)/usr/share/emacs/site-lisp/subdirs.el
 
-override_dh_auto_install:
-	# Install everything in emacs-common. Then any other
-	# package is based on it.
-	dh_auto_install --destdir=${EMACS_COMMON} -- \
-		INSTALL_STRIP="-s" \
-		INSTALL_ARCH_INDEP_EXTRA=
+	  cd $(pkgdir_common)/usr/share/emacs/$(runtime_ver)/etc/images/icons \
+	    && convert hicolor/16x16/apps/emacs.{png,xpm}
+	  cd $(pkgdir_common)/usr/share/emacs/$(runtime_ver)/etc/images/icons \
+	    && convert hicolor/32x32/apps/emacs.{png,xpm}
 
-override_dh_install-indep:
-	dh_install -i
+	  # Fixup image files in unversioned directories (version
+	  # unversioned images) and prepare for update-alternatives.
+	  cd $(pkgdir_common)/usr/share/icons/hicolor \
+	    && mv scalable/apps/emacs.svg scalable/apps/${flavor}.svg \
+	    && mv 16x16/apps/emacs.png 16x16/apps/${flavor}.png \
+	    && mv 24x24/apps/emacs.png 24x24/apps/${flavor}.png \
+	    && mv 32x32/apps/emacs.png 32x32/apps/${flavor}.png \
+	    && mv 48x48/apps/emacs.png 48x48/apps/${flavor}.png \
+	    && mv 128x128/apps/emacs.png 128x128/apps/${flavor}.png
 
-	##################################################
-	# emacs-el (preparation)
-	(cd $(EMACS_COMMON) && \
-	 find -name "*.el.gz" | \
-	    tar cpf - --files-from -) | \
-	      (cd $(EMACS_EL) && tar xpf -)
+	  cd $(pkgdir_common)/usr/share/icons/hicolor/scalable/mimetypes \
+	    && mv emacs-document.svg ${flavor}-document.svg
 
-	find $(EMACS_COMMON) -name "*.el.gz" -exec rm -f {} \;
+	  # Remove redundant emacs.desktop file.
+	  rm $(pkgdir_common)/usr/share/emacs/$(runtime_ver)/etc/emacs.desktop
+	  rm $(pkgdir_common)/usr/share/applications/emacs.desktop
 
-	# lisp path directories
-	$(INSTALL) -d $(EMACS_COMMON)/etc/${bin_name}/site-start.d
-	$(INSTALL) -d $(EMACS_COMMON)/usr/share/${bin_name}
+	  # Mangle info files.
+	  chmod 755 debian/mangle-info
+	  for f in $(main_dir_info_files); \
+	  do \
+	    gunzip $(pkgdir_common)/usr/share/info/$(info_subdir)/$$f.gz; \
+	    DEBIAN_INFO_PREFIX=$(info_subdir) \
+	      debian/mangle-info \
+		$(pkgdir_common)/usr/share/info/$(info_subdir)/$$f; \
+	  done
 
-	# We need scratch space in /var to register subflavors
-	$(INSTALL) -d $(EMACS_COMMON)/var/lib/${bin_name}/installed-subflavors
+	  gunzip $(pkgdir_common)/usr/share/man/man1/*.gz
+	  perl -pi -e "s|man1/etags\\.1|man1/etags\\.$(flavor)\\.1|" \
+	    $(pkgdir_common)/usr/share/man/man1/ctags.1
 
-	# The version-specific site-lisp dir, say emacs/21.1/site-lisp, needs
-	# to be in share/emacs21 so that as we upgrade from 21.1 to 21.2, etc.,
-	# add-on package bits don't get left behind.
-	mv $(EMACS_COMMON)/usr/share/emacs/${runtime_ver}/site-lisp \
-		$(EMACS_COMMON)/usr/share/${bin_name}
-	dh_link -p${bin_name}-common usr/share/${bin_name}/site-lisp \
-			usr/share/emacs/${runtime_ver}/site-lisp
+	  cd $(pkgdir_common)/usr/share/man/man1/ && \
+	    for f in *.1; do mv $$f $$(basename $${f} .1).$(flavor).1; done
 
-	# Make icons visible under /usr/share/icons/hicolor/
-	dir=usr/share/emacs/${nominal_ver}/etc/images/icons;		\
-	for f in $$(cd $(EMACS_COMMON)/$$dir;				\
-		find -regex ".*/emacs\(-document\)?.\(png\|svg\)$$"	\
-		     -printf "%P\n"); do				\
-		dh_link -p${bin_name}-common $$dir/$$f			\
-			usr/share/icons/$${f/emacs/${bin_name}};	\
-	done
-	# Install XPM icon (for the menu file), and create symlink in
-	# the icons directory
-	cp debian/emacs.xpm \
-		$(EMACS_COMMON)/usr/share/emacs/${runtime_ver}/etc/emacs.xpm
-	dh_link -p${bin_name}-common \
-		usr/share/emacs/${runtime_ver}/etc/emacs.xpm \
-		usr/share/emacs/${runtime_ver}/etc/images/icons/emacs.xpm
+	  # At least etc/COPYING is needed by M-x describe-copying.
+	  rm $(pkgdir_common)/usr/share/emacs/$(runtime_ver)/etc/COPYING
+	  rm $(pkgdir_common)/usr/share/emacs/$(runtime_ver)/lisp/COPYING
+	  dh_link -p$(flavor)-common /usr/share/common-licenses/GPL-3 \
+	    usr/share/emacs/$(runtime_ver)/etc/COPYING
+	  dh_link -p$(flavor)-common /usr/share/common-licenses/GPL-3 \
+	    usr/share/emacs/$(runtime_ver)/lisp/COPYING
 
-	# Symlink icons directory in /usr/share/icons
-	dh_link -p${bin_name}-common \
-		usr/share/emacs/${nominal_ver}/etc/images/icons \
-		usr/share/icons/${bin_name}
+	  # Install replacements for non-free files that can be reached
+	  # through C-h
+	  for f in THE-GNU-PROJECT; \
+	  do \
+	    sed \
+	      -e "s/@FILE@/$$f/g" \
+	      -e "s/@MAJOR_VERSION@/$(major_ver)/g" \
+	      $(CURDIR)/debian/missing-file.dfsg > \
+	      $(pkgdir_common)/usr/share/emacs/$(runtime_ver)/etc/$$f.dfsg ; \
+	  done
 
-	# Mangle info files
-	chmod 755 debian/mangle-info
-	cd $(EMACS_COMMON)/usr/share/info/${info_emacsdir} ; \
-	for f in *.info.gz ; do \
-		gunzip $$f ; \
-		INFOFILE=`basename $$f .gz` ; \
-		DEBIAN_INFO_PREFIX=${info_emacsdir} debian/mangle-info $$INFOFILE ; \
-		gzip -9 $$INFOFILE ; \
-	done
+	  $(pf); cd $(pkgdir_common) && \
+	    find -name "*.elc" | perl -pe 's/\.elc$$/\.el/o' | xargs rm -f
 
-	# Install changelogs -- remove this for stable Emacs releases
-	$(INSTALL) -D -p -m 0644 ChangeLog $(EMACS_COMMON)/usr/share/doc/${bin_name}-common/changelogs/changelog
-	for d in src lisp{,/gnus,/url,/mh-e} lwlib lib-src leim \
-		doc/{lispintro,lispref,misc,man,emacs}; do \
-		$(INSTALL) -p -m 0644 $$d/ChangeLog \
-		$(EMACS_COMMON)/usr/share/doc/${bin_name}-common/changelogs/`echo $$d|sed 's@/@.@'`.changelog ; \
-	done
+	  $(pf); cd $(pkgdir_common) && \
+	    find -name "*.elc" | perl -pe 's/\.elc$$/\.el\.gz/o' | xargs rm -f
 
-	dh_link -p${bin_name}-common \
-		usr/share/doc/${bin_name}-common/changelogs/changelog.gz \
-		usr/share/doc/${bin_name}-common/changelog.gz
+	  # Remove extraneous info dir files.  These may not exist if dpkg
+	  # is 1.5.4 or newer.
+	  rm -f $(pkgdir_common)/usr/share/info/emacs-$(major_ver)/dir
+	  rm -f $(pkgdir_common)/usr/share/info/emacs-$(major_ver)/dir.old
 
-	# Symlink /usr/share/doc/emacs-common/NEWS to the Emacs NEWS file
-	dh_link -p${bin_name}-common \
-		usr/share/emacs/${nominal_ver}/etc/NEWS \
-		usr/share/doc/${bin_name}-common/NEWS
+	  # Remove the shared game score directory as a simple way to
+	  # avoid a conflict with other flavors of Emacs.  Since
+	  # Debian's update-game-score binary isn't setuid, that
+	  # directory is never used.
+	  rm $(pkgdir_common)/var/games/emacs/tetris-scores
+	  rm $(pkgdir_common)/var/games/emacs/snake-scores
+	  rmdir $(pkgdir_common)/var/games/emacs/
+	  rmdir $(pkgdir_common)/var/games/
+	  rmdir $(pkgdir_common)/var/
 
-	# Get rid of unwanted dir file.
-	rm -f $(EMACS_COMMON)/usr/share/info/${info_emacsdir}/dir
-	rm -f $(EMACS_COMMON)/usr/share/info/${info_emacsdir}/dir.old*
+        endif
 
-	# make sure /usr/local dir doesn't exist
-	rm -rf $(EMACS_COMMON)/usr/local
+        ##################################################
+        # emacsXY-bin-common
+        ifneq (,$(findstring $(flavor)-bin-common, $(shell dh_listpackages)))
+	  # Move common binaries to emacs-bin-common.
+	  install -d $(pkgdir_bin_common)/usr
+	  cp -a $(install_dir_x)/usr/bin $(pkgdir_bin_common)/usr
+	  cp -a $(install_dir_x)/usr/lib $(pkgdir_bin_common)/usr
 
-	# Remove /var/games, too.
-	rm -rf $(EMACS_COMMON)/var/games
+	  # Make sure there's just one.
+	  test -f $(pkgdir_bin_common)/usr/bin/emacs-*
+	  rm $(pkgdir_bin_common)/usr/bin/{emacs,emacs-*}
 
-	$(call inst_overrides,lintian,$(EMACS_COMMON),${bin_name}-common)
+	  # Set up movemail.
+	  chown root.mail $(pkgdir_bin_common)/$(movemail_bin)
+	  chmod g+s $(pkgdir_bin_common)/$(movemail_bin)
 
-	# Remove extra license files
-	rm -f $(EMACS_COMMON)/usr/share/emacs/${runtime_ver}/{etc,lisp}/COPYING
+	  # Set up alternatives.
+	  alternatives=`ls $(pkgdir_bin_common)/usr/bin | xargs` && \
+	    set -x && \
+	    for f in debian/$(flavor)-bin-common.*; \
+	    do \
+	      perl -pwi -e "s|\@ALTERNATIVES\@|$${alternatives}|go" $$f ; \
+	    done
 
-	# Install doc manually
-	$(INSTALL) etc/DOC $(EMACS_COMMON)/usr/share/emacs/${runtime_ver}/etc/DOC-${runtime_ver}.1
+	  for f in `ls $(pkgdir_bin_common)/usr/bin`; \
+	  do \
+	    mv $(pkgdir_bin_common)/usr/bin/$$f \
+	       $(pkgdir_bin_common)/usr/bin/$$f.$(flavor) ; \
+	  done
+        endif
 
-override_dh_install-arch:
-	dh_install -a
+        ##################################################
+        # emacsXY
+        ifneq (,$(findstring $(flavor), $(shell dh_listpackages)))
+	  $(call install_common_binpkg_bits,\
+	    $(install_dir_x),$(pkgdir_x),$(flavor),x)
 
-	##################################################
-	# emacs-bin-common (preparation)
+          # install desktop entry
+	  install -d $(pkgdir_x)/usr/share/applications
+	  install -m 0644 \
+	    debian/$(flavor).desktop $(pkgdir_x)/usr/share/applications/
+        endif
 
-	# Move common binary to emacs-bin-common
-	$(INSTALL) -d $(EMACS_BIN_COMMON)/usr
-	mv $(EMACS_COMMON)/usr/bin $(EMACS_BIN_COMMON)/usr
-	rm -f $(EMACS_BIN_COMMON)/usr/bin/{emacs,emacs-*}
-	mv $(EMACS_COMMON)/usr/lib $(EMACS_BIN_COMMON)/usr
-	chown root.mail $(EMACS_BIN_COMMON)/${movemail_bin}
-	chmod g+s $(EMACS_BIN_COMMON)/${movemail_bin}
+        ##################################################
+        # emacsXY-nox
+        ifneq (,$(findstring $(flavor)-nox, $(shell dh_listpackages)))
+	  $(call emacs_inst,build-nox,$(install_dir_nox))
+	  $(call install_common_binpkg_bits,\
+	    $(install_dir_nox),$(pkgdir_nox),$(flavor)-nox,nox)
+	  rm -rf $(install_dir_nox)
+        endif
 
-	# Set alternatives
-	(alternatives=`ls $(EMACS_BIN_COMMON)/usr/bin | xargs` && \
-	for f in debian/${bin_name}-bin-common.* ; do \
-		sed -e "s%@ALTERNATIVES@%$$alternatives%g" \
-			$$f > $$f.new ; \
-		mv $$f.new $$f ; \
-	done)
+        ##################################################
+        # emacsXY-lucid
+        ifneq (,$(findstring $(flavor)-lucid, $(shell dh_listpackages)))
+	  $(call emacs_inst,build-lucid,$(install_dir_lucid))
+	  $(call install_common_binpkg_bits,\
+	    $(install_dir_lucid),$(pkgdir_lucid),$(flavor)-lucid,lucid)
 
-	for f in `ls $(EMACS_BIN_COMMON)/usr/bin`; \
-	do \
-		mv $(EMACS_BIN_COMMON)/usr/bin/$$f \
-			$(EMACS_BIN_COMMON)/usr/bin/$$f.${bin_name} ; \
-	done
+          # install desktop entry
+	  install -d $(pkgdir_lucid)/usr/share/applications
+	  install -m 0644 \
+	    debian/$(flavor)-lucid.desktop \
+	    $(pkgdir_lucid)/usr/share/applications/
+	  rm -rf $(install_dir_lucid)
+        endif
 
-	# Move man pages
-	$(INSTALL) -d $(EMACS_BIN_COMMON)/usr/share
-	mv $(EMACS_COMMON)/usr/share/man $(EMACS_BIN_COMMON)/usr/share
-	for f in $(EMACS_BIN_COMMON)/usr/share/man/man1/* ; do \
-		mv $$f `dirname $$f`/`basename $$f .gz`${bin_name}.gz ; \
-	done
+        ##################################################
+        # emacsXY-el
+        ifneq (,$(findstring $(flavor)-el, $(shell dh_listpackages)))
+	  install -d $(pkgdir_el)
+	  $(pf); \
+	  (cd $(install_dir_x) && find -name "*.el" -o -name "*.el.gz" -print0 \
+	   | tar cpf - --null --files-from -) \
+	     | (cd $(pkgdir_el) && tar xpf -)
+        endif
 
-	# Fix manpages
-	dh_link -p${bin_name}-bin-common usr/share/man/man1/emacs.1${bin_name}.gz \
-		usr/share/man/man1/${bin_name}.1.gz
+        ##################################################
+        # final cleanup
+	rm -rf $(install_dir_x)
+	rm -rf $(install_dir_nox)
+	rm -rf $(install_dir_lucid)
 
-	$(call inst_desktop,$(EMACS_BIN_COMMON),emacsclient-${bin_name})
-	$(call inst_overrides,lintian,$(EMACS_BIN_COMMON),${bin_name}-bin-common)
-
-	##################################################
-	# emacs (preparation)
-
-	$(call inst_binary,gtk-emacs,$(EMACS),${bin_name}-gtk)
-	$(call inst_manpage,$(EMACS),${bin_name},${bin_name}-gtk,${bin_name})
-	$(call inst_desktop,$(EMACS),${bin_name})
-	$(call inst_overrides,lintian,$(EMACS),${bin_name})
-
-	# Create a compatibility symlink emacs-x -> emacs-gtk.
-	dh_link -p${bin_name} usr/bin/${bin_name}-gtk usr/bin/${bin_name}-x
-
-	##################################################
-	# emacs-nox (preparation)
-
-	$(call inst_binary,nox-emacs,$(EMACS_NOX),${bin_name}-nox)
-	$(call inst_manpage,$(EMACS_NOX),${bin_name},${bin_name}-nox,${bin_name}-nox)
-	$(call inst_overrides,lintian,$(EMACS_NOX),${bin_name}-nox)
-
-	##################################################
-	# emacs-lucid (preparation)
-
-	$(call inst_binary,lucid-emacs,$(EMACS_LUCID),${bin_name}-lucid)
-	$(call inst_manpage,$(EMACS_LUCID),${bin_name},${bin_name}-lucid,${bin_name}-lucid)
-	$(call inst_overrides,lintian,$(EMACS_LUCID),${bin_name}-lucid)
-
-override_dh_installemacsen:
-	dh_installemacsen --flavor=emacs-snapshot --priority=00
-
+.PHONY: override_dh_strip
 override_dh_strip:
-	dh_strip --dbg-package=emacs-snapshot-dbg
+	dh_strip -p$(flavor) --dbg-package=$(flavor)-dbg
+	dh_strip -p$(flavor)-lucid --dbg-package=$(flavor)-lucid-dbg
+	dh_strip -p$(flavor)-nox --dbg-package=$(flavor)-nox-dbg
+	dh_strip
 
-override_dh_builddeb:
-	dh_builddeb -- -Z xz
+override_dh_testdir:
+	$(testdir)
 
 override_dh_fixperms:
-	dh_fixperms -X${movemail_bin}
+	dh_fixperms -X$(movemail_bin)
 
-override_dh_bugfiles:
-	dh_bugfiles -A
-
-override_dh_auto_test:
-
-
-%:
-	dh $@
-
-.PHONY: bootstrap build clean
+override_dh_clean: $(persistent_autogen_files)
+	rm -rf \
+	  aclocal.m4 \
+	  build-aux/compile \
+	  build-aux/config.guess \
+	  build-aux/config.sub \
+	  build-aux/depcomp \
+	  build-aux/install-sh \
+	  build-aux/missing \
+	  config.guess \
+	  config.sub \
+	  configure \
+	  debian/*-stamp \
+	  debian/build-lucid \
+	  debian/build-nox \
+	  debian/build-x \
+	  debian/emacsVER-common.README.00 \
+	  debian/emacsVER-common.README.01 \
+	  debian/install-lucid \
+	  debian/install-nox \
+	  debian/install-x \
+	  lib/Makefile.in \
+	  src/config.in \
+	  src/stamp-h1 src/stamp-h.in
+	rm -f $(nonpersistent_autogen_files)
+	dh_clean

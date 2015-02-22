@@ -1,0 +1,2 @@
+@PKG_NAME@ binary: menu-icon-missing usr/share/emacs/@FULL_VERSION@/etc/images/icons/hicolor/16x16/apps/emacs.xpm
+@PKG_NAME@ binary: menu-icon-missing usr/share/emacs/@FULL_VERSION@/etc/images/icons/hicolor/32x32/apps/emacs.xpm

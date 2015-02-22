@@ -1,0 +1,47 @@
+#!/bin/sh
+
+set -e
+
+MAJOR=@MAJOR_VERSION@
+MINOR=@MINOR_VERSION@
+FULL=@FULL_VERSION@
+
+# Create the site-lisp dir for this flavor if we're allowed
+
+parentdir=/usr/local/share/emacs
+newdir=site-lisp
+
+if [ -d ${parentdir} ]
+then
+  if mkdir ${parentdir}/${newdir} 2>/dev/null
+  then
+    chown root:staff ${parentdir}/${newdir}
+    chmod 2775 ${parentdir}/${newdir}
+  fi
+fi
+
+parentdir=/usr/local/share/emacs
+newdir=${FULL}
+
+if [ -d ${parentdir} ]
+then
+  if mkdir ${parentdir}/${newdir} 2>/dev/null
+  then
+    chown root:staff ${parentdir}/${newdir}
+    chmod 2775 ${parentdir}/${newdir}
+  fi
+fi
+
+parentdir=/usr/local/share/emacs/${FULL}
+newdir=site-lisp
+
+if [ -d ${parentdir} ]
+then
+  if mkdir ${parentdir}/${newdir} 2>/dev/null
+  then
+    chown root:staff ${parentdir}/${newdir}
+    chmod 2775 ${parentdir}/${newdir}
+  fi
+fi
+
+#DEBHELPER#

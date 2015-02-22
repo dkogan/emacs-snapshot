@@ -1,2 +1,0 @@
-(eval-after-load "info"
-  '(add-to-list 'Info-default-directory-list "/usr/share/info/emacs-snapshot"))

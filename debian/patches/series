@@ -1,8 +1,9 @@
-0001-Define-a-Debian-specific-Emacs-flavor.patch
-0002-mail-from-style-is-set-to-system-default-by-default.patch
-0003-M-x-report-emacs-bug-includes-the-package-version.patch
-0004-Debian-related-items-were-added-to-the-Help-menu.patch
-0005-describe-copying-uses-usr-share-common-licenses-GPL.patch
-0006-emacs-version-has-been-modified-to-indicate-Debian-m.patch
-0007-Some-documentation-references-to-usr-local-have-been.patch
-0008-Set-org-ditaa-jar-path-correctly.patch
+0001-Prefer-usr-share-info-emacs-24-over-usr-share-info.patch
+0002-Run-debian-startup-and-set-debian-emacs-flavor.patch
+0003-Remove-files-that-appear-to-be-incompatible-with-the.patch
+0004-Adjust-documentation-references-for-Debian.patch
+0005-Modify-the-output-of-version-to-indicate-Debian-modi.patch
+0006-Look-for-NEWS-in-order-to-find-etc-rather-than-GNU.patch
+0007-Don-t-try-to-build-src-macuvs.h-via-IVD_Sequences.tx.patch
+0008-A-race-to-create-info-has-been-eliminated.patch
+0009-lisp-startup.el-command-line.patch

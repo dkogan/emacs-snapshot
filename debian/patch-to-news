@@ -1,0 +1,23 @@
+#!/bin/bash
+
+set -eo pipefail
+
+patch="$1"
+
+sed '
+  # delete everything after the first line starting with "--- " (the diff)
+  /^--- [^ ]/,$d' < "$patch" \
+| tac \
+| sed '
+  # delete everything up to the first line containing only "---" (the diffstat)
+  1,/^---$/d' \
+| tac \
+| sed '
+  # delete everything before the first blank line (git summary line)
+  1,/^$/d' \
+| sed '
+  # convert to our README.Debian NEWS format
+  1 s/^/* /
+  2,$ s/^/  /'
+
+echo "  Patch: $(basename $patch)"

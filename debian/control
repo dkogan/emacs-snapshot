@@ -1,4 +1,4 @@
-Source: @DEB_FLAVOR@
+Source: emacs24
 Section: editors
 Priority: optional
 Maintainer: Rob Browning <rlb@defaultvalue.org>
@@ -15,99 +15,99 @@ Build-Depends: bsd-mailx | mailx, libncurses5-dev, texinfo, liblockfile-dev, lib
 Homepage: http://www.gnu.org/software/emacs/
 Standards-Version: 3.7.2
 
-Package: @DEB_FLAVOR@-lucid
+Package: emacs24-lucid
 Architecture: any
-Depends: @DEB_FLAVOR@-bin-common (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
-Provides: @DEB_FLAVOR@, emacsen, editor, info-browser, mail-reader, news-reader
-Suggests: @DEB_FLAVOR@-common-non-dfsg
-Conflicts: @DEB_FLAVOR@, @DEB_FLAVOR@-nox
-Replaces: @DEB_FLAVOR@, @DEB_FLAVOR@-nox
+Depends: emacs24-bin-common (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
+Provides: emacs24, emacsen, editor, info-browser, mail-reader, news-reader
+Suggests: emacs24-common-non-dfsg
+Conflicts: emacs24, emacs24-nox
+Replaces: emacs24, emacs24-nox
 Description: GNU Emacs editor (with Lucid GUI support)
  GNU Emacs is the extensible self-documenting text editor.  This
  package contains a version of Emacs with support for a graphical user
  interface based on the Lucid toolkit (instead of the GTK+ interface
- provided by the @DEB_FLAVOR@ package).  Until some known GTK+
+ provided by the emacs24 package).  Until some known GTK+
  problems are fixed, this version may help avoid crashing Emacs during
  an emacsclient disconnect.  See
  https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=567934 and
  https://bugzilla.gnome.org/show_bug.cgi?id=85715 for more
  information.
 
-Package: @DEB_FLAVOR@-lucid-dbg
+Package: emacs24-lucid-dbg
 Section: debug
 Priority: extra
 Architecture: any
-Depends: @DEB_FLAVOR@-lucid-dbg (= ${binary:Version}), ${misc:Depends}
-Description: Debugging symbols for @DEB_FLAVOR@-lucid
+Depends: emacs24-lucid-dbg (= ${binary:Version}), ${misc:Depends}
+Description: Debugging symbols for emacs24-lucid
  GNU Emacs is the extensible self-documenting text editor.  This
- package contains the debugging symbols for the @DEB_FLAVOR@-lucid
+ package contains the debugging symbols for the emacs24-lucid
  package.
 
-Package: @DEB_FLAVOR@-nox
+Package: emacs24-nox
 Architecture: any
-Depends: @DEB_FLAVOR@-bin-common (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
-Provides: @DEB_FLAVOR@, editor, emacsen, info-browser, mail-reader, news-reader
-Suggests: @DEB_FLAVOR@-common-non-dfsg
-Conflicts: @DEB_FLAVOR@, @DEB_FLAVOR@-lucid
-Replaces: @DEB_FLAVOR@, @DEB_FLAVOR@-lucid
+Depends: emacs24-bin-common (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
+Provides: emacs24, editor, emacsen, info-browser, mail-reader, news-reader
+Suggests: emacs24-common-non-dfsg
+Conflicts: emacs24, emacs24-lucid
+Replaces: emacs24, emacs24-lucid
 Description: GNU Emacs editor (without GUI support)
  GNU Emacs is the extensible self-documenting text editor.  This
  package contains a version of Emacs compiled without support for X,
  and provides only a text terminal interface.
 
-Package: @DEB_FLAVOR@-nox-dbg
+Package: emacs24-nox-dbg
 Section: debug
 Priority: extra
 Architecture: any
-Depends: @DEB_FLAVOR@-nox-dbg (= ${binary:Version}), ${misc:Depends}
-Description: Debugging symbols for @DEB_FLAVOR@-nox
+Depends: emacs24-nox-dbg (= ${binary:Version}), ${misc:Depends}
+Description: Debugging symbols for emacs24-nox
  GNU Emacs is the extensible self-documenting text editor.  This
- package contains the debugging symbols for the @DEB_FLAVOR@-nox
+ package contains the debugging symbols for the emacs24-nox
  package.
 
-Package: @DEB_FLAVOR@
+Package: emacs24
 Architecture: any
-Depends: @DEB_FLAVOR@-bin-common (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
+Depends: emacs24-bin-common (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
 Provides: editor, emacsen, info-browser, mail-reader, news-reader
-Suggests: @DEB_FLAVOR@-common-non-dfsg
-Conflicts: @DEB_FLAVOR@-lucid, @DEB_FLAVOR@-nox
-Replaces: @DEB_FLAVOR@-lucid, @DEB_FLAVOR@-nox
+Suggests: emacs24-common-non-dfsg
+Conflicts: emacs24-lucid, emacs24-nox
+Replaces: emacs24-lucid, emacs24-nox
 Description: GNU Emacs editor (with GTK+ GUI support)
  GNU Emacs is the extensible self-documenting text editor.  This
  package contains a version of Emacs with a graphical user interface
  based on GTK+ (instead of the Lucid toolkit provided by the
- @DEB_FLAVOR@-lucid package).
+ emacs24-lucid package).
 
-Package: @DEB_FLAVOR@-dbg
+Package: emacs24-dbg
 Section: debug
 Priority: extra
 Architecture: any
-Depends: @DEB_FLAVOR@-dbg (= ${binary:Version}), ${misc:Depends}
-Description: Debugging symbols for @DEB_FLAVOR@
+Depends: emacs24-dbg (= ${binary:Version}), ${misc:Depends}
+Description: Debugging symbols for emacs24
  GNU Emacs is the extensible self-documenting text editor.  This
- package contains the debugging symbols for the @DEB_FLAVOR@ package.
+ package contains the debugging symbols for the emacs24 package.
 
-Package: @DEB_FLAVOR@-bin-common
+Package: emacs24-bin-common
 Architecture: any
-Depends: @DEB_FLAVOR@-common (= ${source:Version}), ${shlibs:Depends}, ${misc:Depends}
+Depends: emacs24-common (= ${source:Version}), ${shlibs:Depends}, ${misc:Depends}
 Description: GNU Emacs editor's shared, architecture dependent files
  GNU Emacs is the extensible self-documenting text editor.
  This package contains the architecture dependent infrastructure
- that's shared by @DEB_FLAVOR@, @DEB_FLAVOR@-lucid, and @DEB_FLAVOR@-nox.
+ that's shared by emacs24, emacs24-lucid, and emacs24-nox.
 
-Package: @DEB_FLAVOR@-common
+Package: emacs24-common
 Architecture: all
 Depends: emacsen-common (>= 2.0.8), dpkg (>= 1.15.4) | install-info, ${shlibs:Depends}, ${misc:Depends}
-Suggests: @DEB_FLAVOR@-el, @DEB_FLAVOR@-common-non-dfsg
-Conflicts: @DEB_FLAVOR@-el (<< ${Source-Version}), cedet, eieio, speedbar
+Suggests: emacs24-el, emacs24-common-non-dfsg
+Conflicts: emacs24-el (<< ${Source-Version}), cedet, eieio, speedbar
 Description: GNU Emacs editor's shared, architecture independent infrastructure
  GNU Emacs is the extensible self-documenting text editor.
  This package contains the architecture independent infrastructure
- that's shared by @DEB_FLAVOR@, @DEB_FLAVOR@-lucid, and @DEB_FLAVOR@-nox.
+ that's shared by emacs24, emacs24-lucid, and emacs24-nox.
 
-Package: @DEB_FLAVOR@-el
+Package: emacs24-el
 Architecture: all
-Depends: @DEB_FLAVOR@-common (= ${source:Version}), ${misc:Depends}
+Depends: emacs24-common (= ${source:Version}), ${misc:Depends}
 Description: GNU Emacs LISP (.el) files
  GNU Emacs is the extensible self-documenting text editor.
  This package contains the elisp sources for the convenience of users,

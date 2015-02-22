@@ -1,9 +1,0 @@
-emacs-snapshot for Debian                                -*- outline -*-
--------------------------
-
-* Notes about emacs-snapshot
-
-These packages are based on the initial packaging work of Jérôme Marant, Rob
-Browning (assisted by numerous contributors), Romain Francoise and Julien
-Danjou. It is now maintained by Dima Kogan <dima@secretsauce.net>
-
