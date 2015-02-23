@@ -30,10 +30,10 @@ Status: new
  lisp/help.el            |  10 +-
  6 files changed, 35 insertions(+), 747 deletions(-)
 
-diff --git a/Makefile.in b/Makefile.in
-index 4cdd293..c659596 100644
---- a/Makefile.in
-+++ b/Makefile.in
+Index: emacs-snapshot/Makefile.in
+===================================================================
+--- emacs-snapshot.orig/Makefile.in
++++ emacs-snapshot/Makefile.in
 @@ -157,7 +157,9 @@ man1dir=$(mandir)/man1
  # Where to install and expect the info files describing Emacs.
  infodir=@infodir@
@@ -121,11 +121,11 @@ index 4cdd293..c659596 100644
  UNINSTALL_DOC = $(UNINSTALL_DVI) $(UNINSTALL_HTML) $(UNINSTALL_PDF) $(UNINSTALL_PS)
  
  $(UNINSTALL_DOC):
-diff --git a/admin/update_autogen b/admin/update_autogen
-index b951196..0a06936 100755
---- a/admin/update_autogen
-+++ b/admin/update_autogen
-@@ -249,8 +249,7 @@ info_dir ()
+Index: emacs-snapshot/admin/update_autogen
+===================================================================
+--- emacs-snapshot.orig/admin/update_autogen
++++ emacs-snapshot/admin/update_autogen
+@@ -263,8 +263,7 @@ info_dir ()
  $topic
  EOF
          ## Bit faster than doc/*/*.texi.
@@ -135,11 +135,11 @@ index b951196..0a06936 100755
  
              ## FIXME do not ignore w32 if OS is w32.
              case $file in
-diff --git a/configure.ac b/configure.ac
-index 458648e..01b110c 100644
---- a/configure.ac
-+++ b/configure.ac
-@@ -5110,11 +5110,11 @@ dnl This will work, but you get a config.status that is not quite right
+Index: emacs-snapshot/configure.ac
+===================================================================
+--- emacs-snapshot.orig/configure.ac
++++ emacs-snapshot/configure.ac
+@@ -5188,11 +5188,11 @@ dnl This will work, but you get a config
  dnl (see http://lists.gnu.org/archive/html/bug-autoconf/2008-08/msg00028.html).
  dnl That doesn't have any obvious consequences for Emacs, but on the whole
  dnl it seems better to just live with the duplication.
@@ -197,11 +197,11 @@ Index: emacs-snapshot/doc/misc/Makefile.in
  
  ## Info files to install on current platform.
  INFO_INSTALL = $(INFO_COMMON) $(DOCMISC_W32)
-diff --git a/lisp/help.el b/lisp/help.el
-index fa2a4f2..03f7e0b 100644
---- a/lisp/help.el
-+++ b/lisp/help.el
-@@ -286,6 +286,14 @@ If that doesn't give a function, return nil."
+Index: emacs-snapshot/lisp/help.el
+===================================================================
+--- emacs-snapshot.orig/lisp/help.el
++++ emacs-snapshot/lisp/help.el
+@@ -292,6 +292,14 @@ If that doesn't give a function, return
    (goto-address-mode 1)
    (goto-char (point-min)))
  

@@ -16,7 +16,7 @@ diff --git a/lisp/info.el b/lisp/info.el
 index 6e72e54..d74c80f 100644
 --- a/lisp/info.el
 +++ b/lisp/info.el
-@@ -211,7 +211,8 @@ A header-line does not scroll with the rest of the buffer."
+@@ -218,7 +218,8 @@ A header-line does not scroll with the r
  	      (nconc standard-info-dirs (list config-dir))
  	    (cons config-dir standard-info-dirs))))
      (if (not (eq system-type 'windows-nt))

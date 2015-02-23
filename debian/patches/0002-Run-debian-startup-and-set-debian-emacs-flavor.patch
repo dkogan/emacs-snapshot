@@ -14,13 +14,13 @@ Emacs runs debian-startup and sets debian-emacs-flavor.
  lisp/startup.el | 21 +++++++++++++++++++--
  1 file changed, 19 insertions(+), 2 deletions(-)
 
-diff --git a/lisp/startup.el b/lisp/startup.el
-index 58e9708..c4f9f79 100644
---- a/lisp/startup.el
-+++ b/lisp/startup.el
-@@ -435,6 +435,10 @@ as a list.")
-                 (match-string 1 subdir) subdir))
-           "-pkg.el"))
+Index: emacs-snapshot/lisp/startup.el
+===================================================================
+--- emacs-snapshot.orig/lisp/startup.el
++++ emacs-snapshot/lisp/startup.el
+@@ -424,6 +424,10 @@ Warning Warning!!!  Pure space overflow
+   :type 'directory
+   :initialize 'custom-initialize-delay)
  
 +(defconst debian-emacs-flavor 'emacs-snapshot
 +  "A symbol representing the particular debian flavor of emacs running.
@@ -29,7 +29,7 @@ index 58e9708..c4f9f79 100644
  (defun normal-top-level-add-subdirs-to-load-path ()
    "Add all subdirectories of `default-directory' to `load-path'.
  More precisely, this uses only the subdirectories whose names
-@@ -1065,8 +1069,21 @@ please check its value")
+@@ -1035,8 +1039,21 @@ please check its value")
      ;; be loaded from site-run-file and wants to test if -q was given
      ;; should check init-file-user instead, since that is already set.
      ;; See cus-edit.el for an example.
