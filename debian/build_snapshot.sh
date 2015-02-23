@@ -40,5 +40,11 @@ git push origin master:master
 git clean -ffdx; git reset --hard
 ./debian/rules debian/control
 ./debian/rules debian/copyright
+
+# build upstream .orig tarball if needed
+git-buildpackage --git-builder=true --git-cleaner=true --git-ignore-new
+
+# build the package
 sbuild -d unstable
+
 dput -u digitalocean_emacs  ../emacs-snapshot*.changes(om[1])
