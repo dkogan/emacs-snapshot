@@ -22,7 +22,7 @@ gbp-pq export
 git add -vf debian/patches/
 
 # I let this fail because no patch updates may be necessary
-git commit -m 'patch update' debian/patches/ || true
+git commit --no-verify -m 'patch update' debian/patches/ || true
 
 # need to make this non-interactive
 UPSTREAM_VER=`git describe --tags --always upstream/master`
