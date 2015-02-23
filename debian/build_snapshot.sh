@@ -19,7 +19,7 @@ git merge -m 'Merging new upstream' upstream
 
 gbp-pq rebase
 gbp-pq export
-git add debian/patches/
+git add -vf debian/patches/
 
 # I let this fail because no patch updates may be necessary
 git commit -m 'patch update' debian/patches/ || true
