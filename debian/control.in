@@ -20,7 +20,7 @@ Architecture: any
 Depends: @DEB_FLAVOR@-bin-common (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
 Provides: @DEB_FLAVOR@, emacsen, editor, info-browser, mail-reader, news-reader
 Suggests: @DEB_FLAVOR@-common-non-dfsg
-Conflicts: @DEB_FLAVOR@, @DEB_FLAVOR@-nox
+Conflicts: @DEB_FLAVOR@, @DEB_FLAVOR@-nox, @DEB_FLAVOR@-common (<< 2:20150222+emacs-pretest-24.0.05-15849-g3f006e1-1)
 Replaces: @DEB_FLAVOR@, @DEB_FLAVOR@-nox
 Description: GNU Emacs editor (with Lucid GUI support)
  GNU Emacs is the extensible self-documenting text editor.  This
@@ -48,7 +48,7 @@ Architecture: any
 Depends: @DEB_FLAVOR@-bin-common (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
 Provides: @DEB_FLAVOR@, editor, emacsen, info-browser, mail-reader, news-reader
 Suggests: @DEB_FLAVOR@-common-non-dfsg
-Conflicts: @DEB_FLAVOR@, @DEB_FLAVOR@-lucid
+Conflicts: @DEB_FLAVOR@, @DEB_FLAVOR@-lucid, @DEB_FLAVOR@-common (<< 2:20150222+emacs-pretest-24.0.05-15849-g3f006e1-1)
 Replaces: @DEB_FLAVOR@, @DEB_FLAVOR@-lucid
 Description: GNU Emacs editor (without GUI support)
  GNU Emacs is the extensible self-documenting text editor.  This
@@ -70,7 +70,7 @@ Architecture: any
 Depends: @DEB_FLAVOR@-bin-common (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
 Provides: editor, emacsen, info-browser, mail-reader, news-reader
 Suggests: @DEB_FLAVOR@-common-non-dfsg
-Conflicts: @DEB_FLAVOR@-lucid, @DEB_FLAVOR@-nox
+Conflicts: @DEB_FLAVOR@-lucid, @DEB_FLAVOR@-nox, @DEB_FLAVOR@-common (<< 2:20150222+emacs-pretest-24.0.05-15849-g3f006e1-1)
 Replaces: @DEB_FLAVOR@-lucid, @DEB_FLAVOR@-nox
 Description: GNU Emacs editor (with GTK+ GUI support)
  GNU Emacs is the extensible self-documenting text editor.  This
