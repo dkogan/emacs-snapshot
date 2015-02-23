@@ -1,3 +1,37 @@
+2015-02-23  Pete Williamson  <petewil0@googlemail.com>  (tiny change)
+
+	Use ${EXEEXT} more uniformly in makefiles
+	* Makefile.in (EMACS): Append ${EXEEXT}.
+
+2015-02-23  Sam Steingold  <sds@gnu.org>
+
+	* files.el (recover-session): Handle `auto-save-list-file-prefix'
+	being a directory (empty non-directory part).
+
+2015-02-23  Magnus Henoch  <magnus.henoch@gmail.com>
+
+	* net/sasl.el (sasl-mechanism-alist): Refer to sasl-scram-rfc
+	instead of sasl-scram-sha-1, as the former is the name that can be
+	required.
+
+	* net/sasl-scram-rfc.el (sasl-scram-sha-1-steps)
+	(sasl-scram-sha-1-client-final-message)
+	(sasl-scram-sha-1-authenticate-server): Move to end of file.
+
+2015-02-23  Paul Eggert  <eggert@cs.ucla.edu>
+
+	Fix the desired binding for comment-line
+	* bindings.el (ctl-x-map): Use [?\C-\;] to get the desired binding.
+	Fixes: bug#19826
+
+2015-02-23  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* emacs-lisp/macroexp.el (macroexp-parse-body): Handle cl-declare
+	and :documentation.  Change return value format accordingly.
+	* emacs-lisp/cl-generic.el (cl--generic-lambda):
+	* emacs-lisp/pcase.el (pcase-lambda): Adjust accordingly.
+	* emacs-lisp/cl-macs.el (cl--transform-lambda): Use macroexp-parse-body.
+
 2015-02-23  Dmitry Gutov  <dgutov@yandex.ru>
 
 	Introduce `xref-etags-mode'.
