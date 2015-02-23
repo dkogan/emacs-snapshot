@@ -5505,7 +5505,8 @@ If no internal viewer is available, use an external viewer."
         (gnus-mime-view-part-as-type
          nil (lambda (type) (mm-inlinable-p handle type)))
       (when handle
-	(gnus-bind-safe-url-regexp (mm-display-part handle))))))
+	(gnus-bind-safe-url-regexp
+	 (mm-display-part handle nil t))))))
 
 (defun gnus-mime-action-on-part (&optional action)
   "Do something with the MIME attachment at \(point\)."
@@ -6100,7 +6101,7 @@ If nil, don't show those extra buttons."
 	      (gnus-article-insert-newline)
 	    (if (prog1
 		    (= (skip-chars-backward "\n") -1)
-		  (forward-char 1))
+		  (unless (eobp) (forward-char 1)))
 		(gnus-article-insert-newline)
 	      (put-text-property (point) (point-max) 'gnus-undeletable t))
 	    (goto-char (point-max)))

@@ -1,7 +1,219 @@
+2015-02-23  Dmitry Gutov  <dgutov@yandex.ru>
+
+	Introduce `xref-etags-mode'.
+	* progmodes/xref.el (xref-etags-mode--saved): New variable.
+	(xref-etags-mode): New minor mode.  (Bug#19466)
+
+2015-02-22  Lars Magne Ingebrigtsen  <larsi@gnus.org>
+
+	* dom.el (dom-previous-sibling): New function.
+
+2015-02-21  Paul Eggert  <eggert@cs.ucla.edu>
+
+	* bindings.el (ctl-x-map): There is no 'C-;'.
+	For now, make do with 'M-;'; this allows 'make bootstrap' to work.
+	Perhaps some other binding should be chosen.
+	Fixes: bug#19826
+
+2015-02-21  Artur Malabarba  <bruce.connor.am@gmail.com>
+
+	* bindings.el (ctl-x-map): Fix `comment-line' binding.  (Bug#19826)
+
+2015-02-21  Michael Albinus  <michael.albinus@gmx.de>
+
+	* autorevert.el (auto-revert-notify-add-watch)
+	(auto-revert-notify-handler, auto-revert-buffers): Handle also
+	buffers without an associated file, like dired buffers.  (Bug#16112)
+
+2015-02-21  Dima Kogan  <dima@secretsauce.net>
+
+	* autorevert.el (auto-revert-mode, auto-revert-tail-mode)
+	(global-auto-revert-mode): Remove (let (auto-revert-use-notify) ... )
+	wrappers.  Call (auto-revert-buffers) consequently in order to
+	install handlers.
+
+2015-02-21  Wilson Snyder  <wsnyder@wsnyder.org>
+
+	Sync with upstream verilog-mode revision 0d6420b.
+	* progmodes/verilog-mode.el (verilog-mode-version): Update.
+	(vector-skip-list): Remove.
+	(verilog-auto-inst-port, verilog-auto-inst-port-list)
+	(verilog-auto-inst, verilog-auto-inst-param):
+	Use arguments rather than vector-skip.
+	(verilog-auto-inst-port): Fix AUTOINST interfaces to not show
+	modport if signal attachment is itself a modport.  Reported by
+	Matthew Lovell.
+
+2015-02-21  Reto Zimmermann  <reto@gnu.org>
+
+	Sync with upstream vhdl mode v3.37.1.  Add VHDL'08 support.
+	* progmodes/vhdl-mode.el (vhdl-version, vhdl-time-stamp)
+	(vhdl-doc-release-notes): Update.
+	(vhdl-standard): Add VHDL'08 option.
+	(vhdl-sensitivity-list-all): New option.
+	(vhdl-directive-keywords): Add psl.
+	(vhdl-offsets-alist-default, vhdl-mode-abbrev-table-init)
+	(vhdl-template-construct-alist-init, vhdl-create-mode-menu):
+	(vhdl-imenu-generic-expression): Add context, directive.
+	(vhdl-offsets-alist, vhdl-mode, vhdl-doc-keywords): Doc fixes.
+	(vhdl-template-map-init): Add vhdl-template-context.
+	(vhdl-mode-syntax-table): Support VHDL'08 block comments.
+	(vhdl-create-mode-menu): Add some entries.
+	(vhdl-08-keywords, vhdl-08-types, vhdl-08-attributes)
+	(vhdl-08-functions, vhdl-08-packages, vhdl-08-directives):
+	New constants.
+	(vhdl-directives): New variable.
+	(vhdl-words-init, vhdl-template-process)
+	(vhdl-template-replace-header-keywords): Support VHDL'08.
+	(vhdl-abbrev-list-init): Add vhdl-directives.
+	(vhdl-in-comment-p, vhdl-in-literal, vhdl-win-il)
+	(vhdl-forward-syntactic-ws, vhdl-get-syntactic-context)
+	(vhdl-lineup-comment): Handle block comments and directives.
+	(vhdl-beginning-of-directive, vhdl-template-context)
+	(vhdl-template-context-hook): New functions.
+	(vhdl-libunit-re, vhdl-defun-re, vhdl-begin-p)
+	(vhdl-corresponding-begin, vhdl-get-library-unit, vhdl-regress-line)
+	(vhdl-align-declarations, vhdl-beginning-of-block, vhdl-end-of-block)
+	(vhdl-font-lock-keywords-2, vhdl-get-end-of-unit)
+	(vhdl-scan-context-clause): Add context.
+
+2015-02-20  Glenn Morris  <rgm@gnu.org>
+
+	* calendar/solar.el (solar-sunrise-sunset-string):
+	Shorten message a little.
+	(sunrise-sunset): Use message rather than a window.  (Bug#19859)
+
+	* progmodes/f90.el (f90-keywords-re, f90-procedures-re)
+	(f90-font-lock-keywords-2): Some F2008 additions.
+
+2015-02-19  Dima Kogan  <dima@secretsauce.net>
+
+	* autorevert.el (auto-revert-buffers-counter)
+	(auto-revert-buffers-counter-lockedout): New variables.
+	(auto-revert-buffers): Increase `auto-revert-buffers-counter'.
+	(auto-revert-notify-handler): Apply `auto-revert-handler' if not
+	suppressed by lockout.  (Bug#18958)
+
+2015-02-19  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* emacs-lisp/eieio-opt.el (eieio-help-class): `eieio-class-parents'
+	returns classes, not class names (bug#19891).
+
+	* emacs-lisp/cl-macs.el (cl-struct-slot-value): Handle a nil type.
+
+	* emacs-lisp/smie.el (smie-prec2->grammar): Fix corner case problem.
+
+2015-02-18  Kelly Dean  <kelly@prtime.org>
+
+	* register.el (jump-to-register):
+	* emacs-lisp/lisp.el (check-parens):
+	Push mark before goto-char so user doesn't lose his previous place.
+
+2015-02-18  Kelly Dean  <kelly@prtime.org>
+
+	* rect.el (rectangle-mark-mode):
+	Suppress superfluous "Mark set" message from push-mark.
+
+2015-02-18  Kelly Dean  <kelly@prtime.org>
+
+	* help-mode.el (help-go-back, help-go-forward, help-follow):
+	* simple.el (yank-pop, pop-to-mark-command, exchange-point-and-mark):
+	* winner.el (winner-redo):
+	* windmove.el (windmove-do-window-select):
+	* register.el (jump-to-register, increment-register, insert-register)
+	(append-to-register, prepend-to-register):
+	* files.el (find-alternate-file, abort-if-file-too-large, write-file)
+	(set-visited-file-name):
+	* emacs-lisp/lisp.el (kill-backward-up-list):
+	Use user-error instead of error.  (Bug#14480)
+
+2015-02-18  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* emacs-lisp/checkdoc.el (checkdoc-show-diagnostics): Don't make bogus
+	assumptions about window ordering.
+
+2015-02-16  Kelly Dean  <kelly@prtime.org>
+
+	* files.el (insert-file-contents-literally): Fix docstring typo.
+
+2015-02-16  Kelly Dean  <kelly@prtime.org>
+
+	* emacs-lisp/easy-mmode.el (define-minor-mode): Process macro
+	arguments correctly. (Bug#19685)
+	(define-minor-mode): Clarify docstring.
+	Clarify mode switch messages for minor modes.  (Bug#19690)
+
+2015-02-16  Kelly Dean  <kelly@prtime.org>
+
+	* emacs-lisp/package-x.el (package-upload-buffer-internal):
+	Create valid tar files.  (Bug#19536)
+
+2015-02-16  Kelly Dean  <kelly@prtime.org>
+
+	* desktop.el (desktop-read): Conditionally re-enable desktop autosave.
+	(Bug#19059)
+
+2015-02-16  Kelly Dean  <kelly@prtime.org>
+
+	* help-mode.el (help-do-xref): Prevent duplicated display of Info
+	buffer, and prevent interference with existing buffer.  (Bug#13190)
+
+2015-02-16  Fabián Ezequiel Gallina  <fgallina@gnu.org>
+
+	python.el: Do not deactivate mark on shell fontification.  (Bug#19871)
+
+	* progmodes/python.el (python-shell-font-lock-post-command-hook):
+	Do not deactivate mark on fontification.
+
+2015-02-16  Ivan Shmakov  <ivan@siamics.net>
+
+	* net/eww.el: Fix desktop support.  (Bug#19226)
+	(eww-mode): Add autoload cookie.
+	(eww-restore-desktop): Use inhibit-read-only.
+
+	* net/eww.el (eww-suggest-uris): Add autoload cookie, so that
+	add-hook works correctly even if the file is not yet loaded.
+
+2015-02-16  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* emacs-lisp/eieio.el (defclass): Use make-instance rather than
+	eieio-constructor.
+	(set-slot-value): Mark as obsolete.
+	(eieio-object-class-name): Improve call to eieio-class-name.
+	(eieio-slot-descriptor-name, eieio-class-slots): New functions.
+	(object-slots): Use it.  Declare obsolete.
+	(eieio-constructor): Merge it with `make-instance'.
+	(initialize-instance): Use `dolist'.
+	(eieio-override-prin1, eieio-edebug-prin1-to-string):
+	Use eieio--class-print-name.
+
+	* emacs-lisp/eieio-core.el (eieio--class-print-name): New function.
+	(eieio-class-name): Make it do what the docstring claims.
+	(eieio-defclass-internal): Simplify since `prots' isn't used any more.
+	(eieio--slot-name-index): Simplify accordingly.
+	(eieio-barf-if-slot-unbound): Pass the class object rather than its
+	name to `slot-unbound'.
+
+	* emacs-lisp/eieio-base.el (make-instance): Add a method here rather
+	than on eieio-constructor.
+
+2015-02-16  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* emacs-lisp/cl-macs.el (cl-defstruct): Keep type=nil by default.
+	* emacs-lisp/cl-preloaded.el (cl-struct-define): Add sanity checks
+	about relationship between `type', `named', and `slots'.
+	* emacs-lisp/cl-generic.el (cl--generic-struct-tagcode): Adjust to new
+	value of `cl-struct-type' property.
+
+2015-02-15  Jérémy Compostella  <jeremy.compostella@gmail.com>
+
+	* net/tramp-sh.el (tramp-remote-process-environment): Disable paging
+	with PAGER=cat.  (Bug#19870)
+
 2015-02-14  Artur Malabarba  <bruce.connor.am@gmail.com>
 
-	* emacs-lisp/package.el (package-read-all-archive-contents): Don't
-	build the compatibility table.
+	* emacs-lisp/package.el (package-read-all-archive-contents):
+	Don't build the compatibility table.
 	(package-refresh-contents, package-initialize): Do build the
 	compatibility table.
 	(package--build-compatibility-table): New function.
@@ -331,7 +543,7 @@
 	(package--sort-deps-in-alist): New function.
 	(package-menu-mark-install): Can mark dependencies.
 	(package--newest-p): New function.
-	(package-delete): Don't delesect when deleting an older version of
+	(package-delete): Don't deselect when deleting an older version of
 	an upgraded package.
 
 	* emacs-lisp/package.el: Add missing (require 'subr-x)
@@ -1217,9 +1429,6 @@
 	* version.el (emacs-repository-get-version): Update docstring.
 
 2015-01-17  Ivan Shmakov  <ivan@siamics.net>
-
-	* url/url-cookie.el (url-cookie-write-file): Let-bind print-length
-	and print-level to nil to avoid writing a garbled list.  (Bug#16805)
 
 	* files.el (find-file-other-window, find-file-other-frame):
 	Use mapc instead of mapcar.  (Bug#18175)
