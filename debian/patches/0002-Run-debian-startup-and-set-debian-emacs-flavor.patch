@@ -1,4 +1,3 @@
-From 5be85719ea7f157bba912a3f611db2a42343f2b7 Mon Sep 17 00:00:00 2001
 From: Rob Browning <rlb@defaultvalue.org>
 Date: Mon, 4 Apr 2011 22:46:22 -0500
 Subject: Run debian-startup and set debian-emacs-flavor.
@@ -14,11 +13,11 @@ Emacs runs debian-startup and sets debian-emacs-flavor.
  lisp/startup.el | 21 +++++++++++++++++++--
  1 file changed, 19 insertions(+), 2 deletions(-)
 
-Index: emacs-snapshot/lisp/startup.el
-===================================================================
---- emacs-snapshot.orig/lisp/startup.el
-+++ emacs-snapshot/lisp/startup.el
-@@ -424,6 +424,10 @@ Warning Warning!!!  Pure space overflow
+diff --git a/lisp/startup.el b/lisp/startup.el
+index 999e53e..6247110 100644
+--- a/lisp/startup.el
++++ b/lisp/startup.el
+@@ -424,6 +424,10 @@ Warning Warning!!!  Pure space overflow    !!!Warning Warning
    :type 'directory
    :initialize 'custom-initialize-delay)
  

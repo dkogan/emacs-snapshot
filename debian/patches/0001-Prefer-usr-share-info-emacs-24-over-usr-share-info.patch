@@ -1,4 +1,3 @@
-From 5bb43bd64681803b9af725785a60ec00d15c922b Mon Sep 17 00:00:00 2001
 From: Rob Browning <rlb@defaultvalue.org>
 Date: Sun, 7 Apr 2013 15:03:05 -0500
 Subject: Prefer /usr/share/info/emacs-24 over /usr/share/info.
@@ -13,10 +12,10 @@ lisp/info.el to include /usr/share/info/emacs-MAJORVERSION before
  1 file changed, 2 insertions(+), 1 deletion(-)
 
 diff --git a/lisp/info.el b/lisp/info.el
-index 6e72e54..d74c80f 100644
+index 0159661..02e2eb4 100644
 --- a/lisp/info.el
 +++ b/lisp/info.el
-@@ -218,7 +218,8 @@ A header-line does not scroll with the r
+@@ -218,7 +218,8 @@ A header-line does not scroll with the rest of the buffer."
  	      (nconc standard-info-dirs (list config-dir))
  	    (cons config-dir standard-info-dirs))))
      (if (not (eq system-type 'windows-nt))
