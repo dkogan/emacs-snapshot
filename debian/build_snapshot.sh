@@ -40,5 +40,5 @@ git push origin master:master
 git clean -ffdx; git reset --hard
 ./debian/rules debian/control
 ./debian/rules debian/copyright
-git-buildpackage --git-pbuilder --git-dist=wheezy  --git-ignore-new
+sbuild -d unstable
 dput -u digitalocean_emacs  ../emacs-snapshot*.changes(om[1])
