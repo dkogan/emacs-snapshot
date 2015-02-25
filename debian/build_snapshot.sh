@@ -45,6 +45,7 @@ git clean -ffdx; git reset --hard
 git-buildpackage --git-builder=true --git-cleaner=true --git-ignore-new
 
 # build the package
-sbuild -d unstable
+# note that on my box the "unstable" chroot is actually "jessie"
+sbuild --nolog -d unstable
 
 dput -u digitalocean_emacs  ../emacs-snapshot*.changes(om[1])
