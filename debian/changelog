@@ -2,6 +2,12 @@ emacs-snapshot (2:20150224+emacs-pretest-24.0.05-15868-g8bb64d2-1) unstable; urg
 
   * New snapshot
 
+ -- Dima Kogan <dima@secretsauce.net>  Tue, 24 Feb 2015 23:10:51 -0800
+
+emacs-snapshot (2:20150224+emacs-pretest-24.0.05-15868-g8bb64d2-1) unstable; urgency=medium
+
+  * New snapshot
+
  -- Dima Kogan <dima@secretsauce.net>  Tue, 24 Feb 2015 22:56:02 -0800
 
 emacs-snapshot (2:20150224+emacs-pretest-24.0.05-15867-gb86ba30-1) unstable; urgency=medium
