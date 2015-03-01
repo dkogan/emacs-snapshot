@@ -1,3 +1,14 @@
+2015-02-28  Eli Zaretskii  <eliz@gnu.org>
+
+	* searching.texi (Char Classes): Update the documentation of
+	[:alpha:] and [:alnum:].  (Bug#19878)
+
+2015-02-27  Eli Zaretskii  <eliz@gnu.org>
+
+	* os.texi (Startup Summary):
+	* display.texi (Window Systems): Mention peculiarities of daemon
+	mode on MS-Windows.
+
 2015-02-11  Martin Rudalics  <rudalics@gmx.at>
 
 	* frames.texi (Size Parameters): Update description of

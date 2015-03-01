@@ -1,3 +1,106 @@
+2015-02-28  Paul Eggert  <eggert@cs.ucla.edu>
+
+	* character.c (alphabeticp, decimalnump): Avoid undefined behavior
+	if CATEGORY is not an integer, or is an integer out of
+	unicode_category_t range.
+
+2015-02-28  Martin Rudalics  <rudalics@gmx.at>
+
+	* frame.c (make_initial_frame, Fmake_terminal_frame): Set
+	can_x_set_window_size and after_make_frame (Bug#19962).
+
+2015-02-28  Eli Zaretskii  <eliz@gnu.org>
+
+	* character.c (alphabeticp, decimalnump): New functions.
+	* character.h (alphabeticp, decimalnump): Add prototypes.
+
+	* regex.c (ISALNUM, ISALPHA): Check Unicode character properties
+	for multibyte characters by calling alphabeticp and decimalnump.
+	(BIT_ALPHA, BIT_ALNUM): New bit masks.
+	(re_wctype_to_bit): Return them when the class is RECC_ALPHA or
+	RECC_ALNUM.
+	(re_match_2_internal): Call ISALPHA and ISALNUM when appropriate.
+	(Bug#19878)
+
+2015-02-27  Jan Djärv  <jan.h.d@swipnet.se>
+
+	* xterm.h (x_real_pos_and_offsets): Take outer_border as arg also.
+
+	* xmenu.c (x_menu_show): Adjust for new arg to x_real_pos_and_offsets.
+
+	* xfns.c (x_real_pos_and_offsets): Take outer_border as arg also.
+	Initialize all args.  Get outer_border from window attributes.
+	Fix typo for top_offset_y.
+	(x_real_positions): Adjust for new arg to x_real_pos_and_offsets.
+	(Fx_frame_geometry): Get outer_border also.  Use attrs.width/height.
+
+2015-02-27  Mark Laws  <mdl@60hz.org>
+
+	Support daemon mode on MS-Windows (bug#19688)
+	* emacs.c <w32_daemon_event> [WINDOWSNT]: New global var.
+	(main) [WINDOWSNT]: Initialize it to NULL.  Create the event to
+	signal clients we are ready for connections.
+	(Fdaemon_initialized): Use DAEMON_RUNNING.
+	[WINDOWSNT]: MS-Windows specific code to signal clients we are
+	ready for connections.
+
+	* lisp.h (DAEMON_RUNNING): New macro, encapsulates Posix and
+	MS-Windows conditions for running in daemon mode.
+
+	* minibuf.c (read_minibuf): Use DAEMON_RUNNING.
+
+	* keyboard.c (kbd_buffer_get_event): Use DAEMON_RUNNING.
+
+	* dispnew.c (init_display) [WINDOWSNT]: Initialize frames/terminal
+	even in daemon mode.
+
+2015-02-26  Jan Djärv  <jan.h.d@swipnet.se>
+
+	* xmenu.c (create_and_show_popup_menu): Call XTranslateCoordinates,
+	dont use OUTER_TO_INNER macros.
+	(x_menu_show): Call x_real_pos_and_offsets, don't use
+	OUTER_TO_INNER macros.
+
+2015-02-26  Eli Zaretskii  <eliz@gnu.org>
+
+	* dispextern.h (FACE_FOR_CHAR): Fix the commentary.
+
+2015-02-26  Hans Wennborg  <hwennborg@google.com>  (tiny change)
+
+	* emacs.c (decode_env_path): Add parentheses around ternary
+	operator to increase readability and pacify compiler warnings.
+
+2015-02-26  Eli Zaretskii  <eliz@gnu.org>
+
+	* w32.c (sys_readdir): Map ERROR_NOT_READY (as in "device not
+	ready") to ENOENT.
+
+2015-02-26  Paul Eggert  <eggert@cs.ucla.edu>
+
+	* xfns.c (x_real_pos_and_offsets): Fix pointer signedness.
+
+2015-02-25  Jan Djärv  <jan.h.d@swipnet.se>
+
+	* xterm.h (struct x_output): Remove x_pixels_outer_diff,
+	y_pixels_outer_diff, FRAME_OUTER_TO_INNER_DIFF_X,
+	FRAME_OUTER_TO_INNER_DIFF_Y. Declare x_real_pos_and_offsets.
+
+	* xmenu.c (create_and_show_popup_menu): Use XTranslateCoordinates
+	instead of OUTER_TO_INNER_DIFF macros.
+
+	* xfns.c (x_real_pos_and_offsets): New function, basically the code
+	from x_real_positions.
+	(x_real_positions): Call x_real_pos_and_offsets.
+	(x_relative_mouse_position): Use XTranslateCoordinates instead of
+	OUTER_TO_INNER_DIFF macros.
+	(Fx_frame_geometry): Get offsets with x_real_pos_and_offsets,
+	border from window attributes.  Adjust tool bar and menu widths.
+
+	* w32fns.c (x_real_positions): Remove setting of x_pixels_diff,
+	y_pixels_diff.
+
+	* frame.h (struct frame): Remove x_pixels_diff, y_pixels_diff.
+
 2015-02-25  Paul Eggert  <eggert@cs.ucla.edu>
 
 	Backtrace after malloc arena is corrupted

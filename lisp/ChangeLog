@@ -1,3 +1,108 @@
+2015-02-28  Eli Zaretskii  <eliz@gnu.org>
+
+	* mail/rmailmm.el (rmail-mime-insert-html): Decode HTML payload
+	when the charset is only given by the HTML <head>, and allow to
+	specify the encoding with "C-x RET c".
+
+2015-02-27  Mark Laws  <mdl@60hz.org>
+
+	Support daemon mode on MS-Windows (bug#19688)
+	* server.el (server-process-filter): Force GUI frames on
+	MS-Windows in daemon mode, even if a TTY frame was requested.
+
+	* frameset.el (frameset-keep-original-display-p): Don't assume
+	windows-nt cannot be in daemon mode.
+
+	* frame.el (window-system-for-display): Don't assume windows-nt
+	cannot be in daemon mode.
+
+2015-02-26  Ivan Shmakov  <ivan@siamics.net>
+
+	* faces.el (face-list-p): Split from face-at-point.
+	(face-at-point): Use it.
+	* facemenu.el (facemenu-add-face): Likewise.  (Bug#19912)
+
+2015-02-26  Oscar Fuentes  <ofv@wanadoo.es>
+
+	* vc/vc.el (vc-annotate-switches): New defcustom.
+	* vc/vc-bzr.el (vc-bzr-annotate-switches): New defcustom.
+	(vc-bzr-annotate-command): Use vc-switches.
+	* vc/vc-cvs.el (vc-cvs-annotate-switches): New defcustom.
+	(vc-cvs-annotate-command): Use vc-switches.
+	* vc/vc-git.el (vc-git-annotate-switches): New defcustom.
+	(vc-git-annotate-command): Use vc-switches.
+	* vc/vc-hg.el (vc-hg-annotate-switches): New defcustom.
+	(vc-hg-annotate-command): Use vc-switches.
+	* vc/vc-mtn.el (vc-mtn-annotate-switches): New defcustom.
+	(vc-mtn-annotate-command): Use vc-switches.
+	* vc/vc-svn.el (vc-svn-annotate-switches): New defcustom.
+	(vc-svn-annotate-command): Use vc-switches.
+
+2015-02-26  Alan Mackenzie  <acm@muc.de>
+
+	Handle "#" operator properly inside macro.  Fix coding bug.
+
+	* progmodes/cc-mode.el (c-neutralize-syntax-in-and-mark-CPP): On
+	finding a "#" which looks like the start of a macro, check it
+	isn't already inside a macro.
+
+	* progmodes/cc-engine.el (c-state-safe-place): Don't record a new
+	"safe" position into the list of them when this is beyond our
+	current position.
+
+2015-02-26  Martin Rudalics  <rudalics@gmx.at>
+
+	* menu-bar.el (menu-bar-non-minibuffer-window-p): Return nil when
+	the menu frame is dead.  (Bug#19728)
+
+2015-02-26  Fabián Ezequiel Gallina  <fgallina@gnu.org>
+
+	python.el: Handle tabs in python-indent-dedent-line.
+
+	* progmodes/python.el (python-indent-dedent-line): Fixes for
+	indentation with tabs.  Thanks to <dale@codefu.org> (Bug#19730).
+
+2015-02-26  Fabián Ezequiel Gallina  <fgallina@gnu.org>
+
+	* progmodes/python.el (python-indent-context): Respect user
+	indentation after comment.
+
+2015-02-26  Tassilo Horn  <tsdh@gnu.org>
+
+	* textmodes/reftex-vars.el (featurep): Conditionalize value of
+	reftex-label-regexps in order to stay compatible with XEmacs 21.5
+	which has no explicitly numbered groups in regexps (bug#19714).
+
+2015-02-26  Daiki Ueno  <ueno@gnu.org>
+
+	* net/dbus.el (dbus-register-signal): Convert "N" of ":argN" to
+	integer before comparison.
+
+2015-02-25  Nicolas Richard  <theonewiththeevillook@yahoo.fr>
+
+	* progmodes/elisp-mode.el (elisp--eval-last-sexp): Document argument.
+
+2015-02-25  Oleh Krehel  <ohwoeowho@gmail.com>
+
+	* emacs-lisp/check-declare.el (check-declare-warn): Use
+	compilation-style warnings.
+	(check-declare-files): Make sure that
+	`check-declare-warning-buffer' is in `compilation-mode'.
+
+2015-02-25  Oleh Krehel  <ohwoeowho@gmail.com>
+
+	* emacs-lisp/check-declare.el (check-declare-ext-errors): New
+	defcustom.
+	(check-declare): New defgroup.
+	(check-declare-verify): When `check-declare-ext-errors' is
+	non-nil, warn about an unfound function, instead of saying
+	"skipping external file".
+
+2015-02-25  Tassilo Horn  <tsdh@gnu.org>
+
+	* textmodes/reftex-vars.el (reftex-include-file-commands): Call
+	reftex-set-dirty on changes.
+
 2015-02-25  Stefan Monnier  <monnier@iro.umontreal.ca>
 
 	* emacs-lisp/edebug.el (edebug--display): Save-excursion (bug#19611).
