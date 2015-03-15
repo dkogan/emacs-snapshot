@@ -9,7 +9,7 @@ var e = 100500,
 
 function test ()
 {
-     return /[/]/.test ('/')     // (bug#19397)
+  return /[/]/.test ('/')     // (bug#19397)
 }
 
 var f = bar('/protocols/')
@@ -63,3 +63,8 @@ b +=
 
 baz(`http://foo.bar/${tee}`)
   .qux();
+
+// Local Variables:
+// indent-tabs-mode: nil
+// js-indent-level: 2
+// End:

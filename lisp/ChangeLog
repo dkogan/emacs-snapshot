@@ -1,3 +1,125 @@
+2015-03-15  Tassilo Horn  <tsdh@gnu.org>
+
+	* emacs-lisp/lisp-mode.el (lisp--el-macro-regexp): New defconst.
+	(lisp--el-update-macro-regexp, lisp--el-update-after-load)
+	(lisp--el-match-macro): New functions.
+	(lisp-mode-variables): Update lisp--el-macro-regexp and add
+	lisp--el-update-after-load to after-load-functions.
+
+2015-03-15  Daniel Colascione  <dancol@dancol.org>
+
+	* emacs-lisp/cl-indent.el
+	(lisp-indent-backquote-substitution-mode): New user option.
+	(common-lisp-indent-function-1, common-lisp-loop-part-indentation)
+	(common-lisp-indent-function): Support normally indenting
+	backquote substitutions.
+	(extended-loop-p): Rename to `lisp-extended-loop-p'.
+
+2015-03-14  Michael R. Mauger  <michael@mauger.com>
+
+	* progmodes/sql.el: Version 3.5
+	(sql-starts-with-prompt-re, sql-ends-with-prompt-re): Match password prompts.
+	(sql-interactive-remove-continuation-prompt): Fixed regression. (Bug#6686)
+
+2015-03-14  Daniel Colascione  <dancol@dancol.org>
+
+	* widget.el (define-widget): Check that documentation is a string
+	or nil; prevent wailing and gnashing of teeth when users forget to
+	pass a docstring and wonder why their properties don't work.
+
+	* startup.el (command-line): Process "--no-x-resources".
+
+2015-03-13  Kevin Ryde  <user42_kevin@yahoo.com.au>
+
+	info-look fixes for Texinfo 5
+	* info-look.el (c-mode, bison-mode, makefile-mode)
+	(makefile-automake-mode, texinfo-mode, autoconf-mode, awk-mode)
+	(latex-mode, emacs-lisp-mode, sh-mode, cfengine-mode): Match
+	`foo' and 'foo' and ‘foo’ for @item and similar.
+	(latex-mode): Match multi-arg \frac{num}{den} or \sqrt[root]{n} in
+	suffix regexp.
+
+2015-03-12  Juri Linkov  <juri@linkov.net>
+
+	* simple.el (next-line-or-history-element)
+	(previous-line-or-history-element): Remember the goal column of
+	possibly multi-line input, and restore it afterwards.  (Bug#19824)
+
+2015-03-12  Rasmus Pank Roulund  <emacs@pank.eu>
+
+	* ido.el (ido-add-virtual-buffers-to-list): Include bookmark-alist
+	files (bug#19335).
+
+2015-03-12  Eli Zaretskii  <eliz@gnu.org>
+
+	* international/fontset.el (script-representative-chars): Add a
+	representative character for 'vai'.
+
+2015-03-11  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* international/quail.el (quail-input-method):
+	Use with-silent-modifications.
+
+	* simple.el (goto-history-element): Don't burp on t history.
+
+2015-03-10  Paul Eggert  <eggert@cs.ucla.edu>
+
+	Prefer "initialize" to "initialise"
+	* progmodes/js.el (js-indent-first-init):
+	Rename from js-indent-first-initialiser, to avoid worrying about
+	American vs British spelling.  All uses changed.
+
+2015-03-10  Glenn Morris  <rgm@gnu.org>
+
+	* progmodes/js.el (js-indent-first-initialiser):
+	Fix doc, type, version.
+
+2015-03-10  Jackson Ray Hamilton  <jackson@jacksonrayhamilton.com>
+
+	* progmodes/js.el (js-indent-first-initialiser): New option.
+	(js--maybe-goto-declaration-keyword-end): New function.
+	(js--proper-indentation): Use js--maybe-goto-declaration-keyword-end.
+
+2015-03-10  Thomas Fitzsimmons  <fitzsim@fitzsim.org>
+
+	* net/ldap.el (ldap-attribute-syntaxes-alist): Add LDAP attributes
+	from RFC2798 Section 9.1.1.  (Bug#8983)
+
+2015-03-09  Nicolas Petton <nicolas@petton.fr>
+
+	* emacs-lisp/seq.el (seq-into): New function.
+	Bump seq.el version to 1.3.
+
+2015-03-09  Dmitry Gutov  <dgutov@yandex.ru>
+
+	* progmodes/ruby-mode.el (ruby-font-lock-keywords): Don't consider
+	`=' a part of symbol when followed by `>'.  (Bug#18644)
+	(ruby-syntax-before-regexp-re): Detect regexps after `!'.
+	(Bug#19285)
+
+2015-03-09  Eli Zaretskii  <eliz@gnu.org>
+
+	* dired.el (dired-delete-file): Doc fix.  (Bug#20021)
+
+2015-03-06  Sergio Durigan Junior  <sergiodj@sergiodj.net>
+	    Thomas Fitzsimmons  <fitzsim@fitzsim.org>
+
+	* net/eudcb-bbdb.el (eudc-bbdb-field): New function.
+	(eudc-bbdb-filter-non-matching-record): Call eudc-bbdb-field.
+	(eudc-bbdb-format-record-as-result): Likewise.
+
+2015-03-08  Dmitry Gutov  <dgutov@yandex.ru>
+
+	* progmodes/ruby-mode.el (ruby-font-lock-keywords):
+	Use `font-lock-constant-face' for nil, true and false.
+	Highlight `self' as a keyword.  (Bug#17733)
+
+2015-03-08  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* progmodes/ruby-mode.el (ruby-syntax-before-regexp-re):
+	Expect beginning of regexp also after open brace or vertical bar.
+	(Bug#20026)
+
 2015-03-07  Stefan Monnier  <monnier@iro.umontreal.ca>
 
 	* battery.el (battery-echo-area-format): Simplify default.
@@ -133,7 +255,7 @@
 	Use `with-temp-file'.
 
 	* net/tramp-sh.el (tramp-perl-file-attributes)
-	(tramp-perl-directory-files-and-attributes): Escape apostrophs in
+	(tramp-perl-directory-files-and-attributes): Escape apostrophes in
 	file names.
 	(tramp-do-file-attributes-with-stat): Quote file name.
 	(tramp-sh-handle-directory-files-and-attributes): Fall back to
@@ -145,7 +267,7 @@
 	Normalize use of "cd".
 	(tramp-do-directory-files-and-attributes-with-stat): Use the
 	`quoting-style' arg of `ls' if possible.  Make it also working for
-	file names with apostrophs.
+	file names with apostrophes.
 	(tramp-sh-handle-file-name-all-completions): Use arguments of `ls'
 	in proper order.
 	(tramp-do-copy-or-rename-file-via-buffer)
@@ -219,8 +341,8 @@
 2015-03-03  Agustín Martín Domingo  <agustin6martin@gmail.com>
 
 	Improve string search in `flyspell-word-search-*`. (Bug#16800)
-	* flyspell.el (flyspell-duplicate-distance): Limit default search
-	distance for duplicated words to 40000.
+	* textmodes/flyspell.el (flyspell-duplicate-distance):
+	Limit default search distance for duplicated words to 40000.
 	(flyspell-word-search-backward, flyspell-word-search-forward):
 	Search as full word with defined casechars, not as substring.
 
@@ -4500,7 +4622,7 @@
 	(tildify-foreach-region-function): New variable specifying
 	a function determining portions of buffer that should be
 	tildified.  It allows major modes to create a filtering function
-	more elaborate than a set of regular expressions.  Initialised to
+	more elaborate than a set of regular expressions.  Initialized to
 	`tildify--deprecated-ignore-evironments' by default to handle now
 	deprecated `tildify-ignored-environments-alist' variable.
 	(tildify--foreach-region): A new function that takes
@@ -8964,7 +9086,7 @@
 	file-format 2 --- ie. no local printers --- and 3 --- i.e. may have
 	local printers.
 	(ses-localvars): Add local variables needed for local printer handling.
-	(ses-set-localvars): Handle hashmap initialisation.
+	(ses-set-localvars): Handle hashmap initialization.
 	(ses-paramlines-plist): Add param-line for number of local printers.
 	(ses-paramfmt-plist): New defconst, needed for code factorization
 	between functions `ses-set-parameter' and
@@ -12224,7 +12346,7 @@
 	* progmodes/cc-mode.el (c-initialize-cc-mode): Add CC Mode hooks
 	to electric-indent-{,local-}-mode.
 	(c-basic-common-init): Set electric-indent-inhibit.
-	Initialise c-electric-flag from electric-indent-mode.
+	Initialize c-electric-flag from electric-indent-mode.
 	(c-electric-indent-mode-hook, c-electric-indent-local-mode-hook):
 	New hook functions which propagate electric-indent-mode to CC mode.
 
@@ -24161,7 +24283,7 @@
 
 2013-04-30  Alan Mackenzie  <acm@muc.de>
 
-	Handle arbitrarily long C++ member initialisation lists.
+	Handle arbitrarily long C++ member initialization lists.
 	* progmodes/cc-engine.el (c-back-over-member-initializers):
 	new function.
 	(c-guess-basic-syntax): New CASE 5R (extracted from 5B) to handle
