@@ -42,6 +42,7 @@
 ;; browse-url-netscape                Netscape    1.1b1
 ;; browse-url-mosaic                  XMosaic/mMosaic <= 2.4
 ;; browse-url-cci                     XMosaic     2.5
+;; browse-url-conkeror                Conkeror    Don't know
 ;; browse-url-w3                      w3          0
 ;; browse-url-w3-gnudoit              w3 remotely
 ;; browse-url-text-*	              Any text browser     0
@@ -61,7 +62,7 @@
 ;; control.  <URL:http://www.netscape.com/newsref/std/x-remote.html>.
 
 ;; Browsers can cache Web pages so it may be necessary to tell them to
-;; reload the current page if it has changed (e.g. if you have edited
+;; reload the current page if it has changed (e.g., if you have edited
 ;; it).  There is currently no perfect automatic solution to this.
 
 ;; Netscape allows you to specify the id of the window you want to
@@ -236,6 +237,7 @@ regexp should probably be \".\" to specify a default browser."
 	  (function-item :tag "Netscape" :value  browse-url-netscape)
 	  (function-item :tag "Mosaic" :value  browse-url-mosaic)
 	  (function-item :tag "Mosaic using CCI" :value  browse-url-cci)
+	  (function-item :tag "Conkeror" :value  browse-url-conkeror)
 	  (function-item :tag "Text browser in an xterm window"
 			 :value browse-url-text-xterm)
 	  (function-item :tag "Text browser in an Emacs window"
@@ -416,6 +418,13 @@ functionality is not available there."
   :type 'boolean
   :group 'browse-url)
 
+(defcustom browse-url-conkeror-new-window-is-buffer nil
+  "Whether to open up new windows in a buffer or a new window.
+If non-nil, then open the URL in a new buffer rather than a new window if
+`browse-url-conkeror' is asked to open it in a new window."
+  :type 'boolean
+  :group 'browse-url)
+
 (defcustom browse-url-galeon-new-window-is-tab nil
   "Whether to open up new windows in a tab or a new window.
 If non-nil, then open the URL in a new tab rather than a new window if
@@ -460,6 +469,17 @@ commands reverses the effect of this variable.  Requires Netscape version
 (defcustom browse-url-mosaic-pidfile "~/.mosaicpid"
   "The name of the pidfile created by Mosaic."
   :type 'string
+  :group 'browse-url)
+
+(defcustom browse-url-conkeror-program "conkeror"
+  "The name by which to invoke Conkeror."
+  :type 'string
+  :version "25.1"
+  :group 'browse-url)
+
+(defcustom browse-url-conkeror-arguments nil
+  "A list of strings to pass to Conkeror as arguments."
+  :type '(repeat (string :tag "Argument"))
   :group 'browse-url)
 
 (defcustom browse-url-filename-alist
@@ -803,7 +823,7 @@ narrowed."
 ;;;###autoload
 (defun browse-url (url &rest args)
   "Ask a WWW browser to load URL.
-Prompts for a URL, defaulting to the URL at or before point.  Variable
+Prompt for a URL, defaulting to the URL at or before point.  Variable
 `browse-url-browser-function' says which browser to use.
 If the URL is a mailto: URL, consult `browse-url-mailto-function'
 first, if that exists."
@@ -842,8 +862,7 @@ first, if that exists."
 ;;;###autoload
 (defun browse-url-at-point (&optional arg)
   "Ask a WWW browser to load the URL at or before point.
-Doesn't let you edit the URL like `browse-url'.  Variable
-`browse-url-browser-function' says which browser to use."
+Variable `browse-url-browser-function' says which browser to use."
   (interactive "P")
   (let ((url (browse-url-url-at-point)))
     (if url
@@ -856,9 +875,8 @@ Doesn't let you edit the URL like `browse-url'.  Variable
 (defun browse-url-at-mouse (event)
   "Ask a WWW browser to load a URL clicked with the mouse.
 The URL is the one around or before the position of the mouse click
-but point is not changed.  Doesn't let you edit the URL like
-`browse-url'.  Variable `browse-url-browser-function' says which browser
-to use."
+but point is not changed.  Variable `browse-url-browser-function'
+says which browser to use."
   (interactive "e")
   (save-excursion
     (mouse-set-point event)
@@ -936,6 +954,7 @@ used instead of `browse-url-new-window-flag'."
     ((executable-find browse-url-kde-program) 'browse-url-kde)
     ((executable-find browse-url-netscape-program) 'browse-url-netscape)
     ((executable-find browse-url-mosaic-program) 'browse-url-mosaic)
+    ((executable-find browse-url-conkeror-program) 'browse-url-conkeror)
     ((executable-find browse-url-xterm-program) 'browse-url-text-xterm)
     ((locate-library "w3") 'browse-url-w3)
     (t
@@ -1359,6 +1378,42 @@ used instead of `browse-url-new-window-flag'."
   (process-send-string "browse-url" "disconnect\r\n")
   (delete-process "browse-url"))
 
+;; --- Conkeror ---
+;;;###autoload
+(defun browse-url-conkeror (url &optional new-window)
+  "Ask the Conkeror WWW browser to load URL.
+Default to the URL around or before point.  Also pass the strings
+in the variable `browse-url-conkeror-arguments' to Conkeror.
+
+When called interactively, if variable
+`browse-url-new-window-flag' is non-nil, load the document in a
+new Conkeror window, otherwise use a random existing one.  A
+non-nil interactive prefix argument reverses the effect of
+`browse-url-new-window-flag'.
+
+If variable `browse-url-conkeror-new-window-is-buffer' is
+non-nil, then whenever a document would otherwise be loaded in a
+new window, load it in a new buffer in an existing window instead.
+
+When called non-interactively, use optional second argument
+NEW-WINDOW instead of `browse-url-new-window-flag'."
+  (interactive (browse-url-interactive-arg "URL: "))
+  (setq url (browse-url-encode-url url))
+  (let* ((process-environment (browse-url-process-environment)))
+    (apply 'start-process (format "conkeror %s" url)
+	   nil
+	   browse-url-conkeror-program
+	   (append
+	    browse-url-conkeror-arguments
+	    (list
+	     "-e"
+	     (format "load_url_in_new_%s('%s')"
+		     (if (browse-url-maybe-new-window new-window)
+			 (if browse-url-conkeror-new-window-is-buffer
+			     "buffer"
+			   "window")
+		       "buffer")
+		     url))))))
 ;; --- W3 ---
 
 ;; External.
@@ -1439,7 +1494,7 @@ used instead of `browse-url-new-window-flag'."
 	 (n browse-url-text-input-attempts))
     (require 'term)
     (if (and (browse-url-maybe-new-window new-buffer) buf)
-	;; Rename away the OLD buffer. This isn't very polite, but
+	;; Rename away the OLD buffer.  This isn't very polite, but
 	;; term insists on working in a buffer named *lynx* and would
 	;; choke on *lynx*<1>
 	(progn (set-buffer buf)

@@ -2072,10 +2072,10 @@ See `font-lock-syntax-table'.")
           "at_exit"
           "autoload"
           "autoload?"
+          "callcc"
           "catch"
           "eval"
           "exec"
-          "fork"
           "format"
           "lambda"
           "load"
@@ -2093,7 +2093,10 @@ See `font-lock-syntax-table'.")
           "sprintf"
           "syscall"
           "system"
+          "throw"
+          "trace_var"
           "trap"
+          "untrace_var"
           "warn"
           ;; keyword-like private methods on Module
           "alias_method"
@@ -2123,13 +2126,15 @@ See `font-lock-syntax-table'.")
           "__dir__"
           "__method__"
           "abort"
-          "at_exit"
           "binding"
           "block_given?"
           "caller"
           "exit"
           "exit!"
           "fail"
+          "fork"
+          "global_variables"
+          "local_variables"
           "private"
           "protected"
           "public"
@@ -2138,8 +2143,7 @@ See `font-lock-syntax-table'.")
           "readline"
           "readlines"
           "sleep"
-          "srand"
-          "throw")
+          "srand")
         'symbols))
      (1 font-lock-builtin-face))
     ;; Here-doc beginnings.

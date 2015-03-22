@@ -1,3 +1,20 @@
+2015-03-21  Eric Abrahamsen  <eric@ericabrahamsen.net>
+
+	* registry.el (registry-lookup-secondary, registry-full)
+	(registry-prune, registry-collect-prune-candidates):
+	* gnus-registry.el (gnus-registry-load): Use slot names rather than
+	initarg names in `oref' and `oset'.
+
+2015-03-19  Eric Abrahamsen  <eric@ericabrahamsen.net>
+
+	* registry.el (registry-prune): Allow registry to reach full size
+	before pruning.
+
+2015-03-19  Eric Abrahamsen  <eric@ericabrahamsen.net>
+
+	* registry.el (registry-collect-prune-candidates): Fix call to
+	cl-subseq.
+
 2015-03-11  Stefan Monnier  <monnier@iro.umontreal.ca>
 
 	* gnus-registry.el (gnus-registry-handle-action)
