@@ -134,10 +134,10 @@ index 73e8aeb..3482cde 100755
              ## FIXME do not ignore w32 if OS is w32.
              case $file in
 diff --git a/configure.ac b/configure.ac
-index d65494a..24f288b 100644
+index 40c8d2b..6c91342 100644
 --- a/configure.ac
 +++ b/configure.ac
-@@ -5198,11 +5198,11 @@ dnl This will work, but you get a config.status that is not quite right
+@@ -5227,11 +5227,11 @@ dnl This will work, but you get a config.status that is not quite right
  dnl (see http://lists.gnu.org/archive/html/bug-autoconf/2008-08/msg00028.html).
  dnl That doesn't have any obvious consequences for Emacs, but on the whole
  dnl it seems better to just live with the duplication.
@@ -152,7 +152,7 @@ index d65494a..24f288b 100644
         leim/Makefile nextstep/Makefile nt/Makefile])
  
  dnl test/ is not present in release tarfiles.
-@@ -5253,15 +5253,6 @@ if test ! -f src/.gdbinit && test -f "$srcdir/src/.gdbinit"; then
+@@ -5282,15 +5282,6 @@ if test ! -f src/.gdbinit && test -f "$srcdir/src/.gdbinit"; then
  fi
  ])
  
