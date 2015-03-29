@@ -1,3 +1,206 @@
+2015-03-28  Jan Djärv  <jan.h.d@swipnet.se>
+
+	* emacs-lisp/package.el (package-refresh-contents): Fix spelling
+	error in previous change.
+
+2015-03-28  Tom Willemse  <tom@ryuslash.org>  (tiny change)
+
+	* elec-pair.el (electric-pair-local-mode): New command.
+	(electric-pair-mode): Mention `electric-pair-local-mode' in the
+	docstring.
+
+2015-03-28  Jan Djärv  <jan.h.d@swipnet.se>
+
+	* emacs-lisp/package.el (package-refresh-contents): Add a message at
+	the end so it does not appear to have hanged (Bug#17879).
+
+2015-03-27  Wolfgang Jenkner  <wjenkner@inode.at>
+
+	* font-lock.el (font-lock--remove-face-from-text-property): New
+	function.  Adapted from the previously commented out
+	remove-single-text-property.
+	Remove previously unused and commented out auxiliary function
+	remove-text-property and obsolete comment.
+	* comint.el (comint-output-filter): Use it to remove
+	comint-highlight-prompt.
+	(comint-snapshot-last-prompt, comint-output-filter): Use
+	font-lock-prepend-text-property for comint-highlight-prompt.
+	(Bug#20084)
+
+2015-03-26  Daniel Colascione  <dancol@dancol.org>
+	* progmodes/python.el
+	(python-indent-guess-indent-offset-verbose): New defcustom.
+	(python-indent-guess-indent-offset): Use it.
+
+2015-03-26  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* emacs-lisp/eieio.el (defclass): Change internal name so as to make
+	sure only EIEIO files should have "eieio--" prefixes in their .elc.
+
+	* emacs-lisp/cl-macs.el (cl-dolist, cl-dotimes): Silence byte-compiler.
+
+2015-03-26  Boruch Baum  <boruch_baum@gmx.com>  (tiny change)
+
+	* bookmark.el (bookmark-show-all-annotations): Sort them (bug#20177).
+
+2015-03-25  Dmitry Gutov  <dgutov@yandex.ru>
+
+	* json.el (json-special-chars): Don't treat `/' specially, there's
+	no need to.
+	(json-encode-string): Only escape quotation mark, backslash and
+	the control characters U+0000 to U+001F.
+
+2015-03-25  Artur Malabarba  <bruce.connor.am@gmail.com>
+
+	* emacs-lisp/checkdoc.el (checkdoc-this-string-valid-engine):
+	Don't complain about args starting with _.
+
+2015-03-25  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* international/mule-cmds.el (mule--ucs-names-annotation): New func.
+	(read-char-by-name): Use it.
+
+	* xt-mouse.el (xterm-mouse--read-number-from-terminal): Fix last commit.
+
+2015-03-25  Nicolas Petton <nicolas@petton.fr>
+
+	* emacs-lisp/seq.el: Documentation improvements.
+
+2015-03-25  Glenn Morris  <rgm@gnu.org>
+
+	* net/browse-url.el (browse-url-browser-function)
+	(browse-url-default-browser):
+	Remove obsolete items from the explicit listing.
+	(browse-url-new-window-flag, browse-url-of-file-hook): Doc fixes.
+	(browse-url-netscape-program, browse-url-netscape-arguments)
+	(browse-url-netscape-startup-arguments)
+	(browse-url-galeon-program, browse-url-galeon-arguments)
+	(browse-url-galeon-startup-arguments)
+	(browse-url-gnome-moz-program, browse-url-gnome-moz-arguments)
+	(browse-url-galeon-new-window-is-tab)
+	(browse-url-netscape-new-window-is-tab)
+	(browse-url-mosaic-program, browse-url-mosaic-arguments)
+	(browse-url-mosaic-pidfile, browse-url-CCI-port)
+	(browse-url-CCI-host, browse-url-netscape-version)
+	(browse-url-netscape, browse-url-netscape-sentinel)
+	(browse-url-netscape-reload, browse-url-netscape-send)
+	(browse-url-galeon, browse-url-galeon-sentinel)
+	(browse-url-gnome-moz, browse-url-mosaic, browse-url-cci)
+	(browse-url-w3-gnudoit): Make obsolete.
+	* ffap.el (ffap-url-fetcher): Simplify default and doc.
+
+2015-03-25  Olaf Rogalsky  <olaf.rogalsky@gmail.com>
+
+	* xt-mouse.el: Add mouse-tracking support (bug#19416).
+	(xterm-mouse-translate-1): Handle mouse-movement events.
+	(xterm-mouse--read-event-sequence-1000)
+	(xterm-mouse--read-event-sequence-1006): Delete functions.
+	(xterm-mouse--read-event-sequence): New function that handles both at
+	the same time.  Handle mouse-movements.
+	(xterm-mouse--read-utf8-char, xterm-mouse--read-number-from-terminal):
+	New functions.
+	(xterm-mouse-event): Simplify.
+	(xterm-mouse-tracking-enable-sequence)
+	(xterm-mouse-tracking-disable-sequence): Enable mouse tracking.
+
+	* mouse.el (mouse-drag-line): Also ignore `vertical-line' prefix events.
+
+2015-03-24  Michael Albinus  <michael.albinus@gmx.de>
+
+	* net/tramp-sh.el (tramp-do-file-attributes-with-ls)
+	(tramp-do-file-attributes-with-stat): Quote file names in output.
+	(tramp-do-directory-files-and-attributes-with-stat): Use "//" as marker.
+
+2015-03-24  Daiki Ueno  <ueno@gnu.org>
+
+	* epg.el (epg-start-generate-key): Fix typo in "gpg --gen-key"
+	invocation; make the PARAMETERS documentation clearer.
+
+2015-03-24  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	Add cl-struct specific optimizations to pcase.
+	* emacs-lisp/cl-macs.el (cl--struct-all-parents)
+	(cl--pcase-mutually-exclusive-p): New functions.
+	(pcase--mutually-exclusive-p): Advise to optimize cl-struct patterns.
+
+	* emacs-lisp/pcase.el (pcase--split-pred): Handle quoted string.
+
+2015-03-23  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	Add new `cl-struct' and `eieio' pcase patterns.
+	* emacs-lisp/cl-macs.el (cl-struct): New pcase pattern.
+	* emacs-lisp/eieio.el (eieio-pcase-slot-index-table)
+	(eieio-pcase-slot-index-from-index-table): New functions.
+	(eieio): New pcase pattern.
+	* emacs-lisp/pcase.el (pcase--make-docstring): New function.
+	(pcase): Use it to build the docstring.
+	(pcase-defmacro): Make sure the macro is lazy-loaded.
+	(\`): Move its docstring from `pcase'.
+
+2015-03-23  Glenn Morris  <rgm@gnu.org>
+
+	* emacs-lisp/authors.el (authors-aliases)
+	(authors-obsolete-files-regexps): Additions.
+
+2015-03-23  Jan Djärv  <jan.h.d@swipnet.se>
+
+	* simple.el (deactivate-mark): Only modify PRIMARY if we own
+	PRIMARY (Bug#18939).
+
+2015-03-23  Martin Rudalics  <rudalics@gmx.at>
+
+	* emacs-lisp/debug.el (debug): Don't try using "previous" window
+	when its not live or on an invisible frame (Bug#17170).
+
+2015-03-23  Dmitry Gutov  <dgutov@yandex.ru>
+
+	* json.el (json-decode-char0): Delete this alias as well.
+	(json-read-escaped-char): Don't call it (bug#20154).
+
+2015-03-23  Daniel Colascione  <dancol@dancol.org>
+
+	* emacs-lisp/lisp-mode.el (lisp--el-non-funcall-position-p): New function.
+	(lisp--el-match-keyword): Use it.
+
+2015-03-23  Daiki Ueno  <ueno@gnu.org>
+
+	* subr.el (start-process): New function, ported from the C
+	implementation.
+
+2015-03-23  Daniel Colascione  <dancol@dancol.org>
+
+	Automatically adjust process window sizes.
+
+	* window.el (window-adjust-process-window-size-function): New
+	customizable variable.
+	(window-adjust-process-window-size)
+	(window-adjust-process-window-size-smallest)
+	(window-adjust-process-window-size-largest)
+	(window--process-window-list, window--adjust-process-windows):
+	New functions.
+	(window-configuration-change-hook): Add
+	`window--adjust-process-windows'.
+	* term.el (term-mode): Observe result of
+	`window-adjust-process-window-size-function'.
+	(term-check-size): Delete.
+
+2015-03-22  Jackson Ray Hamilton  <jackson@jacksonrayhamilton.com>
+
+	* textmodes/sgml-mode.el (sgml-attribute-offset): New defcustom.
+	(sgml-calculate-indent): Use `sgml-attribute-offset' for attribute
+	indentation (bug#20161).
+
+2015-03-22  Dmitry Gutov  <dgutov@yandex.ru>
+
+	* json.el (json-encode-char0): Delete this alias.
+	(json-encode-string): Rewrite to improve performance (bug#20154).
+	(json-encode-char): Fold into `json-encode-string'.
+
+2015-03-22  Artur Malabarba  <bruce.connor.am@gmail.com>
+
+	* menu-bar.el (menu-bar-update-buffers): Count displayed buffers
+	for `buffers-menu-max-size', not total buffers.
+
 2015-03-21  Titus von der Malsburg  <malsburg@posteo.de>
 
 	* window.el (window-font-width, window-font-height)
