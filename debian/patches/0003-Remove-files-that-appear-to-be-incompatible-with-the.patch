@@ -120,7 +120,7 @@ index 4cdd293..c659596 100644
  
  $(UNINSTALL_DOC):
 diff --git a/admin/update_autogen b/admin/update_autogen
-index 73e8aeb..3482cde 100755
+index 1bd8296..c4adc77 100755
 --- a/admin/update_autogen
 +++ b/admin/update_autogen
 @@ -263,8 +263,7 @@ info_dir ()
@@ -134,10 +134,10 @@ index 73e8aeb..3482cde 100755
              ## FIXME do not ignore w32 if OS is w32.
              case $file in
 diff --git a/configure.ac b/configure.ac
-index bed94fb..cfecc6c 100644
+index d692530..cc6b7d3 100644
 --- a/configure.ac
 +++ b/configure.ac
-@@ -5231,11 +5231,11 @@ dnl This will work, but you get a config.status that is not quite right
+@@ -5255,11 +5255,11 @@ dnl This will work, but you get a config.status that is not quite right
  dnl (see http://lists.gnu.org/archive/html/bug-autoconf/2008-08/msg00028.html).
  dnl That doesn't have any obvious consequences for Emacs, but on the whole
  dnl it seems better to just live with the duplication.
@@ -152,7 +152,7 @@ index bed94fb..cfecc6c 100644
         leim/Makefile nextstep/Makefile nt/Makefile])
  
  dnl test/ is not present in release tarfiles.
-@@ -5286,15 +5286,6 @@ if test ! -f src/.gdbinit && test -f "$srcdir/src/.gdbinit"; then
+@@ -5310,15 +5310,6 @@ if test ! -f src/.gdbinit && test -f "$srcdir/src/.gdbinit"; then
  fi
  ])
  
