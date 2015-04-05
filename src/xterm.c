@@ -7010,11 +7010,6 @@ handle_one_xevent (struct x_display_info *dpyinfo,
       goto OTHER;
 
     case MapNotify:
-      if (event->xmap.window == tip_window)
-        /* The tooltip has been drawn already.  Avoid
-           the SET_FRAME_GARBAGED below.  */
-        goto OTHER;
-
       /* We use x_top_window_to_frame because map events can
          come for sub-windows and they don't mean that the
          frame is visible.  */
@@ -7543,6 +7538,18 @@ handle_one_xevent (struct x_display_info *dpyinfo,
       if (f)
         {
 	  x_net_wm_state (f, event->xconfigure.window);
+
+#ifdef USE_X_TOOLKIT
+          /* Tip frames are pure X window, set size for them.  */
+          if (! NILP (tip_frame) && XFRAME (tip_frame) == f)
+            {
+              if (FRAME_PIXEL_HEIGHT (f) != event->xconfigure.height
+                  || FRAME_PIXEL_WIDTH (f) != event->xconfigure.width)
+                SET_FRAME_GARBAGED (f);
+              FRAME_PIXEL_HEIGHT (f) = event->xconfigure.height;
+              FRAME_PIXEL_WIDTH (f) = event->xconfigure.width;
+            }
+#endif
 
 #ifndef USE_X_TOOLKIT
 #ifndef USE_GTK
@@ -10684,7 +10691,10 @@ get_bits_and_offset (unsigned long mask, int *bits, int *offset)
 bool
 x_display_ok (const char *display)
 {
+  /* XOpenDisplay fails if it gets a signal.  Block SIGIO which may arrive.  */
+  unrequest_sigio ();
   Display *dpy = XOpenDisplay (display);
+  request_sigio ();
   if (!dpy)
     return false;
   XCloseDisplay (dpy);
@@ -10864,7 +10874,9 @@ x_term_init (Lisp_Object display_name, char *xrm_option, char *resource_name)
 
         /* gtk_init does set_locale.  Fix locale before and after.  */
         fixup_locale ();
+        unrequest_sigio (); /* See comment in x_display_ok.  */
         gtk_init (&argc, &argv2);
+        request_sigio ();
         fixup_locale ();
 
         g_log_remove_handler ("GLib", id);
@@ -10914,10 +10926,12 @@ x_term_init (Lisp_Object display_name, char *xrm_option, char *resource_name)
 	argv[argc++] = xrm_option;
       }
     turn_on_atimers (false);
+    unrequest_sigio ();  /* See comment in x_display_ok.  */
     dpy = XtOpenDisplay (Xt_app_con, SSDATA (display_name),
 			 resource_name, EMACS_CLASS,
 			 emacs_options, XtNumber (emacs_options),
 			 &argc, argv);
+    request_sigio ();
     turn_on_atimers (true);
 
 #ifdef HAVE_X11XTR6
@@ -10928,7 +10942,9 @@ x_term_init (Lisp_Object display_name, char *xrm_option, char *resource_name)
 
 #else /* not USE_X_TOOLKIT */
   XSetLocaleModifiers ("");
+  unrequest_sigio ();  // See comment in x_display_ok.
   dpy = XOpenDisplay (SSDATA (display_name));
+  request_sigio ();
 #endif /* not USE_X_TOOLKIT */
 #endif /* not USE_GTK*/
 

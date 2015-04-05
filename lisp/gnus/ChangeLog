@@ -1,3 +1,26 @@
+2015-04-03  Katsumi Yamaoka  <yamaoka@jpl.org>
+
+	* gnus-art.el (gnus-article-browse-html-save-cid-content):
+	Always return relative file name.
+	(gnus-article-browse-html-parts):
+	Make external links absolute and cid file names relative.
+
+2015-04-01  Eric Abrahamsen  <eric@ericabrahamsen.net>
+
+	* registry.el (registry-prune): Re-use `registry-full' in
+	`registry-prune'.  It's a bit of redundant work, but safer.
+	Also ensure that target-size is an integer.
+
+2015-03-31  Daiki Ueno  <ueno@gnu.org>
+
+	* plstore.el (plstore--decrypt): Clear entry in
+	`plstore-passphrase-alist' if decryption failed (bug#20030).
+
+2015-03-28  Adam Sjøgren  <asjo@koldfront.dk>
+
+	* gnus-sum.el (gnus-summary-make-menu-bar): Add "Display HTML images"
+	to "Display" menu.
+
 2015-03-24  Eric Abrahamsen  <eric@ericabrahamsen.net>
 
 	* nnimap.el (nnimap-split-incoming-mail): If a message is already

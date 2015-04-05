@@ -1,3 +1,33 @@
+2015-04-04  Jan Djärv  <jan.h.d@swipnet.se>
+
+	* xselect.c (x_reply_selection_request)
+	(receive_incremental_selection): Call set_property_change_object
+	inside block_input.
+	(wait_for_property_change): Move set property_change_reply(_object)
+	outside of this function (Bug#16737).
+	(set_property_change_object): New function.
+
+2015-04-03  Jan Djärv  <jan.h.d@swipnet.se>
+
+	* xterm.c (handle_one_xevent): Always redraw tool tips on
+	MapNotify.  Update tool tip frame sizes on ConfigureNotify.
+
+2015-03-31  Eli Zaretskii  <eliz@gnu.org>
+
+	* keyboard.c (read_key_sequence): Don't let
+	this_single_command_key_start become negative.  (Bug#20223)
+
+2015-03-29  Jan Djärv  <jan.h.d@swipnet.se>
+
+	* gtkutil.c (xg_display_open):
+	* xterm.c (x_display_ok, x_term_init): Block SIGIO when opening
+	a display (Bug#19175).
+
+2015-03-29  Martin Rudalics  <rudalics@gmx.at>
+
+	* gtkutil.c (update_theme_scrollbar_width): Don't round up
+	scroll bar width with GTK3 (Bug#20182).
+
 2015-03-28  Jan Djärv  <jan.h.d@swipnet.se>
 
 	* xsmfns.c (smc_save_yourself_CB): Return if Vinvocation_name or

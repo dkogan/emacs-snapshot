@@ -1,3 +1,171 @@
+2015-04-05  Pete Williamson  <petewil@chromium.org>  (tiny-change)
+
+	Fix .emacs and .emacs.d/init file recursion problem for NaCl
+	* files.el (file-truename): Add NaCl to the exception list ms-dos uses.
+
+2015-04-04  Alan Mackenzie  <acm@muc.de>
+
+	* progmodes/cc-mode.el (c-font-lock-init): Revert 2015-02-01 change
+	"Stop Font Lock forcing fontification from BOL."  (Bug#20245)
+
+2015-04-04  Artur Malabarba  <bruce.connor.am@gmail.com>
+
+	* emacs-lisp/package.el (package--download-and-read-archives): Add
+	`package-archives' to `package--downloads-in-progress' instead of
+	overwriting it.
+	(package--with-work-buffer-async): Protect macro arguments.
+
+2015-04-04  Michael Albinus  <michael.albinus@gmx.de>
+
+	* net/tramp-cache.el (tramp-flush-directory-property): Quote directory
+	name when used in regexp.
+
+2015-04-04  Alan Mackenzie  <acm@muc.de>
+
+	Fix debbugs#20240 part two (jit-lock error during `comment-dwim').
+
+	* jit-lock.el (jit-lock-after-change): Widen the buffer before
+	putting 'fontified text properties.
+
+2015-04-03  Michael Albinus  <michael.albinus@gmx.de>
+
+	* net/tramp-cache.el (tramp-flush-file-property)
+	(tramp-flush-directory-property): Use `directory-file-name' of the
+	truename.  (Bug#20249)
+
+2015-04-03  Nicolas Richard  <theonewiththeevillook@yahoo.fr>
+
+	* pcmpl-unix.el (pcmpl-ssh-known-hosts): Use `char-before' instead
+	of `looking-back' (bug#17284).
+
+2015-04-03  Dmitry Gutov  <dgutov@yandex.ru>
+
+	* progmodes/js.el (js-indent-line): Do nothing when bol is inside
+	a string (https://github.com/mooz/js2-mode/issues/227).
+
+2015-04-02  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* abbrev.el (define-abbrev-table): Treat a non-string "docstring" as
+	part of the "props" arguments rather than silently ignoring it.
+
+	* emacs-lisp/lisp-mnt.el (lm-version): Don't burp in a non-file buffer.
+
+2015-04-01  Alan Mackenzie  <acm@muc.de>
+
+	Fix the CC Mode fixes from 2015-03-30.  Fixes debbugs#20240.
+
+	* progmodes/cc-mode.el (c-extend-after-change-region):
+	Widen before applying text properties.
+	* progmodes/cc-langs.el (c-before-font-lock-functions): Update an
+	entry to a new function name.
+
+2015-04-01  Paul Eggert  <eggert@cs.ucla.edu>
+
+	* emacs-lisp/package.el: Spelling fixes and use active voice.
+
+2015-04-01  Artur Malabarba  <bruce.connor.am@gmail.com>
+
+	* emacs-lisp/package.el: Implement asynchronous refreshing.
+	(package--with-work-buffer-async)
+	(package--check-signature-content)
+	(package--update-downloads-in-progress): New functions.
+	(package--check-signature, package--download-one-archive)
+	(package--download-and-read-archives, package-refresh-contents):
+	Optional arguments for async usage.
+	(package--post-download-archives-hook): New variable.  Hook run
+	after every refresh.
+
+	* emacs-lisp/package.el: Make package-menu asynchronous.
+	(package-menu-async): New variable.  Controls whether
+	`list-packages' is asynchronous.
+	(list-packages): Now asynchronous by default.
+	(package-menu--new-package-list): Always buffer-local.
+	(package-menu--post-refresh)
+	(package-menu--find-and-notify-upgrades)
+	(package-menu--populate-new-package-list): New functions.
+
+2015-03-31  Simen Heggestøyl  <simenheg@gmail.com>
+
+	* textmodes/css-mode.el (css-mode): Derive from `prog-mode'.
+
+2015-03-31  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* jit-lock.el (jit-lock--run-functions): Fix min/max copy&paste error.
+
+	Let jit-lock know the result of font-lock-extend-region-functions.
+	* jit-lock.el (jit-lock--run-functions): New function.
+	(jit-lock-fontify-now): Use it.  Handle fontification bounds more
+	precisely in case the backend functions fontify more than requested.
+	Don't round up to whole lines since that shouldn't be needed
+	any more.
+	* font-lock.el (font-lock-fontify-region-function): Adjust docstring.
+	(font-lock-inhibit-thing-lock): Make obsolete.
+	(font-lock-default-fontify-region): Return the bounds actually used.
+
+	* emacs-lisp/eieio-base.el (eieio-persistent-validate/fix-slot-value):
+	Fix compilation error.
+
+2015-03-30  Artur Malabarba  <bruce.connor.am@gmail.com>
+
+	* emacs-lisp/package.el: Reorganize package.el and divide it with
+	page-breaks and comments.
+
+2015-03-30  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* emacs-lisp/eieio-base.el (make-instance) <eieio-named>: New instance
+	which stores the old-style object name argument into the
+	object-name field.
+
+2015-03-30  Alan Mackenzie  <acm@muc.de>
+
+	Correct calculation of CC Mode's font-lock region.
+
+	* progmodes/cc-mode.el (c-fl-decl-start): Rename from
+	c-set-fl-decl-start.  Change signature such that nil is returned
+	when no declaration is found.
+	(c-change-expand-fl-region): Rename from
+	c-change-set-fl-decl-start.  This now also handles expanding the
+	font lock region to whole lines.
+	(c-context-expand-fl-region): Rename from
+	c-context-set-fl-decl-start.  This now also handles expanding the
+	font lock region to whole lines.
+	(c-font-lock-fontify-region): When a change font lock region is
+	spuriously enlarged to the beginning-of-line by jit-lock, fontify
+	the extra bit separately from the region calculated by CC Mode.
+	(c-extend-after-change-region): Explicitly apply 'fontified
+	properties to the extended bits of the font lock region.
+
+	* progmodes/cc-langs.el (c-before-font-lock-functions)
+	(c-before-context-fontification-functions): Use new names for
+	existing functions (see above).
+
+2015-03-30  Richard Ryniker  <ryniker@alum.mit.edu>  (tiny change)
+
+	* mail/sendmail.el (sendmail-send-it): Do not attempt to switch
+	to non-existent buffer (errbuf is not created when customization
+	variable mail-interactive is nil).  (Bug#20211)
+
+2015-03-29  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* emacs-lisp/smie.el (smie-backward-sexp-command)
+	(smie-forward-sexp-command): Don't pretend the arg is optional
+	(bug#20205).
+
+2015-03-29  Dmitry Gutov  <dgutov@yandex.ru>
+
+	* progmodes/ruby-mode.el (ruby-syntax-before-regexp-re):
+	Detect regexps after `!'.  (Bug#19285)
+
+	* progmodes/ruby-mode.el (ruby-font-lock-keywords):
+	Use `font-lock-constant-face' for nil, true and false.
+	Highlight `self' as a keyword.  (Bug#17733)
+
+2015-03-29  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* progmodes/ruby-mode.el (ruby-syntax-before-regexp-re):
+	Expect beginning of regexp also after open brace or vertical bar.
+	(Bug#20026)
+
 2015-03-28  Jan Djärv  <jan.h.d@swipnet.se>
 
 	* emacs-lisp/package.el (package-refresh-contents): Fix spelling
@@ -16,15 +184,15 @@
 
 2015-03-27  Wolfgang Jenkner  <wjenkner@inode.at>
 
-	* font-lock.el (font-lock--remove-face-from-text-property): New
-	function.  Adapted from the previously commented out
+	* font-lock.el (font-lock--remove-face-from-text-property):
+	New function.  Adapted from the previously commented out
 	remove-single-text-property.
 	Remove previously unused and commented out auxiliary function
 	remove-text-property and obsolete comment.
 	* comint.el (comint-output-filter): Use it to remove
 	comint-highlight-prompt.
-	(comint-snapshot-last-prompt, comint-output-filter): Use
-	font-lock-prepend-text-property for comint-highlight-prompt.
+	(comint-snapshot-last-prompt, comint-output-filter):
+	Use font-lock-prepend-text-property for comint-highlight-prompt.
 	(Bug#20084)
 
 2015-03-26  Daniel Colascione  <dancol@dancol.org>
@@ -171,15 +339,15 @@
 
 	Automatically adjust process window sizes.
 
-	* window.el (window-adjust-process-window-size-function): New
-	customizable variable.
+	* window.el (window-adjust-process-window-size-function):
+	New customizable variable.
 	(window-adjust-process-window-size)
 	(window-adjust-process-window-size-smallest)
 	(window-adjust-process-window-size-largest)
 	(window--process-window-list, window--adjust-process-windows):
 	New functions.
-	(window-configuration-change-hook): Add
-	`window--adjust-process-windows'.
+	(window-configuration-change-hook):
+	Add `window--adjust-process-windows'.
 	* term.el (term-mode): Observe result of
 	`window-adjust-process-window-size-function'.
 	(term-check-size): Delete.
@@ -211,13 +379,13 @@
 
 2015-03-21  Tassilo Horn  <tsdh@gnu.org>
 
-	* emacs-lisp/lisp-mode.el (lisp-el-font-lock-keywords-1): Also
-	recognize (cl-)defmethod with (setf method) name.
+	* emacs-lisp/lisp-mode.el (lisp-el-font-lock-keywords-1):
+	Also recognize (cl-)defmethod with (setf method) name.
 
 2015-03-20  Tassilo Horn  <tsdh@gnu.org>
 
-	* emacs-lisp/lisp-mode.el (lisp-el-font-lock-keywords-1): Fix
-	false positive in function name font-locking.
+	* emacs-lisp/lisp-mode.el (lisp-el-font-lock-keywords-1):
+	Fix false positive in function name font-locking.
 	(lisp-cl-font-lock-keywords-1): Ditto.
 
 2015-03-20  Stefan Monnier  <monnier@iro.umontreal.ca>
