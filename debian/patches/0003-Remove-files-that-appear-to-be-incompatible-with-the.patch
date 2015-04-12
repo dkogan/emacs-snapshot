@@ -29,7 +29,7 @@ Status: new
  5 files changed, 34 insertions(+), 49 deletions(-)
 
 diff --git a/Makefile.in b/Makefile.in
-index 4cdd293..c659596 100644
+index 9f235d5..905d1f6 100644
 --- a/Makefile.in
 +++ b/Makefile.in
 @@ -157,7 +157,9 @@ man1dir=$(mandir)/man1
@@ -169,7 +169,7 @@ index d692530..cc6b7d3 100644
  dnl then a directory etc/refcards is created in the build directory,
  dnl which is probably harmless, but confusing (in out-of-tree builds).
 diff --git a/doc/misc/Makefile.in b/doc/misc/Makefile.in
-index e2de06d..f684f4e 100644
+index 1f21f82..88468ee 100644
 --- a/doc/misc/Makefile.in
 +++ b/doc/misc/Makefile.in
 @@ -61,18 +61,14 @@ INSTALL_DATA = @INSTALL_DATA@
