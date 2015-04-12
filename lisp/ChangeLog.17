@@ -1,3 +1,134 @@
+2015-04-06  Alan Mackenzie  <acm@muc.de>
+
+	Fix miscellaneous glitches in cc-mode.el.  Fixes debbugs#20245.
+
+	* progmodes/cc-mode.el (c-common-init): bind
+	\(before\|after\)-change-functions to nil around invocations of
+	c-get-state-before-change-functions and
+	c-before-font-lock-functions to prevent recursive invocations.
+	(c-neutralize-syntax-in-and-mark-CPP): On c-beginning-of-macro,
+	check that point has actually moved back.
+	(c-fl-decl-start): Check whether c-beginning-of-decl-1 has
+	actually found a boundary (as contrasted with hitting a search
+	limit).
+
+2015-02-01  Alan Mackenzie  <acm@muc.de>
+
+	CC Mode: Stop Font Lock forcing fontification from BOL.  Fixes
+	debbugs#19669.
+
+	* progmodes/cc-mode.el (c-font-lock-init): Setq
+	font-lock-extend-region-functions to nil.
+
+2015-04-06  Fabián Ezequiel Gallina  <fgallina@gnu.org>
+
+	python.el: Do not break IPython magic completions.  (Bug#19736)
+
+	* progmodes/python.el (python-shell-completion-setup-code):
+	Cleaner setup; import rlcompleter as last resource.
+
+2015-04-06  Artur Malabarba  <bruce.connor.am@gmail.com>
+
+	* emacs-lisp/package.el: Fix lack of "new" packages.
+	(package-menu--new-package-list)
+	(package-menu--old-archive-contents): No longer local.
+	(package-menu--list-to-prompt): New function.
+	(package-menu--prompt-transaction-p): Use "Upgrade" to make the
+	package-menu-execute prompt less verbose.
+
+2015-04-06  Paul Eggert  <eggert@cs.ucla.edu>
+
+	Spelling fix for 'hfy-optimizations'
+	* htmlfontify.el (hfy-optimizations): Rename from hfy-optimisations,
+	with an obsolete alias.  All uses changed.
+
+2015-04-06  Fabián Ezequiel Gallina  <fgallina@gnu.org>
+
+	python.el: Enhance docstring detection following PEP-257.
+
+	* progmodes/python.el (python-docstring-at-p): Remove function.
+	(python-info-assignment-statement-p): New function.
+	(python-info-assignment-continuation-line-p): Use it.
+	(python-info-docstring-p): New function.
+	(python-font-lock-syntactic-face-function)
+	(python-fill-string): Use it.
+
+2015-04-05  Eli Zaretskii  <eliz@gnu.org>
+
+	* ses.el (ses-sym-rowcol): Move up, before the first use, to avoid
+	byte-compiler warnings.
+
+2015-04-05  Alan Mackenzie  <acm@muc.de>
+
+	* jit-lock.el (jit-lock-after-change): Widen the buffer only
+	whilst putting the 'fontified text properties.
+
+2015-04-05  Alan Mackenzie  <acm@muc.de>
+
+	Rationalize use of c[ad]+r, expunging cl-c[ad]\{3,4\}r.
+	Also expunge eudc-c[ad]+r.
+
+	* subr.el (internal--compiler-macro-cXXr): "New" function, copied
+	from cl--compiler-macro-cXXr.
+	(caar, cadr, cdar, cddr): Changed from defsubsts to defuns with
+	the above compiler-macro.
+
+	* net/eudc.el (eudc-cadr, eudc-cdar, eudc-caar, eudc-cdaar): Remove.
+
+	* emacs-lisp/cl.el (Top level dolist doing defaliases): Remove
+	caaar, etc., from list of new alias functions.
+
+	* emacs-lisp/cl-lib.el (cl-caaar, etc): Rename to caaar, etc.
+	(gen-cXXr--rawname, gen-cXXr-all-cl-aliases): New function/macro
+	which generate obsolete cl- aliases for caaar, etc.  Invoke them.
+
+	* desktop.el:
+	* edmacro.el:
+	* emacs-lisp/cl-macs.el:
+	* frameset.el:
+	* ibuffer.el:
+	* mail/footnote.el:
+	* net/dbus.el:
+	* net/eudc-export.el:
+	* net/eudc.el:
+	* net/eudcb-ph.el:
+	* net/rcirc.el:
+	* net/secrets.el:
+	* play/5x5.el:
+	* play/decipher.el:
+	* play/hanoi.el:
+	* progmodes/hideif.el:
+	* ses.el: Replace cl-caaar, eudc-cadr, etc. with caaar and cadr,
+	etc.
+
+2015-04-05  Richard Stallman  <rms@gnu.org>
+
+	* mail/rmail.el (rmail-show-message-1): When displaying a mime message,
+	indicate start and finish in the echo area.
+
+	* mail/rmail.el	(rmail-epa-decrypt): Disregard <pre> before armor.
+	Ignore more kinds of whitespace in mime headers.
+	Modify the decrypted mime part's mime type so it will be displayed
+	by default when visiting this message again.
+
+	* net/browse-url.el (browse-url-firefox-program): Prefer IceCat, doc.
+	(browse-url-firefox-arguments)
+	(browse-url-firefox-startup-arguments): Doc fix.
+
+2015-04-05  Artur Malabarba  <bruce.connor.am@gmail.com>
+
+	* emacs-lisp/package.el: Add package-initialize to user-init-file.
+	(package--ensure-init-file): New function.
+	(package-install, package-install-from-buffer): Use it.
+	(package-download-transaction, package-install-from-archive): Add
+	ASYNC and CALLBACK arguments.
+	(package-menu--prompt-transaction-p): New function.
+	(package-menu-execute): Use it to prompt the user about operations
+	to be executed.
+	(package-install): Add ASYNC and CALLBACK arguments.
+	(package-menu--perform-transaction): New function.
+	(package-menu-execute): Use it to install and delete packages.
+
 2015-04-05  Pete Williamson  <petewil@chromium.org>  (tiny-change)
 
 	Fix .emacs and .emacs.d/init file recursion problem for NaCl
@@ -14,6 +145,9 @@
 	`package-archives' to `package--downloads-in-progress' instead of
 	overwriting it.
 	(package--with-work-buffer-async): Protect macro arguments.
+	(package--download-one-archive)
+	(package--download-and-read-archives): Prevent
+	downloads-in-progress list from becoming outdated.
 
 2015-04-04  Michael Albinus  <michael.albinus@gmx.de>
 
@@ -196,6 +330,7 @@
 	(Bug#20084)
 
 2015-03-26  Daniel Colascione  <dancol@dancol.org>
+
 	* progmodes/python.el
 	(python-indent-guess-indent-offset-verbose): New defcustom.
 	(python-indent-guess-indent-offset): Use it.

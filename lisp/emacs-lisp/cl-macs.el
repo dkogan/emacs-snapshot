@@ -70,20 +70,12 @@
       (setq form `(cons ,(car args) ,form)))
     form))
 
+;; Note: `cl--compiler-macro-cXXr' has been copied to
+;; `internal--compiler-macro-cXXr' in subr.el.  If you amend either
+;; one, you may want to amend the other, too.
 ;;;###autoload
-(defun cl--compiler-macro-cXXr (form x)
-  (let* ((head (car form))
-         (n (symbol-name (car form)))
-         (i (- (length n) 2)))
-    (if (not (string-match "c[ad]+r\\'" n))
-        (if (and (fboundp head) (symbolp (symbol-function head)))
-            (cl--compiler-macro-cXXr (cons (symbol-function head) (cdr form))
-                                     x)
-          (error "Compiler macro for cXXr applied to non-cXXr form"))
-      (while (> i (match-beginning 0))
-        (setq x (list (if (eq (aref n i) ?a) 'car 'cdr) x))
-        (setq i (1- i)))
-      x)))
+(define-obsolete-function-alias 'cl--compiler-macro-cXXr
+  'internal--compiler-macro-cXXr "25.1")
 
 ;;; Some predicates for analyzing Lisp forms.
 ;; These are used by various
@@ -1188,10 +1180,10 @@ For more details, see Info node `(cl)Loop Facility'.
 		(if (memq (car cl--loop-args) '(downto above))
 		    (error "Must specify `from' value for downward cl-loop"))
 		(let* ((down (or (eq (car cl--loop-args) 'downfrom)
-				 (memq (cl-caddr cl--loop-args)
+				 (memq (nth 2 cl--loop-args)
                                        '(downto above))))
 		       (excl (or (memq (car cl--loop-args) '(above below))
-				 (memq (cl-caddr cl--loop-args)
+				 (memq (nth 2 cl--loop-args)
                                        '(above below))))
 		       (start (and (memq (car cl--loop-args)
                                          '(from upfrom downfrom))
@@ -1828,7 +1820,7 @@ from OBARRAY.
      (let (,(car spec))
        (mapatoms #'(lambda (,(car spec)) ,@body)
                  ,@(and (cadr spec) (list (cadr spec))))
-       ,(cl-caddr spec))))
+       ,(nth 2 spec))))
 
 ;;;###autoload
 (defmacro cl-do-all-symbols (spec &rest body)

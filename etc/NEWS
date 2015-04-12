@@ -223,6 +223,13 @@ Unicode standards.
 ** xterm-mouse-mode now supports mouse-tracking (if your xterm supports it).
 
 ** package.el
+*** Most functions which involve downloading information now take an
+ASYNC argument.  If it is non-nil, package.el performs the download(s)
+asynchronously.
+
+*** New variable `package-menu-async' controls whether the
+package-menu uses asynchronous downloads.
+
 *** `package-install-from-buffer' and `package-install-file' work on directories.
 This follows the same rules as installing from a .tar file, except the
 -pkg file is optional.
@@ -620,6 +627,9 @@ a typographically-correct documents.
 
 * Incompatible Lisp Changes in Emacs 25.1
 
+** Comint, term, and compile do not set the EMACS env var any more.
+Use the INSIDE_EMACS environment variable instead.
+
 ** `save-excursion' does not save&restore the mark any more.
 
 ** read-buffer-function can now be called with a 4th argument (`predicate').
@@ -663,6 +673,10 @@ word syntax, use `\sw' instead.
 
 
 * Lisp Changes in Emacs 25.1
+
+** New process type `pipe', which can be used in combination with the
+`:stderr' keyword of make-process to handle standard error output
+of subprocess.
 
 ** New function `make-process' provides an alternative interface to
 `start-process'.  It allows programs to set process parameters such as
@@ -755,6 +769,12 @@ integers.
 +++
 ** New function `set-binary-mode' allows to switch a standard stream
 of the Emacs process to binary I/O mode.
+
+** Miscellaneous name change
+
+For consistency with the usual Emacs spelling, the Lisp variable
+`hfy-optimisations' has been renamed to `hfy-optimizations'.
+The old name should still work, as an obsolescent alias.
 
 
 * Changes in Frames and Windows Code in Emacs 25.1

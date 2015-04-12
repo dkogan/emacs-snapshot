@@ -41,7 +41,7 @@
 (defconst css-pseudo-class-ids
   '("active" "checked" "disabled" "empty" "enabled" "first"
     "first-child" "first-of-type" "focus" "hover" "indeterminate" "lang"
-    "last-child" "last-of-type" "left" "link" "nth-child"
+    "last-child" "last-of-type" "left" "link" "not" "nth-child"
     "nth-last-child" "nth-last-of-type" "nth-of-type" "only-child"
     "only-of-type" "right" "root" "target" "visited")
   "Identifiers for pseudo-classes.")
@@ -327,6 +327,10 @@
     (`(:elem . basic) css-indent-offset)
     (`(:elem . arg) 0)
     (`(:list-intro . ,(or `";" `"")) t) ;"" stands for BOB (bug#15467).
+    (`(:before . "{")
+     (when (smie-rule-hanging-p)
+       (smie-backward-sexp ";")
+       (smie-indent-virtual)))
     (`(:before . ,(or "{" "("))
      (if (smie-rule-hanging-p) (smie-rule-parent 0)))))
 

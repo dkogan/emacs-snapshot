@@ -1199,6 +1199,8 @@ version higher than the one being used.  To check for package
 
 (defun package--build-compatibility-table ()
   "Build `package--compatibility-table' with `package--mapc'."
+  ;; Initialize the list of built-ins.
+  (require 'finder-inf nil t)
   ;; Build compat table.
   (setq package--compatibility-table (make-hash-table :test 'eq))
   (package--mapc #'package--add-to-compatibility-table))
@@ -1315,9 +1317,12 @@ If successful, set `package-archive-contents'."
 (defun package-initialize (&optional no-activate)
   "Load Emacs Lisp packages, and activate them.
 The variable `package-load-list' controls which packages to load.
-If optional arg NO-ACTIVATE is non-nil, don't activate packages."
+If optional arg NO-ACTIVATE is non-nil, don't activate packages.
+If `user-init-file' does not mention `(package-initialize)', add
+it to the file."
   (interactive)
   (setq package-alist nil)
+  (package--ensure-init-file)
   (package-load-all-descriptors)
   (package-read-all-archive-contents)
   (unless no-activate
@@ -1340,6 +1345,16 @@ If optional arg NO-ACTIVATE is non-nil, don't activate packages."
 (declare-function epg-configuration "epg-config" ())
 (declare-function epg-import-keys-from-file "epg" (context keys))
 
+(defvar package--silence nil)
+
+(defun package--message (format &rest args)
+  "Like `message', except sometimes don't print to minibuffer.
+If the variable `package--silence' is non-nil, the message is not
+displayed on the minibuffer."
+  (apply #'message format args)
+  (when package--silence
+    (message nil)))
+
 ;;;###autoload
 (defun package-import-keyring (&optional file)
   "Import keys from FILE."
@@ -1350,9 +1365,9 @@ If optional arg NO-ACTIVATE is non-nil, don't activate packages."
     (with-file-modes 448
       (make-directory homedir t))
     (setf (epg-context-home-directory context) homedir)
-    (message "Importing %s..." (file-name-nondirectory file))
+    (package--message "Importing %s..." (file-name-nondirectory file))
     (epg-import-keys-from-file context file)
-    (message "Importing %s...done" (file-name-nondirectory file))))
+    (package--message "Importing %s...done" (file-name-nondirectory file))))
 
 (defvar package--post-download-archives-hook nil
   "Hook run after the archive contents are downloaded.
@@ -1368,8 +1383,8 @@ Once it's empty, run `package--post-download-archives-hook'."
         (remove entry package--downloads-in-progress))
   ;; If this was the last download, run the hook.
   (unless package--downloads-in-progress
-    (package--build-compatibility-table)
     (package-read-all-archive-contents)
+    (package--build-compatibility-table)
     ;; We message before running the hook, so the hook can give
     ;; messages as well.
     (message "Package refresh done")
@@ -1397,8 +1412,12 @@ similar to an entry in `package-alist'.  Save the cached copy to
           ;; If we care, check it (perhaps async) and *then* write the file.
           (package--check-signature
            location file content async
+           ;; This function will be called after signature checking.
            (lambda (&optional good-sigs)
              (unless (or good-sigs (eq package-check-signature 'allow-unsigned))
+               ;; Even if the sig fails, this download is done, so
+               ;; remove it from the in-progress list.
+               (package--update-downloads-in-progress archive)
                (error "Unsigned archive `%s'" name))
              ;; Write out the archives file.
              (write-region content nil local-file nil 'silent)
@@ -1419,7 +1438,11 @@ perform the downloads asynchronously."
                 package--downloads-in-progress))
   (dolist (archive package-archives)
     (condition-case-unless-debug nil
-        (package--download-one-archive archive "archive-contents" async)
+        (package--download-one-archive
+         archive "archive-contents"
+         ;; Called if the async download fails
+         (when async
+           (lambda () (package--update-downloads-in-progress archive))))
       (error (message "Failed to download `%s' archive."
                (car archive))))))
 
@@ -1436,14 +1459,15 @@ downloads in the background."
   (unless (file-exists-p package-user-dir)
     (make-directory package-user-dir t))
   (let ((default-keyring (expand-file-name "package-keyring.gpg"
-                                           data-directory)))
+                                           data-directory))
+        (package--silence async))
     (when (and package-check-signature (file-exists-p default-keyring))
       (condition-case-unless-debug error
           (progn
             (epg-check-configuration (epg-configuration))
             (package-import-keyring default-keyring))
-        (error (message "Cannot import default keyring: %S" (cdr error))))))
-  (package--download-and-read-archives async))
+        (error (message "Cannot import default keyring: %S" (cdr error)))))
+    (package--download-and-read-archives async)))
 
 
 ;;; Dependency Management
@@ -1485,7 +1509,7 @@ SEEN is used internally to detect infinite recursion."
             ;; we re-add it (along with its dependencies) at an earlier place
             ;; below (bug#16994).
             (if (memq already seen)     ;Avoid inf-loop on dependency cycles.
-                (message "Dependency cycle going through %S"
+                (package--message "Dependency cycle going through %S"
                          (package-desc-full-name already))
               (setq packages (delq already packages))
               (setq already nil))
@@ -1650,43 +1674,56 @@ if all the in-between dependencies are also in PACKAGE-LIST."
   "Return the archive containing the package NAME."
   (cdr (assoc (package-desc-archive desc) package-archives)))
 
-(defun package-install-from-archive (pkg-desc)
-  "Download and install a tar package."
+(defun package-install-from-archive (pkg-desc &optional async callback)
+  "Download and install a tar package.
+If ASYNC is non-nil, perform the download asynchronously.
+If CALLBACK is non-nil, call it with no arguments once the
+operation is done."
   ;; This won't happen, unless the archive is doing something wrong.
   (when (eq (package-desc-kind pkg-desc) 'dir)
     (error "Can't install directory package from archive"))
   (let* ((location (package-archive-base pkg-desc))
          (file (concat (package-desc-full-name pkg-desc)
-                       (package-desc-suffix pkg-desc)))
-         (sig-file (concat file ".sig"))
-         good-signatures pkg-descs)
-    (package--with-work-buffer location file
-      (if (and package-check-signature
-               (not (member (package-desc-archive pkg-desc)
-                            package-unsigned-archives)))
-          (if (package--archive-file-exists-p location sig-file)
-              (setq good-signatures (package--check-signature location file))
-            (unless (eq package-check-signature 'allow-unsigned)
-              (error "Unsigned package: `%s'"
-                     (package-desc-name pkg-desc)))))
-      (package-unpack pkg-desc))
-    ;; Here the package has been installed successfully, mark it as
-    ;; signed if appropriate.
-    (when good-signatures
-      ;; Write out good signatures into NAME-VERSION.signed file.
-      (write-region (mapconcat #'epg-signature-to-string good-signatures "\n")
-                    nil
-                    (expand-file-name
-                     (concat (package-desc-full-name pkg-desc)
-                             ".signed")
-                     package-user-dir)
-                    nil 'silent)
-      ;; Update the old pkg-desc which will be shown on the description buffer.
-      (setf (package-desc-signed pkg-desc) t)
-      ;; Update the new (activated) pkg-desc as well.
-      (setq pkg-descs (cdr (assq (package-desc-name pkg-desc) package-alist)))
-      (if pkg-descs
-          (setf (package-desc-signed (car pkg-descs)) t)))))
+                       (package-desc-suffix pkg-desc))))
+    (package--with-work-buffer-async location file async
+      (if (or (not package-check-signature)
+              (member (package-desc-archive pkg-desc)
+                      package-unsigned-archives))
+          ;; If we don't care about the signature, unpack and we're
+          ;; done.
+          (progn (package-unpack pkg-desc)
+                 (funcall callback))
+        ;; If we care, check it and *then* write the file.
+        (let ((content (buffer-string)))
+          (package--check-signature
+           location file content async
+           ;; This function will be called after signature checking.
+           (lambda (&optional good-sigs)
+             (unless (or good-sigs (eq package-check-signature 'allow-unsigned))
+               ;; Even if the sig fails, this download is done, so
+               ;; remove it from the in-progress list.
+               (error "Unsigned package: `%s'"
+                 (package-desc-name pkg-desc)))
+             ;; Signature checked, unpack now.
+             (with-temp-buffer (insert content)
+                               (package-unpack pkg-desc))
+             ;; Here the package has been installed successfully, mark it as
+             ;; signed if appropriate.
+             (when good-sigs
+               ;; Write out good signatures into NAME-VERSION.signed file.
+               (write-region (mapconcat #'epg-signature-to-string good-sigs "\n")
+                             nil
+                             (expand-file-name
+                              (concat (package-desc-full-name pkg-desc) ".signed")
+                              package-user-dir)
+                             nil 'silent)
+               ;; Update the old pkg-desc which will be shown on the description buffer.
+               (setf (package-desc-signed pkg-desc) t)
+               ;; Update the new (activated) pkg-desc as well.
+               (when-let ((pkg-descs (cdr (assq (package-desc-name pkg-desc) package-alist))))
+                 (setf (package-desc-signed (car pkg-descs)) t)))
+             (when (functionp callback)
+               (funcall callback)))))))))
 
 (defun package-installed-p (package &optional min-version)
   "Return true if PACKAGE, of MIN-VERSION or newer, is installed.
@@ -1707,22 +1744,69 @@ If PACKAGE is a package-desc object, MIN-VERSION is ignored."
      ;; Also check built-in packages.
      (package-built-in-p package min-version))))
 
-(defun package-download-transaction (packages)
+(defun package-download-transaction (packages &optional async callback)
   "Download and install all the packages in PACKAGES.
 PACKAGES should be a list of package-desc.
+If ASYNC is non-nil, perform the downloads asynchronously.
+If CALLBACK is non-nil, call it with no arguments once the
+entire operation is done.
+
 This function assumes that all package requirements in
 PACKAGES are satisfied, i.e. that PACKAGES is computed
 using `package-compute-transaction'."
-  (mapc #'package-install-from-archive packages))
+  (cond
+   (packages (package-install-from-archive
+              (car packages)
+              async
+              (lambda ()
+                (package-download-transaction (cdr packages))
+                (when (functionp callback)
+                  (funcall callback)))))
+   (callback (funcall callback))))
+
+(defun package--ensure-init-file ()
+  "Ensure that the user's init file calls `package-initialize'."
+  ;; Don't mess with the init-file from "emacs -Q".
+  (when user-init-file
+    (let* ((buffer (find-buffer-visiting user-init-file))
+           (contains-init
+            (if buffer
+                (with-current-buffer buffer
+                  (search-forward "(package-initialize)" nil 'noerror))
+              (with-temp-buffer
+                (insert-file-contents user-init-file)
+                (goto-char (point-min))
+                (search-forward "(package-initialize)" nil 'noerror)))))
+      (unless contains-init
+        (with-current-buffer (or buffer (find-file-noselect user-init-file))
+          (save-excursion
+            (save-restriction
+              (widen)
+              (goto-char (point-min))
+              (insert
+               ";; Added by Package.el.  This must come before configurations of\n"
+               ";; installed packages.  Don't delete this line.  If you don't want it,\n"
+               ";; just comment it out by adding a semicolon to the start of the line.\n"
+               ";; You may delete these explanatory comments.\n"
+               "(package-initialize)\n")
+              (unless (looking-at-p "$")
+                (insert "\n"))
+              (let ((file-precious-flag t))
+                (save-buffer))
+              (unless buffer
+                (kill-buffer (current-buffer))))))))))
 
 ;;;###autoload
-(defun package-install (pkg &optional dont-select)
+(defun package-install (pkg &optional dont-select async callback)
   "Install the package PKG.
 PKG can be a package-desc or the package name of one the available packages
 in an archive in `package-archives'.  Interactively, prompt for its name.
 
 If called interactively or if DONT-SELECT nil, add PKG to
 `package-selected-packages'.
+If ASYNC is non-nil, perform the downloads asynchronously.
+If CALLBACK is non-nil, call it with no arguments once the
+entire operation is done.
 
 If PKG is a package-desc and it is already installed, don't try
 to install it but still mark it as selected."
@@ -1749,15 +1833,14 @@ to install it but still mark it as selected."
     (unless (or dont-select (package--user-selected-p name))
       (customize-save-variable 'package-selected-packages
                                (cons name package-selected-packages))))
-  (if (package-desc-p pkg)
-      (if (package-installed-p pkg)
-          (message "`%s' is already installed" (package-desc-full-name pkg))
-        (package-download-transaction
-         (package-compute-transaction (list pkg)
-                                      (package-desc-reqs pkg))))
-    (package-download-transaction
-     (package-compute-transaction ()
-                                  (list (list pkg))))))
+  (if-let ((transaction
+            (if (package-desc-p pkg)
+                (unless (package-installed-p pkg)
+                  (package-compute-transaction (list pkg)
+                                               (package-desc-reqs pkg)))
+              (package-compute-transaction () (list (list pkg))))))
+      (package-download-transaction transaction async callback)
+    (package--message "`%s' is already installed" (package-desc-full-name pkg))))
 
 (defun package-strip-rcs-id (str)
   "Strip RCS version ID from the version string STR.
@@ -1900,7 +1983,7 @@ If NOSAVE is non-nil, the package is not removed from
              (delete pkg-desc pkgs)
              (unless (cdr pkgs)
                (setq package-alist (delq pkgs package-alist))))
-           (message "Package `%s' deleted." (package-desc-full-name pkg-desc))))))
+           (package--message "Package `%s' deleted." (package-desc-full-name pkg-desc))))))
 
 ;;;###autoload
 (defun package-reinstall (pkg)
@@ -2247,7 +2330,7 @@ will be deleted."
     map)
   "Local keymap for `package-menu-mode' buffers.")
 
-(defvar-local package-menu--new-package-list nil
+(defvar package-menu--new-package-list nil
   "List of newly-available packages since `list-packages' was last called.")
 
 (define-derived-mode package-menu-mode tabulated-list-mode "Package Menu"
@@ -2255,6 +2338,7 @@ will be deleted."
 Letters do not insert themselves; instead, they are commands.
 \\<package-menu-mode-map>
 \\{package-menu-mode-map}"
+  (setq mode-line-process '(package--downloads-in-progress ":Loading"))
   (setq tabulated-list-format
         `[("Package" 18 package-menu--name-predicate)
           ("Version" 13 nil)
@@ -2505,8 +2589,9 @@ This fetches the contents of each archive specified in
   (interactive)
   (unless (derived-mode-p 'package-menu-mode)
     (user-error "The current buffer is not a Package Menu"))
-  (package-refresh-contents)
-  (package-menu--generate t t))
+  (setq package-menu--old-archive-contents package-archive-contents)
+  (setq package-menu--new-package-list nil)
+  (package-refresh-contents package-menu-async))
 
 (defun package-menu-describe-package (&optional button)
   "Describe the current package.
@@ -2555,10 +2640,31 @@ If optional arg BUTTON is non-nil, describe its associated package."
           (tabulated-list-put-tag "D" t)
         (forward-line 1)))))
 
+(defvar package--quick-help-keys
+  '(("install," "delete," "unmark," ("execute" . 1))
+    ("next," "previous")
+    ("refresh-contents," "g-redisplay," "filter," "help")))
+
+(defun package--prettify-quick-help-key (desc)
+  "Prettify DESC to be displayed as a help menu."
+  (if (listp desc)
+      (if (listp (cdr desc))
+          (mapconcat #'package--prettify-quick-help-key desc "   ")
+        (let ((place (cdr desc))
+              (out (car desc)))
+          ;; (setq out (propertize out 'face 'paradox-comment-face))
+          (add-text-properties place (1+ place)
+                               '(face (bold font-lock-function-name-face))
+                               out)
+          out))
+    (package--prettify-quick-help-key (cons desc 0))))
+
 (defun package-menu-quick-help ()
-  "Show short key binding help for package-menu-mode."
+  "Show short key binding help for `package-menu-mode'.
+The full list of keys can be viewed with \\[describe-mode]."
   (interactive)
-  (message "n-ext, i-nstall, d-elete, u-nmark, x-ecute, r-efresh, h-elp"))
+  (message (mapconcat #'package--prettify-quick-help-key
+                      package--quick-help-keys "\n")))
 
 (define-obsolete-function-alias
   'package-menu-view-commentary 'package-menu-describe-package "24.1")
@@ -2638,6 +2744,73 @@ call will upgrade the package."
                (length upgrades)
                (if (= (length upgrades) 1) "" "s")))))
 
+(defun package-menu--list-to-prompt (packages)
+  "Return a string listing PACKAGES that's usable in a prompt.
+PACKAGES is a list of `package-desc' objects.
+Formats the returned string to be usable in a minibuffer
+prompt (see `package-menu--prompt-transaction-p')."
+  (cond
+   ;; None
+   ((not packages) "")
+   ;; More than 1
+   ((cdr packages)
+    (format "these %d packages (%s)"
+      (length packages)
+      (mapconcat #'package-desc-full-name packages ", ")))
+   ;; Exactly 1
+   (t (format "package `%s'"
+        (package-desc-full-name (car packages))))))
+
+(defun package-menu--prompt-transaction-p (install delete)
+  "Prompt the user about installing INSTALL and deleting DELETE.
+INSTALL and DELETE are lists of `package-desc'.  Either may be
+nil, but not both."
+  (let* ((upg (cl-intersection install delete :key #'package-desc-name))
+         (ins (cl-set-difference install upg :key #'package-desc-name))
+         (del (cl-set-difference delete upg :key #'package-desc-name)))
+    (y-or-n-p
+     (concat
+      (when upg "UPGRADE ")
+      (package-menu--list-to-prompt upg)
+      (when (and upg ins)
+        (if del "; " "; and "))
+      (when ins "INSTALL ")
+      (package-menu--list-to-prompt ins)
+      (when (and del (or ins upg)) "; and ")
+      (when del "DELETE ")
+      (package-menu--list-to-prompt del)
+      "? "))))
+
+(defun package-menu--perform-transaction (install-list delete-list &optional async)
+  "Install packages in INSTALL-LIST and delete DELETE-LIST.
+If ASYNC is non-nil, perform the installation downloads
+asynchronously."
+  ;; While there are packages to install, call `package-install' on
+  ;; the next one and defer deletion to the callback function.
+  (if install-list
+      (let* ((pkg (car install-list))
+             (rest (cdr install-list))
+             ;; Don't mark as selected if it's a new version of an
+             ;; installed package.
+             (dont-mark (and (not (package-installed-p pkg))
+                             (package-installed-p
+                              (package-desc-name pkg)))))
+        (package-install
+         pkg dont-mark async
+         (lambda () (package-menu--perform-transaction rest delete-list async))))
+    ;; Once there are no more packages to install, proceed to
+    ;; deletion.
+    (dolist (elt (package--sort-by-dependence delete-list))
+      (condition-case-unless-debug err
+          (package-delete elt)
+        (error (message (cadr err)))))
+    (when package-selected-packages
+      (when-let ((removable (package--removable-packages)))
+        (package--message "These %d packages are no longer needed, type `M-x package-autoremove' to remove them (%s)"
+          (length removable)
+          (mapconcat #'symbol-name removable ", "))))
+    (package-menu--post-refresh)))
+
 (defun package-menu-execute (&optional noquery)
   "Perform marked Package Menu actions.
 Packages marked for installation are downloaded and installed;
@@ -2659,54 +2832,14 @@ Optional argument NOQUERY non-nil means do not ask the user to confirm."
                 ((eq cmd ?I)
                  (push pkg-desc install-list))))
         (forward-line)))
-    (when install-list
-      (if (or
-           noquery
-           (yes-or-no-p
-            (if (= (length install-list) 1)
-                (format "Install package `%s'? "
-                        (package-desc-full-name (car install-list)))
-              (format "Install these %d packages (%s)? "
-                      (length install-list)
-                      (mapconcat #'package-desc-full-name
-                                 install-list ", ")))))
-          (mapc (lambda (p)
-                  ;; Don't mark as selected if it's a new version of
-                  ;; an installed package.
-                  (package-install p (and (not (package-installed-p p))
-                                          (package-installed-p
-                                           (package-desc-name p)))))
-                install-list)))
-    ;; Delete packages, prompting if necessary.
-    (when delete-list
-      (if (or
-           noquery
-           (yes-or-no-p
-           (if (= (length delete-list) 1)
-               (format "Delete package `%s'? "
-                       (package-desc-full-name (car delete-list)))
-             (format "Delete these %d packages (%s)? "
-                     (length delete-list)
-                     (mapconcat #'package-desc-full-name
-                                delete-list ", ")))))
-          (dolist (elt (package--sort-by-dependence delete-list))
-            (condition-case-unless-debug err
-                (package-delete elt)
-              (error (message (cadr err)))))
-        (error "Aborted")))
-    (if (not (or delete-list install-list))
-        (message "No operations specified.")
-      (when package-selected-packages
-        (let ((removable (package--removable-packages)))
-          (when (and removable
-                     (y-or-n-p
-                      (format "These %d packages are no longer needed, delete them (%s)? "
-                              (length removable)
-                              (mapconcat #'symbol-name removable ", "))))
-            ;; We know these are removable, so we can use force instead of sorting them.
-            (mapc (lambda (p) (package-delete (cadr (assq p package-alist)) 'force 'nosave))
-                  removable))))
-      (package-menu--generate t t))))
+    (unless (or delete-list install-list)
+      (user-error "No operations specified"))
+    (when (or noquery
+              (package-menu--prompt-transaction-p install-list delete-list))
+      (let ((package--silence package-menu-async))
+        ;; This calls `package-menu--generate' after everything's done.
+        (package-menu--perform-transaction
+         install-list delete-list package-menu-async)))))
 
 (defun package-menu--version-predicate (A B)
   (let ((vA (or (aref (cadr A) 1)  '(0)))
@@ -2755,7 +2888,7 @@ Optional argument NOQUERY non-nil means do not ask the user to confirm."
   (string< (or (package-desc-archive (car A)) "")
            (or (package-desc-archive (car B)) "")))
 
-(defvar-local package-menu--old-archive-contents nil
+(defvar package-menu--old-archive-contents nil
   "`package-archive-contents' before the latest refresh.")
 
 (defun package-menu--populate-new-package-list ()
@@ -2779,9 +2912,8 @@ Store this list in `package-menu--new-package-list'."
 
 (defun package-menu--post-refresh ()
   "Check for new packages, revert the *Packages* buffer, and check for upgrades.
-This function is called after `package-refresh-contents' is done.
-It goes in `package--post-download-archives-hook', so that it
-works with async refresh as well."
+This function is called after `package-refresh-contents' and
+after `package-menu--perform-transaction'."
   (package-menu--populate-new-package-list)
   (let ((buf (get-buffer "*Packages*")))
     (when (buffer-live-p buf)
@@ -2791,9 +2923,8 @@ works with async refresh as well."
 
 (defcustom package-menu-async t
   "If non-nil, package-menu will use async operations when possible.
-Currently, only the refreshing of archive contents supports
-asynchronous operations.  Package transactions are still done
-synchronously."
+This includes refreshing archive contents as well as installing
+packages."
   :type 'boolean
   :group 'package)
 
@@ -2812,11 +2943,8 @@ The list is displayed in a buffer named `*Packages*'."
   (add-hook 'package--post-download-archives-hook
             #'package-menu--post-refresh)
 
-  (unless no-fetch
-    (setq package-menu--old-archive-contents package-archive-contents)
-    (setq package-menu--new-package-list nil)
-    ;; Fetch the remote list of packages.
-    (package-refresh-contents package-menu-async))
+  ;; Fetch the remote list of packages.
+  (unless no-fetch (package-menu-refresh))
 
   ;; Generate the Package Menu.
   (let ((buf (get-buffer-create "*Packages*")))
