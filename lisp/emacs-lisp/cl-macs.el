@@ -2726,12 +2726,16 @@ non-nil value, that slot cannot be set via `setf'.
 		 constrs))
     (while constrs
       (let* ((name (caar constrs))
-	     (args (cadr (pop constrs)))
+             (rest (cdr (pop constrs)))
+             (args (car rest))
+             (doc  (cadr rest))
 	     (anames (cl--arglist-args args))
 	     (make (cl-mapcar (function (lambda (s d) (if (memq s anames) s d)))
 			    slots defaults)))
 	(push `(cl-defsubst ,name
                    (&cl-defs (nil ,@descs) ,@args)
+                 ,@(if (stringp doc) (list doc)
+                     (if (stringp docstring) (list docstring)))
                  ,@(if (cl--safe-expr-p `(progn ,@(mapcar #'cl-second descs)))
                        '((declare (side-effect-free t))))
                  (,(or type #'vector) ,@make))
@@ -2780,6 +2784,7 @@ non-nil value, that slot cannot be set via `setf'.
 Elements of FIELDS can be of the form (NAME UPAT) in which case the contents of
 field NAME is matched against UPAT, or they can be of the form NAME which
 is a shorthand for (NAME NAME)."
+  (declare (debug (sexp &rest [&or (sexp pcase-UPAT) sexp])))
   `(and (pred (pcase--flip cl-typep ',type))
         ,@(mapcar
            (lambda (field)

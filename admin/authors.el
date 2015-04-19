@@ -653,6 +653,7 @@ Changes to files in this list are not listed.")
     "calc/calc-maint.el"
     "emacs-lisp/cl-specs.el"
     "emacs-lisp/eieio-comp.el"
+    "emacs-lisp/eieio-generic.el"
     "erc-hecomplete.el"
     "eshell/esh-maint.el"
     "language/persian.el"
@@ -803,6 +804,7 @@ in the repository.")
     ("play/yow.el" . "yow.el")
     ("patcomp.el" . "patcomp.el")
     ("emulation/ws-mode.el" . "ws-mode.el")
+    ("vc/vc-arch.el" . "vc-arch.el")
     ;; From lisp to etc/forms.
     ("forms-d2.el" . "forms-d2.el")
     ("forms-pass.el" . "forms-pass.el")
@@ -814,6 +816,9 @@ in the repository.")
     ("eshell/esh-test.el" . "automated/eshell.el")
     ("automated/cl-lib.el" . "automated/cl-lib-tests.el")
     ("automated/package-x-test.el" . "automated/package-test.el")
+    ("indent/js-indent-first-initialiser-t.js" . "indent/js-indent-init-t.js")
+    ("indent/js-indent-first-initialiser-dynamic.js" .
+     "indent/js-indent-init-dynamic.js")
     ;; INSTALL-CVS -> .CVS -> .BZR -> .REPO
     ("INSTALL-CVS" . "INSTALL.REPO")
     ("INSTALL.CVS" . "INSTALL.REPO")
@@ -974,10 +979,8 @@ Elements with LAX non-nil are only used in `authors-lax-changelogs'.")
 ;; Eg the progmodes/ (etc) directories did not exist before 1997.
 ;; Also, lib-src/ did not exist, the files were in etc/.
 ;; And various other things.
-;; Maybe this should just be any ChangeLog with a . extension,
-;; assuming we always fix logs fully before rotating them?
 (defconst authors-lax-changelogs
-  '("erc/ChangeLog\\.0[1-8]\\'"
+  '("erc/ChangeLog\\.1\\'"
     "gnus/ChangeLog\\.[1-2]\\'"
     "lisp/ChangeLog\\.\\([1-9]\\|1[0-5]\\)\\'"
     "mh-e/ChangeLog\\.1\\'"

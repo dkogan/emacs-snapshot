@@ -269,11 +269,6 @@ if test "$with_hesiod" != no; then
   AC_DEFINE(HESIOD, 1, [Define to support using a Hesiod database to find the POP server.])
 fi
 
-OPTION_DEFAULT_OFF([mmdf],[support MMDF mailboxes])
-if test "$with_mmdf" != no; then
-   AC_DEFINE(MAIL_USE_MMDF, 1, [Define to support MMDF mailboxes in movemail.])
-fi
-
 OPTION_DEFAULT_OFF([mail-unlink],[unlink, rather than empty, mail spool after reading])
 if test "$with_mail_unlink" != no; then
    AC_DEFINE(MAIL_UNLINK_SPOOL, 1, [Define to unlink, rather than empty, mail spool after reading.])
@@ -3191,51 +3186,46 @@ fi
 AC_SUBST(LIBXPM)
 
 ### Use -ljpeg if available, unless `--with-jpeg=no'.
-### mingw32 doesn't use -ljpeg, since it loads the library dynamically.
 HAVE_JPEG=no
 LIBJPEG=
-if test "${opsys}" = "mingw32"; then
-  if test "${with_jpeg}" != "no"; then
-    dnl Checking for jpeglib.h can lose because of a redefinition of
-    dnl HAVE_STDLIB_H.
-    AC_CHECK_HEADER(jerror.h, HAVE_JPEG=yes, HAVE_JPEG=no)
-  fi
-  AH_TEMPLATE(HAVE_JPEG, [Define to 1 if you have the jpeg library (-ljpeg).])dnl
-  if test "${HAVE_JPEG}" = "yes"; then
-    AC_DEFINE(HAVE_JPEG)
-    AC_EGREP_CPP([version 6b or later],
-	[#include <jpeglib.h>
-	 #if JPEG_LIB_VERSION >= 62
-	 version 6b or later
-	 #endif
-	],
-        [AC_DEFINE(HAVE_JPEG)],
-        [AC_MSG_WARN([libjpeg found, but not version 6b or later])
-        HAVE_JPEG=no])
-  fi
-elif test "${HAVE_X11}" = "yes" || test "${HAVE_W32}" = "yes"; then
-  if test "${with_jpeg}" != "no"; then
-    dnl Checking for jpeglib.h can lose because of a redefinition of
-    dnl  HAVE_STDLIB_H.
-    AC_CHECK_HEADER(jerror.h,
-      [AC_CHECK_LIB(jpeg, jpeg_destroy_compress, HAVE_JPEG=yes)])
-  fi
-
-  AH_TEMPLATE(HAVE_JPEG, [Define to 1 if you have the jpeg library (-ljpeg).])dnl
-  if test "${HAVE_JPEG}" = "yes"; then
-    AC_DEFINE(HAVE_JPEG)
-    AC_EGREP_CPP([version 6b or later],
-	[#include <jpeglib.h>
-	 #if JPEG_LIB_VERSION >= 62
-	 version 6b or later
-	 #endif
-	],
-	[AC_DEFINE(HAVE_JPEG)],
-	[AC_MSG_WARN([libjpeg found, but not version 6b or later])
-	HAVE_JPEG=no])
-  fi
-  if test "${HAVE_JPEG}" = "yes"; then
-    LIBJPEG=-ljpeg
+if test "${with_jpeg}" != "no"; then
+  AC_CACHE_CHECK([for jpeglib 6b or later],
+    [emacs_cv_jpeglib],
+    [OLD_LIBS=$LIBS
+     for emacs_cv_jpeglib in yes -ljpeg no; do
+       case $emacs_cv_jpeglib in
+	 yes) ;;
+         no) break;;
+	 *) LIBS="$LIBS $emacs_cv_jpeglib";;
+       esac
+       AC_LINK_IFELSE(
+	 [AC_LANG_PROGRAM(
+	    [[#undef HAVE_STDLIB_H /* Avoid config.h/jpeglib.h collision.  */
+	      #include <stdio.h> /* jpeglib.h needs FILE and size_t.  */
+	      #include <jpeglib.h>
+	      #include <jerror.h>
+	      char verify[JPEG_LIB_VERSION < 62 ? -1 : 1];
+	      struct jpeg_decompress_struct cinfo;
+	    ]],
+	    [[
+	      jpeg_create_decompress (&cinfo);
+	      WARNMS (&cinfo, JWRN_JPEG_EOF);
+	      jpeg_destroy_decompress (&cinfo);
+	    ]])],
+	 [emacs_link_ok=yes],
+	 [emacs_link_ok=no])
+       LIBS=$OLD_LIBS
+       test $emacs_link_ok = yes && break
+     done])
+  if test "$emacs_cv_jpeglib" != no; then
+    HAVE_JPEG=yes
+    AC_DEFINE([HAVE_JPEG], 1,
+      [Define to 1 if you have the jpeg library (typically -ljpeg).])
+    ### mingw32 doesn't use -ljpeg, since it loads the library
+    ### dynamically when needed, and doesn't want a run-time
+    ### dependency on the jpeglib DLL.
+    test "$emacs_cv_jpeglib" != yes && test "${opsys}" != "mingw32" \
+    && LIBJPEG=$emacs_cv_jpeglib
   fi
 fi
 AC_SUBST(LIBJPEG)
@@ -5034,18 +5024,19 @@ esac
 # -nopie fixes a temacs segfault on Gentoo, OpenBSD, and other systems
 # with "hardened" GCC configurations for some reason (Bug#18784).
 # We don't know why -nopie works, but not segfaulting is better than
-# segfaulting.  Use -Werror when trying -nopie, otherwise clang keeps
-# warning that it does not understand -nopie.
+# segfaulting.  Use ac_c_werror_flag=yes when trying -nopie, otherwise
+# clang keeps warning that it does not understand -nopie, and pre-4.6
+# GCC has a similar problem (Bug#20338).
 AC_CACHE_CHECK([whether $CC accepts -nopie],
   [emacs_cv_prog_cc_nopie],
-  [emacs_save_CFLAGS=$CFLAGS
+  [emacs_save_c_werror_flag=$ac_c_werror_flag
    emacs_save_LDFLAGS=$LDFLAGS
-   CFLAGS="$CFLAGS -Werror"
+   ac_c_werror_flag=yes
    LDFLAGS="$LDFLAGS -nopie"
    AC_LINK_IFELSE([AC_LANG_PROGRAM([], [])],
      [emacs_cv_prog_cc_nopie=yes],
      [emacs_cv_prog_cc_nopie=no])
-   CFLAGS=$emacs_save_CFLAGS
+   ac_c_werror_flag=$emacs_save_c_werror_flag
    LDFLAGS=$emacs_save_LDFLAGS])
 if test "$emacs_cv_prog_cc_nopie" = yes; then
   LD_SWITCH_SYSTEM_TEMACS="$LD_SWITCH_SYSTEM_TEMACS -nopie"

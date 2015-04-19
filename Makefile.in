@@ -684,6 +684,7 @@ install-man:
 	thisdir=`/bin/pwd`; \
 	cd ${mansrcdir}; \
 	for page in *.1; do \
+	  test "$$page" = ChangeLog.1 && continue; \
 	  dest=`echo "$${page}" | sed -e 's/\.1$$//' -e '$(TRANSFORM)'`.1; \
 	  (cd "$${thisdir}"; \
 	   ${INSTALL_DATA} ${mansrcdir}/$${page} "$(DESTDIR)${man1dir}/$${dest}"); \
@@ -1087,10 +1088,13 @@ bootstrap: bootstrap-clean
 	$(MAKE) MAKEFILE_NAME=force-Makefile force-Makefile
 	$(MAKE) all
 
+.PHONY: ChangeLog change-history change-history-commit
+.PHONY: master-branch-is-current no-ChangeLog unchanged-history-files
+
 # The newest revision that should not appear in the generated ChangeLog.
-gen_origin = 2cdbb8983dd49ce5c31c74b26f740bcb3e5a4c5d
+gen_origin = 870287327b1fba7105599eeabac5a2aa5ebadf19
+
 # Convert git commit log to ChangeLog file.  make-dist uses this.
-.PHONY: ChangeLog change-history unchanged-history-files
 ChangeLog:
 	$(AM_V_GEN)distprefix=$(distprefix) srcprefix=$(srcdir)/ \
 	$(srcdir)/build-aux/gitlog-to-emacslog $(gen_origin)
@@ -1098,19 +1102,23 @@ ChangeLog:
 # The ChangeLog history files are called ChangeLog.1, ChangeLog.2, ...,
 # ChangeLog.$(CHANGELOG_HISTORY_INDEX_MAX).  $(CHANGELOG_N) stands for
 # the newest (highest-numbered) ChangeLog history file.
-CHANGELOG_HISTORY_INDEX_MAX = 1
+CHANGELOG_HISTORY_INDEX_MAX = 2
 CHANGELOG_N = ChangeLog.$(CHANGELOG_HISTORY_INDEX_MAX)
 
-# Check that history-relevant files match what's in the repository.
-# Otherwise, 'make change-history' might mess up the ChangeLog history files.
+# Check that we are in a good state for changing history.
+no-ChangeLog:
+	test ! -f ChangeLog
+master-branch-is-current:
+	git branch | grep -q '^\* master$$'
 unchanged-history-files:
 	x=$$(git diff-files --name-only $(CHANGELOG_N) Makefile.in) && \
 	  test -z "$$x"
 
 # Copy newer commit messages to the start of the ChangeLog history file,
 # and consider them to be older.
-change-history: ChangeLog unchanged-history-files
-	(sed '/^;; Local Variables:/,$$d' <ChangeLog && cat $(CHANGELOG_N)) \
+change-history: no-ChangeLog master-branch-is-current unchanged-history-files \
+  ChangeLog
+	(sed '/^;; [L]ocal Variables:/,$$d' <ChangeLog && cat $(CHANGELOG_N)) \
 	  >$(CHANGELOG_N).tmp
 	new_origin=$$(git log --pretty=format:%H HEAD^!) && \
 	sed 's/^\(gen_origin *= *\).*/\1'"$$new_origin/" \
