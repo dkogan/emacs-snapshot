@@ -29,7 +29,7 @@ Status: new
  5 files changed, 34 insertions(+), 49 deletions(-)
 
 diff --git a/Makefile.in b/Makefile.in
-index 9f235d5..905d1f6 100644
+index f065cd3..7d56b9b 100644
 --- a/Makefile.in
 +++ b/Makefile.in
 @@ -157,7 +157,9 @@ man1dir=$(mandir)/man1
@@ -43,7 +43,7 @@ index 9f235d5..905d1f6 100644
  
  # If no makeinfo was found and configured --without-makeinfo, "no"; else "yes".
  HAVE_MAKEINFO=@HAVE_MAKEINFO@
-@@ -807,8 +809,7 @@ endef
+@@ -808,8 +810,7 @@ endef
  ###      normally don't want to recompile.  For example, the `mostlyclean'
  ###      target for GCC does not delete `libgcc.a', because recompiling it
  ###      is rarely necessary and takes a lot of time.
@@ -53,7 +53,7 @@ index 9f235d5..905d1f6 100644
  
  $(foreach dir,$(mostlyclean_dirs),$(eval $(call submake_template,$(dir),mostlyclean)))
  
-@@ -931,11 +932,11 @@ check: all
+@@ -932,11 +933,11 @@ check: all
  dist:
  	cd ${srcdir}; ./make-dist
  
@@ -70,7 +70,7 @@ index 9f235d5..905d1f6 100644
  
  DOCS = $(DVIS) $(HTMLS) $(INFOS) $(PDFS) $(PSS)
  $(DOCS):
-@@ -956,9 +957,7 @@ info-dir: ${srcdir}/info/dir
+@@ -957,9 +958,7 @@ info-dir: ${srcdir}/info/dir
  
  ## Hopefully doc/misc/*.texi is not too long for some systems?
  srcdir_doc_info_dir_inputs = \
@@ -81,7 +81,7 @@ index 9f235d5..905d1f6 100644
    $(sort $(wildcard ${srcdir}/doc/misc/*.texi))
  info_dir_inputs = \
    ../build-aux/dir_top \
-@@ -983,14 +982,10 @@ ${srcdir}/info/dir: ${info_dir_deps}
+@@ -984,14 +983,10 @@ ${srcdir}/info/dir: ${info_dir_deps}
  	) >$$tempfile && \
  	${srcdir}/build-aux/move-if-change $${tempfile} ${srcdir}/info/dir
  
@@ -100,7 +100,7 @@ index 9f235d5..905d1f6 100644
  INSTALL_DOC = $(INSTALL_DVI) $(INSTALL_HTML) $(INSTALL_PDF) $(INSTALL_PS)
  
  ## Install non .info forms of the documentation.
-@@ -1008,14 +1003,10 @@ install-pdf: $(INSTALL_PDF)
+@@ -1009,14 +1004,10 @@ install-pdf: $(INSTALL_PDF)
  install-ps: $(INSTALL_PS)
  
  
@@ -134,10 +134,10 @@ index 1bd8296..c4adc77 100755
              ## FIXME do not ignore w32 if OS is w32.
              case $file in
 diff --git a/configure.ac b/configure.ac
-index d692530..cc6b7d3 100644
+index 4cb3c35..ff97df2 100644
 --- a/configure.ac
 +++ b/configure.ac
-@@ -5255,11 +5255,11 @@ dnl This will work, but you get a config.status that is not quite right
+@@ -5246,11 +5246,11 @@ dnl This will work, but you get a config.status that is not quite right
  dnl (see http://lists.gnu.org/archive/html/bug-autoconf/2008-08/msg00028.html).
  dnl That doesn't have any obvious consequences for Emacs, but on the whole
  dnl it seems better to just live with the duplication.
@@ -152,7 +152,7 @@ index d692530..cc6b7d3 100644
         leim/Makefile nextstep/Makefile nt/Makefile])
  
  dnl test/ is not present in release tarfiles.
-@@ -5310,15 +5310,6 @@ if test ! -f src/.gdbinit && test -f "$srcdir/src/.gdbinit"; then
+@@ -5301,15 +5301,6 @@ if test ! -f src/.gdbinit && test -f "$srcdir/src/.gdbinit"; then
  fi
  ])
  
