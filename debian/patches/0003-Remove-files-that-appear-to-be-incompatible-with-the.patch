@@ -29,7 +29,7 @@ Status: new
  5 files changed, 34 insertions(+), 49 deletions(-)
 
 diff --git a/Makefile.in b/Makefile.in
-index f065cd3..7d56b9b 100644
+index f88a9c5..3d0816b 100644
 --- a/Makefile.in
 +++ b/Makefile.in
 @@ -157,7 +157,9 @@ man1dir=$(mandir)/man1
@@ -44,8 +44,8 @@ index f065cd3..7d56b9b 100644
  # If no makeinfo was found and configured --without-makeinfo, "no"; else "yes".
  HAVE_MAKEINFO=@HAVE_MAKEINFO@
 @@ -808,8 +810,7 @@ endef
- ###      normally don't want to recompile.  For example, the `mostlyclean'
- ###      target for GCC does not delete `libgcc.a', because recompiling it
+ ###      normally don't want to recompile.  For example, the 'mostlyclean'
+ ###      target for GCC does not delete 'libgcc.a', because recompiling it
  ###      is rarely necessary and takes a lot of time.
 -mostlyclean_dirs = src oldXMenu lwlib lib lib-src nt doc/emacs doc/misc \
 -  doc/lispref doc/lispintro
@@ -134,7 +134,7 @@ index 1bd8296..c4adc77 100755
              ## FIXME do not ignore w32 if OS is w32.
              case $file in
 diff --git a/configure.ac b/configure.ac
-index 4cb3c35..ff97df2 100644
+index d2f21ee..c5dcd48 100644
 --- a/configure.ac
 +++ b/configure.ac
 @@ -5246,11 +5246,11 @@ dnl This will work, but you get a config.status that is not quite right
