@@ -225,6 +225,30 @@ a package can run arbitrary code."
   :group 'package
   :version "24.1")
 
+(defcustom package-menu-hide-low-priority 'archive
+  "If non-nil, hide low priority packages from the packages menu.
+A package is considered low priority if there's another version
+of it available such that:
+    (a) the archive of the other package is higher priority than
+    this one, as per `package-archive-priorities';
+  or
+    (b) they both have the same archive priority but the other
+    package has a higher version number.
+
+This variable has three possible values:
+    nil: no packages are hidden;
+    archive: only criteria (a) is used;
+    t: both criteria are used.
+
+This variable has no effect if `package-menu--hide-obsolete' is
+nil, so it can be toggled with \\<package-menu-mode-map> \\[package-menu-hide-obsolete]."
+  :type '(choice (const :tag "Don't hide anything" nil)
+                 (const :tag "Hide per package-archive-priorities"
+                        archive)
+                 (const :tag "Hide per archive and version number" t))
+  :group 'package
+  :version "25.1")
+
 (defcustom package-archive-priorities nil
   "An alist of priorities for packages.
 
@@ -235,7 +259,9 @@ number from the archive with the highest priority is
 selected. When higher versions are available from archives with
 lower priorities, the user has to select those manually.
 
-Archives not in this list have the priority 0."
+Archives not in this list have the priority 0.
+
+See also `package-menu-hide-low-priority'."
   :type '(alist :key-type (string :tag "Archive name")
                 :value-type (integer :tag "Priority (default is 0)"))
   :risky t
@@ -466,6 +492,10 @@ This is, approximately, the inverse of `version-to-list'.
     (if (eq (car-safe keywords) 'quote)
         (nth 1 keywords)
       keywords)))
+
+(defun package-desc-priority (p)
+  "Return the priority of the archive of package-desc object P."
+  (package-archive-priority (package-desc-archive p)))
 
 ;; Package descriptor format used in finder-inf.el and package--builtins.
 (cl-defstruct (package--bi-desc
@@ -1283,7 +1313,8 @@ Will throw an error if the archive version is too new."
   (let ((filename (expand-file-name file package-user-dir)))
     (when (file-exists-p filename)
       (with-temp-buffer
-        (insert-file-contents-literally filename)
+        (let ((coding-system-for-read 'utf-8))
+          (insert-file-contents filename))
         (let ((contents (read (current-buffer))))
           (if (> (car contents) package-archive-version)
               (error "Package archive version %d is higher than %d"
@@ -1457,7 +1488,6 @@ and make them available for download.
 Optional argument ASYNC specifies whether to perform the
 downloads in the background."
   (interactive)
-  ;; FIXME: Do it asynchronously.
   (unless (file-exists-p package-user-dir)
     (make-directory package-user-dir t))
   (let ((default-keyring (expand-file-name "package-keyring.gpg"
@@ -2290,6 +2320,7 @@ will be deleted."
     (define-key map "x" 'package-menu-execute)
     (define-key map "h" 'package-menu-quick-help)
     (define-key map "?" 'package-menu-describe-package)
+    (define-key map "(" #'package-menu-hide-obsolete)
     (define-key map [menu-bar package-menu] (cons "Package" menu-map))
     (define-key menu-map [mq]
       '(menu-item "Quit" quit-window
@@ -2440,14 +2471,55 @@ of these dependencies, similar to the list returned by
       (let* ((ins (cadr (assq name package-alist)))
              (ins-v (if ins (package-desc-version ins))))
         (cond
-         ((or (null ins) (version-list-< ins-v version))
+         ;; Installed obsolete packages are handled in the `dir'
+         ;; clause above.  Here we handle available obsolete, which
+         ;; are displayed depending on `package-menu--hide-obsolete'.
+         ((and ins (version-list-<= version ins-v)) "avail-obso")
+         (t
           (if (memq name package-menu--new-package-list)
-              "new" "available"))
-         ((version-list-< version ins-v) "obsolete")
-         ((version-list-= version ins-v)
-          (if (not signed) "unsigned"
-            (if (package--user-selected-p name)
-                "installed" "dependency")))))))))
+              "new" "available"))))))))
+
+(defvar package-menu--hide-obsolete t
+  "Whether available obsolete packages should be hidden.
+Can be toggled with \\<package-menu-mode-map> \\[package-menu-hide-obsolete].
+Installed obsolete packages are always displayed.")
+
+(defun package-menu-hide-obsolete ()
+  "Toggle visibility of obsolete available packages."
+  (interactive)
+  (unless (derived-mode-p 'package-menu-mode)
+    (user-error "The current buffer is not a Package Menu"))
+  (setq package-menu--hide-obsolete
+        (not package-menu--hide-obsolete))
+  (message "%s available-obsolete packages" (if package-menu--hide-obsolete
+                                                "Hiding" "Displaying"))
+  (revert-buffer nil 'no-confirm))
+
+(defun package--remove-hidden (pkg-list)
+  "Filter PKG-LIST according to `package-archive-priorities'.
+PKG-LIST must be a list of package-desc objects sorted by
+decreasing version number.
+Return a list of packages tied for the highest priority according
+to their archives."
+  (when pkg-list
+    ;; The first is a variable toggled with
+    ;; `package-menu-hide-obsolete', the second is a static user
+    ;; option that defines *what* we hide.
+    (if (and package-menu--hide-obsolete
+             package-menu-hide-low-priority)
+        (let ((max-priority (package-desc-priority (car pkg-list)))
+              (out (list (pop pkg-list))))
+          (dolist (p pkg-list (nreverse out))
+            (let ((priority (package-desc-priority p)))
+              (cond
+               ((> priority max-priority)
+                (setq max-priority priority)
+                (setq out (list p)))
+               ;; This assumes pkg-list is sorted by version number.
+               ((and (= priority max-priority)
+                     (eq package-menu-hide-low-priority 'archive))
+                (push p out))))))
+      pkg-list)))
 
 (defun package-menu--refresh (&optional packages keywords)
   "Re-populate the `tabulated-list-entries'.
@@ -2478,10 +2550,11 @@ KEYWORDS should be nil or a list of keywords."
     (dolist (elt package-archive-contents)
       (setq name (car elt))
       (when (or (eq packages t) (memq name packages))
-        (dolist (pkg (cdr elt))
-          ;; Hide obsolete packages.
-          (when (and (not (package-installed-p (package-desc-name pkg)
-                                               (package-desc-version pkg)))
+        (dolist (pkg (package--remove-hidden (cdr elt)))
+          ;; Hide available obsolete packages.
+          (when (and (not (and package-menu--hide-obsolete
+                               (package-installed-p (package-desc-name pkg)
+                                                    (package-desc-version pkg))))
                      (package--has-keyword-p pkg keywords))
             (package--push pkg (package-desc-status pkg) info-list)))))
 
@@ -2491,11 +2564,11 @@ KEYWORDS should be nil or a list of keywords."
 
 (defun package-all-keywords ()
   "Collect all package keywords"
-  (let (keywords)
+  (let ((key-list))
     (package--mapc (lambda (desc)
-                     (let* ((desc-keywords (and desc (package-desc--keywords desc))))
-                       (setq keywords (append keywords desc-keywords)))))
-    keywords))
+                     (setq key-list (append (package-desc--keywords desc)
+                                            key-list))))
+    key-list))
 
 (defun package--mapc (function &optional packages)
   "Call FUNCTION for all known PACKAGES.
@@ -2534,12 +2607,14 @@ Built-in packages are converted with `package--from-builtin'."
   "Test if package DESC has any of the given KEYWORDS.
 When none are given, the package matches."
   (if keywords
-      (let* ((desc-keywords (and desc (package-desc--keywords desc)))
-             found)
-        (dolist (k keywords)
-          (when (and (not found)
-                     (member k desc-keywords))
-            (setq found t)))
+      (let ((desc-keywords (and desc (package-desc--keywords desc)))
+            found)
+        (while (and (not found) keywords)
+          (let ((k (pop keywords)))
+            (setq found
+                  (or (string= k (concat "arc:" (package-desc-archive desc)))
+                      (string= k (concat "status:" (package-desc-status desc)))
+                      (member k desc-keywords)))))
         found)
     t))
 
@@ -2572,6 +2647,7 @@ Return (PKG-DESC [NAME VERSION STATUS DOC])."
          (face (pcase status
                  (`"built-in"  'font-lock-builtin-face)
                  (`"available" 'default)
+                 (`"avail-obso" 'font-lock-comment-face)
                  (`"new"       'bold)
                  (`"held"      'font-lock-constant-face)
                  (`"disabled"  'font-lock-warning-face)
@@ -2629,7 +2705,7 @@ If optional arg BUTTON is non-nil, describe its associated package."
 (defun package-menu-mark-install (&optional _num)
   "Mark a package for installation and move to the next line."
   (interactive "p")
-  (if (member (package-menu-get-status) '("available" "new" "dependency"))
+  (if (member (package-menu-get-status) '("available" "avail-obso" "new" "dependency"))
       (tabulated-list-put-tag "I" t)
     (forward-line)))
 
@@ -2657,7 +2733,7 @@ If optional arg BUTTON is non-nil, describe its associated package."
 (defvar package--quick-help-keys
   '(("install," "delete," "unmark," ("execute" . 1))
     ("next," "previous")
-    ("refresh-contents," "g-redisplay," "filter," "help")))
+    ("refresh-contents," "g-redisplay," "filter," "(-toggle-obsolete" "help")))
 
 (defun package--prettify-quick-help-key (desc)
   "Prettify DESC to be displayed as a help menu."
@@ -2705,8 +2781,7 @@ defaults to 0."
 This allows for easy comparison of package versions from
 different archives if archive priorities are meant to be taken in
 consideration."
-  (cons (package-archive-priority
-         (package-desc-archive pkg-desc))
+  (cons (package-desc-priority pkg-desc)
         (package-desc-version pkg-desc)))
 
 (defun package-menu--find-upgrades ()
@@ -2871,8 +2946,11 @@ Optional argument NOQUERY non-nil means do not ask the user to confirm."
            (package-menu--name-predicate A B))
           ((string= sA "new") t)
           ((string= sB "new") nil)
-          ((string= sA "available") t)
-          ((string= sB "available") nil)
+          ((string-prefix-p "avail" sA)
+           (if (string-prefix-p "avail" sB)
+               (package-menu--name-predicate A B)
+             t))
+          ((string-prefix-p "avail" sB) nil)
           ((string= sA "installed") t)
           ((string= sB "installed") nil)
           ((string= sA "dependency") t)
@@ -2942,6 +3020,7 @@ after `package-menu--perform-transaction'."
 This includes refreshing archive contents as well as installing
 packages."
   :type 'boolean
+  :version "25.1"
   :group 'package)
 
 ;;;###autoload
@@ -3002,9 +3081,17 @@ shown."
 (defun package-menu-filter (keyword)
   "Filter the *Packages* buffer.
 Show only those items that relate to the specified KEYWORD.
+KEYWORD can be a string or a list of strings.  If it is a list, a
+package will be displayed if it matches any of the keywords.
+Interactively, it is a list of strings separated by commas.
+
 To restore the full package list, type `q'."
-  (interactive (list (completing-read "Keyword: " (package-all-keywords))))
-  (package-show-package-list t (list keyword)))
+  (interactive
+   (list (completing-read-multiple
+          "Keywords (comma separated): " (package-all-keywords))))
+  (package-show-package-list t (if (stringp keyword)
+                                   (list keyword)
+                                 keyword)))
 
 (defun package-list-packages-no-fetch ()
   "Display a list of packages.

@@ -4785,37 +4785,41 @@ wait_reading_process_output (intmax_t time_limit, int nsecs, int read_kbd,
       if (wait_proc && wait_proc->raw_status_new)
 	update_status (wait_proc);
       if (wait_proc
-	  && wait_proc->infd >= 0
 	  && ! EQ (wait_proc->status, Qrun)
 	  && ! EQ (wait_proc->status, Qconnect))
 	{
 	  bool read_some_bytes = false;
 
 	  clear_waiting_for_input ();
-	  XSETPROCESS (proc, wait_proc);
 
-	  /* Read data from the process, until we exhaust it.  */
-	  while (true)
+	  /* If data can be read from the process, do so until exhausted.  */
+	  if (wait_proc->infd >= 0)
 	    {
-	      int nread = read_process_output (proc, wait_proc->infd);
-	      if (nread < 0)
+	      XSETPROCESS (proc, wait_proc);
+
+	      while (true)
 		{
-		  if (errno == EIO || errno == EAGAIN)
-		    break;
+		  int nread = read_process_output (proc, wait_proc->infd);
+		  if (nread < 0)
+		    {
+		    if (errno == EIO || errno == EAGAIN)
+		      break;
 #ifdef EWOULDBLOCK
-		  if (errno == EWOULDBLOCK)
-		    break;
+		    if (errno == EWOULDBLOCK)
+		      break;
 #endif
-		}
-	      else
-		{
-		  if (got_some_input < nread)
-		    got_some_input = nread;
-		  if (nread == 0)
-		    break;
-		  read_some_bytes = true;
+		    }
+		  else
+		    {
+		      if (got_some_input < nread)
+			got_some_input = nread;
+		      if (nread == 0)
+			break;
+		      read_some_bytes = true;
+		    }
 		}
 	    }
+
 	  if (read_some_bytes && do_display)
 	    redisplay_preserve_echo_area (10);
 
@@ -7498,40 +7502,6 @@ init_process_emacs (void)
   memset (datagram_address, 0, sizeof datagram_address);
 #endif
 
- {
-   Lisp_Object subfeatures = Qnil;
-   const struct socket_options *sopt;
-
-#define ADD_SUBFEATURE(key, val) \
-  subfeatures = pure_cons (pure_cons (key, pure_cons (val, Qnil)), subfeatures)
-
-#ifdef NON_BLOCKING_CONNECT
-   ADD_SUBFEATURE (QCnowait, Qt);
-#endif
-#ifdef DATAGRAM_SOCKETS
-   ADD_SUBFEATURE (QCtype, Qdatagram);
-#endif
-#ifdef HAVE_SEQPACKET
-   ADD_SUBFEATURE (QCtype, Qseqpacket);
-#endif
-#ifdef HAVE_LOCAL_SOCKETS
-   ADD_SUBFEATURE (QCfamily, Qlocal);
-#endif
-   ADD_SUBFEATURE (QCfamily, Qipv4);
-#ifdef AF_INET6
-   ADD_SUBFEATURE (QCfamily, Qipv6);
-#endif
-#ifdef HAVE_GETSOCKNAME
-   ADD_SUBFEATURE (QCservice, Qt);
-#endif
-   ADD_SUBFEATURE (QCserver, Qt);
-
-   for (sopt = socket_options; sopt->name; sopt++)
-     subfeatures = pure_cons (intern_c_string (sopt->name), subfeatures);
-
-   Fprovide (intern_c_string ("make-network-process"), subfeatures);
- }
-
 #if defined (DARWIN_OS)
   /* PTYs are broken on Darwin < 6, but are sometimes useful for interactive
      processes.  As such, we only change the default value.  */
@@ -7753,4 +7723,39 @@ The variable takes effect when `start-process' is called.  */);
   defsubr (&Sprocess_inherit_coding_system_flag);
   defsubr (&Slist_system_processes);
   defsubr (&Sprocess_attributes);
+
+ {
+   Lisp_Object subfeatures = Qnil;
+   const struct socket_options *sopt;
+
+#define ADD_SUBFEATURE(key, val) \
+  subfeatures = pure_cons (pure_cons (key, pure_cons (val, Qnil)), subfeatures)
+
+#ifdef NON_BLOCKING_CONNECT
+   ADD_SUBFEATURE (QCnowait, Qt);
+#endif
+#ifdef DATAGRAM_SOCKETS
+   ADD_SUBFEATURE (QCtype, Qdatagram);
+#endif
+#ifdef HAVE_SEQPACKET
+   ADD_SUBFEATURE (QCtype, Qseqpacket);
+#endif
+#ifdef HAVE_LOCAL_SOCKETS
+   ADD_SUBFEATURE (QCfamily, Qlocal);
+#endif
+   ADD_SUBFEATURE (QCfamily, Qipv4);
+#ifdef AF_INET6
+   ADD_SUBFEATURE (QCfamily, Qipv6);
+#endif
+#ifdef HAVE_GETSOCKNAME
+   ADD_SUBFEATURE (QCservice, Qt);
+#endif
+   ADD_SUBFEATURE (QCserver, Qt);
+
+   for (sopt = socket_options; sopt->name; sopt++)
+     subfeatures = pure_cons (intern_c_string (sopt->name), subfeatures);
+
+   Fprovide (intern_c_string ("make-network-process"), subfeatures);
+ }
+
 }

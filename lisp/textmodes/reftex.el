@@ -2446,7 +2446,7 @@ of ENTRY-LIST is a list of cons cells (\"MACRONAME\" . LEVEL).  See
 
 ;;;***
 
-;;;### (autoloads nil "reftex-cite" "reftex-cite.el" "5a53c260fa01268c04ea2f558add9d7d")
+;;;### (autoloads nil "reftex-cite" "reftex-cite.el" "9e0690737924aef6e3836bc2c42a36c9")
 ;;; Generated autoloads from reftex-cite.el
 
 (autoload 'reftex-default-bibliography "reftex-cite" "\
@@ -2932,7 +2932,7 @@ When LEVEL is non-nil, increase section numbers on that level.
 
 ;;;***
 
-;;;### (autoloads nil "reftex-ref" "reftex-ref.el" "64cd7a4eaec426177a8fb3689139d935")
+;;;### (autoloads nil "reftex-ref" "reftex-ref.el" "2689a4cea701a9d284e0967c313da989")
 ;;; Generated autoloads from reftex-ref.el
 
 (autoload 'reftex-label-location "reftex-ref" "\

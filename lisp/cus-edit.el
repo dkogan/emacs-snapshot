@@ -3115,7 +3115,7 @@ face attributes (as specified by a `default' defface entry)."
 		    widget
 		    (widget-get widget :default-face-attributes)))
 	 entry)
-    (unless (looking-back "^ *")
+    (unless (looking-back "^ *" (line-beginning-position))
       (insert ?\n))
     (insert-char ?\s (widget-get widget :extra-offset))
     (if (or alist defaults show-all)
@@ -4377,7 +4377,8 @@ if only the first line of the docstring is shown."))
 
 (defun custom-file (&optional no-error)
   "Return the file name for saving customizations."
-  (if (null user-init-file)
+  (if (or (null user-init-file)
+          (and (null custom-file) init-file-had-error))
       ;; Started with -q, i.e. the file containing Custom settings
       ;; hasn't been read.  Saving settings there won't make much
       ;; sense.
