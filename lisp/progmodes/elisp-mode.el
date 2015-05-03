@@ -30,7 +30,6 @@
 
 (require 'lisp-mode)
 
-(defvar emacs-lisp-mode-abbrev-table nil)
 (define-abbrev-table 'emacs-lisp-mode-abbrev-table ()
   "Abbrev table for Emacs Lisp mode.
 It has `lisp-mode-abbrev-table' as its parent."
@@ -588,6 +587,8 @@ It can be quoted, or be inside a quoted form."
       (let ((sym (intern-soft id)))
         (when sym
           (elisp--xref-find-definitions sym))))
+    (`references
+     (elisp--xref-find-references id))
     (`apropos
      (elisp--xref-find-apropos id))))
 
@@ -635,6 +636,25 @@ It can be quoted, or be inside a quoted form."
                         loc)
              lst))))
       lst)))
+
+(defun elisp--xref-find-references (symbol)
+  (let* ((dirs (sort
+                (mapcar
+                 (lambda (dir)
+                   (file-name-as-directory (expand-file-name dir)))
+                 (cons package-user-dir load-path))
+                #'string<))
+         (ref dirs))
+    ;; Delete subdirectories from the list.
+    (while (cdr ref)
+      (if (string-prefix-p (car ref) (cadr ref))
+          (setcdr ref (cddr ref))
+        (setq ref (cdr ref))))
+    (cl-mapcan
+     (lambda (dir)
+       (and (file-exists-p dir)
+            (xref-collect-references symbol dir)))
+     dirs)))
 
 (defun elisp--xref-find-apropos (regexp)
   (apply #'nconc
@@ -1164,7 +1184,10 @@ or elsewhere, return a 1-line docstring."
 		  (args
 		   (cond
 		    ((listp advertised) advertised)
-		    ((setq doc (help-split-fundoc (documentation sym t) sym))
+		    ((setq doc (help-split-fundoc
+				(condition-case nil (documentation sym t)
+				  (invalid-function nil))
+				sym))
 		     (car doc))
 		    (t (help-function-arglist sym)))))
              ;; Stringify, and store before highlighting, downcasing, etc.

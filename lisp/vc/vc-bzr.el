@@ -873,7 +873,7 @@ property containing author and date information."
                (move-marker (process-mark proc) (point))))
            (process-put proc :vc-left-over string)))))))
 
-(declare-function vc-annotate-convert-time "vc-annotate" (time))
+(declare-function vc-annotate-convert-time "vc-annotate" (&optional time))
 
 (defun vc-bzr-annotate-time ()
   (when (re-search-forward "^ *[0-9.]+ +.+? +|" nil t)
@@ -954,6 +954,12 @@ stream.  Standard error output is discarded."
 	(translated nil)
 	(result nil))
       (goto-char (point-min))
+      ;; Skip a warning message that can occur in some bzr installations.
+      ;; vc-bzr-dir-extra-headers already reports it.
+      ;; Perhaps we should just discard stderr?
+      (and (looking-at "bzr: WARNING: bzrlib version doesn't match")
+           (re-search-forward "^bzr is version" nil t)
+           (forward-line 1))
       (while (not (eobp))
         ;; Bzr 2.3.0 added this if there are shelves.  (Bug#8170)
         (unless (looking-at "[0-9]+ shel\\(f\\|ves\\) exists?\\.")

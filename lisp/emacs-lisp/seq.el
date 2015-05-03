@@ -4,7 +4,7 @@
 
 ;; Author: Nicolas Petton <nicolas@petton.fr>
 ;; Keywords: sequences
-;; Version: 1.4
+;; Version: 1.5
 ;; Package: seq
 
 ;; Maintainer: emacs-devel@gnu.org
@@ -63,9 +63,7 @@ Evaluate BODY with VAR bound to each element of SEQ, in turn.
                                 (prog1 (seq-elt ,seq ,index)
                                   (setq ,index (+ ,index 1)))
                               (pop ,index))))
-           ,@body))
-       ;; FIXME: Do we really want to support this?
-       ,@(cddr spec))))
+           ,@body)))))
 
 (defun seq-drop (seq n)
   "Return a subsequence of SEQ without its first N elements.
@@ -346,6 +344,7 @@ This is an optimization for lists in `seq-take-while'."
 (defalias 'seq-do #'mapc)
 (defalias 'seq-each #'seq-do)
 (defalias 'seq-map #'mapcar)
+(defalias 'seq-p #'sequencep)
 
 (unless (fboundp 'elisp--font-lock-flush-elisp-buffers)
   ;; In Emacs≥25, (via elisp--font-lock-flush-elisp-buffers and a few others)

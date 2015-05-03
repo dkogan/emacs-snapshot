@@ -237,6 +237,13 @@ Unicode standards.
 
 
 * Changes in Specialized Modes and Packages in Emacs 25.1
+
+** The `save-place' variable is replaced by a `save-place-mode'.
+
+** Midnight-mode
+*** `midnight-mode' is a proper minor mode.
+*** clean-buffer-*-regexps can now specify buffers via predicate functions.
+
 ** In xterms, killing text now also sets the CLIPBOARD/PRIMARY selection
 in the surrounding GUI (using the OSC-52 escape sequence).  This only works
 if your xterm supports it and enables the `allowWindowOps' options (disabled
@@ -626,6 +633,9 @@ to avoid interfering with the kill ring.
 *** Custom variable `eudc-inline-expansion-format' defaults to
 "Firstname Surname <mail-address>".
 
+*** Custom variable `eudc-options-file' defaults to
+"~/.emacs.d/eudc-options".
+
 *** New custom variable `ldap-ldapsearch-password-prompt-regexp' to
 allow overriding the regular expression that recognizes the ldapsearch
 command line's password prompt.
@@ -806,6 +816,9 @@ name.  The variable `system-name' is now obsolete.
 
 +++
 ** Function `write-region' no longer outputs "Wrote FILE" in batch mode.
+
+** If `pwd' is called with a prefix argument, insert the current default
+directory at point.
 
 ---
 ** New utilities in subr-x.el:

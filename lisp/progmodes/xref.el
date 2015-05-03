@@ -276,6 +276,15 @@ backward."
   :type 'integer
   :version "25.1")
 
+(defcustom xref-prompt-for-identifier nil
+  "When non-nil, always prompt for the identifier name.
+
+Otherwise, only prompt when there's no value at point we can use,
+or when the command has been called with the prefix argument."
+  :type '(choice (const :tag "always" t)
+                 (const :tag "auto" nil))
+  :version "25.1")
+
 (defvar xref--marker-ring (make-ring xref-marker-ring-length)
   "Ring of markers to implement the marker stack.")
 
@@ -435,7 +444,22 @@ Used for temporary buffers.")
 
 (define-derived-mode xref--xref-buffer-mode special-mode "XREF"
   "Mode for displaying cross-references."
-  (setq buffer-read-only t))
+  (setq buffer-read-only t)
+  (setq next-error-function #'xref--next-error-function)
+  (setq next-error-last-buffer (current-buffer)))
+
+(defun xref--next-error-function (n reset?)
+  (when reset?
+    (goto-char (point-min)))
+  (let ((backward (< n 0))
+        (n (abs n))
+        (loc nil))
+    (dotimes (_ n)
+      (setq loc (xref--search-property 'xref-location backward)))
+    (cond (loc
+           (xref--pop-to-location loc))
+          (t
+           (error "No %s xref" (if backward "previous" "next"))))))
 
 (defun xref-quit (&optional kill)
   "Bury temporarily displayed buffers, then quit the current window.
@@ -559,7 +583,7 @@ Return an alist of the form ((FILENAME . (XREF ...)) ...)."
 (defun xref--read-identifier (prompt)
   "Return the identifier at point or read it from the minibuffer."
   (let ((id (funcall xref-identifier-at-point-function)))
-    (cond ((or current-prefix-arg (not id))
+    (cond ((or current-prefix-arg xref-prompt-for-identifier (not id))
            (completing-read prompt
                             (funcall xref-identifier-completion-table-function)
                             nil t nil
@@ -649,6 +673,49 @@ and just use etags."
     (setq-local xref-find-function (car xref-etags-mode--saved))
     (setq-local xref-identifier-completion-table-function
                 (cdr xref-etags-mode--saved))))
+
+(declare-function semantic-symref-find-references-by-name "semantic/symref")
+(declare-function semantic-find-file-noselect "semantic/fw")
+
+(defun xref-collect-references (name dir)
+  "Collect mentions of NAME inside DIR.
+Uses the Semantic Symbol Reference API, see
+`semantic-symref-find-references-by-name' for details on which
+tools are used, and when."
+  (require 'semantic/symref)
+  (defvar semantic-symref-tool)
+  (cl-assert (directory-name-p dir))
+  (let* ((default-directory dir)
+         (semantic-symref-tool 'detect)
+         (res (semantic-symref-find-references-by-name name 'subdirs))
+         (hits (and res (oref res :hit-lines)))
+         (orig-buffers (buffer-list)))
+    (unwind-protect
+        (delq nil
+              (mapcar (lambda (hit) (xref--collect-reference hit name)) hits))
+      (mapc #'kill-buffer
+            (cl-set-difference (buffer-list) orig-buffers)))))
+
+(defun xref--collect-reference (hit name)
+  (pcase-let* ((`(,line . ,file) hit)
+               (buf (or (find-buffer-visiting file)
+                        (semantic-find-file-noselect file))))
+    (with-current-buffer buf
+      (save-excursion
+        (goto-char (point-min))
+        (forward-line (1- line))
+        (when (re-search-forward (format "\\_<%s\\_>"
+                                         (regexp-quote name))
+                                 (line-end-position) t)
+          (goto-char (match-beginning 0))
+          (xref-make (format
+                      "%d: %s"
+                      line
+                      (buffer-substring
+                       (line-beginning-position)
+                       (line-end-position)))
+                     (xref-make-file-location file line
+                                              (current-column))))))))
 
 
 (provide 'xref)
