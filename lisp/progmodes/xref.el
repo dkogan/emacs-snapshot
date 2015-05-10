@@ -73,13 +73,17 @@
   "Return a string used to group a set of locations.
 This is typically the filename.")
 
+(cl-defgeneric xref-location-line (_location)
+  "Return the line number corresponding to the location."
+  nil)
+
 ;;;; Commonly needed location classes are defined here:
 
 ;; FIXME: might be useful to have an optional "hint" i.e. a string to
 ;; search for in case the line number is sightly out of date.
 (defclass xref-file-location (xref-location)
   ((file :type string :initarg :file)
-   (line :type fixnum :initarg :line)
+   (line :type fixnum :initarg :line :reader xref-location-line)
    (column :type fixnum :initarg :column))
   :documentation "A file location is a file/line/column triple.
 Line numbers start from 1 and columns from 0.")
@@ -285,6 +289,11 @@ or when the command has been called with the prefix argument."
                  (const :tag "auto" nil))
   :version "25.1")
 
+(defcustom xref-pulse-on-jump t
+  "When non-nil, momentarily highlight jump locations."
+  :type 'boolean
+  :version "25.1")
+
 (defvar xref--marker-ring (make-ring xref-marker-ring-length)
   "Ring of markers to implement the marker stack.")
 
@@ -303,7 +312,20 @@ or when the command has been called with the prefix argument."
       (switch-to-buffer (or (marker-buffer marker)
                             (error "The marked buffer has been deleted")))
       (goto-char (marker-position marker))
-      (set-marker marker nil nil))))
+      (set-marker marker nil nil)
+      (xref--maybe-pulse))))
+
+(defun xref--maybe-pulse ()
+  (when xref-pulse-on-jump
+    (let (beg end)
+      (save-excursion
+        (back-to-indentation)
+        (if (eolp)
+            (setq beg (line-beginning-position)
+                  end (1+ (point)))
+          (setq beg (point)
+                end (line-end-position))))
+      (pulse-momentary-highlight-region beg end 'next-error))))
 
 ;; etags.el needs this
 (defun xref-clear-marker-stack ()
@@ -338,7 +360,8 @@ WINDOW controls how the buffer is displayed:
   (cl-ecase window
     ((nil)  (switch-to-buffer (current-buffer)))
     (window (pop-to-buffer (current-buffer) t))
-    (frame  (let ((pop-up-frames t)) (pop-to-buffer (current-buffer) t)))))
+    (frame  (let ((pop-up-frames t)) (pop-to-buffer (current-buffer) t))))
+  (xref--maybe-pulse))
 
 
 ;;; XREF buffer (part of the UI)
@@ -374,6 +397,7 @@ Used for temporary buffers.")
   (with-selected-window (display-buffer (current-buffer) other-window)
     (goto-char pos)
     (recenter recenter-arg)
+    (xref--maybe-pulse)
     (let ((buf (current-buffer))
           (win (selected-window)))
       (with-current-buffer xref-buf
@@ -415,7 +439,9 @@ Used for temporary buffers.")
   (xref-show-location-at-point))
 
 (defun xref--location-at-point ()
-  (get-text-property (point) 'xref-location))
+  (save-excursion
+    (back-to-indentation)
+    (get-text-property (point) 'xref-location)))
 
 (defvar-local xref--window nil
   "ACTION argument to call `display-buffer' with.")
@@ -423,7 +449,6 @@ Used for temporary buffers.")
 (defun xref-goto-xref ()
   "Jump to the xref on the current line and bury the xref buffer."
   (interactive)
-  (back-to-indentation)
   (let ((loc (or (xref--location-at-point)
                  (user-error "No reference at point")))
         (window xref--window))
@@ -509,22 +534,35 @@ meantime are preserved."
 XREF-ALIST is of the form ((GROUP . (XREF ...)) ...).  Where
 GROUP is a string for decoration purposes and XREF is an
 `xref--xref' object."
-  (cl-loop for ((group . xrefs) . more1) on xref-alist do
-           (xref--insert-propertized '(face bold) group "\n")
+  (require 'compile) ; For the compilation faces.
+  (cl-loop for ((group . xrefs) . more1) on xref-alist
+           for max-line-width =
+           (cl-loop for xref in xrefs
+                    maximize (let ((line (xref-location-line
+                                          (oref xref :location))))
+                               (length (and line (format "%d" line)))))
+           for line-format = (and max-line-width
+                                  (format "%%%dd: " max-line-width))
+           do
+           (xref--insert-propertized '(face compilation-info) group "\n")
            (cl-loop for (xref . more2) on xrefs do
-                    (insert "  ")
                     (with-slots (description location) xref
-                      (xref--insert-propertized
-                       (list 'xref-location location
-                             'face 'font-lock-keyword-face
-                             'mouse-face 'highlight
-                             'keymap xref--button-map
-                             'help-echo
-                             (concat "mouse-2: display in another window, "
-                                     "RET or mouse-1: follow reference"))
-                       description))
-                    (when (or more1 more2)
-                      (insert "\n")))))
+                      (let* ((line (xref-location-line location))
+                             (prefix
+                              (if line
+                                  (propertize (format line-format line)
+                                              'face 'compilation-line-number)
+                                "  ")))
+                        (xref--insert-propertized
+                         (list 'xref-location location
+                               ;; 'face 'font-lock-keyword-face
+                               'mouse-face 'highlight
+                               'keymap xref--button-map
+                               'help-echo
+                               (concat "mouse-2: display in another window, "
+                                       "RET or mouse-1: follow reference"))
+                         prefix description)))
+                    (insert "\n"))))
 
 (defun xref--analyze (xrefs)
   "Find common filenames in XREFS.
@@ -586,7 +624,7 @@ Return an alist of the form ((FILENAME . (XREF ...)) ...)."
     (cond ((or current-prefix-arg xref-prompt-for-identifier (not id))
            (completing-read prompt
                             (funcall xref-identifier-completion-table-function)
-                            nil t nil
+                            nil nil nil
                             'xref--read-identifier-history id))
           (t id))))
 
@@ -708,12 +746,9 @@ tools are used, and when."
                                          (regexp-quote name))
                                  (line-end-position) t)
           (goto-char (match-beginning 0))
-          (xref-make (format
-                      "%d: %s"
-                      line
-                      (buffer-substring
-                       (line-beginning-position)
-                       (line-end-position)))
+          (xref-make (buffer-substring
+                      (line-beginning-position)
+                      (line-end-position))
                      (xref-make-file-location file line
                                               (current-column))))))))
 
