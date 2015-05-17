@@ -1346,6 +1346,9 @@ If successful, set `package-archive-contents'."
 ;; available on disk.
 (defvar package--initialized nil)
 
+(defvar package--init-file-ensured nil
+  "Whether we know the init file has package-initialize.")
+
 ;;;###autoload
 (defun package-initialize (&optional no-activate)
   "Load Emacs Lisp packages, and activate them.
@@ -1355,7 +1358,11 @@ If `user-init-file' does not mention `(package-initialize)', add
 it to the file."
   (interactive)
   (setq package-alist nil)
-  (package--ensure-init-file)
+  (if (equal user-init-file load-file-name)
+      ;; If `package-initialize' is being called as part of loading
+      ;; the init file, it's obvious we don't need to ensure-init.
+      (setq package--init-file-ensured t)
+    (package--ensure-init-file))
   (package-load-all-descriptors)
   (package-read-all-archive-contents)
   (unless no-activate
@@ -1796,9 +1803,15 @@ using `package-compute-transaction'."
    (callback (funcall callback))))
 
 (defun package--ensure-init-file ()
-  "Ensure that the user's init file calls `package-initialize'."
+  "Ensure that the user's init file has `package-initialize'.
+`package-initialize' doesn't have to be called, as long as it is
+present somewhere in the file, even as a comment.  If it is not,
+add a call to it along with some explanatory comments."
   ;; Don't mess with the init-file from "emacs -Q".
-  (when user-init-file
+  (when (and (stringp user-init-file)
+             (not package--init-file-ensured)
+             (file-readable-p user-init-file)
+             (file-writable-p user-init-file))
     (let* ((buffer (find-buffer-visiting user-init-file))
            (contains-init
             (if buffer
@@ -1836,7 +1849,8 @@ using `package-compute-transaction'."
               (let ((file-precious-flag t))
                 (save-buffer))
               (unless buffer
-                (kill-buffer (current-buffer))))))))))
+                (kill-buffer (current-buffer)))))))))
+  (setq package--init-file-ensured t))
 
 ;;;###autoload
 (defun package-install (pkg &optional dont-select async callback)

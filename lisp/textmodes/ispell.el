@@ -1075,9 +1075,11 @@ of `ispell-dictionary-base-alist' elements."
 	   (dolist ( tmp-path (list ispell-aspell-dict-dir
 				    ispell-aspell-data-dir ))
 	     ;; Try xx.dat first, strip out variant, country code, etc,
-	     ;; then try xx_YY.dat (without stripping country code).
+	     ;; then try xx_YY.dat (without stripping country code),
+             ;; then try xx-alt.dat, for deu-alt etc.
 	     (dolist (tmp-regexp (list "^[[:alpha:]]+"
-				       "^[[:alpha:]_]+"))
+				       "^[[:alpha:]_]+"
+                                       "^[[:alpha:]]+-\\(alt\\|old\\)"))
 	       (let ((fullpath
 		      (concat tmp-path "/"
 			      (and (string-match tmp-regexp dict-name)
