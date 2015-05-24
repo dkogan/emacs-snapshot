@@ -3822,17 +3822,17 @@ They are the same as face attributes of the same name.  See
 
 `:foundry'
 
-VALUE must be a string or a symbol specifying the font foundry, e.g. ``misc''.
+VALUE must be a string or a symbol specifying the font foundry, e.g. `misc'.
 
 `:adstyle'
 
 VALUE must be a string or a symbol specifying the additional
-typographic style information of a font, e.g. ``sans''.
+typographic style information of a font, e.g. `sans'.
 
 `:registry'
 
 VALUE must be a string or a symbol specifying the charset registry and
-encoding of a font, e.g. ``iso8859-1''.
+encoding of a font, e.g. `iso8859-1'.
 
 `:size'
 
@@ -3866,7 +3866,7 @@ required OpenType features.
   GSUB: List of OpenType GSUB feature tag symbols, or nil if none required.
   GPOS: List of OpenType GPOS feature tag symbols, or nil if none required.
 
-GSUB and GPOS may contain `nil' element.  In such a case, the font
+GSUB and GPOS may contain nil elements.  In such a case, the font
 must not have any of the remaining elements.
 
 For instance, if the VALUE is `(thai nil nil (mark))', the font must
@@ -5011,7 +5011,7 @@ build_style_table (const struct table_entry *entry, int nelement)
 static Lisp_Object Vfont_log_deferred;
 
 /* Prepend the font-related logging data in Vfont_log if it is not
-   `t'.  ACTION describes a kind of font-related action (e.g. listing,
+   t.  ACTION describes a kind of font-related action (e.g. listing,
    opening), ARG is the argument for the action, and RESULT is the
    result of the action.  */
 void
@@ -5280,11 +5280,15 @@ EMACS_FONT_LOG is set.  Otherwise, it is set to t.  */);
 #ifdef HAVE_FREETYPE
   syms_of_ftfont ();
 #ifdef HAVE_X_WINDOWS
+#ifdef USE_CAIRO
+  syms_of_ftcrfont ();
+#else
   syms_of_xfont ();
   syms_of_ftxfont ();
 #ifdef HAVE_XFT
   syms_of_xftfont ();
 #endif  /* HAVE_XFT */
+#endif  /* not USE_CAIRO */
 #endif	/* HAVE_X_WINDOWS */
 #else	/* not HAVE_FREETYPE */
 #ifdef HAVE_X_WINDOWS

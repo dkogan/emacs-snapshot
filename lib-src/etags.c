@@ -116,18 +116,21 @@ char pot_etags_version[] = "@(#) pot revision number is 17.38.1.4";
 # undef HAVE_NTGUI
 # undef  DOS_NT
 # define DOS_NT
+# define O_CLOEXEC O_NOINHERIT
 #endif /* WINDOWSNT */
 
+#include <limits.h>
 #include <unistd.h>
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sysstdio.h>
-#include <ctype.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <binary-io.h>
+#include <c-ctype.h>
 #include <c-strcase.h>
 
 #include <assert.h>
@@ -154,21 +157,72 @@ char pot_etags_version[] = "@(#) pot revision number is 17.38.1.4";
 #define strneq(s,t,n)	(assert ((s)!=NULL || (t)!=NULL), !strncmp (s, t, n))
 #define strncaseeq(s,t,n) (assert ((s)!=NULL && (t)!=NULL), !c_strncasecmp (s, t, n))
 
-#define CHARS 256		/* 2^sizeof(char) */
-#define CHAR(x)		((unsigned int)(x) & (CHARS - 1))
-#define	iswhite(c)	(_wht[CHAR (c)]) /* c is white (see white) */
-#define notinname(c)	(_nin[CHAR (c)]) /* c is not in a name (see nonam) */
-#define	begtoken(c)	(_btk[CHAR (c)]) /* c can start token (see begtk) */
-#define	intoken(c)	(_itk[CHAR (c)]) /* c can be in token (see midtk) */
-#define	endtoken(c)	(_etk[CHAR (c)]) /* c ends tokens (see endtk) */
+/* C is not in a name.  */
+static bool
+notinname (unsigned char c)
+{
+  /* Look at make_tag before modifying!  */
+  static bool const table[UCHAR_MAX + 1] = {
+    ['\0']=1, ['\t']=1, ['\n']=1, ['\f']=1, ['\r']=1, [' ']=1,
+    ['(']=1, [')']=1, [',']=1, [';']=1, ['=']=1
+  };
+  return table[c];
+}
 
-#define ISALNUM(c)	isalnum (CHAR (c))
-#define ISALPHA(c)	isalpha (CHAR (c))
-#define ISDIGIT(c)	isdigit (CHAR (c))
-#define ISLOWER(c)	islower (CHAR (c))
+/* C can start a token.  */
+static bool
+begtoken (unsigned char c)
+{
+  static bool const table[UCHAR_MAX + 1] = {
+    ['$']=1, ['@']=1,
+    ['A']=1, ['B']=1, ['C']=1, ['D']=1, ['E']=1, ['F']=1, ['G']=1, ['H']=1,
+    ['I']=1, ['J']=1, ['K']=1, ['L']=1, ['M']=1, ['N']=1, ['O']=1, ['P']=1,
+    ['Q']=1, ['R']=1, ['S']=1, ['T']=1, ['U']=1, ['V']=1, ['W']=1, ['X']=1,
+    ['Y']=1, ['Z']=1,
+    ['_']=1,
+    ['a']=1, ['b']=1, ['c']=1, ['d']=1, ['e']=1, ['f']=1, ['g']=1, ['h']=1,
+    ['i']=1, ['j']=1, ['k']=1, ['l']=1, ['m']=1, ['n']=1, ['o']=1, ['p']=1,
+    ['q']=1, ['r']=1, ['s']=1, ['t']=1, ['u']=1, ['v']=1, ['w']=1, ['x']=1,
+    ['y']=1, ['z']=1,
+    ['~']=1
+  };
+  return table[c];
+}
 
-#define lowcase(c)	tolower (CHAR (c))
+/* C can be in the middle of a token.  */
+static bool
+intoken (unsigned char c)
+{
+  static bool const table[UCHAR_MAX + 1] = {
+    ['$']=1,
+    ['0']=1, ['1']=1, ['2']=1, ['3']=1, ['4']=1,
+    ['5']=1, ['6']=1, ['7']=1, ['8']=1, ['9']=1,
+    ['A']=1, ['B']=1, ['C']=1, ['D']=1, ['E']=1, ['F']=1, ['G']=1, ['H']=1,
+    ['I']=1, ['J']=1, ['K']=1, ['L']=1, ['M']=1, ['N']=1, ['O']=1, ['P']=1,
+    ['Q']=1, ['R']=1, ['S']=1, ['T']=1, ['U']=1, ['V']=1, ['W']=1, ['X']=1,
+    ['Y']=1, ['Z']=1,
+    ['_']=1,
+    ['a']=1, ['b']=1, ['c']=1, ['d']=1, ['e']=1, ['f']=1, ['g']=1, ['h']=1,
+    ['i']=1, ['j']=1, ['k']=1, ['l']=1, ['m']=1, ['n']=1, ['o']=1, ['p']=1,
+    ['q']=1, ['r']=1, ['s']=1, ['t']=1, ['u']=1, ['v']=1, ['w']=1, ['x']=1,
+    ['y']=1, ['z']=1
+  };
+  return table[c];
+}
 
+/* C can end a token.  */
+static bool
+endtoken (unsigned char c)
+{
+  static bool const table[UCHAR_MAX + 1] = {
+    ['\0']=1, ['\t']=1, ['\n']=1, ['\r']=1, [' ']=1,
+    ['!']=1, ['"']=1, ['#']=1, ['%']=1, ['&']=1, ['\'']=1, ['(']=1, [')']=1,
+    ['*']=1, ['+']=1, [',']=1, ['-']=1, ['.']=1, ['/']=1, [':']=1, [';']=1,
+    ['<']=1, ['=']=1, ['>']=1, ['?']=1, ['[']=1, [']']=1, ['^']=1,
+    ['{']=1, ['|']=1, ['}']=1, ['~']=1
+  };
+  return table[c];
+}
 
 /*
  *	xnew, xrnew -- allocate, reallocate storage
@@ -314,7 +368,6 @@ _Noreturn void fatal (const char *, const char *);
 static _Noreturn void pfatal (const char *);
 static void add_node (node *, node **);
 
-static void init (void);
 static void process_file_name (char *, language *);
 static void process_file (FILE *, char *, language *);
 static void find_entries (FILE *);
@@ -336,6 +389,7 @@ static char *absolute_filename (char *, char *);
 static char *absolute_dirname (char *, char *);
 static bool filename_is_absolute (char *f);
 static void canonicalize_filename (char *);
+static char *etags_mktmp (void);
 static void linebuffer_init (linebuffer *);
 static void linebuffer_setlen (linebuffer *, int);
 static void *xmalloc (size_t);
@@ -366,20 +420,6 @@ static node *last_node;		/* the last node created */
 static linebuffer lb;		/* the current line */
 static linebuffer filebuf;	/* a buffer containing the whole file */
 static linebuffer token_name;	/* a buffer containing a tag name */
-
-/* boolean "functions" (see init)	*/
-static bool _wht[CHARS], _nin[CHARS], _itk[CHARS], _btk[CHARS], _etk[CHARS];
-static const char
-  /* white chars */
-  *white = " \f\t\n\r\v",
-  /* not in a name */
-  *nonam = " \f\t\n\r()=,;",	/* look at make_tag before modifying! */
-  /* token ending chars */
-  *endtk = " \t\n\r\"'#()[]{}=-+%*/&|^~!<>;,.:?",
-  /* token starting chars */
-  *begtk = "ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz$~@",
-  /* valid in-token chars */
-  *midtk = "ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz$0123456789";
 
 static bool append_to_tagfile;	/* -a: append to tags */
 /* The next five default to true in C and derived languages.  */
@@ -1164,8 +1204,6 @@ main (int argc, char **argv)
       tagfiledir = absolute_dirname (tagfile, cwd);
     }
 
-  init ();			/* set up boolean "functions" */
-
   linebuffer_init (&lb);
   linebuffer_init (&filename_lb);
   linebuffer_init (&filebuf);
@@ -1437,7 +1475,7 @@ process_file_name (char *file, language *lang)
   fdesc *fdp;
   compressor *compr;
   char *compressed_name, *uncompressed_name;
-  char *ext, *real_name;
+  char *ext, *real_name, *tmp_name;
   int retval;
 
   canonicalize_filename (file);
@@ -1522,9 +1560,20 @@ process_file_name (char *file, language *lang)
     }
   if (real_name == compressed_name)
     {
-      char *cmd = concat (compr->command, " ", real_name);
-      inf = popen (cmd, "r" FOPEN_BINARY);
-      free (cmd);
+      tmp_name = etags_mktmp ();
+      if (!tmp_name)
+	inf = NULL;
+      else
+	{
+	  char *cmd1 = concat (compr->command, " ", real_name);
+	  char *cmd = concat (cmd1, " > ", tmp_name);
+	  free (cmd1);
+	  if (system (cmd) == -1)
+	    inf = NULL;
+	  else
+	    inf = fopen (tmp_name, "r" FOPEN_BINARY);
+	  free (cmd);
+	}
     }
   else
     inf = fopen (real_name, "r" FOPEN_BINARY);
@@ -1536,10 +1585,12 @@ process_file_name (char *file, language *lang)
 
   process_file (inf, uncompressed_name, lang);
 
+  retval = fclose (inf);
   if (real_name == compressed_name)
-    retval = pclose (inf);
-  else
-    retval = fclose (inf);
+    {
+      remove (tmp_name);
+      free (tmp_name);
+    }
   if (retval < 0)
     pfatal (file);
 
@@ -1621,34 +1672,6 @@ process_file (FILE *fh, char *fn, language *lang)
 }
 
 /*
- * This routine sets up the boolean pseudo-functions which work
- * by setting boolean flags dependent upon the corresponding character.
- * Every char which is NOT in that string is not a white char.  Therefore,
- * all of the array "_wht" is set to false, and then the elements
- * subscripted by the chars in "white" are set to true.  Thus "_wht"
- * of a char is true if it is the string "white", else false.
- */
-static void
-init (void)
-{
-  const char *sp;
-  int i;
-
-  for (i = 0; i < CHARS; i++)
-    iswhite (i) = notinname (i) = begtoken (i) = intoken (i) = endtoken (i)
-      = false;
-  for (sp = white; *sp != '\0'; sp++) iswhite (*sp) = true;
-  for (sp = nonam; *sp != '\0'; sp++) notinname (*sp) = true;
-  notinname ('\0') = notinname ('\n');
-  for (sp = begtk; *sp != '\0'; sp++) begtoken (*sp) = true;
-  begtoken ('\0') = begtoken ('\n');
-  for (sp = midtk; *sp != '\0'; sp++) intoken (*sp) = true;
-  intoken ('\0') = intoken ('\n');
-  for (sp = endtk; *sp != '\0'; sp++) endtoken (*sp) = true;
-  endtoken ('\0') = endtoken ('\n');
-}
-
-/*
  * This routine opens the specified file and calls the function
  * which finds the function and type definitions.
  */
@@ -1707,9 +1730,6 @@ find_entries (FILE *inf)
 	}
     }
 
-  /* We rewind here, even if inf may be a pipe.  We fail if the
-     length of the first line is longer than the pipe block size,
-     which is unlikely. */
   rewind (inf);
 
   /* Else try to guess the language given the case insensitive file name. */
@@ -1734,8 +1754,6 @@ find_entries (FILE *inf)
       if (old_last_node == last_node)
 	/* No Fortran entries found.  Try C. */
 	{
-	  /* We do not tag if rewind fails.
-	     Only the file name will be recorded in the tags file. */
 	  rewind (inf);
 	  curfdp->lang = get_language_from_langname (cplusplus ? "c++" : "c");
 	  find_entries (inf);
@@ -3168,7 +3186,7 @@ C_entries (int c_ext, FILE *inf)
 		 followed by an end of comment, this is a preprocessor
 		 token. */
 	      for (cp = newlb.buffer; cp < lp-1; cp++)
-		if (!iswhite (*cp))
+		if (!c_isspace (*cp))
 		  {
 		    if (*cp == '*' && cp[1] == '/')
 		      {
@@ -3251,7 +3269,7 @@ C_entries (int c_ext, FILE *inf)
 			      if (*lp != '\0')
 				lp += 1;
 			      while (*lp != '\0'
-				     && !iswhite (*lp) && *lp != '(')
+				     && !c_isspace (*lp) && *lp != '(')
 				lp += 1;
 			      c = *lp++;
 			      toklen += lp - oldlp;
@@ -3923,14 +3941,14 @@ F_takeprec (void)
       dbp += 3;
       return;
     }
-  if (!ISDIGIT (*dbp))
+  if (!c_isdigit (*dbp))
     {
       --dbp;			/* force failure */
       return;
     }
   do
     dbp++;
-  while (ISDIGIT (*dbp));
+  while (c_isdigit (*dbp));
 }
 
 static void
@@ -3948,7 +3966,7 @@ F_getit (FILE *inf)
       dbp += 6;
       dbp = skip_spaces (dbp);
     }
-  if (!ISALPHA (*dbp) && *dbp != '_' && *dbp != '$')
+  if (!c_isalpha (*dbp) && *dbp != '_' && *dbp != '$')
     return;
   for (cp = dbp + 1; *cp != '\0' && intoken (*cp); cp++)
     continue;
@@ -3977,7 +3995,7 @@ Fortran_functions (FILE *inf)
       if (LOOKING_AT_NOCASE (dbp, "elemental"))
 	dbp = skip_spaces (dbp);
 
-      switch (lowcase (*dbp))
+      switch (c_tolower (*dbp))
 	{
 	case 'i':
 	  if (nocase_tail ("integer"))
@@ -4010,7 +4028,7 @@ Fortran_functions (FILE *inf)
       dbp = skip_spaces (dbp);
       if (*dbp == '\0')
 	continue;
-      switch (lowcase (*dbp))
+      switch (c_tolower (*dbp))
 	{
 	case 'f':
 	  if (nocase_tail ("function"))
@@ -4064,7 +4082,7 @@ Ada_getit (FILE *inf, const char *name_qualifier)
 	  readline (&lb, inf);
 	  dbp = lb.buffer;
 	}
-      switch (lowcase (*dbp))
+      switch (c_tolower (*dbp))
         {
         case 'b':
           if (nocase_tail ("body"))
@@ -4091,8 +4109,7 @@ Ada_getit (FILE *inf, const char *name_qualifier)
 	{
 	  dbp = skip_spaces (dbp);
 	  for (cp = dbp;
-	       (*cp != '\0'
-		&& (ISALPHA (*cp) || ISDIGIT (*cp) || *cp == '_' || *cp == '.'));
+	       c_isalnum (*cp) || *cp == '_' || *cp == '.';
 	       cp++)
 	    continue;
 	  if (cp == dbp)
@@ -4168,7 +4185,7 @@ Ada_funcs (FILE *inf)
 	    }
 
 	  /* We are at the beginning of a token. */
-	  switch (lowcase (*dbp))
+	  switch (c_tolower (*dbp))
 	    {
 	    case 'f':
 	      if (!packages_only && nocase_tail ("function"))
@@ -4233,13 +4250,13 @@ Asm_labels (FILE *inf)
     {
       /* If first char is alphabetic or one of [_.$], test for colon
 	 following identifier. */
-      if (ISALPHA (*cp) || *cp == '_' || *cp == '.' || *cp == '$')
+      if (c_isalpha (*cp) || *cp == '_' || *cp == '.' || *cp == '$')
  	{
  	  /* Read past label. */
 	  cp++;
- 	  while (ISALNUM (*cp) || *cp == '_' || *cp == '.' || *cp == '$')
+	  while (c_isalnum (*cp) || *cp == '_' || *cp == '.' || *cp == '$')
  	    cp++;
- 	  if (*cp == ':' || iswhite (*cp))
+	  if (*cp == ':' || c_isspace (*cp))
 	    /* Found end of label, so copy it and add it to the table. */
 	    make_tag (lb.buffer, cp - lb.buffer, true,
 		      lb.buffer, cp - lb.buffer + 1, lineno, linecharno);
@@ -4327,7 +4344,7 @@ Perl_functions (FILE *inf)
  	      varstart += 1;
 	      do
  		cp++;
- 	      while (ISALNUM (*cp) || *cp == '_');
+	      while (c_isalnum (*cp) || *cp == '_');
  	    }
  	  else if (qual)
  	    {
@@ -4422,7 +4439,7 @@ PHP_functions (FILE *inf)
 	  if (*cp != '\0')
 	    {
 	      name = cp;
-	      while (*cp != '\0' && !iswhite (*cp))
+	      while (*cp != '\0' && !c_isspace (*cp))
 		cp++;
 	      make_tag (name, cp - name, false,
 			lb.buffer, cp - lb.buffer + 1, lineno, linecharno);
@@ -4474,10 +4491,10 @@ Cobol_paragraphs (FILE *inf)
       bp += 8;
 
       /* If eoln, compiler option or comment ignore whole line. */
-      if (bp[-1] != ' ' || !ISALNUM (bp[0]))
+      if (bp[-1] != ' ' || !c_isalnum (bp[0]))
         continue;
 
-      for (ep = bp; ISALNUM (*ep) || *ep == '-'; ep++)
+      for (ep = bp; c_isalnum (*ep) || *ep == '-'; ep++)
 	continue;
       if (*ep++ == '.')
 	make_tag (bp, ep - bp, true,
@@ -4625,7 +4642,7 @@ Pascal_functions (FILE *inf)
 	  /* Check if this is an "extern" declaration. */
 	  if (*dbp == '\0')
 	    continue;
-	  if (lowcase (*dbp) == 'e')
+	  if (c_tolower (*dbp) == 'e')
 	    {
 	      if (nocase_tail ("extern")) /* superfluous, really! */
 		{
@@ -4633,7 +4650,7 @@ Pascal_functions (FILE *inf)
 		  verify_tag = false;
 		}
 	    }
-	  else if (lowcase (*dbp) == 'f')
+	  else if (c_tolower (*dbp) == 'f')
 	    {
 	      if (nocase_tail ("forward")) /* check for forward reference */
 		{
@@ -4680,7 +4697,7 @@ Pascal_functions (FILE *inf)
       else if (!incomment && !inquote && !found_tag)
 	{
 	  /* Check for proc/fn keywords. */
-	  switch (lowcase (c))
+	  switch (c_tolower (c))
 	    {
 	    case 'p':
 	      if (nocase_tail ("rocedure")) /* c = 'p', dbp has advanced */
@@ -4844,13 +4861,13 @@ Forth_words (FILE *inf)
 
   LOOP_ON_INPUT_LINES (inf, lb, bp)
     while ((bp = skip_spaces (bp))[0] != '\0')
-      if (bp[0] == '\\' && iswhite (bp[1]))
+      if (bp[0] == '\\' && c_isspace (bp[1]))
 	break;			/* read next line */
-      else if (bp[0] == '(' && iswhite (bp[1]))
+      else if (bp[0] == '(' && c_isspace (bp[1]))
 	do			/* skip to ) or eol */
 	  bp++;
 	while (*bp != ')' && *bp != '\0');
-      else if ((bp[0] == ':' && iswhite (bp[1]) && bp++)
+      else if ((bp[0] == ':' && c_isspace (bp[1]) && bp++)
 	       || LOOKING_AT_NOCASE (bp, "constant")
 	       || LOOKING_AT_NOCASE (bp, "code")
 	       || LOOKING_AT_NOCASE (bp, "create")
@@ -4961,7 +4978,7 @@ TeX_commands (FILE *inf)
 		    cp++;
 		  }
 		for (p = cp;
-		     (!iswhite (*p) && *p != '#' &&
+		     (!c_isspace (*p) && *p != '#' &&
 		      *p != TEX_opgrp && *p != TEX_clgrp);
 		     p++)
 		  continue;
@@ -5015,8 +5032,6 @@ TEX_mode (FILE *inf)
       TEX_opgrp = '<';
       TEX_clgrp = '>';
     }
-  /* If the input file is compressed, inf is a pipe, and rewind may fail.
-     No attempt is made to correct the situation. */
   rewind (inf);
 }
 
@@ -5121,7 +5136,7 @@ HTML_labels (FILE *inf)
 	else if (intag)	/* look for "name=" or "id=" */
 	  {
 	    while (*dbp != '\0' && *dbp != '>'
-		   && lowcase (*dbp) != 'n' && lowcase (*dbp) != 'i')
+		   && c_tolower (*dbp) != 'n' && c_tolower (*dbp) != 'i')
 	      dbp++;
 	    if (*dbp == '\0')
 	      break;		/* go to next line */
@@ -5163,7 +5178,7 @@ HTML_labels (FILE *inf)
 	    if (*dbp == '<')
 	      {
 		intag = true;
-		inanchor = (lowcase (dbp[1]) == 'a' && !intoken (dbp[2]));
+		inanchor = (c_tolower (dbp[1]) == 'a' && !intoken (dbp[2]));
 		continue;	/* look on the same line */
 	      }
 
@@ -5183,7 +5198,7 @@ HTML_labels (FILE *inf)
 	    if (*dbp == '\0')
 	      break;		/* go to next line */
 	    intag = true;
-	    if (lowcase (dbp[1]) == 'a' && !intoken (dbp[2]))
+	    if (c_tolower (dbp[1]) == 'a' && !intoken (dbp[2]))
 	      {
 		inanchor = true;
 		continue;	/* look on the same line */
@@ -5230,7 +5245,7 @@ Prolog_functions (FILE *inf)
     {
       if (cp[0] == '\0')	/* Empty line */
 	continue;
-      else if (iswhite (cp[0])) /* Not a predicate */
+      else if (c_isspace (cp[0])) /* Not a predicate */
 	continue;
       else if (cp[0] == '/' && cp[1] == '*')	/* comment. */
 	prolog_skip_comment (&lb, inf);
@@ -5322,11 +5337,11 @@ prolog_atom (char *s, size_t pos)
 
   origpos = pos;
 
-  if (ISLOWER (s[pos]) || (s[pos] == '_'))
+  if (c_islower (s[pos]) || s[pos] == '_')
     {
       /* The atom is unquoted. */
       pos++;
-      while (ISALNUM (s[pos]) || (s[pos] == '_'))
+      while (c_isalnum (s[pos]) || s[pos] == '_')
 	{
 	  pos++;
 	}
@@ -5390,7 +5405,7 @@ Erlang_functions (FILE *inf)
     {
       if (cp[0] == '\0')	/* Empty line */
 	continue;
-      else if (iswhite (cp[0])) /* Not function nor attribute */
+      else if (c_isspace (cp[0])) /* Not function nor attribute */
 	continue;
       else if (cp[0] == '%')	/* comment */
 	continue;
@@ -5497,12 +5512,12 @@ erlang_atom (char *s)
 {
   int pos = 0;
 
-  if (ISALPHA (s[pos]) || s[pos] == '_')
+  if (c_isalpha (s[pos]) || s[pos] == '_')
     {
       /* The atom is unquoted. */
       do
 	pos++;
-      while (ISALNUM (s[pos]) || s[pos] == '_');
+      while (c_isalnum (s[pos]) || s[pos] == '_');
     }
   else if (s[pos] == '\'')
     {
@@ -5720,10 +5735,10 @@ add_regex (char *regexp_pattern, language *lang)
   *patbuf = zeropattern;
   if (ignore_case)
     {
-      static char lc_trans[CHARS];
+      static char lc_trans[UCHAR_MAX + 1];
       int i;
-      for (i = 0; i < CHARS; i++)
-	lc_trans[i] = lowcase (i);
+      for (i = 0; i < UCHAR_MAX + 1; i++)
+	lc_trans[i] = c_tolower (i);
       patbuf->translate = lc_trans;	/* translation table to fold case  */
     }
 
@@ -5778,7 +5793,7 @@ substitute (char *in, char *out, struct re_registers *regs)
   for (t = strchr (out, '\\');
        t != NULL;
        t = strchr (t + 2, '\\'))
-    if (ISDIGIT (t[1]))
+    if (c_isdigit (t[1]))
       {
 	dig = t[1] - '0';
 	diglen = regs->end[dig] - regs->start[dig];
@@ -5792,7 +5807,7 @@ substitute (char *in, char *out, struct re_registers *regs)
   result = xnew (size + 1, char);
 
   for (t = result; *out != '\0'; out++)
-    if (*out == '\\' && ISDIGIT (*++out))
+    if (*out == '\\' && c_isdigit (*++out))
       {
 	dig = *out - '0';
 	diglen = regs->end[dig] - regs->start[dig];
@@ -5912,9 +5927,9 @@ regex_tag_multiline (void)
 static bool
 nocase_tail (const char *cp)
 {
-  register int len = 0;
+  int len = 0;
 
-  while (*cp != '\0' && lowcase (*cp) == lowcase (dbp[len]))
+  while (*cp != '\0' && c_tolower (*cp) == c_tolower (dbp[len]))
     cp++, len++;
   if (*cp == '\0' && !intoken (dbp[len]))
     {
@@ -6248,7 +6263,7 @@ savenstr (const char *cp, int len)
 static char *
 skip_spaces (char *cp)
 {
-  while (iswhite (*cp))
+  while (c_isspace (*cp))
     cp++;
   return cp;
 }
@@ -6257,7 +6272,7 @@ skip_spaces (char *cp)
 static char *
 skip_non_spaces (char *cp)
 {
-  while (*cp != '\0' && !iswhite (*cp))
+  while (*cp != '\0' && !c_isspace (*cp))
     cp++;
   return cp;
 }
@@ -6342,6 +6357,51 @@ etags_getcwd (void)
 
   canonicalize_filename (path);
   return path;
+}
+
+/* Return a newly allocated string containing a name of a temporary file.  */
+static char *
+etags_mktmp (void)
+{
+  const char *tmpdir = getenv ("TMPDIR");
+  const char *slash = "/";
+
+#if MSDOS || defined (DOS_NT)
+  if (!tmpdir)
+    tmpdir = getenv ("TEMP");
+  if (!tmpdir)
+    tmpdir = getenv ("TMP");
+  if (!tmpdir)
+    tmpdir = ".";
+  if (tmpdir[strlen (tmpdir) - 1] == '/'
+      || tmpdir[strlen (tmpdir) - 1] == '\\')
+    slash = "";
+#else
+  if (!tmpdir)
+    tmpdir = "/tmp";
+  if (tmpdir[strlen (tmpdir) - 1] == '/')
+    slash = "";
+#endif
+
+  char *templt = concat (tmpdir, slash, "etXXXXXX");
+  int fd = mkostemp (templt, O_CLOEXEC);
+  if (fd < 0)
+    {
+      free (templt);
+      templt = NULL;
+    }
+  else
+    close (fd);
+
+#if defined (DOS_NT)
+  /* The file name will be used in shell redirection, so it needs to have
+     DOS-style backslashes, or else the Windows shell will barf.  */
+  char *p;
+  for (p = templt; *p; p++)
+    if (*p == '/')
+      *p = '\\';
+#endif
+  return templt;
 }
 
 /* Return a newly allocated string containing the file name of FILE
@@ -6473,7 +6533,7 @@ filename_is_absolute (char *fn)
 {
   return (fn[0] == '/'
 #ifdef DOS_NT
-	  || (ISALPHA (fn[0]) && fn[1] == ':' && fn[2] == '/')
+	  || (c_isalpha (fn[0]) && fn[1] == ':' && fn[2] == '/')
 #endif
 	  );
 }
@@ -6484,27 +6544,39 @@ static void
 canonicalize_filename (register char *fn)
 {
   register char* cp;
-  char sep = '/';
 
 #ifdef DOS_NT
   /* Canonicalize drive letter case.  */
-# define ISUPPER(c)	isupper (CHAR (c))
-  if (fn[0] != '\0' && fn[1] == ':' && ISUPPER (fn[0]))
-    fn[0] = lowcase (fn[0]);
+  if (c_isupper (fn[0]) && fn[1] == ':')
+    fn[0] = c_tolower (fn[0]);
 
-  sep = '\\';
-#endif
-
-  /* Collapse multiple separators into a single slash. */
+  /* Collapse multiple forward- and back-slashes into a single forward
+     slash. */
   for (cp = fn; *cp != '\0'; cp++, fn++)
-    if (*cp == sep)
+    if (*cp == '/' || *cp == '\\')
       {
 	*fn = '/';
-	while (cp[1] == sep)
+	while (cp[1] == '/' || cp[1] == '\\')
 	  cp++;
       }
     else
       *fn = *cp;
+
+#else  /* !DOS_NT */
+
+  /* Collapse multiple slashes into a single slash. */
+  for (cp = fn; *cp != '\0'; cp++, fn++)
+    if (*cp == '/')
+      {
+	*fn = '/';
+	while (cp[1] == '/')
+	  cp++;
+      }
+    else
+      *fn = *cp;
+
+#endif	/* !DOS_NT */
+
   *fn = '\0';
 }
 
