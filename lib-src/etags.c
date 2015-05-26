@@ -127,8 +127,6 @@ char pot_etags_version[] = "@(#) pot revision number is 17.38.1.4";
 #include <sysstdio.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <sys/types.h>
-#include <sys/stat.h>
 #include <binary-io.h>
 #include <c-ctype.h>
 #include <c-strcase.h>
@@ -355,7 +353,7 @@ static void just_read_file (FILE *);
 
 static language *get_language_from_langname (const char *);
 static void readline (linebuffer *, FILE *);
-static long readline_internal (linebuffer *, FILE *);
+static long readline_internal (linebuffer *, FILE *, char const *);
 static bool nocase_tail (const char *);
 static void get_tag (char *, char **);
 
@@ -407,6 +405,7 @@ static ptrdiff_t whatlen_max;	/* maximum length of any 'what' member */
 
 static fdesc *fdhead;		/* head of file description list */
 static fdesc *curfdp;		/* current file description */
+static char *infilename;	/* current input file name */
 static int lineno;		/* line number of current line */
 static long charno;		/* current character number */
 static long linecharno;		/* charno of start of current line */
@@ -442,6 +441,7 @@ static bool cxref_style;	/* -x: create cxref style output */
 static bool cplusplus;		/* .[hc] means C++, not C (undocumented) */
 static bool ignoreindent;	/* -I: ignore indentation in C */
 static int packages_only;	/* --packages-only: in Ada, only tag packages*/
+static int class_qualify;	/* -Q: produce class-qualified tags in C++/Java */
 
 /* STDIN is defined in LynxOS system headers */
 #ifdef STDIN
@@ -469,6 +469,7 @@ static struct option longopts[] =
   { "members",            no_argument,       &members,           1     },
   { "no-members",         no_argument,       &members,           0     },
   { "output",             required_argument, NULL,               'o'   },
+  { "class-qualify",      no_argument,       &class_qualify,     'Q'   },
   { "regex",              required_argument, NULL,               'r'   },
   { "no-regex",           no_argument,       NULL,               'R'   },
   { "ignore-case-regex",  required_argument, NULL,               'c'   },
@@ -934,6 +935,12 @@ Relative ones are stored relative to the output file's directory.\n");
 	Do not create tag entries for members of structures\n\
 	in some languages.");
 
+  puts ("-Q, --class-qualify\n\
+        Qualify tag names with their class name in C++, ObjC, and Java.\n\
+        This produces tag names of the form \"class::member\" for C++,\n\
+        \"class(category)\" for Objective C, and \"class.member\" for Java.\n\
+        For Objective C, this also produces class methods qualified with\n\
+        their arguments, as in \"foo:bar:baz:more\".");
   puts ("-r REGEXP, --regex=REGEXP or --regex=@regexfile\n\
         Make a tag for each line matching a regular expression pattern\n\
 	in the following files.  {LANGUAGE}REGEXP uses REGEXP for LANGUAGE\n\
@@ -1051,7 +1058,7 @@ main (int argc, char **argv)
 
   /* When the optstring begins with a '-' getopt_long does not rearrange the
      non-options arguments to be at the end, but leaves them alone. */
-  optstring = concat ("-ac:Cf:Il:o:r:RSVhH",
+  optstring = concat ("-ac:Cf:Il:o:Qr:RSVhH",
 		      (CTAGS) ? "BxdtTuvw" : "Di:",
 		      "");
 
@@ -1139,6 +1146,9 @@ main (int argc, char **argv)
       case 'h':
       case 'H':
 	help_asked = true;
+	break;
+      case 'Q':
+	class_qualify = 1;
 	break;
 
 	/* Etags options */
@@ -1247,7 +1257,7 @@ main (int argc, char **argv)
 		  if (parsing_stdin)
 		    fatal ("cannot parse standard input AND read file names from it",
 			   (char *)NULL);
-		  while (readline_internal (&filename_lb, stdin) > 0)
+		  while (readline_internal (&filename_lb, stdin, "-") > 0)
 		    process_file_name (filename_lb.buffer, lang);
 		}
 	      else
@@ -1470,7 +1480,6 @@ get_language_from_filename (char *file, int case_sensitive)
 static void
 process_file_name (char *file, language *lang)
 {
-  struct stat stat_buf;
   FILE *inf;
   fdesc *fdp;
   compressor *compr;
@@ -1484,15 +1493,16 @@ process_file_name (char *file, language *lang)
       error ("skipping inclusion of %s in self.", file);
       return;
     }
-  if ((compr = get_compressor_from_suffix (file, &ext)) == NULL)
+  compr = get_compressor_from_suffix (file, &ext);
+  if (compr)
     {
-      compressed_name = NULL;
-      real_name = uncompressed_name = savestr (file);
+      compressed_name = file;
+      uncompressed_name = savenstr (file, ext - file);
     }
   else
     {
-      real_name = compressed_name = savestr (file);
-      uncompressed_name = savenstr (file, ext - file);
+      compressed_name = NULL;
+      uncompressed_name = file;
     }
 
   /* If the canonicalized uncompressed name
@@ -1504,83 +1514,96 @@ process_file_name (char *file, language *lang)
 	goto cleanup;
     }
 
-  if (stat (real_name, &stat_buf) != 0)
+  inf = fopen (file, "r" FOPEN_BINARY);
+  if (inf)
+    real_name = file;
+  else
     {
-      /* Reset real_name and try with a different name. */
-      real_name = NULL;
-      if (compressed_name != NULL) /* try with the given suffix */
+      int file_errno = errno;
+      if (compressed_name)
 	{
-	  if (stat (uncompressed_name, &stat_buf) == 0)
+	  /* Try with the given suffix.  */
+	  inf = fopen (uncompressed_name, "r" FOPEN_BINARY);
+	  if (inf)
 	    real_name = uncompressed_name;
 	}
-      else			/* try all possible suffixes */
+      else
 	{
+	  /* Try all possible suffixes.  */
 	  for (compr = compressors; compr->suffix != NULL; compr++)
 	    {
 	      compressed_name = concat (file, ".", compr->suffix);
-	      if (stat (compressed_name, &stat_buf) != 0)
-		{
-		  if (MSDOS)
-		    {
-		      char *suf = compressed_name + strlen (file);
-		      size_t suflen = strlen (compr->suffix) + 1;
-		      for ( ; suf[1]; suf++, suflen--)
-			{
-			  memmove (suf, suf + 1, suflen);
-			  if (stat (compressed_name, &stat_buf) == 0)
-			    {
-			      real_name = compressed_name;
-			      break;
-			    }
-			}
-		      if (real_name != NULL)
-			break;
-		    } /* MSDOS */
-		  free (compressed_name);
-		  compressed_name = NULL;
-		}
-	      else
+	      inf = fopen (compressed_name, "r" FOPEN_BINARY);
+	      if (inf)
 		{
 		  real_name = compressed_name;
 		  break;
 		}
+	      if (MSDOS)
+		{
+		  char *suf = compressed_name + strlen (file);
+		  size_t suflen = strlen (compr->suffix) + 1;
+		  for ( ; suf[1]; suf++, suflen--)
+		    {
+		      memmove (suf, suf + 1, suflen);
+		      inf = fopen (compressed_name, "r" FOPEN_BINARY);
+		      if (inf)
+			{
+			  real_name = compressed_name;
+			  break;
+			}
+		    }
+		  if (inf)
+		    break;
+		}
+	      free (compressed_name);
+	      compressed_name = NULL;
 	    }
 	}
-      if (real_name == NULL)
+      if (! inf)
 	{
+	  errno = file_errno;
 	  perror (file);
 	  goto cleanup;
 	}
-    } /* try with a different name */
-
-  if (!S_ISREG (stat_buf.st_mode))
-    {
-      error ("skipping %s: it is not a regular file.", real_name);
-      goto cleanup;
     }
+
   if (real_name == compressed_name)
     {
+      fclose (inf);
       tmp_name = etags_mktmp ();
       if (!tmp_name)
 	inf = NULL;
       else
 	{
-	  char *cmd1 = concat (compr->command, " ", real_name);
-	  char *cmd = concat (cmd1, " > ", tmp_name);
+#if MSDOS || defined (DOS_NT)
+	  char *cmd1 = concat (compr->command, " \"", real_name);
+	  char *cmd = concat (cmd1, "\" > ", tmp_name);
+#else
+	  char *cmd1 = concat (compr->command, " '", real_name);
+	  char *cmd = concat (cmd1, "' > ", tmp_name);
+#endif
 	  free (cmd1);
+	  int tmp_errno;
 	  if (system (cmd) == -1)
-	    inf = NULL;
+	    {
+	      inf = NULL;
+	      tmp_errno = EINVAL;
+	    }
 	  else
-	    inf = fopen (tmp_name, "r" FOPEN_BINARY);
+	    {
+	      inf = fopen (tmp_name, "r" FOPEN_BINARY);
+	      tmp_errno = errno;
+	    }
 	  free (cmd);
+	  errno = tmp_errno;
 	}
-    }
-  else
-    inf = fopen (real_name, "r" FOPEN_BINARY);
-  if (inf == NULL)
-    {
-      perror (real_name);
-      goto cleanup;
+
+      if (!inf)
+	{
+	  perror (real_name);
+	  goto cleanup;
+	}
     }
 
   process_file (inf, uncompressed_name, lang);
@@ -1595,8 +1618,10 @@ process_file_name (char *file, language *lang)
     pfatal (file);
 
  cleanup:
-  free (compressed_name);
-  free (uncompressed_name);
+  if (compressed_name != file)
+    free (compressed_name);
+  if (uncompressed_name != file)
+    free (uncompressed_name);
   last_node = NULL;
   curfdp = NULL;
   return;
@@ -1608,6 +1633,7 @@ process_file (FILE *fh, char *fn, language *lang)
   static const fdesc emptyfdesc;
   fdesc *fdp;
 
+  infilename = fn;
   /* Create a new input file description entry. */
   fdp = xnew (1, fdesc);
   *fdp = emptyfdesc;
@@ -1671,6 +1697,13 @@ process_file (FILE *fh, char *fn, language *lang)
     }
 }
 
+static void
+reset_input (FILE *inf)
+{
+  if (fseek (inf, 0, SEEK_SET) != 0)
+    perror (infilename);
+}
+
 /*
  * This routine opens the specified file and calls the function
  * which finds the function and type definitions.
@@ -1701,7 +1734,7 @@ find_entries (FILE *inf)
 
   /* Else look for sharp-bang as the first two characters. */
   if (parser == NULL
-      && readline_internal (&lb, inf) > 0
+      && readline_internal (&lb, inf, infilename) > 0
       && lb.len >= 2
       && lb.buffer[0] == '#'
       && lb.buffer[1] == '!')
@@ -1730,7 +1763,7 @@ find_entries (FILE *inf)
 	}
     }
 
-  rewind (inf);
+  reset_input (inf);
 
   /* Else try to guess the language given the case insensitive file name. */
   if (parser == NULL)
@@ -1754,7 +1787,7 @@ find_entries (FILE *inf)
       if (old_last_node == last_node)
 	/* No Fortran entries found.  Try C. */
 	{
-	  rewind (inf);
+	  reset_input (inf);
 	  curfdp->lang = get_language_from_langname (cplusplus ? "c++" : "c");
 	  find_entries (inf);
 	}
@@ -2830,12 +2863,15 @@ consider_token (char *str, int len, int c, int *c_extp,
      case omethodparm:
        if (parlev == 0)
 	 {
-	   int oldlen = token_name.len;
-	   fvdef = fvnone;
 	   objdef = omethodtag;
-	   linebuffer_setlen (&token_name, oldlen + len);
-	   memcpy (token_name.buffer + oldlen, str, len);
-	   token_name.buffer[oldlen + len] = '\0';
+	   if (class_qualify)
+	     {
+	       int oldlen = token_name.len;
+	       fvdef = fvnone;
+	       linebuffer_setlen (&token_name, oldlen + len);
+	       memcpy (token_name.buffer + oldlen, str, len);
+	       token_name.buffer[oldlen + len] = '\0';
+	     }
 	   return true;
 	 }
        return false;
@@ -2964,7 +3000,7 @@ do {									\
 
 #define CNL()								\
 do {									\
-  CNL_SAVE_DEFINEDEF();							\
+  CNL_SAVE_DEFINEDEF ();						\
   if (savetoken.valid)							\
     {									\
       token = savetoken;						\
@@ -2991,6 +3027,12 @@ make_C_tag (bool isfun)
     }
 
   token.valid = false;
+}
+
+static bool
+perhaps_more_input (FILE *inf)
+{
+  return !feof (inf) && !ferror (inf);
 }
 
 
@@ -3050,7 +3092,7 @@ C_entries (int c_ext, FILE *inf)
     { qualifier = "::"; qlen = 2; }
 
 
-  while (!feof (inf))
+  while (perhaps_more_input (inf))
     {
       c = *lp++;
       if (c == '\\')
@@ -3279,21 +3321,42 @@ C_entries (int c_ext, FILE *inf)
 			      && nestlev > 0 && definedef == dnone)
 			    /* in struct body */
 			    {
-			      int len;
-                              write_classname (&token_name, qualifier);
-			      len = token_name.len;
-			      linebuffer_setlen (&token_name, len+qlen+toklen);
-			      sprintf (token_name.buffer + len, "%s%.*s",
-				       qualifier, toklen, newlb.buffer + tokoff);
+			      if (class_qualify)
+				{
+				  int len;
+				  write_classname (&token_name, qualifier);
+				  len = token_name.len;
+				  linebuffer_setlen (&token_name,
+						     len + qlen + toklen);
+				  sprintf (token_name.buffer + len, "%s%.*s",
+					   qualifier, toklen,
+					   newlb.buffer + tokoff);
+				}
+			      else
+				{
+				  linebuffer_setlen (&token_name, toklen);
+				  sprintf (token_name.buffer, "%.*s",
+					   toklen, newlb.buffer + tokoff);
+				}
 			      token.named = true;
 			    }
 			  else if (objdef == ocatseen)
 			    /* Objective C category */
 			    {
-			      int len = strlen (objtag) + 2 + toklen;
-			      linebuffer_setlen (&token_name, len);
-			      sprintf (token_name.buffer, "%s(%.*s)",
-				       objtag, toklen, newlb.buffer + tokoff);
+			      if (class_qualify)
+				{
+				  int len = strlen (objtag) + 2 + toklen;
+				  linebuffer_setlen (&token_name, len);
+				  sprintf (token_name.buffer, "%s(%.*s)",
+					   objtag, toklen,
+					   newlb.buffer + tokoff);
+				}
+			      else
+				{
+				  linebuffer_setlen (&token_name, toklen);
+				  sprintf (token_name.buffer, "%.*s",
+					   toklen, newlb.buffer + tokoff);
+				}
 			      token.named = true;
 			    }
 			  else if (objdef == omethodtag
@@ -3451,9 +3514,12 @@ C_entries (int c_ext, FILE *inf)
 	    case omethodtag:
 	    case omethodparm:
 	      objdef = omethodcolon;
-	      int toklen = token_name.len;
-	      linebuffer_setlen (&token_name, toklen + 1);
-	      strcpy (token_name.buffer + toklen, ":");
+	      if (class_qualify)
+		{
+		  int toklen = token_name.len;
+		  linebuffer_setlen (&token_name, toklen + 1);
+		  strcpy (token_name.buffer + toklen, ":");
+		}
 	      break;
 	    }
 	  if (structdef == stagseen)
@@ -3688,6 +3754,28 @@ C_entries (int c_ext, FILE *inf)
 	  switch (fvdef)
 	    {
 	    case flistseen:
+	      if (cplpl && !class_qualify)
+		{
+		  /* Remove class and namespace qualifiers from the token,
+		     leaving only the method/member name.  */
+		  char *cc, *uqname = token_name.buffer;
+		  char *tok_end = token_name.buffer + token_name.len;
+
+		  for (cc = token_name.buffer; cc < tok_end; cc++)
+		    {
+		      if (*cc == ':' && cc[1] == ':')
+			{
+			  uqname = cc + 2;
+			  cc++;
+			}
+		    }
+		  if (uqname > token_name.buffer)
+		    {
+		      int uqlen = strlen (uqname);
+		      linebuffer_setlen (&token_name, uqlen);
+		      memmove (token_name.buffer, uqname, uqlen + 1);
+		    }
+		}
 	      make_C_tag (true);    /* a function */
 	      /* FALLTHRU */
 	    case fignore:
@@ -3891,13 +3979,10 @@ Yacc_entries (FILE *inf)
 
 /* Useful macros. */
 #define LOOP_ON_INPUT_LINES(file_pointer, line_buffer, char_pointer)	\
-  for (;			/* loop initialization */		\
-       !feof (file_pointer)	/* loop test */				\
-       &&			/* instructions at start of loop */	\
-	  (readline (&line_buffer, file_pointer),			\
-           char_pointer = line_buffer.buffer,				\
-	   true);							\
-      )
+  while (perhaps_more_input (file_pointer)				\
+	 && (readline (&(line_buffer), file_pointer),			\
+	     (char_pointer) = (line_buffer).buffer,			\
+	     true))							\
 
 #define LOOKING_AT(cp, kw)  /* kw is the keyword, a literal string */	\
   ((assert ("" kw), true)   /* syntax error if not a literal string */	\
@@ -3918,7 +4003,7 @@ Yacc_entries (FILE *inf)
 static void
 just_read_file (FILE *inf)
 {
-  while (!feof (inf))
+  while (perhaps_more_input (inf))
     readline (&lb, inf);
 }
 
@@ -4073,7 +4158,7 @@ Ada_getit (FILE *inf, const char *name_qualifier)
   char *name;
   char c;
 
-  while (!feof (inf))
+  while (perhaps_more_input (inf))
     {
       dbp = skip_spaces (dbp);
       if (*dbp == '\0'
@@ -4299,8 +4384,8 @@ Perl_functions (FILE *inf)
 	    cp++;
 	  if (cp == sp)
 	    continue;		/* nothing found */
-	  if ((pos = strchr (sp, ':')) != NULL
-	      && pos < cp && pos[1] == ':')
+	  pos = strchr (sp, ':');
+	  if (pos && pos < cp && pos[1] == ':')
 	    /* The name is already qualified. */
 	    make_tag (sp, cp - sp, true,
 		      lb.buffer, cp - lb.buffer + 1, lineno, linecharno);
@@ -4575,7 +4660,7 @@ Pascal_functions (FILE *inf)
   verify_tag = false;		/* check if "extern" is ahead        */
 
 
-  while (!feof (inf))		/* long main loop to get next char */
+  while (perhaps_more_input (inf)) /* long main loop to get next char */
     {
       c = *dbp++;
       if (c == '\0')		/* if end of line */
@@ -4931,12 +5016,7 @@ static const char *TEX_defenv = "\
 :part:appendix:entry:index:def\
 :newcommand:renewcommand:newenvironment:renewenvironment";
 
-static void TEX_mode (FILE *);
 static void TEX_decode_env (const char *, const char *);
-
-static char TEX_esc = '\\';
-static char TEX_opgrp = '{';
-static char TEX_clgrp = '}';
 
 /*
  * TeX/LaTeX scanning loop.
@@ -4947,8 +5027,8 @@ TeX_commands (FILE *inf)
   char *cp;
   linebuffer *key;
 
-  /* Select either \ or ! as escape character.  */
-  TEX_mode (inf);
+  char TEX_esc = '\0';
+  char TEX_opgrp, TEX_clgrp;
 
   /* Initialize token table once from environment. */
   if (TEX_toktab == NULL)
@@ -4960,9 +5040,33 @@ TeX_commands (FILE *inf)
       for (;;)
 	{
 	  /* Look for a TEX escape. */
-	  while (*cp++ != TEX_esc)
-	    if (cp[-1] == '\0' || cp[-1] == '%')
-	      goto tex_next_line;
+	  while (true)
+	    {
+	      char c = *cp++;
+	      if (c == '\0' || c == '%')
+		goto tex_next_line;
+
+	      /* Select either \ or ! as escape character, whichever comes
+		 first outside a comment.  */
+	      if (!TEX_esc)
+		switch (c)
+		  {
+		  case '\\':
+		    TEX_esc = c;
+		    TEX_opgrp = '{';
+		    TEX_clgrp = '}';
+		    break;
+
+		  case '!':
+		    TEX_esc = c;
+		    TEX_opgrp = '<';
+		    TEX_clgrp = '>';
+		    break;
+		  }
+
+	      if (c == TEX_esc)
+		break;
+	    }
 
 	  for (key = TEX_toktab; key->buffer != NULL; key++)
 	    if (strneq (cp, key->buffer, key->len))
@@ -5000,41 +5104,6 @@ TeX_commands (FILE *inf)
     }
 }
 
-#define TEX_LESC '\\'
-#define TEX_SESC '!'
-
-/* Figure out whether TeX's escapechar is '\\' or '!' and set grouping
-   chars accordingly. */
-static void
-TEX_mode (FILE *inf)
-{
-  int c;
-
-  while ((c = getc (inf)) != EOF)
-    {
-      /* Skip to next line if we hit the TeX comment char. */
-      if (c == '%')
-	while (c != '\n' && c != EOF)
-	  c = getc (inf);
-      else if (c == TEX_LESC || c == TEX_SESC )
-	break;
-    }
-
-  if (c == TEX_LESC)
-    {
-      TEX_esc = TEX_LESC;
-      TEX_opgrp = '{';
-      TEX_clgrp = '}';
-    }
-  else
-    {
-      TEX_esc = TEX_SESC;
-      TEX_opgrp = '<';
-      TEX_clgrp = '>';
-    }
-  rewind (inf);
-}
-
 /* Read environment and prepend it to the default string.
    Build token table. */
 static void
@@ -5051,8 +5120,8 @@ TEX_decode_env (const char *evarname, const char *defenv)
     env = concat (env, defenv, "");
 
   /* Allocate a token table */
-  for (len = 1, p = env; p;)
-    if ((p = strchr (p, ':')) && *++p != '\0')
+  for (len = 1, p = env; (p = strchr (p, ':')); )
+    if (*++p)
       len++;
   TEX_toktab = xnew (len, linebuffer);
 
@@ -5278,7 +5347,7 @@ prolog_skip_comment (linebuffer *plb, FILE *inf)
 	  return;
       readline (plb, inf);
     }
-  while (!feof (inf));
+  while (perhaps_more_input (inf));
 }
 
 /*
@@ -5628,10 +5697,11 @@ analyze_regex (char *regex_arg)
 	if (regexfp == NULL)
 	  pfatal (regexfile);
 	linebuffer_init (&regexbuf);
-	while (readline_internal (&regexbuf, regexfp) > 0)
+	while (readline_internal (&regexbuf, regexfp, regexfile) > 0)
 	  analyze_regex (regexbuf.buffer);
 	free (regexbuf.buffer);
-	fclose (regexfp);
+	if (fclose (regexfp) != 0)
+	  pfatal (regexfile);
       }
       break;
 
@@ -5971,11 +6041,11 @@ get_tag (register char *bp, char **namepp)
  * appended to `filebuf'.
  */
 static long
-readline_internal (linebuffer *lbp, register FILE *stream)
+readline_internal (linebuffer *lbp, FILE *stream, char const *filename)
 {
   char *buffer = lbp->buffer;
-  register char *p = lbp->buffer;
-  register char *pend;
+  char *p = lbp->buffer;
+  char *pend;
   int chars_deleted;
 
   pend = p + lbp->size;		/* Separate to avoid 386/IX compiler bug.  */
@@ -5994,6 +6064,8 @@ readline_internal (linebuffer *lbp, register FILE *stream)
 	}
       if (c == EOF)
 	{
+	  if (ferror (stream))
+	    perror (filename);
 	  *p = '\0';
 	  chars_deleted = 0;
 	  break;
@@ -6003,16 +6075,7 @@ readline_internal (linebuffer *lbp, register FILE *stream)
 	  if (p > buffer && p[-1] == '\r')
 	    {
 	      p -= 1;
-#ifdef DOS_NT
-	     /* Assume CRLF->LF translation will be performed by Emacs
-		when loading this file, so CRs won't appear in the buffer.
-		It would be cleaner to compensate within Emacs;
-		however, Emacs does not know how many CRs were deleted
-		before any given point in the file.  */
-	      chars_deleted = 1;
-#else
 	      chars_deleted = 2;
-#endif
 	    }
 	  else
 	    {
@@ -6054,7 +6117,7 @@ readline (linebuffer *lbp, FILE *stream)
   long result;
 
   linecharno = charno;		/* update global char number of line start */
-  result = readline_internal (lbp, stream); /* read line */
+  result = readline_internal (lbp, stream, infilename); /* read line */
   lineno += 1;			/* increment global line number */
   charno += result;		/* increment global char number */
 
@@ -6385,13 +6448,13 @@ etags_mktmp (void)
 
   char *templt = concat (tmpdir, slash, "etXXXXXX");
   int fd = mkostemp (templt, O_CLOEXEC);
-  if (fd < 0)
+  if (fd < 0 || close (fd) != 0)
     {
+      int temp_errno = errno;
       free (templt);
+      errno = temp_errno;
       templt = NULL;
     }
-  else
-    close (fd);
 
 #if defined (DOS_NT)
   /* The file name will be used in shell redirection, so it needs to have
@@ -6401,6 +6464,7 @@ etags_mktmp (void)
     if (*p == '/')
       *p = '\\';
 #endif
+
   return templt;
 }
 
