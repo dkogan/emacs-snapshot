@@ -12,7 +12,7 @@ lisp/info.el to include /usr/share/info/emacs-MAJORVERSION before
  1 file changed, 2 insertions(+), 1 deletion(-)
 
 diff --git a/lisp/info.el b/lisp/info.el
-index 05574ae..55d6da6 100644
+index d635819..28a8569 100644
 --- a/lisp/info.el
 +++ b/lisp/info.el
 @@ -218,7 +218,8 @@ A header-line does not scroll with the rest of the buffer."

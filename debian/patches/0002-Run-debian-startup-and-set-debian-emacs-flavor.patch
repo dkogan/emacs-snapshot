@@ -14,12 +14,12 @@ Emacs runs debian-startup and sets debian-emacs-flavor.
  1 file changed, 19 insertions(+), 2 deletions(-)
 
 diff --git a/lisp/startup.el b/lisp/startup.el
-index cb8a6a9..78ecac8 100644
+index a24198b..218344d 100644
 --- a/lisp/startup.el
 +++ b/lisp/startup.el
 @@ -424,6 +424,10 @@ Warning Warning!!!  Pure space overflow    !!!Warning Warning
    :type 'directory
-   :initialize 'custom-initialize-delay)
+   :initialize #'custom-initialize-delay)
  
 +(defconst debian-emacs-flavor 'emacs-snapshot
 +  "A symbol representing the particular debian flavor of emacs running.
@@ -28,7 +28,7 @@ index cb8a6a9..78ecac8 100644
  (defun normal-top-level-add-subdirs-to-load-path ()
    "Add all subdirectories of `default-directory' to `load-path'.
  More precisely, this uses only the subdirectories whose names
-@@ -1041,8 +1045,21 @@ please check its value")
+@@ -1042,8 +1046,21 @@ please check its value")
      ;; be loaded from site-run-file and wants to test if -q was given
      ;; should check init-file-user instead, since that is already set.
      ;; See cus-edit.el for an example.

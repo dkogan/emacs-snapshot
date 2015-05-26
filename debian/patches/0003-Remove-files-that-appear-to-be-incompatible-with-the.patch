@@ -29,7 +29,7 @@ Status: new
  5 files changed, 34 insertions(+), 49 deletions(-)
 
 diff --git a/Makefile.in b/Makefile.in
-index eec6d31..3d36cdd 100644
+index a2258f2..f81d7ef 100644
 --- a/Makefile.in
 +++ b/Makefile.in
 @@ -157,7 +157,9 @@ man1dir=$(mandir)/man1
@@ -53,7 +53,7 @@ index eec6d31..3d36cdd 100644
  
  $(foreach dir,$(mostlyclean_dirs),$(eval $(call submake_template,$(dir),mostlyclean)))
  
-@@ -932,11 +933,11 @@ check: all
+@@ -936,11 +937,11 @@ check: all
  dist:
  	cd ${srcdir}; ./make-dist
  
@@ -70,7 +70,7 @@ index eec6d31..3d36cdd 100644
  
  DOCS = $(DVIS) $(HTMLS) $(INFOS) $(PDFS) $(PSS)
  $(DOCS):
-@@ -957,9 +958,7 @@ info-dir: ${srcdir}/info/dir
+@@ -961,9 +962,7 @@ info-dir: ${srcdir}/info/dir
  
  ## Hopefully doc/misc/*.texi is not too long for some systems?
  srcdir_doc_info_dir_inputs = \
@@ -81,7 +81,7 @@ index eec6d31..3d36cdd 100644
    $(sort $(wildcard ${srcdir}/doc/misc/*.texi))
  info_dir_inputs = \
    ../build-aux/dir_top \
-@@ -984,14 +983,10 @@ ${srcdir}/info/dir: ${info_dir_deps}
+@@ -988,14 +987,10 @@ ${srcdir}/info/dir: ${info_dir_deps}
  	) >$$tempfile && \
  	${srcdir}/build-aux/move-if-change $${tempfile} ${srcdir}/info/dir
  
@@ -100,7 +100,7 @@ index eec6d31..3d36cdd 100644
  INSTALL_DOC = $(INSTALL_DVI) $(INSTALL_HTML) $(INSTALL_PDF) $(INSTALL_PS)
  
  ## Install non .info forms of the documentation.
-@@ -1009,14 +1004,10 @@ install-pdf: $(INSTALL_PDF)
+@@ -1013,14 +1008,10 @@ install-pdf: $(INSTALL_PDF)
  install-ps: $(INSTALL_PS)
  
  
@@ -134,10 +134,10 @@ index 27d5303..4125515 100755
              ## FIXME do not ignore w32 if OS is w32.
              case $file in
 diff --git a/configure.ac b/configure.ac
-index 1cddeb1..8cdc3d1 100644
+index a9fe095..c9c7782 100644
 --- a/configure.ac
 +++ b/configure.ac
-@@ -5227,11 +5227,11 @@ dnl This will work, but you get a config.status that is not quite right
+@@ -5251,11 +5251,11 @@ dnl This will work, but you get a config.status that is not quite right
  dnl (see http://lists.gnu.org/archive/html/bug-autoconf/2008-08/msg00028.html).
  dnl That doesn't have any obvious consequences for Emacs, but on the whole
  dnl it seems better to just live with the duplication.
@@ -152,7 +152,7 @@ index 1cddeb1..8cdc3d1 100644
         leim/Makefile nextstep/Makefile nt/Makefile])
  
  dnl test/ is not present in release tarfiles.
-@@ -5282,15 +5282,6 @@ if test ! -f src/.gdbinit && test -f "$srcdir/src/.gdbinit"; then
+@@ -5307,15 +5307,6 @@ if test ! -f src/.gdbinit && test -f "$srcdir/src/.gdbinit"; then
  fi
  ])
  
