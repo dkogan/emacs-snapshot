@@ -29,6 +29,9 @@ otherwise leave it unmarked.
 
 ** Building Emacs now requires GNU make, version 3.81 or later.
 
+** New configure option --with-cairo.
+Maybe add text based on http://lists.gnu.org/archive/html/emacs-devel/2015-05/msg00689.html
+
 ** By default, Emacs no longer works on IRIX.  We expect that Emacs
 users are not affected by this, as SGI stopped supporting IRIX in
 December 2013.  If you are affected, please send a bug report.  You
@@ -484,6 +487,11 @@ The seq library adds sequence manipulation functions and macros that
 complement basic functions provided by subr.el. All functions are
 prefixed with `seq-' and work on lists, strings and vectors.
 
+** map
+*** New map library:
+The map library provides map-manipulation functions that work on alists,
+hash-table and arrays.  All functions are prefixed with "map-".
+
 ** Calendar and diary
 
 +++
@@ -867,7 +875,7 @@ evaluated (and should return a string) when the closure is built.
 
 ** define-inline provides a new way to define inlinable functions.
 
-** New function macroexpand-1 to perform a single step of macroexpansion.
+** New function `macroexpand-1' to perform a single step of macroexpansion.
 
 ** Some "x-*" were obsoleted:
 *** x-select-text is renamed gui-select-text.
@@ -876,6 +884,9 @@ evaluated (and should return a string) when the closure is built.
 *** x-get-clipboard and x-clipboard-yank are marked obsolete.
 *** x-get-selection-value is renamed to gui-get-primary-selection.
 *** x-set-selection is renamed to gui-set-selection
+
+** New function `string-greaterp', which return the opposite result of
+`string-lessp'.
 
 ** New function `alist-get', which is also a valid place (aka lvalue).
 
@@ -946,6 +957,12 @@ integers.
 +++
 ** New function `set-binary-mode' allows to switch a standard stream
 of the Emacs process to binary I/O mode.
+
+** In locales that cannot display curved quotes, ASCII approximations
+are installed in standard-display-table.
+
+** Standard output and error streams now transliterate characters via
+standard-display-table, and encode output using locale-coding-system.
 
 ** Miscellaneous name change
 

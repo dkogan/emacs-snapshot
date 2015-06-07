@@ -143,38 +143,13 @@ actual location is not known.")
 
 (cl-defmethod xref-location-group ((_ xref-bogus-location)) "(No location)")
 
-;; This should be in elisp-mode.el, but it's preloaded, and we can't
-;; preload defclass and defmethod (at least, not yet).
-(defclass xref-elisp-location (xref-location)
-  ((symbol :type symbol :initarg :symbol)
-   (type   :type symbol :initarg :type)
-   (file   :type string :initarg :file
-           :reader xref-location-group))
-  :documentation "Location of an Emacs Lisp symbol definition.")
-
-(defun xref-make-elisp-location (symbol type file)
-  (make-instance 'xref-elisp-location :symbol symbol :type type :file file))
-
-(cl-defmethod xref-location-marker ((l xref-elisp-location))
-  (with-slots (symbol type file) l
-    (let ((buffer-point
-           (pcase type
-             (`defun (find-function-search-for-symbol symbol nil file))
-             ((or `defvar `defface)
-              (find-function-search-for-symbol symbol type file))
-             (`feature
-              (cons (find-file-noselect file) 1)))))
-      (with-current-buffer (car buffer-point)
-        (goto-char (or (cdr buffer-point) (point-min)))
-        (point-marker)))))
-
 
 ;;; Cross-reference
 
 (defclass xref--xref ()
   ((description :type string :initarg :description
                 :reader xref--xref-description)
-   (location :type xref-location :initarg :location
+   (location :initarg :location
              :reader xref--xref-location))
   :comment "An xref is used to display and locate constructs like
 variables or functions.")
@@ -745,32 +720,59 @@ and just use etags."
 (declare-function semantic-symref-find-references-by-name "semantic/symref")
 (declare-function semantic-symref-find-text "semantic/symref")
 (declare-function semantic-find-file-noselect "semantic/fw")
+(declare-function rgrep-default-command "grep")
 
-(defun xref-collect-matches (input dir &optional kind)
-  "Collect KIND matches for INPUT inside DIR according.
-KIND can be `symbol', `regexp' or nil, the last of which means
-literal matches.  This function uses the Semantic Symbol
-Reference API, see `semantic-symref-find-references-by-name' for
-details on which tools are used, and when."
+(defun xref-collect-references (symbol dir)
+  "Collect references to SYMBOL inside DIR.
+This function uses the Semantic Symbol Reference API, see
+`semantic-symref-find-references-by-name' for details on which
+tools are used, and when."
+  (cl-assert (directory-name-p dir))
   (require 'semantic/symref)
   (defvar semantic-symref-tool)
-  (cl-assert (directory-name-p dir))
-  (when (null kind)
-    (setq input (regexp-quote input)))
-  ;; FIXME: When regexp, search in all files, except
-  ;; `grep-find-ignored-directories' and `grep-find-ignored-files',
-  ;; like `rgrep' does.
   (let* ((default-directory dir)
          (semantic-symref-tool 'detect)
-         (res (if (eq kind 'symbol)
-                  (semantic-symref-find-references-by-name input 'subdirs)
-                (semantic-symref-find-text (xref--regexp-to-extended input)
-                                           'subdirs)))
+         (res (semantic-symref-find-references-by-name symbol 'subdirs))
          (hits (and res (oref res :hit-lines)))
          (orig-buffers (buffer-list)))
     (unwind-protect
         (delq nil
-              (mapcar (lambda (hit) (xref--collect-match hit input kind)) hits))
+              (mapcar (lambda (hit) (xref--collect-match
+                                hit (format "\\_<%s\\_>" (regexp-quote symbol))))
+                      hits))
+      (mapc #'kill-buffer
+            (cl-set-difference (buffer-list) orig-buffers)))))
+
+(defun xref-collect-matches (regexp dir)
+  "Collect matches for REGEXP inside DIR using rgrep."
+  (cl-assert (directory-name-p dir))
+  (require 'semantic/fw)
+  (grep-compute-defaults)
+  (defvar grep-find-template)
+  (let* ((grep-find-template
+          (replace-regexp-in-string
+           ;; Override the use ot '--color=always' on MS-Windows.
+           "--color=always" ""
+           (replace-regexp-in-string "-e " "-E "
+                                     grep-find-template t t)
+           t t))
+         (command (rgrep-default-command (xref--regexp-to-extended regexp)
+                                         "*.*" dir))
+         (orig-buffers (buffer-list))
+         (buf (get-buffer-create " *xref-grep*"))
+         (grep-re (caar grep-regexp-alist))
+         hits)
+    (with-current-buffer buf
+      (erase-buffer)
+      (when (eq (call-process-shell-command command nil t) 0)
+        (goto-char (point-min))
+        (while (re-search-forward grep-re nil t)
+          (push (cons (string-to-number (match-string 2))
+                      (match-string 1))
+                hits))))
+    (unwind-protect
+        (delq nil
+              (mapcar (lambda (hit) (xref--collect-match hit regexp)) hits))
       (mapc #'kill-buffer
             (cl-set-difference (buffer-list) orig-buffers)))))
 
@@ -792,18 +794,15 @@ details on which tools are used, and when."
                (match-string 1 str)))))
    str t t))
 
-(defun xref--collect-match (hit input kind)
+(defun xref--collect-match (hit regexp)
   (pcase-let* ((`(,line . ,file) hit)
                (buf (or (find-buffer-visiting file)
-                        (semantic-find-file-noselect file)))
-               (input (if (eq kind 'symbol)
-                          (format "\\_<%s\\_>" (regexp-quote input))
-                        input)))
+                        (semantic-find-file-noselect file))))
     (with-current-buffer buf
       (save-excursion
         (goto-char (point-min))
         (forward-line (1- line))
-        (when (re-search-forward input (line-end-position) t)
+        (when (re-search-forward regexp (line-end-position) t)
           (goto-char (match-beginning 0))
           (xref-make (buffer-substring
                       (line-beginning-position)

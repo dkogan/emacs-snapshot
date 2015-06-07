@@ -2908,7 +2908,12 @@ font_open_entity (struct frame *f, Lisp_Object entity, int pixel_size)
 	       : font->average_width ? font->average_width
 	       : font->space_width ? font->space_width
 	       : 1);
-  height = (font->height ? font->height : 1);
+
+  int font_ascent, font_descent;
+  get_font_ascent_descent (font, &font_ascent, &font_descent);
+  height = font_ascent + font_descent;
+  if (height <= 0)
+    height = 1;
 #ifdef HAVE_WINDOW_SYSTEM
   FRAME_DISPLAY_INFO (f)->n_fonts++;
   if (FRAME_DISPLAY_INFO (f)->n_fonts == 1)
@@ -5133,10 +5138,6 @@ syms_of_font (void)
   DEFSYM (Qiso8859_1, "iso8859-1");
   DEFSYM (Qiso10646_1, "iso10646-1");
   DEFSYM (Qunicode_bmp, "unicode-bmp");
-  DEFSYM (Qunicode_sip, "unicode-sip");
-
-  /* Unicode category `Cf'.  */
-  DEFSYM (QCf, "Cf");
 
   /* Symbols representing keys of font extra info.  */
   DEFSYM (QCotf, ":otf");
@@ -5151,7 +5152,6 @@ syms_of_font (void)
   DEFSYM (QCscalable, ":scalable");
   DEFSYM (QCavgwidth, ":avgwidth");
   DEFSYM (QCfont_entity, ":font-entity");
-  DEFSYM (QCfc_unknown_spec, ":fc-unknown-spec");
 
   /* Symbols representing values of font spacing property.  */
   DEFSYM (Qc, "c");

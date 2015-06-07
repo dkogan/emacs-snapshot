@@ -633,17 +633,17 @@ This function is called from `compilation-filter-hook'."
 				(format "%s " null-device)
 			      "")))
 		  (cond ((eq grep-find-use-xargs 'gnu)
-			 (format "%s . <X> -type f <F> -print0 | \"%s\" -0 %s"
+			 (format "%s <D> <X> -type f <F> -print0 | \"%s\" -0 %s"
 				 find-program xargs-program gcmd))
 			((eq grep-find-use-xargs 'exec)
-			 (format "%s . <X> -type f <F> -exec %s {} %s%s"
+			 (format "%s <D> <X> -type f <F> -exec %s {} %s%s"
 				 find-program gcmd null
 				 (shell-quote-argument ";")))
 			((eq grep-find-use-xargs 'exec-plus)
-			 (format "%s . <X> -type f <F> -exec %s %s{} +"
+			 (format "%s <D> <X> -type f <F> -exec %s %s{} +"
 				 find-program gcmd null))
 			(t
-			 (format "%s . <X> -type f <F> -print | \"%s\" %s"
+			 (format "%s <D> <X> -type f <F> -print | \"%s\" %s"
 				 find-program xargs-program gcmd))))))))
 
     ;; Save defaults for this host.
@@ -792,7 +792,7 @@ easily repeat a find command."
 
 (defconst grep-expand-keywords
   '(("<C>" . (and cf (isearch-no-upper-case-p regexp t) "-i"))
-    ("<D>" . dir)
+    ("<D>" . (or dir "."))
     ("<F>" . files)
     ("<N>" . null-device)
     ("<X>" . excl)
@@ -992,58 +992,7 @@ to specify a command to run."
 				   grep-find-command)))
 	    (compilation-start regexp 'grep-mode))
       (setq dir (file-name-as-directory (expand-file-name dir)))
-      (require 'find-dired)		; for `find-name-arg'
-      (let ((command (grep-expand-template
-		      grep-find-template
-		      regexp
-		      (concat (shell-quote-argument "(")
-			      " " find-name-arg " "
-			      (mapconcat
-			       #'shell-quote-argument
-			       (split-string files)
-			       (concat " -o " find-name-arg " "))
-			      " "
-			      (shell-quote-argument ")"))
-		      dir
-		      (concat
-		       (and grep-find-ignored-directories
-			    (concat "-type d "
-				    (shell-quote-argument "(")
-				    ;; we should use shell-quote-argument here
-				    " -path "
-				    (mapconcat
-				     #'(lambda (ignore)
-					 (cond ((stringp ignore)
-						(shell-quote-argument
-						 (concat "*/" ignore)))
-					       ((consp ignore)
-						(and (funcall (car ignore) dir)
-						     (shell-quote-argument
-						      (concat "*/"
-							      (cdr ignore)))))))
-				     grep-find-ignored-directories
-				     " -o -path ")
-				    " "
-				    (shell-quote-argument ")")
-				    " -prune -o "))
-		       (and grep-find-ignored-files
-			    (concat (shell-quote-argument "!") " -type d "
-				    (shell-quote-argument "(")
-				    ;; we should use shell-quote-argument here
-				    " -name "
-				    (mapconcat
-				     #'(lambda (ignore)
-					 (cond ((stringp ignore)
-						(shell-quote-argument ignore))
-					       ((consp ignore)
-						(and (funcall (car ignore) dir)
-						     (shell-quote-argument
-						      (cdr ignore))))))
-				     grep-find-ignored-files
-				     " -o -name ")
-				    " "
-				    (shell-quote-argument ")")
-				    " -prune -o "))))))
+      (let ((command (rgrep-default-command regexp files nil)))
 	(when command
 	  (if confirm
 	      (setq command
@@ -1055,6 +1004,61 @@ to specify a command to run."
 	  ;; Set default-directory if we started rgrep in the *grep* buffer.
 	  (if (eq next-error-last-buffer (current-buffer))
 	      (setq default-directory dir)))))))
+
+(defun rgrep-default-command (regexp files dir)
+  "Compute the command for \\[rgrep] to use by default."
+  (require 'find-dired)      ; for `find-name-arg'
+  (grep-expand-template
+   grep-find-template
+   regexp
+   (concat (shell-quote-argument "(")
+           " " find-name-arg " "
+           (mapconcat
+            #'shell-quote-argument
+            (split-string files)
+            (concat " -o " find-name-arg " "))
+           " "
+           (shell-quote-argument ")"))
+   dir
+   (concat
+    (and grep-find-ignored-directories
+         (concat "-type d "
+                 (shell-quote-argument "(")
+                 ;; we should use shell-quote-argument here
+                 " -path "
+                 (mapconcat
+                  #'(lambda (ignore)
+                      (cond ((stringp ignore)
+                             (shell-quote-argument
+                              (concat "*/" ignore)))
+                            ((consp ignore)
+                             (and (funcall (car ignore) dir)
+                                  (shell-quote-argument
+                                   (concat "*/"
+                                           (cdr ignore)))))))
+                  grep-find-ignored-directories
+                  " -o -path ")
+                 " "
+                 (shell-quote-argument ")")
+                 " -prune -o "))
+    (and grep-find-ignored-files
+         (concat (shell-quote-argument "!") " -type d "
+                 (shell-quote-argument "(")
+                 ;; we should use shell-quote-argument here
+                 " -name "
+                 (mapconcat
+                  #'(lambda (ignore)
+                      (cond ((stringp ignore)
+                             (shell-quote-argument ignore))
+                            ((consp ignore)
+                             (and (funcall (car ignore) dir)
+                                  (shell-quote-argument
+                                   (cdr ignore))))))
+                  grep-find-ignored-files
+                  " -o -name ")
+                 " "
+                 (shell-quote-argument ")")
+                 " -prune -o ")))))
 
 ;;;###autoload
 (defun zrgrep (regexp &optional files dir confirm template)
@@ -1073,6 +1077,9 @@ file name to `*.gz', and sets `grep-highlight-matches' to `always'."
 	   (grep-find-template nil)
 	   (grep-find-command nil)
 	   (grep-host-defaults-alist nil)
+	   ;; Set `grep-highlight-matches' to `always'
+	   ;; since `zgrep' puts filters in the grep output.
+	   (grep-highlight-matches 'always)
 	   ;; Use for `grep-read-files'
 	   (grep-files-aliases '(("all" . "* .*")
 				 ("gz"  . "*.gz"))))
@@ -1090,10 +1097,7 @@ file name to `*.gz', and sets `grep-highlight-matches' to `always'."
 					    nil default-directory t))
 		  (confirm (equal current-prefix-arg '(4))))
 	     (list regexp files dir confirm grep-find-template)))))))
-  ;; Set `grep-highlight-matches' to `always'
-  ;; since `zgrep' puts filters in the grep output.
-  (let ((grep-find-template template)
-        (grep-highlight-matches 'always))
+  (let ((grep-find-template template))
     (rgrep regexp files dir confirm)))
 
 ;;;###autoload

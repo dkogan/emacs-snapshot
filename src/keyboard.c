@@ -1618,6 +1618,7 @@ command_loop_1 (void)
     finalize:
 
       if (current_buffer == prev_buffer
+	  && XBUFFER (XWINDOW (selected_window)->contents) == current_buffer
 	  && last_point_position != PT
 	  && NILP (Vdisable_point_adjustment)
 	  && NILP (Vglobal_disable_point_adjustment))
@@ -1685,6 +1686,8 @@ adjust_point_for_property (ptrdiff_t last_pt, bool modified)
      deleting characters around point.  */
   bool check_composition = ! modified, check_display = 1, check_invisible = 1;
   ptrdiff_t orig_pt = PT;
+
+  eassert (XBUFFER (XWINDOW (selected_window)->contents) == current_buffer);
 
   /* FIXME: cycling is probably not necessary because these properties
      can't be usefully combined anyway.  */
@@ -11074,10 +11077,6 @@ syms_of_keyboard (void)
   tool_bar_items_vector = Qnil;
 
   DEFSYM (Qtimer_event_handler, "timer-event-handler");
-  DEFSYM (Qdisabled_command_function, "disabled-command-function");
-  DEFSYM (Qself_insert_command, "self-insert-command");
-  DEFSYM (Qforward_char, "forward-char");
-  DEFSYM (Qbackward_char, "backward-char");
 
   /* Non-nil disable property on a command means do not execute it;
      call disabled-command-function's value instead.  */
@@ -11185,7 +11184,6 @@ syms_of_keyboard (void)
   DEFSYM (Qhandle_switch_frame, "handle-switch-frame");
   DEFSYM (Qhandle_select_window, "handle-select-window");
 
-  DEFSYM (Qinput_method_function, "input-method-function");
   DEFSYM (Qinput_method_exit_on_first_char, "input-method-exit-on-first-char");
   DEFSYM (Qinput_method_use_echo_area, "input-method-use-echo-area");
 

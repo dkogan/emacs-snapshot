@@ -2408,7 +2408,6 @@ if test "${opsys}" != "mingw32"; then
        AC_DEFINE(HAVE_GTK3, 1, [Define to 1 if using GTK 3 or later.])
        GTK_OBJ=emacsgtkfixed.o
        gtk_term_header=gtkutil.h
-       USE_CAIRO=yes
        USE_GTK_TOOLKIT="GTK3"
        if test "x$ac_enable_gtk_deprecation_warnings" = x; then
 	 AC_DEFINE([GDK_DISABLE_DEPRECATION_WARNINGS], [1],
@@ -5143,15 +5142,26 @@ fi
 
 optsep=
 emacs_config_features=
-for opt in XAW3D XPM JPEG TIFF GIF PNG RSVG IMAGEMAGICK SOUND GPM DBUS \
+for opt in XAW3D XPM JPEG TIFF GIF PNG RSVG CAIRO IMAGEMAGICK SOUND GPM DBUS \
   GCONF GSETTINGS NOTIFY ACL LIBSELINUX GNUTLS LIBXML2 FREETYPE M17N_FLT \
-  LIBOTF XFT ZLIB; do
+  LIBOTF XFT ZLIB TOOLKIT_SCROLL_BARS X_TOOLKIT; do
 
     case $opt in
       NOTIFY|ACL) eval val=\${${opt}_SUMMARY} ;;
+      CAIRO|TOOLKIT_SCROLL_BARS|X_TOOLKIT) eval val=\${USE_$opt} ;;
       *) eval val=\${HAVE_$opt} ;;
     esac
-    test x"$val" = xno && continue
+    case x$val in
+      xno|xnone|x) continue ;;
+    esac
+    case $opt in
+      X_TOOLKIT)
+        case $val in
+          GTK*|LUCID|MOTIF) opt=$val ;;
+          *) continue ;;
+        esac
+      ;;
+    esac
     AS_VAR_APPEND([emacs_config_features], ["$optsep$opt"])
     optsep=' '
 done

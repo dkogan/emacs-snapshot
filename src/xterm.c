@@ -1724,6 +1724,11 @@ x_draw_glyph_string_background (struct glyph_string *s, bool force_p)
 	  s->background_filled_p = true;
 	}
       else if (FONT_HEIGHT (s->font) < s->height - 2 * box_line_width
+	       /* When xdisp.c ignores FONT_HEIGHT, we cannot trust
+		  font dimensions, since the actual glyphs might be
+		  much smaller.  So in that case we always clear the
+		  rectangle with background color.  */
+	       || FONT_TOO_HIGH (s->font)
 	       || s->font_not_found_p
 	       || s->extends_to_end_of_line_p
 	       || force_p)
@@ -2091,7 +2096,7 @@ cvt_string_to_pixel (Display *dpy, XrmValue *args, Cardinal *nargs,
       params[0] = color_name;
       XtAppWarningMsg (XtDisplayToApplicationContext (dpy),
 		       "badValue", "cvt_string_to_pixel",
-		       "XtToolkitError", "Invalid color `%s'",
+		       "XtToolkitError", "Invalid color '%s'",
 		       params, &nparams);
       return False;
     }
@@ -6409,7 +6414,7 @@ x_scroll_bar_set_handle (struct scroll_bar *bar, int start, int end,
 		      f->output_data.x->scroll_bar_foreground_pixel);
 
     /* Draw the handle itself.  */
-    x_fill_rectangle (f, gc,
+    XFillRectangle (FRAME_X_DISPLAY (f), w, gc,
 		    /* x, y, width, height */
 		    VERTICAL_SCROLL_BAR_LEFT_BORDER,
 		    VERTICAL_SCROLL_BAR_TOP_BORDER + start,
@@ -6884,7 +6889,7 @@ x_scroll_bar_expose (struct scroll_bar *bar, const XEvent *event)
  		    f->output_data.x->scroll_bar_foreground_pixel);
 
   /* Draw a one-pixel border just inside the edges of the scroll bar.  */
-  x_draw_rectangle (f, gc,
+  XDrawRectangle (FRAME_X_DISPLAY (f), w, gc,
 		  /* x, y, width, height */
 		  0, 0, bar->width - 1, bar->height - 1);
 
@@ -7668,7 +7673,7 @@ handle_one_xevent (struct x_display_info *dpyinfo,
             }
           else
 	    {
-#if defined (USE_GTK) && ! defined (HAVE_GTK3) && ! defined (USE_CAIRO)
+#ifdef USE_GTK
 	      /* This seems to be needed for GTK 2.6 and later, see
 		 http://debbugs.gnu.org/cgi/bugreport.cgi?bug=15398.  */
 	      x_clear_area (f,
@@ -9388,7 +9393,7 @@ x_io_error_quitter (Display *display)
 {
   char buf[256];
 
-  snprintf (buf, sizeof buf, "Connection lost to X server `%s'",
+  snprintf (buf, sizeof buf, "Connection lost to X server '%s'",
 	    DisplayString (display));
   x_connection_closed (display, buf, true);
   return 0;
@@ -9405,7 +9410,7 @@ Lisp_Object
 x_new_font (struct frame *f, Lisp_Object font_object, int fontset)
 {
   struct font *font = XFONT_OBJECT (font_object);
-  int unit;
+  int unit, font_ascent, font_descent;
 
   if (fontset < 0)
     fontset = fontset_from_font (font_object);
@@ -9418,7 +9423,8 @@ x_new_font (struct frame *f, Lisp_Object font_object, int fontset)
   FRAME_FONT (f) = font;
   FRAME_BASELINE_OFFSET (f) = font->baseline_offset;
   FRAME_COLUMN_WIDTH (f) = font->average_width;
-  FRAME_LINE_HEIGHT (f) = FONT_HEIGHT (font);
+  get_font_ascent_descent (font, &font_ascent, &font_descent);
+  FRAME_LINE_HEIGHT (f) = font_ascent + font_descent;
 
 #ifndef USE_X_TOOLKIT
   FRAME_MENU_BAR_HEIGHT (f) = FRAME_MENU_BAR_LINES (f) * FRAME_LINE_HEIGHT (f);

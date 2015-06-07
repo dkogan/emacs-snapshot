@@ -3378,10 +3378,10 @@ Give an empty topic name to go to the Index node itself."
 	    (re-search-forward (format
                                 "[a-zA-Z]+: [a-zA-Z0-9_ *&]+ %s\\( \\|$\\)"
                                 (regexp-quote name)) nil t)
-	    (search-forward (format "[`‘]%s['’]" name) nil t)
+	    (search-forward (format "['`‘]%s['’]" name) nil t)
 	    (and (string-match "\\`.*\\( (.*)\\)\\'" name)
 		 (search-forward
-		  (format "[`‘]%s['’]" (substring name 0 (match-beginning 1)))
+		  (format "['`‘]%s['’]" (substring name 0 (match-beginning 1)))
 		  nil t))
 	    (search-forward name nil t)
 	    ;; Try again without the " <1>" makeinfo can append
@@ -3707,7 +3707,7 @@ Build a menu of the possible matches."
     (insert "Finder Packages\n")
     (insert "***************\n\n")
     (insert
-     "The following packages match the keyword `" nodename "':\n\n")
+     "The following packages match the keyword ‘" nodename "’:\n\n")
     (insert "* Menu:\n\n")
     (let ((keywords
 	   (mapcar #'intern (if (string-match-p "," nodename)
@@ -3734,7 +3734,7 @@ Build a menu of the possible matches."
     (insert "Package Description\n")
     (insert "*******************\n\n")
     (insert
-     "Description of the package `" nodename "':\n\n")
+     "Description of the package ‘" nodename "’:\n\n")
     ;; This assumes that a file named package.el exists,
     ;; which is not always true.  E.g. for the nxml package,
     ;; there is no "nxml.el" (it's nxml-mode.el).
