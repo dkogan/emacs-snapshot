@@ -134,10 +134,10 @@ index 27d5303..4125515 100755
              ## FIXME do not ignore w32 if OS is w32.
              case $file in
 diff --git a/configure.ac b/configure.ac
-index a9fe095..c9c7782 100644
+index 9c6a74a..b8ea84f 100644
 --- a/configure.ac
 +++ b/configure.ac
-@@ -5251,11 +5251,11 @@ dnl This will work, but you get a config.status that is not quite right
+@@ -5261,11 +5261,11 @@ dnl This will work, but you get a config.status that is not quite right
  dnl (see http://lists.gnu.org/archive/html/bug-autoconf/2008-08/msg00028.html).
  dnl That doesn't have any obvious consequences for Emacs, but on the whole
  dnl it seems better to just live with the duplication.
@@ -152,7 +152,7 @@ index a9fe095..c9c7782 100644
         leim/Makefile nextstep/Makefile nt/Makefile])
  
  dnl test/ is not present in release tarfiles.
-@@ -5307,15 +5307,6 @@ if test ! -f src/.gdbinit && test -f "$srcdir/src/.gdbinit"; then
+@@ -5317,15 +5317,6 @@ if test ! -f src/.gdbinit && test -f "$srcdir/src/.gdbinit"; then
  fi
  ])
  
@@ -196,7 +196,7 @@ index aa35002..6c79fdd 100644
  ## Info files to install on current platform.
  INFO_INSTALL = $(INFO_COMMON) $(DOCMISC_W32)
 diff --git a/lisp/help.el b/lisp/help.el
-index 1411c1a..aafbaf9 100644
+index fd5cbc6..b8b3627 100644
 --- a/lisp/help.el
 +++ b/lisp/help.el
 @@ -292,6 +292,14 @@ If that doesn't give a function, return nil."
