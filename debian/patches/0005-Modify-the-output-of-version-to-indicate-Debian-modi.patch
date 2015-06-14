@@ -11,7 +11,7 @@ Added-by: Rob Browning <rlb@defaultvalue.org>
  1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/lisp/version.el b/lisp/version.el
-index 7b636f3..a2c89ee 100644
+index 112611d..8c9754c 100644
 --- a/lisp/version.el
 +++ b/lisp/version.el
 @@ -57,8 +57,8 @@ to the system configuration; look at `system-configuration' instead."
