@@ -29,6 +29,7 @@
 ;;; Code:
 
 (require 'lisp-mode)
+(eval-when-compile (require 'cl-lib))
 
 (define-abbrev-table 'emacs-lisp-mode-abbrev-table ()
   "Abbrev table for Emacs Lisp mode.
@@ -460,7 +461,7 @@ It can be quoted, or be inside a quoted form."
 	   (beg (condition-case nil
 		    (save-excursion
 		      (backward-sexp 1)
-		      (skip-chars-forward "`',‘")
+		      (skip-chars-forward "`',‘#")
 		      (point))
 		  (scan-error pos)))
 	   (end
@@ -1435,7 +1436,7 @@ In the absence of INDEX, just call `eldoc-docstring-format-sym-doc'."
 ARGLIST is either a string, or a list of strings or symbols."
   (let ((str (cond ((stringp arglist) arglist)
                    ((not (listp arglist)) nil)
-                   (t (format "%S" (help-make-usage 'toto arglist))))))
+                   (t (help--make-usage-docstring 'toto arglist)))))
     (if (and str (string-match "\\`([^ )]+ ?" str))
         (replace-match "(" t t str)
       str)))

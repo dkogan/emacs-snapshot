@@ -3857,8 +3857,10 @@ listed in the variable `script-representative-chars'.
 
 `:lang'
 
-VALUE must be a symbol of two-letter ISO-639 language names,
-e.g. `ja'.
+VALUE must be a symbol whose name is a two-letter ISO-639 language
+name, e.g. `ja'.  The value is matched against the "Additional Style"
+field of the XLFD spec of a font, if it's non-empty, on X, and
+against the codepages supported by the font on w32.
 
 `:otf'
 
@@ -5270,10 +5272,10 @@ See `font-weight-table' for the format of the vector. */);
   ASET (font_style_table, 2, Vfont_width_table);
 
   DEFVAR_LISP ("font-log", Vfont_log, doc: /*
-*Logging list of font related actions and results.
-The value t means to suppress the logging.
-The initial value is set to nil if the environment variable
-EMACS_FONT_LOG is set.  Otherwise, it is set to t.  */);
+A list that logs font-related actions and results, for debugging.
+The default value is t, which means to suppress logging.
+Set it to nil to enable logging.  If the environment variable
+EMACS_FONT_LOG is set at startup, it defaults to nil.  */);
   Vfont_log = Qnil;
 
 #ifdef HAVE_WINDOW_SYSTEM
