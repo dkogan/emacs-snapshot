@@ -1119,9 +1119,12 @@ buffer is killed afterwards.  Return the last value in BODY."
   "Run BODY in a buffer containing the contents of FILE at LOCATION.
 If ASYNC is non-nil, and if it is possible, run BODY
 asynchronously.  If an error is encountered and ASYNC is a
-function, call it with no arguments (instead of executing BODY),
-otherwise propagate the error.  For description of the other
-arguments see `package--with-work-buffer'."
+function, call it with no arguments (instead of executing BODY).
+If it returns non-nil, or if it wasn't a function, propagate the
+error.
+
+For a description of the other arguments see
+`package--with-work-buffer'."
   (declare (indent 3) (debug t))
   (macroexp-let2* macroexp-copyable-p
       ((async-1 async)
@@ -1130,21 +1133,29 @@ arguments see `package--with-work-buffer'."
     `(if (or (not ,async-1)
              (not (string-match-p "\\`https?:" ,location-1)))
          (package--with-work-buffer ,location-1 ,file-1 ,@body)
-       (url-retrieve (concat ,location-1 ,file-1)
-                     (lambda (status)
-                       (if (eq (car status) :error)
-                           (if (functionp ,async-1)
-                               (funcall ,async-1)
-                             (signal (cdar status) (cddr status)))
-                         (goto-char (point-min))
-                         (unless (search-forward "\n\n" nil 'noerror)
-                           (error "Invalid url response in buffer %s"
-                             (current-buffer)))
-                         (delete-region (point-min) (point))
-                         ,@body)
-                       (kill-buffer (current-buffer)))
-                     nil
-                     'silent))))
+       ;; This `condition-case' is to catch connection errors.
+       (condition-case error-signal
+           (url-retrieve (concat ,location-1 ,file-1)
+                         (lambda (status)
+                           (if-let ((er (plist-get status :error)))
+                               (when (if (functionp ,async-1)
+                                         (funcall ,async-1)
+                                       t)
+                                 (message "Error contacting: %s" (concat ,location-1 ,file-1))
+                                 (signal (car er) (cdr er)))
+                             (goto-char (point-min))
+                             (unless (search-forward "\n\n" nil 'noerror)
+                               (error "Invalid url response in buffer %s"
+                                 (current-buffer)))
+                             (delete-region (point-min) (point))
+                             ,@body)
+                           (kill-buffer (current-buffer)))
+                         nil
+                         'silent)
+         (error (when (functionp ,async-1)
+                  (funcall ,async-1))
+           (message "Error contacting: %s" (concat ,location-1 ,file-1))
+           (signal (car error-signal) (cdr error-signal)))))))
 
 (defun package--check-signature-content (content string &optional sig-file)
   "Check signature CONTENT against STRING.
@@ -1457,7 +1468,11 @@ similar to an entry in `package-alist'.  Save the cached copy to
              (when good-sigs
                (write-region (mapconcat #'epg-signature-to-string good-sigs "\n")
                              nil (concat local-file ".signed") nil 'silent))
-             (package--update-downloads-in-progress archive))))))))
+             (package--update-downloads-in-progress archive)
+             ;; If we got this far, either everything worked or we don't mind
+             ;; not signing, so tell `package--with-work-buffer-async' to not
+             ;; propagate errors.
+             nil)))))))
 
 (defun package--download-and-read-archives (&optional async)
   "Download descriptions of all `package-archives' and read them.
@@ -1474,7 +1489,8 @@ perform the downloads asynchronously."
          archive "archive-contents"
          ;; Called if the async download fails
          (when async
-           (lambda () (package--update-downloads-in-progress archive))))
+           ;; The t at the end means to propagate connection errors.
+           (lambda () (package--update-downloads-in-progress archive) t)))
       (error (message "Failed to download `%s' archive."
                (car archive))))))
 
@@ -1866,6 +1882,7 @@ to install it but still mark it as selected."
                                   package-archive-contents))
                     nil t))
            nil)))
+  (add-hook 'post-command-hook #'package-menu--post-refresh)
   (let ((name (if (package-desc-p pkg)
                   (package-desc-name pkg)
                 pkg)))
@@ -1888,10 +1905,8 @@ Otherwise return nil."
   (when str
     (when (string-match "\\`[ \t]*[$]Revision:[ \t]+" str)
       (setq str (substring str (match-end 0))))
-    (condition-case nil
-        (if (version-to-list str)
-            str)
-      (error nil))))
+    (ignore-errors
+      (if (version-to-list str) str))))
 
 (declare-function lm-homepage "lisp-mnt" (&optional file))
 
@@ -2030,6 +2045,7 @@ If NOSAVE is non-nil, the package is not removed from
                   (package-desc-full-name pkg-desc)
                   (package-desc-name pkg-used-elsewhere-by)))
           (t
+           (add-hook 'post-command-hook #'package-menu--post-refresh)
            (delete-directory dir t t)
            ;; Remove NAME-VERSION.signed file.
            (let ((signed-file (concat dir ".signed")))
@@ -2157,17 +2173,18 @@ will be deleted."
                                    "Installed"
                                  (capitalize status)) ;FIXME: Why comment-face?
                                'font-lock-face 'font-lock-comment-face))
-           (insert " in ‘")
+           (insert (substitute-command-keys " in ‘"))
            ;; Todo: Add button for uninstalling.
            (help-insert-xref-button (abbreviate-file-name
                                      (file-name-as-directory pkg-dir))
                                     'help-package-def pkg-dir)
            (if (and (package-built-in-p name)
                     (not (package-built-in-p name version)))
-               (insert "’,\n             shadowing a "
+               (insert (substitute-command-keys
+                        "’,\n             shadowing a ")
                        (propertize "built-in package"
                                    'font-lock-face 'font-lock-builtin-face))
-             (insert "’"))
+             (insert (substitute-command-keys "’")))
            (if signed
                (insert ".")
              (insert " (unsigned)."))
@@ -2981,17 +2998,17 @@ objects removed."
           (redisplay 'force)
           ;; Don't mark as selected, `package-menu-execute' already
           ;; does that.
-          (package-install pkg 'dont-select)))
-    ;; Once there are no more packages to install, proceed to
-    ;; deletion.
-    (let ((package-menu--transaction-status ":Deleting"))
-      (force-mode-line-update)
-      (redisplay 'force)
-      (dolist (elt (package--sort-by-dependence delete-list))
-        (condition-case-unless-debug err
-            (let ((inhibit-message t))
-              (package-delete elt nil 'nosave))
-          (error (message (cadr err))))))))
+          (package-install pkg 'dont-select))))
+  (let ((package-menu--transaction-status ":Deleting"))
+    (force-mode-line-update)
+    (redisplay 'force)
+    (dolist (elt (package--sort-by-dependence delete-list))
+      (condition-case-unless-debug err
+          (let ((inhibit-message package-menu-async))
+            (package-delete elt nil 'nosave))
+        (error (message "Error trying to delete `%s': %S"
+                 (package-desc-full-name elt)
+                 err))))))
 
 (defun package--update-selected-packages (add remove)
   "Update the `package-selected-packages' list according to ADD and REMOVE.
@@ -3052,9 +3069,7 @@ Optional argument NOQUERY non-nil means do not ask the user to confirm."
                   (length removable)
                   "are no longer needed, type `M-x package-autoremove' to remove them")
               (message (replace-regexp-in-string "__" "ed" message-template)
-                "finished"))))
-        ;; This calls `package-menu--generate'.
-        (package-menu--post-refresh)))))
+                "finished"))))))))
 
 (defun package-menu--version-predicate (A B)
   (let ((vA (or (aref (cadr A) 1)  '(0)))
@@ -3128,15 +3143,30 @@ Store this list in `package-menu--new-package-list'."
       (if (= (length upgrades) 1) "it" "them"))))
 
 (defun package-menu--post-refresh ()
-  "Check for new packages, revert the *Packages* buffer, and check for upgrades.
-This function is called after `package-refresh-contents' and
-after `package-menu--perform-transaction'."
-  (package-menu--populate-new-package-list)
+  "If there's a *Packages* buffer, revert it and check for new packages and upgrades.
+Do nothing if there's no *Packages* buffer.
+
+This function is called after `package-refresh-contents' and it
+is added to `post-command-hook' by any function which alters the
+package database (`package-install' and `package-delete').  When
+run, it removes itself from `post-command-hook'."
+  (remove-hook 'post-command-hook #'package-menu--post-refresh)
   (let ((buf (get-buffer "*Packages*")))
     (when (buffer-live-p buf)
       (with-current-buffer buf
+        (package-menu--populate-new-package-list)
         (run-hooks 'tabulated-list-revert-hook)
-        (tabulated-list-print 'remember 'update)
+        (tabulated-list-print 'remember 'update)))))
+
+(defun package-menu--mark-or-notify-upgrades ()
+  "If there's a *Packages* buffer, check for upgrades and possibly mark them.
+Do nothing if there's no *Packages* buffer.  If there are
+upgrades, mark them if `package-menu--mark-upgrades-pending' is
+non-nil, otherwise just notify the user that there are upgrades.
+This function is called after `package-refresh-contents'."
+  (let ((buf (get-buffer "*Packages*")))
+    (when (buffer-live-p buf)
+      (with-current-buffer buf
         (if package-menu--mark-upgrades-pending
             (package-menu--mark-upgrades-1)
           (package-menu--find-and-notify-upgrades))))))
@@ -3155,6 +3185,8 @@ The list is displayed in a buffer named `*Packages*'."
   ;; Integrate the package-menu with updating the archives.
   (add-hook 'package--post-download-archives-hook
             #'package-menu--post-refresh)
+  (add-hook 'package--post-download-archives-hook
+            #'package-menu--mark-or-notify-upgrades 'append)
 
   ;; Generate the Package Menu.
   (let ((buf (get-buffer-create "*Packages*")))

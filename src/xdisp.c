@@ -15094,11 +15094,13 @@ try_scrolling (Lisp_Object window, bool just_this_one_p,
 	    RESTORE_IT (&it, &it, it1data);
 	    move_it_by_lines (&it, 1);
 	    SAVE_IT (it1, it, it1data);
-	  } while (line_bottom_y (&it1) - start_y < amount_to_scroll);
+	  } while (IT_CHARPOS (it) < ZV
+		   && line_bottom_y (&it1) - start_y < amount_to_scroll);
+	  bidi_unshelve_cache (it1data, true);
 	}
 
       /* If STARTP is unchanged, move it down another screen line.  */
-      if (CHARPOS (it.current.pos) == CHARPOS (startp))
+      if (IT_CHARPOS (it) == CHARPOS (startp))
 	move_it_by_lines (&it, 1);
       startp = it.current.pos;
     }
@@ -24618,7 +24620,7 @@ normal_char_ascent_descent (struct font *font, int c, int *ascent, int *descent)
 
 /* A subroutine that computes a reasonable "normal character height"
    for fonts that claim preposterously large vertical dimensions, but
-   whose glyphs are actually reasonably sized.  C is the charcater
+   whose glyphs are actually reasonably sized.  C is the character
    whose metrics to use for those fonts, or -1 for default
    character.  */
 static int
@@ -26761,7 +26763,7 @@ x_produce_glyphs (struct it *it)
 	     don't let the row ascent and descent values (and the row
 	     height computed from them) be smaller than the "normal"
 	     character metrics.  This avoids unpleasant effects
-	     whereby lines on display would change their heigh
+	     whereby lines on display would change their height
 	     depending on which characters are shown.  */
 	  normal_char_ascent_descent (font, -1, &font_ascent, &font_descent);
 	  it->max_ascent = max (it->max_ascent, font_ascent);

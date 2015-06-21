@@ -49,8 +49,11 @@
 Matches if the object is a map (list, hash-table or array), and
 binds values from ARGS to their corresponding elements of the map.
 
-ARGS can be a list elements of the form (KEY PAT) or elements
-of the form SYMBOL, which stands for ('SYMBOL SYMBOL)."
+ARGS can be a list elements of the form (KEY PAT), in which case
+KEY in an unquoted form.
+
+ARGS can also be a list of symbols, which stands for ('SYMBOL
+SYMBOL)."
   `(and (pred map-p)
         ,@(map--make-pcase-bindings args)))
 
@@ -61,7 +64,7 @@ KEYS can be a list of symbols, in which case each element will be
 bound to the looked up value in MAP.
 
 KEYS can also be a list of (KEY VARNAME) pairs, in which case
-KEY is not quoted.
+KEY is an unquoted form.
 
 MAP can be a list, hash-table or array."
   (declare (indent 2) (debug t))
@@ -215,7 +218,7 @@ MAP can be a list, hash-table or array."
              map))
 
 (defun map-filter (pred map)
-  "Return an alist of the key/val pairs for which (PRED key val) is non-nil in MAP.
+  "Return an alist of key/val pairs for which (PRED key val) is non-nil in MAP.
 
 MAP can be a list, hash-table or array."
   (delq nil (map-apply (lambda (key val)
@@ -294,7 +297,7 @@ MAP can be a list, hash-table or array."
   (pcase type
     (`list (map-pairs map))
     (`hash-table (map--into-hash-table map))
-    (t (error "Not a map type name: %S" type))))
+    (_ (error "Not a map type name: %S" type))))
 
 (defun map--apply-alist (function map)
   "Private function used to apply FUNCTION over MAP, MAP being an alist."

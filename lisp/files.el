@@ -1640,7 +1640,9 @@ killed."
   (unless (run-hook-with-args-until-failure 'kill-buffer-query-functions)
     (user-error "Aborted"))
   (and (buffer-modified-p) buffer-file-name
-       (not (yes-or-no-p "Kill and replace the buffer without saving it? "))
+       (not (yes-or-no-p
+             (format "Kill and replace buffer `%s' without saving it? "
+                     (buffer-name))))
        (user-error "Aborted"))
   (let ((obuf (current-buffer))
 	(ofile buffer-file-name)
@@ -5277,7 +5279,12 @@ Return nil if DIR is not an existing directory."
 	      dir  (file-truename dir))
 	(let ((ls1 (split-string file "/" t))
 	      (ls2 (split-string dir  "/" t))
-	      (root (if (string-match "\\`/" file) "/" ""))
+	      (root
+               (cond
+                ;; A UNC on Windows systems, or a "super-root" on Apollo.
+                ((string-match "\\`//" file) "//")
+                ((string-match "\\`/" file) "/")
+                (t "")))
 	      (mismatch nil))
 	  (while (and ls1 ls2 (not mismatch))
 	    (if (string-equal (car ls1) (car ls2))
