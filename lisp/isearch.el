@@ -519,6 +519,7 @@ This is like `describe-bindings', but displays only Isearch keys."
     (define-key map "\M-sw" 'isearch-toggle-word)
     (define-key map "\M-s_" 'isearch-toggle-symbol)
     (define-key map "\M-s " 'isearch-toggle-lax-whitespace)
+    (define-key map "\M-s'" #'isearch-toggle-character-fold)
 
     (define-key map [?\M-%] 'isearch-query-replace)
     (define-key map [?\C-\M-%] 'isearch-query-replace-regexp)
@@ -834,6 +835,9 @@ See the command `isearch-forward-symbol' for more information."
 ;;			     isearch-forward-regexp isearch-backward-regexp)
 ;;  "List of commands for which isearch-mode does not recursive-edit.")
 
+(autoload 'character-fold-to-regexp "character-fold")
+(put 'character-fold-to-regexp 'isearch-message-prefix "char-fold ")
+(defvar character-fold-search)
 
 (defun isearch-mode (forward &optional regexp op-fun recursive-edit word)
   "Start Isearch minor mode.
@@ -858,7 +862,9 @@ convert the search string to a regexp used by regexp search functions."
   ;; Initialize global vars.
   (setq isearch-forward forward
 	isearch-regexp regexp
-	isearch-word word
+	isearch-word (or word (and character-fold-search
+                                   (not regexp)
+                                   'character-fold-to-regexp))
 	isearch-op-fun op-fun
 	isearch-last-case-fold-search isearch-case-fold-search
 	isearch-case-fold-search case-fold-search
@@ -1504,6 +1510,15 @@ Use `isearch-exit' to quit without signaling."
   (interactive)
   (setq isearch-word (unless (eq isearch-word 'isearch-symbol-regexp)
 		       'isearch-symbol-regexp))
+  (if isearch-word (setq isearch-regexp nil))
+  (setq isearch-success t isearch-adjusted t)
+  (isearch-update))
+
+(defun isearch-toggle-character-fold ()
+  "Toggle character folding in searching on or off."
+  (interactive)
+  (setq isearch-word (unless (eq isearch-word #'character-fold-to-regexp)
+                       #'character-fold-to-regexp))
   (if isearch-word (setq isearch-regexp nil))
   (setq isearch-success t isearch-adjusted t)
   (isearch-update))

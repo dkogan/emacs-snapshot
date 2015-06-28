@@ -107,7 +107,7 @@ Line numbers start from 1 and columns from 0.")
           (point-marker))))))
 
 (cl-defmethod xref-location-group ((l xref-file-location))
-  (oref l :file))
+  (oref l file))
 
 (defclass xref-buffer-location (xref-location)
   ((buffer :type buffer :initarg :buffer)
@@ -139,7 +139,7 @@ actual location is not known.")
   (make-instance 'xref-bogus-location :message message))
 
 (cl-defmethod xref-location-marker ((l xref-bogus-location))
-  (user-error "%s" (oref l :message)))
+  (user-error "%s" (oref l message)))
 
 (cl-defmethod xref-location-group ((_ xref-bogus-location)) "(No location)")
 
@@ -529,7 +529,7 @@ GROUP is a string for decoration purposes and XREF is an
            for max-line-width =
            (cl-loop for xref in xrefs
                     maximize (let ((line (xref-location-line
-                                          (oref xref :location))))
+                                          (oref xref location))))
                                (length (and line (format "%d" line)))))
            for line-format = (and max-line-width
                                   (format "%%%dd: " max-line-width))
@@ -733,7 +733,7 @@ tools are used, and when."
   (let* ((default-directory dir)
          (semantic-symref-tool 'detect)
          (res (semantic-symref-find-references-by-name symbol 'subdirs))
-         (hits (and res (oref res :hit-lines)))
+         (hits (and res (oref res hit-lines)))
          (orig-buffers (buffer-list)))
     (unwind-protect
         (delq nil
@@ -749,13 +749,8 @@ tools are used, and when."
   (require 'semantic/fw)
   (grep-compute-defaults)
   (defvar grep-find-template)
-  (let* ((grep-find-template
-          (replace-regexp-in-string
-           ;; Override the use ot '--color=always' on MS-Windows.
-           "--color=always" ""
-           (replace-regexp-in-string "-e " "-E "
-                                     grep-find-template t t)
-           t t))
+  (let* ((grep-find-template (replace-regexp-in-string "-e " "-E "
+                                                       grep-find-template t t))
          (command (rgrep-default-command (xref--regexp-to-extended regexp)
                                          "*.*" dir))
          (orig-buffers (buffer-list))

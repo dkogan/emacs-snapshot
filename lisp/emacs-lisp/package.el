@@ -237,8 +237,8 @@ This variable has three possible values:
     archive: only criteria (a) is used;
     t: both criteria are used.
 
-This variable has no effect if `package-menu--hide-obsolete' is
-nil, so it can be toggled with \\<package-menu-mode-map> \\[package-menu-hide-obsolete]."
+This variable has no effect if `package-menu--hide-packages' is
+nil, so it can be toggled with \\<package-menu-mode-map> \\[package-menu-toggle-hiding]."
   :type '(choice (const :tag "Don't hide anything" nil)
                  (const :tag "Hide per package-archive-priorities"
                         archive)
@@ -2379,7 +2379,7 @@ will be deleted."
     (define-key map "x" 'package-menu-execute)
     (define-key map "h" 'package-menu-quick-help)
     (define-key map "?" 'package-menu-describe-package)
-    (define-key map "(" #'package-menu-hide-obsolete)
+    (define-key map "(" #'package-menu-toggle-hiding)
     (define-key map [menu-bar package-menu] (cons "Package" menu-map))
     (define-key menu-map [mq]
       '(menu-item "Quit" quit-window
@@ -2538,26 +2538,27 @@ of these dependencies, similar to the list returned by
         (cond
          ;; Installed obsolete packages are handled in the `dir'
          ;; clause above.  Here we handle available obsolete, which
-         ;; are displayed depending on `package-menu--hide-obsolete'.
+         ;; are displayed depending on `package-menu--hide-packages'.
          ((and ins (version-list-<= version ins-v)) "avail-obso")
          (t
           (if (memq name package-menu--new-package-list)
               "new" "available"))))))))
 
-(defvar package-menu--hide-obsolete t
+(defvar package-menu--hide-packages t
   "Whether available obsolete packages should be hidden.
-Can be toggled with \\<package-menu-mode-map> \\[package-menu-hide-obsolete].
+Can be toggled with \\<package-menu-mode-map> \\[package-menu-toggle-hiding].
 Installed obsolete packages are always displayed.")
 
-(defun package-menu-hide-obsolete ()
+(defun package-menu-toggle-hiding ()
   "Toggle visibility of obsolete available packages."
   (interactive)
   (unless (derived-mode-p 'package-menu-mode)
     (user-error "The current buffer is not a Package Menu"))
-  (setq package-menu--hide-obsolete
-        (not package-menu--hide-obsolete))
-  (message "%s available-obsolete packages" (if package-menu--hide-obsolete
-                                                "Hiding" "Displaying"))
+  (setq package-menu--hide-packages
+        (not package-menu--hide-packages))
+  (message "%s packages" (if package-menu--hide-packages
+                             "Hiding obsolete or unwanted"
+                           "Displaying all"))
   (revert-buffer nil 'no-confirm))
 
 (defun package--remove-hidden (pkg-list)
@@ -2567,8 +2568,8 @@ same name, sorted by decreasing `package-desc-priority-version'.
 Return a list of packages tied for the highest priority according
 to their archives."
   (when pkg-list
-    ;; Variable toggled with `package-menu-hide-obsolete'.
-    (if (not package-menu--hide-obsolete)
+    ;; Variable toggled with `package-menu-toggle-hiding'.
+    (if (not package-menu--hide-packages)
         pkg-list
       (let ((installed (cadr (assq (package-desc-name (car pkg-list))
                                    package-alist))))
@@ -2600,13 +2601,23 @@ to their archives."
                                                    ins-version))
                             filtered-by-priority))))))))
 
+(defcustom package-hidden-regexps nil
+  "List of regexps matching the name of packages to hide.
+If the name of a package matches any of these regexps it is
+omited from the package menu.  To toggle this, type \\[package-menu-toggle-hiding].
+
+Values can be interactively added to this list by typing
+\\[package-menu-hide-package] on a package"
+  :type '(repeat (regexp :tag "Hide packages with name matching")))
+
 (defun package-menu--refresh (&optional packages keywords)
   "Re-populate the `tabulated-list-entries'.
 PACKAGES should be nil or t, which means to display all known packages.
 KEYWORDS should be nil or a list of keywords."
   ;; Construct list of (PKG-DESC . STATUS).
   (unless packages (setq packages t))
-  (let (info-list)
+  (let ((hidden-names (mapconcat #'identity package-hidden-regexps "\\|"))
+        info-list)
     ;; Installed packages:
     (dolist (elt package-alist)
       (let ((name (car elt)))
@@ -2629,7 +2640,13 @@ KEYWORDS should be nil or a list of keywords."
     ;; Available and disabled packages:
     (dolist (elt package-archive-contents)
       (let ((name (car elt)))
-        (when (or (eq packages t) (memq name packages))
+        ;; To be displayed it must be in PACKAGES;
+        (when (and (or (eq packages t) (memq name packages))
+                   ;; and we must either not be hiding anything,
+                   (or (not package-menu--hide-packages)
+                       (not package-hidden-regexps)
+                       ;; or just not hiding this specific package.
+                       (not (string-match hidden-names (symbol-name name)))))
           ;; Hide available-obsolete or low-priority packages.
           (dolist (pkg (package--remove-hidden (cdr elt)))
             (when (package--has-keyword-p pkg keywords)
@@ -2769,6 +2786,29 @@ This fetches the contents of each archive specified in
   (setq package-menu--old-archive-contents package-archive-contents)
   (setq package-menu--new-package-list nil)
   (package-refresh-contents package-menu-async))
+
+(defun package-menu-hide-package ()
+  "Hide a package under point.
+If optional arg BUTTON is non-nil, describe its associated package."
+  (interactive)
+  (declare (interactive-only "change `package-hidden-regexps' instead."))
+  (let* ((name (when (derived-mode-p 'package-menu-mode)
+                 (concat "\\`" (regexp-quote (symbol-name (package-desc-name
+                                                           (tabulated-list-get-id)))))))
+         (re (read-string "Hide packages matching regexp: " name)))
+    ;; Test if it is valid.
+    (string-match re "")
+    (push re package-hidden-regexps)
+    (customize-save-variable 'package-hidden-regexps package-hidden-regexps)
+    (package-menu--post-refresh)
+    (let ((hidden
+           (cl-remove-if-not (lambda (e) (string-match re (symbol-name (car e))))
+                             package-archive-contents)))
+      (message (substitute-command-keys
+                (concat "Hiding %s packages, type `\\[package-menu-toggle-hiding]'"
+                        " to toggle or `\\[customize-variable] RET package-hidden-regexps'"
+                        " to customize it"))
+        (length hidden)))))
 
 (defun package-menu-describe-package (&optional button)
   "Describe the current package.

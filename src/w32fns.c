@@ -73,6 +73,7 @@ along with GNU Emacs.  If not, see <http://www.gnu.org/licenses/>.  */
 
 #include <dlgs.h>
 #include <imm.h>
+#include <windowsx.h>
 
 #include "font.h"
 #include "w32font.h"
@@ -3493,13 +3494,31 @@ w32_wnd_proc (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
       return (msg == WM_XBUTTONDOWN || msg == WM_XBUTTONUP);
 
     case WM_MOUSEMOVE:
-      /* Ignore mouse movements as long as the menu is active.  These
-	 movements are processed by the window manager anyway, and
-	 it's wrong to handle them as if they happened on the
-	 underlying frame.  */
       f = x_window_to_frame (dpyinfo, hwnd);
-      if (f && f->output_data.w32->menubar_active)
-	return 0;
+      if (f)
+	{
+	  /* Ignore mouse movements as long as the menu is active.
+	     These movements are processed by the window manager
+	     anyway, and it's wrong to handle them as if they happened
+	     on the underlying frame.  */
+	  if (f->output_data.w32->menubar_active)
+	    return 0;
+
+	  /* If the mouse moved, and the mouse pointer is invisible,
+	     make it visible again.  We do this here so as to be able
+	     to show the mouse pointer even when the main
+	     (a.k.a. "Lisp") thread is busy doing something.  */
+	  static int last_x, last_y;
+	  int x = GET_X_LPARAM (lParam);
+	  int y = GET_Y_LPARAM (lParam);
+
+	  if (f->pointer_invisible
+	      && (x != last_x || y != last_y))
+	    f->pointer_invisible = false;
+
+	  last_x = x;
+	  last_y = y;
+	}
 
       /* If the mouse has just moved into the frame, start tracking
 	 it, so we will be notified when it leaves the frame.  Mouse
@@ -3974,11 +3993,17 @@ w32_wnd_proc (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
       if (LOWORD (lParam) == HTCLIENT)
 	{
 	  f = x_window_to_frame (dpyinfo, hwnd);
-	  if (f && f->output_data.w32->hourglass_p
-	      && !menubar_in_use && !current_popup_menu)
-	    SetCursor (f->output_data.w32->hourglass_cursor);
-	  else if (f)
-	    SetCursor (f->output_data.w32->current_cursor);
+	  if (f)
+	    {
+	      if (f->output_data.w32->hourglass_p
+		  && !menubar_in_use && !current_popup_menu)
+		SetCursor (f->output_data.w32->hourglass_cursor);
+	      else if (f->pointer_invisible)
+		SetCursor (NULL);
+	      else
+		SetCursor (f->output_data.w32->current_cursor);
+	    }
+
 	  return 0;
 	}
       goto dflt;
@@ -3991,7 +4016,12 @@ w32_wnd_proc (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 	  {
 	    f->output_data.w32->current_cursor = cursor;
 	    if (!f->output_data.w32->hourglass_p)
-	      SetCursor (cursor);
+	      {
+		if (f->pointer_invisible)
+		  SetCursor (NULL);
+		else
+		  SetCursor (cursor);
+	      }
 	  }
 	return 0;
       }
