@@ -5,19 +5,19 @@ Subject: Don't try to build src/macuvs.h (via IVD_Sequences.txt)
 These are OS X specific, and were removed for now, due to uncertainty
 over the licensing.
 ---
- admin/unidata/Makefile.in | 8 +-------
- 1 file changed, 1 insertion(+), 7 deletions(-)
+ admin/unidata/Makefile.in | 9 ++-------
+ 1 file changed, 2 insertions(+), 7 deletions(-)
 
 diff --git a/admin/unidata/Makefile.in b/admin/unidata/Makefile.in
-index 6c81d32..abd4841 100644
+index 954e9fa..bb97599 100644
 --- a/admin/unidata/Makefile.in
 +++ b/admin/unidata/Makefile.in
-@@ -51,16 +51,11 @@ am__v_at_1 =
+@@ -53,16 +53,11 @@ am__v_at_1 =
  
  .PHONY: all unifiles
  
--all: ${top_srcdir}/src/macuvs.h unifiles
-+all: unifiles
+-all: ${top_srcdir}/src/macuvs.h unifiles ${unidir}/charscript.el
++all: unifiles ${unidir}/charscript.el
  
  ## Specify .elc as an order-only prereq so as to not needlessly rebuild
  ## target just because the .elc is missing.
@@ -30,11 +30,12 @@ index 6c81d32..abd4841 100644
  
  %.elc: %.el
  	$(AM_V_ELC)${emacs} -f batch-byte-compile $<
-@@ -110,7 +105,6 @@ maintainer-clean: distclean
+@@ -122,7 +117,7 @@ maintainer-clean: distclean
  ## change and it slows down bootstrap (a tiny bit).
  ## Cf leim/ja-dic (which is much slower).
  extraclean:
--	rm -f ${top_srcdir}/src/macuvs.h
+-	rm -f ${top_srcdir}/src/macuvs.h ${unidir}/charscript.el*
++	rm -f ${unidir}/charscript.el*
    ifneq (,$(wildcard $(unidir)/charprop.el))
  	cd $(unidir) && \
  	  rm -f `sed -n 's/^;; FILE: //p' < charprop.el` charprop.el
