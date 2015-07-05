@@ -4015,7 +4015,9 @@ w32_wnd_proc (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 	if (f && cursor)
 	  {
 	    f->output_data.w32->current_cursor = cursor;
-	    if (!f->output_data.w32->hourglass_p)
+	    /* Don't change the cursor while menu-bar menu is in use.  */
+	    if (!f->output_data.w32->menubar_active
+		&& !f->output_data.w32->hourglass_p)
 	      {
 		if (f->pointer_invisible)
 		  SetCursor (NULL);
@@ -5836,8 +5838,6 @@ x_create_tip_frame (struct w32_display_info *dpyinfo,
 		       "cursorColor", "Foreground", RES_TYPE_STRING);
   x_default_parameter (f, parms, Qborder_color, build_string ("black"),
 		       "borderColor", "BorderColor", RES_TYPE_STRING);
-  x_default_parameter (f, parms, Qalpha, Qnil,
-                       "alpha", "Alpha", RES_TYPE_NUMBER);
 
   /* Init faces before x_default_parameter is called for the
      scroll-bar-width parameter because otherwise we end up in
@@ -5866,6 +5866,9 @@ x_create_tip_frame (struct w32_display_info *dpyinfo,
 		       "autoLower", "AutoRaiseLower", RES_TYPE_BOOLEAN);
   x_default_parameter (f, parms, Qcursor_type, Qbox,
 		       "cursorType", "CursorType", RES_TYPE_SYMBOL);
+  /* Process alpha here (Bug#17344).  */
+  x_default_parameter (f, parms, Qalpha, Qnil,
+                       "alpha", "Alpha", RES_TYPE_NUMBER);
 
   /* Dimensions, especially FRAME_LINES (f), must be done via
      change_frame_size.  Change will not be effected unless different

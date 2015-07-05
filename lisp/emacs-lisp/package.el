@@ -1576,29 +1576,33 @@ SEEN is used internally to detect infinite recursion."
           (while (and pkg-descs (not found))
             (let* ((pkg-desc (pop pkg-descs))
                    (version (package-desc-version pkg-desc))
-                   (disabled (package-disabled-p next-pkg version)))
+                   (disabled (package-disabled-p next-pkg version))
+                   found-something)
               (cond
                ((version-list-< version next-version)
-                (error
-                 "Need package `%s-%s', but only %s is available"
-                 next-pkg (package-version-join next-version)
-                 (package-version-join version)))
+                ;; pkg-descs is sorted by priority, not version, so
+                ;; don't error just yet.
+                (unless found-something
+                  (setq found-something (package-version-join version))))
                (disabled
                 (unless problem
                   (setq problem
                         (if (stringp disabled)
-                            (format "Package `%s' held at version %s, \
-but version %s required"
+                            (format "Package `%s' held at version %s, but version %s required"
                                     next-pkg disabled
                                     (package-version-join next-version))
                           (format "Required package '%s' is disabled"
                                   next-pkg)))))
                (t (setq found pkg-desc)))))
           (unless found
-            (if problem
-                (error "%s" problem)
-              (error "Package `%s-%s' is unavailable"
-                     next-pkg (package-version-join next-version))))
+            (cond
+             (problem (error "%s" problem))
+             (found-something
+              (error "Need package `%s-%s', but only %s is available"
+                     next-pkg (package-version-join next-version)
+                     found-something))
+             (t (error "Package `%s-%s' is unavailable"
+                       next-pkg (package-version-join next-version)))))
           (setq packages
                 (package-compute-transaction (cons found packages)
                                              (package-desc-reqs found)
@@ -1620,12 +1624,14 @@ Used to populate `package-selected-packages'."
              unless (memq name dep-list)
              collect name)))
 
-(defun package--save-selected-packages (value)
+(defun package--save-selected-packages (&optional value)
   "Set and save `package-selected-packages' to VALUE."
-  (let ((save-silently inhibit-message))
-    (customize-save-variable
-     'package-selected-packages
-     (setq package-selected-packages value))))
+  (when value
+    (setq package-selected-packages value))
+  (if after-init-time
+      (let ((save-silently inhibit-message))
+        (customize-save-variable 'package-selected-packages package-selected-packages))
+    (add-hook 'after-init-hook #'package--save-selected-packages)))
 
 (defun package--user-selected-p (pkg)
   "Return non-nil if PKG is a package was installed by the user.
@@ -2104,7 +2110,8 @@ will be deleted."
 (defun describe-package (package)
   "Display the full documentation of PACKAGE (a symbol)."
   (interactive
-   (let* ((guess (function-called-at-point)))
+   (let* ((guess (or (function-called-at-point)
+                     (symbol-at-point))))
      (require 'finder-inf nil t)
      ;; Load the package list if necessary (but don't activate them).
      (unless package--initialized
@@ -2120,7 +2127,8 @@ will be deleted."
                                    (format "Describe package (default %s): "
                                            guess)
                                  "Describe package: ")
-                               packages nil t nil nil guess)))
+                               packages nil t nil nil (when guess
+                                                        (symbol-name guess)))))
          (list (intern val))))))
   (if (not (or (package-desc-p package) (and package (symbolp package))))
       (message "No package specified")
@@ -2588,9 +2596,11 @@ to their archives."
                         (out))
                    (while pkg-list
                      (let ((p (pop pkg-list)))
-                       (if (>= (package-desc-priority p) max-priority)
+                       (let ((priority (package-desc-priority p)))
+                         (if (< priority max-priority)
+                             (setq pkg-list nil)
                            (push p out)
-                         (setq pkg-list nil))))
+                           (setq max-priority priority)))))
                    (nreverse out)))
                 (pkg-list
                  (list (car pkg-list))))))
@@ -2604,7 +2614,7 @@ to their archives."
 (defcustom package-hidden-regexps nil
   "List of regexps matching the name of packages to hide.
 If the name of a package matches any of these regexps it is
-omited from the package menu.  To toggle this, type \\[package-menu-toggle-hiding].
+omitted from the package menu.  To toggle this, type \\[package-menu-toggle-hiding].
 
 Values can be interactively added to this list by typing
 \\[package-menu-hide-package] on a package"

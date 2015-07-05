@@ -87,7 +87,7 @@ command line when `initial-buffer-choice' is non-nil.
 ** `isearch' and `query-replace' now perform character folding in matches.
 This is analogous to case-folding, but applies between Unicode
 characters and their ASCII counterparts. This means many characters
-will match entire groups of charactes.
+will match entire groups of characters.
 
 For instance, the " will match all variants of unicode double quotes
 (like “ and ”), and the letter a will match all of its accented
@@ -398,6 +398,9 @@ If you need your objects to be named, do it by inheriting from `eieio-named'.
 *** New command `ido-bury-buffer-at-head' bound to C-S-b
 Bury the buffer at the head of `ido-matches', analogous to how C-k
 kills the buffer at head.
+*** A prefix argument to `ido-restrict-to-matches' will reverse its
+meaning, and the list is restricted to those elements that do not
+match the current input.
 
 ** Minibuffer
 
@@ -815,6 +818,15 @@ This means that you can't use `make-local-variable' and expect them to
 
 ** `inhibit-point-motion-hooks' now defaults to t and is obsolete.
 
++++
+** `track-mouse' no longer freezes the shape of the mouse pointer.
+The `track-mouse' form no longer refrains from changing the shape of
+the mouse pointer for the entire time the body of that form is
+executed.  Lisp programs that use `track-mouse' for dragging across
+large portions of the Emacs display, and want to avoid changes in the
+pointer shape during dragging, should bind the variable `track-mouse'
+to the special value `dragging' in the body of the form.
+
 ** The optional `predicate' argument of `lisp-complete-symbol' no longer
 has any effect.  (This change was made in Emacs 24.4 but was not
 advertised at the time.)
@@ -1076,6 +1088,11 @@ fullwidth frames, the behavior may depend on the toolkit used.
 ** New function `window-preserve-size' allows to preserve the size of
 windows without "fixing" it.  It's supported by `fit-window-to-buffer',
 `temp-buffer-resize-mode' and `display-buffer'.
+
++++
+** New minor mode `window-divider-mode' and options
+`window-divider-default-bottom-width' and
+`window-divider-default-right-width'.
 
 +++
 ** New option `switch-to-buffer-in-dedicated-window' allows to customize
