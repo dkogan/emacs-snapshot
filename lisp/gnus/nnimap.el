@@ -235,6 +235,7 @@ textual parts.")
 				      t)
 		   (match-string 1)))
 	(setq lines nil)
+	(beginning-of-line)
 	(setq size
 	      (and (re-search-forward "RFC822.SIZE \\([0-9]+\\)"
 				      (line-end-position)
@@ -423,6 +424,7 @@ textual parts.")
 	       :return-list t
 	       :shell-command nnimap-shell-program
 	       :capability-command "1 CAPABILITY\r\n"
+               :always-query-capabilities t
 	       :end-of-command "\r\n"
 	       :success " OK "
 	       :starttls-function
@@ -803,7 +805,7 @@ textual parts.")
 		     nil
 		   group)
 		 server))
-	articles active marks high low)
+	active)
     (with-current-buffer nntp-server-buffer
       (when result
 	(when (or (not dont-check)

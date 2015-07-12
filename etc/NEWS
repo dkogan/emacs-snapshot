@@ -84,6 +84,8 @@ command line when `initial-buffer-choice' is non-nil.
 
 * Changes in Emacs 25.1
 
+** New doc command `describe-symbol'.  Works for functions, vars, faces, etc...
+
 ** `isearch' and `query-replace' now perform character folding in matches.
 This is analogous to case-folding, but applies between Unicode
 characters and their ASCII counterparts. This means many characters
@@ -780,6 +782,8 @@ notifications, if Emacs is compiled with file notification support.
 ---
 *** gulp.el
 
+*** landmark.el (moved to elpa.gnu.org)
+
 +++
 ** The character classes [:graph:] and [:print:] in regular expressions
 no longer match every multibyte character.  Instead, Emacs now
@@ -1091,8 +1095,8 @@ windows without "fixing" it.  It's supported by `fit-window-to-buffer',
 
 +++
 ** New minor mode `window-divider-mode' and options
-`window-divider-default-bottom-width' and
-`window-divider-default-right-width'.
+`window-divider-default-places', `window-divider-default-bottom-width'
+and `window-divider-default-right-width'.
 
 +++
 ** New option `switch-to-buffer-in-dedicated-window' allows to customize

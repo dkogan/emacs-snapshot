@@ -7314,6 +7314,11 @@ it were the arg to `interactive' (which see) to interactively read VALUE.
 If VARIABLE has been defined with `defcustom', then the type information
 in the definition is used to check that VALUE is valid.
 
+Note that this function is at heart equivalent to the basic `set' function.
+For a variable defined with `defcustom', it does not pay attention to
+any :set property that the variable might have (if you want that, use
+\\[customize-set-variable] instead).
+
 With a prefix argument, set VARIABLE to VALUE buffer-locally."
   (interactive
    (let* ((default-var (variable-at-point))
@@ -7358,8 +7363,8 @@ With a prefix argument, set VARIABLE to VALUE buffer-locally."
       (require 'cus-edit)
       (setq type (widget-convert type))
       (unless (widget-apply type :match value)
-	(error "Value `%S' does not match type %S of %S"
-	       value (car type) variable))))
+	(user-error "Value `%S' does not match type %S of %S"
+		    value (car type) variable))))
 
   (if make-local
       (make-local-variable variable))
