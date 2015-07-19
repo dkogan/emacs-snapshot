@@ -960,6 +960,8 @@ is wrapped around any parts requiring it."
 
 (declare-function lm-header "lisp-mnt" (header))
 (declare-function lm-homepage "lisp-mnt" (&optional file))
+(declare-function lm-maintainer "lisp-mnt" (&optional file))
+(declare-function lm-authors "lisp-mnt" (&optional file))
 
 (defun package-buffer-info ()
   "Return a `package-desc' describing the package in the current buffer.
@@ -996,7 +998,9 @@ boundaries."
            (package--prepare-dependencies
             (package-read-from-string requires-str)))
        :kind 'single
-       :url homepage))))
+       :url homepage
+       :maintainer (lm-maintainer)
+       :authors (lm-authors)))))
 
 (defun package--read-pkg-desc (kind)
   "Read a `define-package' form in current buffer.
@@ -1136,26 +1140,26 @@ For a description of the other arguments see
        ;; This `condition-case' is to catch connection errors.
        (condition-case error-signal
            (url-retrieve (concat ,location-1 ,file-1)
+                         ;; This is to catch execution errors.
                          (lambda (status)
-                           (if-let ((er (plist-get status :error)))
-                               (when (if (functionp ,async-1)
-                                         (funcall ,async-1)
-                                       t)
-                                 (message "Error contacting: %s" (concat ,location-1 ,file-1))
-                                 (signal (car er) (cdr er)))
-                             (goto-char (point-min))
-                             (unless (search-forward "\n\n" nil 'noerror)
-                               (error "Invalid url response in buffer %s"
-                                 (current-buffer)))
-                             (delete-region (point-min) (point))
-                             ,@body)
-                           (kill-buffer (current-buffer)))
+                           (condition-case error-signal
+                               (progn
+                                 (when-let ((er (plist-get status :error)))
+                                   (error "Error retrieving: %s %S" (concat ,location-1 ,file-1) er))
+                                 (goto-char (point-min))
+                                 (unless (search-forward "\n\n" nil 'noerror)
+                                   (error "Invalid url response in buffer %s"
+                                          (current-buffer)))
+                                 (delete-region (point-min) (point))
+                                 ,@body
+                                 (kill-buffer (current-buffer)))
+                             (error (when (if (functionp ,async-1) (funcall ,async-1) t)
+                                      (signal (car error-signal) (cdr error-signal))))))
                          nil
                          'silent)
-         (error (when (functionp ,async-1)
-                  (funcall ,async-1))
-           (message "Error contacting: %s" (concat ,location-1 ,file-1))
-           (signal (car error-signal) (cdr error-signal)))))))
+         (error (when (if (functionp ,async-1) (funcall ,async-1) t)
+                  (message "Error contacting: %s" (concat ,location-1 ,file-1))
+                  (signal (car error-signal) (cdr error-signal))))))))
 
 (defun package--check-signature-content (content string &optional sig-file)
   "Check signature CONTENT against STRING.
@@ -1956,7 +1960,8 @@ Downloads and installs required packages as needed."
 ;;;###autoload
 (defun package-install-file (file)
   "Install a package from a file.
-The file can either be a tar file or an Emacs Lisp file."
+The file can either be a tar file, an Emacs Lisp file, or a
+directory."
   (interactive "fPackage file name: ")
   (with-temp-buffer
     (if (file-directory-p file)
@@ -2163,6 +2168,8 @@ will be deleted."
          (status (if desc (package-desc-status desc) "orphan"))
          (incompatible-reason (package--incompatible-p desc))
          (signed (if desc (package-desc-signed desc))))
+    (when (string= status "avail-obso")
+      (setq status "available obsolete"))
     (when incompatible-reason
       (setq status "incompatible"))
     (prin1 name)
@@ -2179,13 +2186,15 @@ will be deleted."
           (pkg-dir
            (insert (propertize (if (member status '("unsigned" "dependency"))
                                    "Installed"
-                                 (capitalize status)) ;FIXME: Why comment-face?
-                               'font-lock-face 'font-lock-comment-face))
+                                 (capitalize status))
+                               'font-lock-face 'font-lock-builtin-face))
            (insert (substitute-command-keys " in ‘"))
-           ;; Todo: Add button for uninstalling.
-           (help-insert-xref-button (abbreviate-file-name
-                                     (file-name-as-directory pkg-dir))
-                                    'help-package-def pkg-dir)
+           (let ((dir (abbreviate-file-name
+                       (file-name-as-directory
+                        (if (file-in-directory-p pkg-dir package-user-dir)
+                            (file-relative-name pkg-dir package-user-dir)
+                          pkg-dir)))))
+             (help-insert-xref-button dir 'help-package-def pkg-dir))
            (if (and (package-built-in-p name)
                     (not (package-built-in-p name version)))
                (insert (substitute-command-keys
@@ -2198,13 +2207,13 @@ will be deleted."
              (insert " (unsigned)."))
            (when (and (package-desc-p desc)
                       (not required-by)
-                      (package-installed-p desc))
+                      (member status '("unsigned" "installed")))
              (insert " ")
              (package-make-button "Delete"
                                   'action #'package-delete-button-action
                                   'package-desc desc)))
           (incompatible-reason
-           (insert (propertize "Incompatible" 'face font-lock-warning-face)
+           (insert (propertize "Incompatible" 'font-lock-face font-lock-warning-face)
                    " because it depends on ")
            (if (stringp incompatible-reason)
                (insert "Emacs " incompatible-reason ".")
@@ -2219,12 +2228,15 @@ will be deleted."
             'package-desc desc))
           (t (insert (capitalize status) ".")))
     (insert "\n")
-    (insert "    " (propertize "Archive" 'font-lock-face 'bold)
-            ": " (or archive "n/a") "\n")
+    (unless (and pkg-dir (not archive)) ; Installed pkgs don't have archive.
+      (insert "    " (propertize "Archive" 'font-lock-face 'bold)
+              ": " (or archive "n/a") "\n"))
     (and version
          (insert "    "
                  (propertize "Version" 'font-lock-face 'bold) ": "
                  (package-version-join version) "\n"))
+    (insert "    " (propertize "Summary" 'font-lock-face 'bold)
+            ": " (if desc (package-desc-summary desc)) "\n")
 
     (setq reqs (if desc (package-desc-reqs desc)))
     (when reqs
@@ -2259,8 +2271,6 @@ will be deleted."
             (help-insert-xref-button text 'help-package
                                      (package-desc-name pkg))))
         (insert "\n")))
-    (insert "    " (propertize "Summary" 'font-lock-face 'bold)
-            ": " (if desc (package-desc-summary desc)) "\n")
     (when homepage
       (insert "   " (propertize "Homepage" 'font-lock-face 'bold) ": ")
       (help-insert-xref-button homepage 'help-url homepage)
@@ -2290,7 +2300,7 @@ will be deleted."
                      (if (not ov) (format "%s" from)
                        (format "%s (%s)"
                                (make-text-button (package-version-join ov) nil
-                                                 'face 'link
+                                                 'font-lock-face 'link
                                                  'follow-link t
                                                  'action
                                                  (lambda (_button)
@@ -2365,7 +2375,7 @@ will be deleted."
                                 :background "light grey"
                                 :foreground "black")
                        'link)))
-    (apply 'insert-text-button button-text 'face button-face 'follow-link t
+    (apply 'insert-text-button button-text 'font-lock-face button-face 'follow-link t
            props)))
 
 
@@ -2386,6 +2396,7 @@ will be deleted."
     (define-key map "~" 'package-menu-mark-obsolete-for-deletion)
     (define-key map "x" 'package-menu-execute)
     (define-key map "h" 'package-menu-quick-help)
+    (define-key map "H" #'package-menu-hide-package)
     (define-key map "?" 'package-menu-describe-package)
     (define-key map "(" #'package-menu-toggle-hiding)
     (define-key map [menu-bar package-menu] (cons "Package" menu-map))
@@ -2870,7 +2881,8 @@ If optional arg BUTTON is non-nil, describe its associated package."
 (defvar package--quick-help-keys
   '(("install," "delete," "unmark," ("execute" . 1))
     ("next," "previous")
-    ("refresh-contents," "g-redisplay," "filter," "(-toggle-obsolete" "help")))
+    ("Hide-package," "(-toggle-hidden")
+    ("refresh-contents," "g-redisplay," "filter," "help")))
 
 (defun package--prettify-quick-help-key (desc)
   "Prettify DESC to be displayed as a help menu."
@@ -2879,9 +2891,8 @@ If optional arg BUTTON is non-nil, describe its associated package."
           (mapconcat #'package--prettify-quick-help-key desc "   ")
         (let ((place (cdr desc))
               (out (car desc)))
-          ;; (setq out (propertize out 'face 'paradox-comment-face))
           (add-text-properties place (1+ place)
-                               '(face (bold font-lock-function-name-face))
+                               '(face (bold font-lock-warning-face))
                                out)
           out))
     (package--prettify-quick-help-key (cons desc 0))))

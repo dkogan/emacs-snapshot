@@ -618,7 +618,12 @@ Return an alist of the form ((FILENAME . (XREF ...)) ...)."
     (cond ((or current-prefix-arg
                (not id)
                (xref--prompt-p this-command))
-           (completing-read prompt
+           (completing-read (if id
+                                (format "%s (default %s): "
+                                        (substring prompt 0 (string-match
+                                                             "[ :]+\\'" prompt))
+                                        id)
+                              prompt)
                             (funcall xref-identifier-completion-table-function)
                             nil nil nil
                             'xref--read-identifier-history id))
@@ -661,21 +666,24 @@ With prefix argument, prompt for the identifier."
 (defun xref-find-regexp (regexp)
   "Find all matches for REGEXP.
 With \\[universal-argument] prefix, you can specify the directory
-to search in."
-  ;; FIXME: Prompt for directory.
+to search in, and the file name pattern to search for."
   (interactive (list (xref--read-identifier "Find regexp: ")))
-  (let* ((dirs (if current-prefix-arg
-                   (list (read-directory-name "In directory: "))
-                 (let ((proj (project-current)))
-                   (project--prune-directories
-                    (nconc
-                     (project-directories proj)
-                     (project-search-path proj))))))
+  (let* ((proj (project-current))
+         (files (if current-prefix-arg
+                    (grep-read-files regexp)
+                  "*.*"))
+         (dirs (if current-prefix-arg
+                   (list (read-directory-name "Base directory: "
+                                              nil default-directory t))
+                 (project--prune-directories
+                  (nconc
+                   (project-directories proj)
+                   (project-search-path proj)))))
          (xref-find-function
           (lambda (_kind regexp)
             (cl-mapcan
              (lambda (dir)
-               (xref-collect-matches regexp dir))
+               (xref-collect-matches regexp files dir (project-ignores proj)))
              dirs))))
     (xref--show-xrefs regexp 'matches regexp nil)))
 
@@ -703,6 +711,7 @@ The argument has the same meaning as in `apropos'."
 
 ;;;###autoload (define-key esc-map "." #'xref-find-definitions)
 ;;;###autoload (define-key esc-map "," #'xref-pop-marker-stack)
+;;;###autoload (define-key esc-map "?" #'xref-find-references)
 ;;;###autoload (define-key esc-map [?\C-.] #'xref-find-apropos)
 ;;;###autoload (define-key ctl-x-4-map "." #'xref-find-definitions-other-window)
 ;;;###autoload (define-key ctl-x-5-map "." #'xref-find-definitions-other-frame)
@@ -733,7 +742,8 @@ and just use etags."
 (declare-function semantic-symref-find-references-by-name "semantic/symref")
 (declare-function semantic-symref-find-text "semantic/symref")
 (declare-function semantic-find-file-noselect "semantic/fw")
-(declare-function rgrep-default-command "grep")
+(declare-function grep-read-files "grep")
+(declare-function grep-expand-template "grep")
 
 (defun xref-collect-references (symbol dir)
   "Collect references to SYMBOL inside DIR.
@@ -756,8 +766,10 @@ tools are used, and when."
       (mapc #'kill-buffer
             (cl-set-difference (buffer-list) orig-buffers)))))
 
-(defun xref-collect-matches (regexp dir)
-  "Collect matches for REGEXP inside DIR using rgrep."
+(defun xref-collect-matches (regexp files dir ignores)
+  "Collect matches for REGEXP inside FILES in DIR.
+FILES is a string with glob patterns separated by spaces.
+IGNORES is a list of glob patterns."
   (cl-assert (directory-name-p dir))
   (require 'semantic/fw)
   (grep-compute-defaults)
@@ -766,8 +778,8 @@ tools are used, and when."
   (let* ((grep-find-template (replace-regexp-in-string "-e " "-E "
                                                        grep-find-template t t))
          (grep-highlight-matches nil)
-         (command (rgrep-default-command (xref--regexp-to-extended regexp)
-                                         "*.*" dir))
+         (command (xref--rgrep-command (xref--regexp-to-extended regexp)
+                                       files dir ignores))
          (orig-buffers (buffer-list))
          (buf (get-buffer-create " *xref-grep*"))
          (grep-re (caar grep-regexp-alist))
@@ -786,6 +798,40 @@ tools are used, and when."
                       (nreverse hits)))
       (mapc #'kill-buffer
             (cl-set-difference (buffer-list) orig-buffers)))))
+
+(defun xref--rgrep-command (regexp files dir ignores)
+  (require 'find-dired)      ; for `find-name-arg'
+  (defvar grep-find-template)
+  (defvar find-name-arg)
+  (grep-expand-template
+   grep-find-template
+   regexp
+   (concat (shell-quote-argument "(")
+           " " find-name-arg " "
+           (mapconcat
+            #'shell-quote-argument
+            (split-string files)
+            (concat " -o " find-name-arg " "))
+           " "
+           (shell-quote-argument ")"))
+   dir
+   (concat
+    (shell-quote-argument "(")
+    " -path "
+    (mapconcat
+     (lambda (ignore)
+       (when (string-match "\\(\\.\\)/" ignore)
+         (setq ignore (replace-match dir t t ignore 1)))
+       (when (string-match-p "/\\'" ignore)
+         (setq ignore (concat ignore "*")))
+       (unless (string-prefix-p "*" ignore)
+         (setq ignore (concat "*/" ignore)))
+       (shell-quote-argument ignore))
+     ignores
+     " -o -path ")
+    " "
+    (shell-quote-argument ")")
+    " -prune -o ")))
 
 (defun xref--regexp-to-extended (str)
   (replace-regexp-in-string
