@@ -6488,6 +6488,37 @@ its documentation for additional customization information."
 
 ;;; `display-buffer' action functions:
 
+(defun display-buffer-use-some-frame (buffer alist)
+  "Display BUFFER in an existing frame that meets a predicate
+(by default any frame other than the current frame).  If
+successful, return the window used; otherwise return nil.
+
+If ALIST has a non-nil `inhibit-switch-frame' entry, avoid
+raising the frame.
+
+If ALIST has a non-nil `frame-predicate' entry, its value is a
+function taking one argument (a frame), returning non-nil if the
+frame is a candidate; this function replaces the default
+predicate."
+  (let* ((predicate (or (cdr (assoc 'frame-predicate alist))
+                        (lambda (frame)
+                          (and
+                           (not (eq frame (selected-frame)))
+                           (not (window-dedicated-p
+                                 (or
+                                  (get-lru-window frame)
+                                  (frame-first-window frame)))))
+                          )))
+         (frame (car (filtered-frame-list predicate)))
+         (window (and frame (get-lru-window frame))))
+    (when window
+      (prog1
+          (window--display-buffer
+           buffer window 'frame alist display-buffer-mark-dedicated)
+        (unless (cdr (assq 'inhibit-switch-frame alist))
+          (window--maybe-raise-frame frame))))
+    ))
+
 (defun display-buffer-same-window (buffer alist)
   "Display BUFFER in the selected window.
 This fails if ALIST has a non-nil `inhibit-same-window' entry, or

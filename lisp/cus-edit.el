@@ -1709,7 +1709,7 @@ Operate on all settings in this buffer:\n"))
 	    (mapcar (lambda (entry)
 		      (prog2
 			  (message "Creating customization items ...%2d%%"
-				   (/ (* 100.0 count) length))
+				   (floor (* 100.0 count) length))
 			  (widget-create (nth 1 entry)
 					 :tag (custom-unlispify-tag-name
 					       (nth 0 entry))
@@ -3990,7 +3990,7 @@ If GROUPS-ONLY is non-nil, return only those members that are groups."
 	 ;; (indent (widget-get widget :indent))
 	 (prefix (widget-get widget :custom-prefix))
 	 (buttons (widget-get widget :buttons))
-	 (tag (widget-get widget :tag))
+	 (tag (substitute-command-keys (widget-get widget :tag)))
 	 (symbol (widget-value widget))
 	 (members (custom-group-members symbol
 					(and (eq custom-buffer-style 'tree)
