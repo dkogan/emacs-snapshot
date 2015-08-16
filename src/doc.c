@@ -684,17 +684,29 @@ the same file name is found in the `doc-directory'.  */)
   return unbind_to (count, Qnil);
 }
 
-/* Declare named constants for U+2018 LEFT SINGLE QUOTATION MARK and
-   U+2019 RIGHT SINGLE QUOTATION MARK, which have UTF-8 encodings
-   "\xE2\x80\x98" and "\xE2\x80\x99", respectively.  */
-enum
-  {
-    LEFT_SINGLE_QUOTATION_MARK = 0x2018,
-    uLSQM0 = 0xE2, uLSQM1 = 0x80, uLSQM2 = 0x98,
-    uRSQM0 = 0xE2, uRSQM1 = 0x80, uRSQM2 = 0x99,
-  };
+/* Curved quotation marks.  */
 static unsigned char const LSQM[] = { uLSQM0, uLSQM1, uLSQM2 };
 static unsigned char const RSQM[] = { uRSQM0, uRSQM1, uRSQM2 };
+
+/* Return the current effective text quoting style.  */
+enum text_quoting_style
+text_quoting_style (void)
+{
+  if (EQ (Vtext_quoting_style, Qgrave))
+    return GRAVE_QUOTING_STYLE;
+  else if (EQ (Vtext_quoting_style, Qstraight))
+    return STRAIGHT_QUOTING_STYLE;
+  else if (NILP (Vtext_quoting_style)
+	   && DISP_TABLE_P (Vstandard_display_table))
+    {
+      Lisp_Object dv = DISP_CHAR_VECTOR (XCHAR_TABLE (Vstandard_display_table),
+					 LEFT_SINGLE_QUOTATION_MARK);
+      if (VECTORP (dv) && ASIZE (dv) == 1
+	  && EQ (AREF (dv, 0), make_number ('`')))
+	return GRAVE_QUOTING_STYLE;
+    }
+  return CURVE_QUOTING_STYLE;
+}
 
 DEFUN ("substitute-command-keys", Fsubstitute_command_keys,
        Ssubstitute_command_keys, 1, 1, 0,
@@ -750,20 +762,7 @@ Otherwise, return a new string.  */)
   name = Qnil;
   GCPRO4 (string, tem, keymap, name);
 
-  enum { unicode, grave_accent, apostrophe } quote_translation = unicode;
-  if (EQ (Vtext_quoting_style, Qgrave))
-    quote_translation = grave_accent;
-  else if (EQ (Vtext_quoting_style, Qstraight))
-    quote_translation = apostrophe;
-  else if (NILP (Vtext_quoting_style)
-	   && DISP_TABLE_P (Vstandard_display_table))
-    {
-      Lisp_Object dv = DISP_CHAR_VECTOR (XCHAR_TABLE (Vstandard_display_table),
-					 LEFT_SINGLE_QUOTATION_MARK);
-      if (VECTORP (dv) && ASIZE (dv) == 1
-	  && EQ (AREF (dv, 0), make_number ('`')))
-	quote_translation = grave_accent;
-    }
+  enum text_quoting_style quoting_style = text_quoting_style ();
 
   multibyte = STRING_MULTIBYTE (string);
   nchars = 0;
@@ -921,11 +920,13 @@ Otherwise, return a new string.  */)
 	  if (NILP (tem))
 	    {
 	      name = Fsymbol_name (name);
-	      insert_string ("\nUses keymap `");
+	      insert1 (CALLN (Fformat, build_string ("\nUses keymap "uLSQM)));
 	      insert_from_string (name, 0, 0,
 				  SCHARS (name),
 				  SBYTES (name), 1);
-	      insert_string ("', which is not currently defined.\n");
+	      insert1 (CALLN (Fformat,
+			      (build_string
+			       (uRSQM", which is not currently defined.\n"))));
 	      if (start[-1] == '<') keymap = Qnil;
 	    }
 	  else if (start[-1] == '<')
@@ -962,7 +963,7 @@ Otherwise, return a new string.  */)
 	    strp = SDATA (string) + idx;
 	  }
 	}
-      else if (strp[0] == '`' && quote_translation == unicode)
+      else if (strp[0] == '`' && quoting_style == CURVE_QUOTING_STYLE)
 	{
 	  in_quote = true;
 	  start = LSQM;
@@ -972,7 +973,7 @@ Otherwise, return a new string.  */)
 	  idx = strp - SDATA (string) + 1;
 	  goto subst;
 	}
-      else if (strp[0] == '`' && quote_translation == apostrophe)
+      else if (strp[0] == '`' && quoting_style == STRAIGHT_QUOTING_STYLE)
 	{
 	  *bufp++ = '\'';
 	  strp++;
@@ -987,9 +988,9 @@ Otherwise, return a new string.  */)
 	}
       else if (strp[0] == uLSQM0 && strp[1] == uLSQM1
 	       && (strp[2] == uLSQM2 || strp[2] == uRSQM2)
-	       && quote_translation != unicode)
+	       && quoting_style != CURVE_QUOTING_STYLE)
         {
-	  *bufp++ = (strp[2] == uLSQM2 && quote_translation == grave_accent
+	  *bufp++ = (strp[2] == uLSQM2 && quoting_style == GRAVE_QUOTING_STYLE
 		     ? '`' : '\'');
 	  strp += 3;
 	  nchars++;

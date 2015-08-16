@@ -59,7 +59,7 @@ It is used for TCP/IP devices."
 
 ;;;###tramp-autoload
 (defcustom tramp-adb-prompt
-  "^\\(?:[[:digit:]]*|?\\)?\\(?:[[:alnum:]]*@[[:alnum:]]*[^#\\$]*\\)?[#\\$][[:space:]]"
+  "^\\(?:[[:digit:]]*|?\\)?\\(?:[[:alnum:]\e;\[]*@[[:alnum:]]*[^#\\$]*\\)?[#\\$][[:space:]]"
   "Regexp used as prompt in almquist shell."
   :type 'string
   :version "24.4"
@@ -394,41 +394,42 @@ pass to the OPERATION."
   "Like `directory-files-and-attributes' for Tramp files."
   (when (file-directory-p directory)
     (with-parsed-tramp-file-name (expand-file-name directory) nil
-      (with-tramp-file-property
-	  v localname (format "directory-files-attributes-%s-%s-%s-%s"
-			      full match id-format nosort)
-	(with-current-buffer (tramp-get-buffer v)
-	  (when (tramp-adb-send-command-and-check
-		 v (format "%s -a -l %s"
-			   (tramp-adb-get-ls-command v)
-			   (tramp-shell-quote-argument localname)))
-	    ;; We insert also filename/. and filename/.., because "ls" doesn't.
-	    (narrow-to-region (point) (point))
-	    (tramp-adb-send-command
-	     v (format "%s -d -a -l %s %s"
-		       (tramp-adb-get-ls-command v)
-		       (tramp-shell-quote-argument
-			(concat (file-name-as-directory localname) "."))
-		       (tramp-shell-quote-argument
-			(concat (file-name-as-directory localname) ".."))))
-	    (widen))
-	  (tramp-adb-sh-fix-ls-output)
-	  (let ((result (tramp-do-parse-file-attributes-with-ls
-			 v (or id-format 'integer))))
-	    (when full
-	      (setq result
-		    (mapcar
-		     (lambda (x)
-		       (cons (expand-file-name (car x) directory) (cdr x)))
-		     result)))
-	    (unless nosort
-	      (setq result
-		    (sort result (lambda (x y) (string< (car x) (car y))))))
-	    (delq nil
-		  (mapcar (lambda (x)
-			    (if (or (not match) (string-match match (car x)))
-				x))
-			  result))))))))
+      (copy-tree
+       (with-tramp-file-property
+	   v localname (format "directory-files-and-attributes-%s-%s-%s-%s"
+			       full match id-format nosort)
+	 (with-current-buffer (tramp-get-buffer v)
+	   (when (tramp-adb-send-command-and-check
+		  v (format "%s -a -l %s"
+			    (tramp-adb-get-ls-command v)
+			    (tramp-shell-quote-argument localname)))
+	     ;; We insert also filename/. and filename/.., because "ls" doesn't.
+	     (narrow-to-region (point) (point))
+	     (tramp-adb-send-command
+	      v (format "%s -d -a -l %s %s"
+			(tramp-adb-get-ls-command v)
+			(tramp-shell-quote-argument
+			 (concat (file-name-as-directory localname) "."))
+			(tramp-shell-quote-argument
+			 (concat (file-name-as-directory localname) ".."))))
+	     (widen))
+	   (tramp-adb-sh-fix-ls-output)
+	   (let ((result (tramp-do-parse-file-attributes-with-ls
+			  v (or id-format 'integer))))
+	     (when full
+	       (setq result
+		     (mapcar
+		      (lambda (x)
+			(cons (expand-file-name (car x) directory) (cdr x)))
+		      result)))
+	     (unless nosort
+	       (setq result
+		     (sort result (lambda (x y) (string< (car x) (car y))))))
+	     (delq nil
+		   (mapcar (lambda (x)
+			     (if (or (not match) (string-match match (car x)))
+				 x))
+			   result)))))))))
 
 (defun tramp-adb-get-ls-command (vec)
   (with-tramp-connection-property vec "ls"
@@ -651,6 +652,7 @@ But handle the case, if the \"test\" command is not available."
 (defun tramp-adb-handle-set-file-modes (filename mode)
   "Like `set-file-modes' for Tramp files."
   (with-parsed-tramp-file-name filename nil
+    (tramp-flush-file-property v (file-name-directory localname))
     (tramp-flush-file-property v localname)
     (tramp-adb-send-command-and-check
      v (format "chmod %s %s" (tramp-compat-decimal-to-octal mode) localname))))
@@ -658,6 +660,7 @@ But handle the case, if the \"test\" command is not available."
 (defun tramp-adb-handle-set-file-times (filename &optional time)
   "Like `set-file-times' for Tramp files."
   (with-parsed-tramp-file-name filename nil
+    (tramp-flush-file-property v (file-name-directory localname))
     (tramp-flush-file-property v localname)
     (let ((time (if (or (null time) (equal time '(0 0)))
 		    (current-time)

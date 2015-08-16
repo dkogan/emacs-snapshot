@@ -202,8 +202,10 @@ LOCATION is an `xref-location'."
 It can be called in several ways:
 
  (definitions IDENTIFIER): Find definitions of IDENTIFIER.  The
-result must be a list of xref objects.  If no definitions can be
-found, return nil.
+result must be a list of xref objects.  If IDENTIFIER contains
+sufficient information to determine a unique definition, returns
+only that definition. If there are multiple possible definitions,
+return all of them.  If no definitions can be found, return nil.
 
  (references IDENTIFIER): Find references of IDENTIFIER.  The
 result must be a list of xref objects.  If no references can be
@@ -430,16 +432,17 @@ Used for temporary buffers.")
     (when (and restore (not (eq (car restore) 'same)))
       (push (cons buf win) xref--display-history))))
 
-(defun xref--display-position (pos other-window xref-buf)
+(defun xref--display-position (pos other-window buf)
   ;; Show the location, but don't hijack focus.
-  (with-selected-window (display-buffer (current-buffer) other-window)
-    (xref--goto-char pos)
-    (run-hooks 'xref-after-jump-hook)
-    (let ((buf (current-buffer))
-          (win (selected-window)))
-      (with-current-buffer xref-buf
-        (setq-local other-window-scroll-buffer buf)
-        (xref--save-to-history buf win)))))
+  (let ((xref-buf (current-buffer)))
+    (with-selected-window (display-buffer buf other-window)
+      (xref--goto-char pos)
+      (run-hooks 'xref-after-jump-hook)
+      (let ((buf (current-buffer))
+            (win (selected-window)))
+        (with-current-buffer xref-buf
+          (setq-local other-window-scroll-buffer buf)
+          (xref--save-to-history buf win))))))
 
 (defun xref--show-location (location)
   (condition-case err
@@ -450,8 +453,8 @@ Used for temporary buffers.")
           (unless (memq buf bl)
             ;; Newly created.
             (add-hook 'buffer-list-update-hook #'xref--mark-selected nil t)
-            (push buf xref--temporary-buffers)))
-        (xref--display-position (point) t (current-buffer)))
+            (push buf xref--temporary-buffers))
+          (xref--display-position marker t buf)))
     (user-error (message (error-message-string err)))))
 
 (defun xref-show-location-at-point ()
@@ -750,7 +753,14 @@ Return an alist of the form ((FILENAME . (XREF ...)) ...)."
 (defun xref-find-definitions (identifier)
   "Find the definition of the identifier at point.
 With prefix argument or when there's no identifier at point,
-prompt for it."
+prompt for it.
+
+If the backend has sufficient information to determine a unique
+definition for IDENTIFIER, it returns only that definition. If
+there are multiple possible definitions, it returns all of them.
+
+If the backend returns one definition, jump to it; otherwise,
+display the list in a buffer."
   (interactive (list (xref--read-identifier "Find definitions of: ")))
   (xref--find-definitions identifier nil))
 
@@ -934,12 +944,12 @@ IGNORES is a list of glob patterns."
     " -path "
     (mapconcat
      (lambda (ignore)
-       (when (string-match "\\(\\.\\)/" ignore)
-         (setq ignore (replace-match dir t t ignore 1)))
        (when (string-match-p "/\\'" ignore)
          (setq ignore (concat ignore "*")))
-       (unless (string-prefix-p "*" ignore)
-         (setq ignore (concat "*/" ignore)))
+       (if (string-match "\\`\\./" ignore)
+           (setq ignore (replace-match dir t t ignore))
+         (unless (string-prefix-p "*" ignore)
+           (setq ignore (concat "*/" ignore))))
        (shell-quote-argument ignore))
      ignores
      " -o -path ")
