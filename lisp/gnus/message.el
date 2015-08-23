@@ -2005,6 +2005,17 @@ You must have the \"hashcash\" binary installed, see `hashcash-path'."
 (unless (fboundp 'mail-dont-reply-to)
   (defalias 'mail-dont-reply-to 'rmail-dont-reply-to))
 
+(eval-and-compile
+  (if (featurep 'emacs)
+      (progn
+	(defun message-kill-all-overlays ()
+	  (mapcar #'delete-overlay (overlays-in (point-min) (point-max))))
+	(defalias 'message-window-inside-pixel-edges
+	  'window-inside-pixel-edges))
+    (defun message-kill-all-overlays ()
+      (map-extents (lambda (extent ignore) (delete-extent extent))))
+    (defalias 'message-window-inside-pixel-edges 'ignore)))
+
 
 
 ;;;
@@ -4380,8 +4391,7 @@ conformance."
 		to (cdar regions)
 		regions (cdr regions))
 	  (put-text-property from to 'invisible nil)
-	  (message-overlay-put (message-make-overlay from to)
-			       'face 'highlight))
+	  (overlay-put (make-overlay from to) 'face 'highlight))
 	(unless (yes-or-no-p
 		 "Invisible text found and made visible; continue sending? ")
 	  (error "Invisible text found and made visible")))))
@@ -4408,8 +4418,7 @@ conformance."
 						 control-1))
 		       (not (get-text-property
 			     (point) 'untranslated-utf-8))))
-	  (message-overlay-put (message-make-overlay (point) (1+ (point)))
-			       'face 'highlight)
+	  (overlay-put (make-overlay (point) (1+ (point))) 'face 'highlight)
 	  (setq found t))
 	(forward-char))
       (when found
@@ -7885,14 +7894,6 @@ which specify the range to operate on."
   (goto-char (prog1 (mark t)
 	       (set-marker (mark-marker) (point)))))
 
-(defalias 'message-make-overlay 'make-overlay)
-(defalias 'message-delete-overlay 'delete-overlay)
-(defalias 'message-overlay-put 'overlay-put)
-(defun message-kill-all-overlays ()
-  (if (featurep 'xemacs)
-      (map-extents (lambda (extent ignore) (delete-extent extent)))
-    (mapcar #'delete-overlay (overlays-in (point-min) (point-max)))))
-
 ;; Support for toolbar
 (defvar tool-bar-mode)
 
@@ -8546,13 +8547,43 @@ Used in `message-simplify-recipients'."
 ;;; multipart/related and HTML support.
 
 (defun message-make-html-message-with-image-files (files)
+  "Make a message containing the current dired-marked image files."
   (interactive (list (dired-get-marked-files nil current-prefix-arg)))
   (message-mail)
   (message-goto-body)
   (insert "<#part type=text/html>\n\n")
   (dolist (file files)
     (insert (format "<img src=%S>\n\n" file)))
+  (message-toggle-image-thumbnails)
   (message-goto-to))
+
+(defun message-toggle-image-thumbnails ()
+  "For any included image files, insert a thumbnail of that image."
+  (interactive)
+  (let ((overlays (overlays-in (point-min) (point-max)))
+	(displayed nil))
+    (while overlays
+      (let ((overlay (car overlays)))
+	(when (overlay-get overlay 'put-image)
+	  (delete-overlay overlay)
+	  (setq displayed t)))
+      (setq overlays (cdr overlays)))
+    (unless displayed
+      (save-excursion
+	(goto-char (point-min))
+	(while (re-search-forward "<img.*src=\"\\([^\"]+\\)" nil t)
+	  (let ((file (match-string 1))
+		(edges (message-window-inside-pixel-edges
+			(get-buffer-window (current-buffer)))))
+	    (put-image
+	     (create-image
+	      file 'imagemagick nil
+	      :max-width (truncate
+			  (* 0.7 (- (nth 2 edges) (nth 0 edges))))
+	      :max-height (truncate
+			   (* 0.5 (- (nth 3 edges) (nth 1 edges)))))
+	     (match-beginning 0)
+	     " ")))))))
 
 (when (featurep 'xemacs)
   (require 'messagexmas)

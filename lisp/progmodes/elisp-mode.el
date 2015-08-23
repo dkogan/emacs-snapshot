@@ -604,7 +604,7 @@ It can be quoted, or be inside a quoted form."
     (`apropos
      (elisp--xref-find-apropos id))))
 
-;; WORKAROUND: This is nominally a constant, but the text properities
+;; WORKAROUND: This is nominally a constant, but the text properties
 ;; are not preserved thru dump if use defconst.  See bug#21237.
 (defvar elisp--xref-format
   (let ((str "(%s %s)"))
@@ -612,7 +612,7 @@ It can be quoted, or be inside a quoted form."
     (put-text-property 4 6 'face 'font-lock-function-name-face str)
     str))
 
-;; WORKAROUND: This is nominally a constant, but the text properities
+;; WORKAROUND: This is nominally a constant, but the text properties
 ;; are not preserved thru dump if use defconst.  See bug#21237.
 (defvar elisp--xref-format-extra
   (let ((str "(%s %s %s)"))
@@ -624,7 +624,7 @@ It can be quoted, or be inside a quoted form."
 
 (defun elisp--xref-make-xref (type symbol file &optional summary)
   "Return an xref for TYPE SYMBOL in FILE.
-TYPE must be a type in 'find-function-regexp-alist' (use nil for
+TYPE must be a type in `find-function-regexp-alist' (use nil for
 'defun).  If SUMMARY is non-nil, use it for the summary;
 otherwise build the summary from TYPE and SYMBOL."
   (xref-make (or summary
@@ -693,12 +693,12 @@ otherwise build the summary from TYPE and SYMBOL."
             ;; specializers.
             ;;
             ;; If the default method is declared by the cl-defgeneric
-            ;; declaration, it will have the same location as teh
+            ;; declaration, it will have the same location as the
             ;; cl-defgeneric, so we want to exclude it from the
             ;; result. In this case, it will have a null doc
             ;; string. User declarations of default methods may also
             ;; have null doc strings, but we hope that is
-            ;; rare. Perhaps this hueristic will discourage that.
+            ;; rare. Perhaps this heuristic will discourage that.
 	    (dolist (method (cl--generic-method-table generic))
 	      (let* ((info (cl--generic-method-info method));; qual-string combined-args doconly
                      (specializers (cl--generic-method-specializers method))

@@ -301,6 +301,13 @@ standards.
 ** Prog mode has some support for multi-mode indentation.
 See `prog-indentation-context' and `prog-widen'.
 
+** Prettify Symbols mode supports custom composition predicates.  By
+overriding the default `prettify-symbols-compose-predicate', modes can
+specify in which contexts a symbol map be composed to some unicode
+character.  `prettify-symbols-default-compose-p' is the default which
+is suitable for most programming languages such as C or Lisp (but not
+(La)TeX).
+
 ** New `xterm-screen-extra-capabilities' config.
 
 ** The `save-place' variable is replaced by a `save-place-mode'.
@@ -694,6 +701,10 @@ name patterns (e.x. all "FOR_DOXYGEN_ONLY_*") to be excluded.
 *** New custom variable `tex-print-file-extension' to help users who
 use PDF instead of DVI.
 
+*** TeX mode now supports Prettify Symbols mode.  When enabling
+`prettify-symbols-mode' in a tex-mode buffer, \alpha ... \omega, and
+many other math macros are displayed using unicode characters.
+
 ** whitespace-mode: new 'big-indent style highlighting too much indentation.
 By default, 32 spaces and four TABs are considered to be too much but
 `whitespace-big-indent-regexp' can be configured to change that.
@@ -912,12 +923,17 @@ create a string, and may return its first argument if the argument
 already has the correct value.
 
 +++
+** New ‘format’ flag ‘q’
+The new ‘q’ flag causes ‘format’ to quote the output representation as
+per the value of ‘text quoting-style’.  E.g., (format "%qs failed"
+"foo") might return "‘foo’ failed".
+
++++
 ** substitute-command-keys now replaces quotes.
 That is, it converts documentation strings' quoting style as per the
-value of ‘text-quoting-style’ as described above.  Doc strings in
-source code can use either curved quotes or grave accent and
-apostrophe.  As before, isolated apostrophes and characters preceded
-by \= are output as-is.
+value of ‘text-quoting-style’.  Doc strings in source code can use
+either curved quotes or grave accent and apostrophe.  As before,
+isolated apostrophes and characters preceded by \= are output as-is.
 
 +++
 ** The character classes [:alpha:] and [:alnum:] in regular expressions
@@ -1116,6 +1132,29 @@ Horizontal scroll bars are turned off by default.
     bars too.
 *** New buffer-local variables `horizontal-scroll-bar' and
     `scroll-bar-height'.
+
++++
+** New functions `frame-geometry' and `frame-edges' give access to a
+frame's geometry.
+
++++
+** New functions `mouse-absolute-pixel-position' and
+`set-mouse-absolute-pixel-position' get/set screen coordinates of the
+mouse cursor.
+
++++
+** The function `window-edges' now accepts three additional arguments to
+retrieve body, absolute and pixel edges of the window.
+
++++
+** The functions `window-inside-edges', `window-inside-pixel-edges' and
+`window-inside-absolute-pixel-edges' have been renamed to respectively
+`window-body-edges', `window-body-pixel-edges' and
+`window-absolute-body-pixel-edges'.  The old names are kept as aliases.
+
++++
+** New function `window-absolute-pixel-position' to get the screen
+coordinates of a visible buffer position.
 
 +++
 ** The height of a frame's menu and tool bar are no longer counted in the

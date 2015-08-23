@@ -2,9 +2,10 @@
 
 ;; Copyright (C) 2003-2015 Free Software Foundation, Inc.
 
-;; Author: Fabián E. Gallina <fabian@anue.biz>
+;; Author: Fabián E. Gallina <fgallina@gnu.org>
 ;; URL: https://github.com/fgallina/python.el
-;; Version: 0.24.5
+;; Version: 0.25.1
+;; Package-Requires: ((emacs "24.1") (cl-lib "1.0"))
 ;; Maintainer: emacs-devel@gnu.org
 ;; Created: Jul 2010
 ;; Keywords: languages
@@ -1957,53 +1958,60 @@ Python shell.  See commentary for details."
   :safe 'booleanp)
 
 (defcustom python-shell-process-environment nil
-  "List of environment variables for Python shell.
-This variable follows the same rules as `process-environment'
-since it merges with it before the process creation routines are
-called.  When this variable is nil, the Python shell is run with
-the default `process-environment'."
+  "List of overridden environment variables for subprocesses to inherit.
+Each element should be a string of the form ENVVARNAME=VALUE.
+When this variable is non-nil, values are exported into the
+process environment before starting it.  Any variables already
+present in the current environment are superseded by variables
+set here."
   :type '(repeat string)
-  :group 'python
-  :safe 'listp)
+  :group 'python)
 
 (defcustom python-shell-extra-pythonpaths nil
   "List of extra pythonpaths for Python shell.
-The values of this variable are added to the existing value of
-PYTHONPATH in the `process-environment' variable."
+When this variable is non-nil, values added at the beginning of
+the PYTHONPATH before starting processes.  Any values present
+here that already exists in PYTHONPATH are moved to the beginning
+of the list so that they are prioritized when looking for
+modules."
   :type '(repeat string)
-  :group 'python
-  :safe 'listp)
+  :group 'python)
 
 (defcustom python-shell-exec-path nil
-  "List of path to search for binaries.
-This variable follows the same rules as `exec-path' since it
-merges with it before the process creation routines are called.
-When this variable is nil, the Python shell is run with the
-default `exec-path'."
+  "List of paths for searching executables.
+When this variable is non-nil, values added at the beginning of
+the PATH before starting processes.  Any values present here that
+already exists in PATH are moved to the beginning of the list so
+that they are prioritized when looking for executables."
   :type '(repeat string)
-  :group 'python
-  :safe 'listp)
+  :group 'python)
+
+(defcustom python-shell-remote-exec-path nil
+  "List of paths to be ensured remotely for searching executables.
+When this variable is non-nil, values are exported into remote
+hosts PATH before starting processes.  Values defined in
+`python-shell-exec-path' will take precedence to paths defined
+here.  Normally you wont use this variable directly unless you
+plan to ensure a particular set of paths to all Python shell
+executed through tramp connections."
+  :type '(repeat string)
+  :group 'python)
 
 (defcustom python-shell-virtualenv-root nil
   "Path to virtualenv root.
-This variable, when set to a string, makes the values stored in
-`python-shell-process-environment' and `python-shell-exec-path'
-to be modified properly so shells are started with the specified
+This variable, when set to a string, makes the environment to be
+modified such that shells are started within the specified
 virtualenv."
   :type '(choice (const nil) string)
-  :group 'python
-  :safe 'stringp)
+  :group 'python)
 
 (define-obsolete-variable-alias
   'python-shell-virtualenv-path 'python-shell-virtualenv-root "25.1")
 
-(defcustom python-shell-setup-codes '(python-shell-completion-setup-code
-                                      python-ffap-setup-code
-                                      python-eldoc-setup-code)
+(defcustom python-shell-setup-codes nil
   "List of code run by `python-shell-send-setup-codes'."
   :type '(repeat symbol)
-  :group 'python
-  :safe 'listp)
+  :group 'python)
 
 (defcustom python-shell-compilation-regexp-alist
   `((,(rx line-start (1+ (any " \t")) "File \""
@@ -2020,22 +2028,37 @@ virtualenv."
   :type '(alist string)
   :group 'python)
 
+(defmacro python-shell--add-to-path-with-priority (pathvar paths)
+  "Modify PATHVAR and ensure PATHS are added only once at beginning."
+  `(dolist (path (reverse ,paths))
+     (cl-delete path ,pathvar :test #'string=)
+     (cl-pushnew path ,pathvar :test #'string=)))
+
+(defun python-shell-calculate-pythonpath ()
+  "Calculate the PYTHONPATH using `python-shell-extra-pythonpaths'."
+  (let ((pythonpath
+         (tramp-compat-split-string
+          (or (getenv "PYTHONPATH") "") path-separator)))
+    (python-shell--add-to-path-with-priority
+     pythonpath python-shell-extra-pythonpaths)
+    (mapconcat 'identity pythonpath path-separator)))
+
 (defun python-shell-calculate-process-environment ()
   "Calculate `process-environment' or `tramp-remote-process-environment'.
-Pre-appends `python-shell-process-environment', sets extra
+Prepends `python-shell-process-environment', sets extra
 pythonpaths from `python-shell-extra-pythonpaths' and sets a few
 virtualenv related vars.  If `default-directory' points to a
-remote machine, the returned value is intended for
+remote host, the returned value is intended for
 `tramp-remote-process-environment'."
   (let* ((remote-p (file-remote-p default-directory))
-         (process-environment (append
-                               python-shell-process-environment
-                               (if remote-p
-                                   tramp-remote-process-environment
-                                 process-environment) nil))
-         (virtualenv (if python-shell-virtualenv-root
-                         (directory-file-name python-shell-virtualenv-root)
-                       nil)))
+         (process-environment (if remote-p
+                                  tramp-remote-process-environment
+                                process-environment))
+         (virtualenv (when python-shell-virtualenv-root
+                       (directory-file-name python-shell-virtualenv-root))))
+    (dolist (env python-shell-process-environment)
+      (pcase-let ((`(,key ,value) (split-string env "=")))
+        (setenv key value)))
     (when python-shell-unbuffered
       (setenv "PYTHONUNBUFFERED" "1"))
     (when python-shell-extra-pythonpaths
@@ -2047,50 +2070,105 @@ remote machine, the returned value is intended for
     process-environment))
 
 (defun python-shell-calculate-exec-path ()
-  "Calculate `exec-path' or `tramp-remote-path'.
-Pre-appends `python-shell-exec-path' and adds the binary
-directory for virtualenv if `python-shell-virtualenv-root' is
-set.  If `default-directory' points to a remote machine, the
-returned value is intended for `tramp-remote-path'."
-  (let ((path (append
-               ;; Use nil as the tail so that the list is a full copy,
-               ;; this is a paranoid safeguard for side-effects.
-               python-shell-exec-path
-               (if (file-remote-p default-directory)
-                   tramp-remote-path
-                 exec-path)
-               nil)))
+  "Calculate `exec-path'.
+Prepends `python-shell-exec-path' and adds the binary directory
+for virtualenv if `python-shell-virtualenv-root' is set.  If
+`default-directory' points to a remote host, the returned value
+appends `python-shell-remote-exec-path' instead of `exec-path'."
+  (let ((new-path (copy-sequence
+                   (if (file-remote-p default-directory)
+                       python-shell-remote-exec-path
+                     exec-path))))
+    (python-shell--add-to-path-with-priority
+     new-path python-shell-exec-path)
     (if (not python-shell-virtualenv-root)
-        path
-      (cons (expand-file-name "bin" python-shell-virtualenv-root)
-            path))))
+        new-path
+      (python-shell--add-to-path-with-priority
+       new-path
+       (list (expand-file-name "bin" python-shell-virtualenv-root)))
+      new-path)))
+
+(defun python-shell-tramp-refresh-remote-path (vec paths)
+  "Update VEC's remote-path giving PATHS priority."
+  (let ((remote-path (tramp-get-connection-property vec "remote-path" nil)))
+    (when remote-path
+      (python-shell--add-to-path-with-priority remote-path paths)
+      (tramp-set-connection-property vec "remote-path" remote-path)
+      (tramp-set-remote-path vec))))
+
+(defun python-shell-tramp-refresh-process-environment (vec env)
+  "Update VEC's process environment with ENV."
+  ;; Stolen from `tramp-open-connection-setup-interactive-shell'.
+  (let ((env (append (when (fboundp #'tramp-get-remote-locale)
+                       ;; Emacs<24.4 compat.
+                       (list (tramp-get-remote-locale vec)))
+		     (copy-sequence env)))
+        (tramp-end-of-heredoc
+         (if (boundp 'tramp-end-of-heredoc)
+             tramp-end-of-heredoc
+           (md5 tramp-end-of-output)))
+	unset vars item)
+    (while env
+      (setq item (tramp-compat-split-string (car env) "="))
+      (setcdr item (mapconcat 'identity (cdr item) "="))
+      (if (and (stringp (cdr item)) (not (string-equal (cdr item) "")))
+	  (push (format "%s %s" (car item) (cdr item)) vars)
+	(push (car item) unset))
+      (setq env (cdr env)))
+    (when vars
+      (tramp-send-command
+       vec
+       (format "while read var val; do export $var=$val; done <<'%s'\n%s\n%s"
+	       tramp-end-of-heredoc
+	       (mapconcat 'identity vars "\n")
+	       tramp-end-of-heredoc)
+       t))
+    (when unset
+      (tramp-send-command
+       vec (format "unset %s" (mapconcat 'identity unset " ")) t))))
 
 (defmacro python-shell-with-environment (&rest body)
   "Modify shell environment during execution of BODY.
 Temporarily sets `process-environment' and `exec-path' during
 execution of body.  If `default-directory' points to a remote
 machine then modifies `tramp-remote-process-environment' and
-`tramp-remote-path' instead."
+`python-shell-remote-exec-path' instead."
   (declare (indent 0) (debug (body)))
-  (let ((remote-p (make-symbol "remote-p")))
-    `(let* ((,remote-p (file-remote-p default-directory))
-            (process-environment
-             (if ,remote-p
-                 process-environment
-               (python-shell-calculate-process-environment)))
-            (tramp-remote-process-environment
-             (if ,remote-p
-                 (python-shell-calculate-process-environment)
-               tramp-remote-process-environment))
-            (exec-path
-             (if ,remote-p
-                 exec-path
-               (python-shell-calculate-exec-path)))
-            (tramp-remote-path
-             (if ,remote-p
-                 (python-shell-calculate-exec-path)
-               tramp-remote-path)))
-       ,(macroexp-progn body))))
+  (let ((vec (make-symbol "vec")))
+    `(progn
+       (let* ((,vec
+               (when (file-remote-p default-directory)
+                 (ignore-errors
+                   (tramp-dissect-file-name default-directory 'noexpand))))
+              (process-environment
+               (if ,vec
+                   process-environment
+                 (python-shell-calculate-process-environment)))
+              (exec-path
+               (if ,vec
+                   exec-path
+                 (python-shell-calculate-exec-path)))
+              (tramp-remote-process-environment
+               (if ,vec
+                   (python-shell-calculate-process-environment)
+                 tramp-remote-process-environment)))
+         (when (tramp-get-connection-process ,vec)
+           ;; For already existing connections, the new exec path must
+           ;; be re-set, otherwise it won't take effect.  One example
+           ;; of such case is when remote dir-locals are read and
+           ;; *then* subprocesses are triggered within the same
+           ;; connection.
+           (python-shell-tramp-refresh-remote-path
+            ,vec (python-shell-calculate-exec-path))
+           ;; The `tramp-remote-process-environment' variable is only
+           ;; effective when the started process is an interactive
+           ;; shell, otherwise (like in the case of processes started
+           ;; with `process-file') the environment is not changed.
+           ;; This makes environment modifications effective
+           ;; inconditionally.
+           (python-shell-tramp-refresh-process-environment
+            ,vec tramp-remote-process-environment))
+         ,(macroexp-progn body)))))
 
 (defvar python-shell--prompt-calculated-input-regexp nil
   "Calculated input prompt regexp for inferior python shell.
@@ -2271,27 +2349,13 @@ the `buffer-name'."
 
 (defun python-shell-calculate-command ()
   "Calculate the string used to execute the inferior Python process."
-  (python-shell-with-environment
-    ;; `exec-path' gets tweaked so that virtualenv's specific
-    ;; `python-shell-interpreter' absolute path can be found by
-    ;; `executable-find'.
-    (format "%s %s"
-            (shell-quote-argument python-shell-interpreter)
-            python-shell-interpreter-args)))
+  (format "%s %s"
+          (shell-quote-argument python-shell-interpreter)
+          python-shell-interpreter-args))
 
 (define-obsolete-function-alias
   'python-shell-parse-command
   #'python-shell-calculate-command "25.1")
-
-(defun python-shell-calculate-pythonpath ()
-  "Calculate the PYTHONPATH using `python-shell-extra-pythonpaths'."
-  (let ((pythonpath (getenv "PYTHONPATH"))
-        (extra (mapconcat 'identity
-                          python-shell-extra-pythonpaths
-                          path-separator)))
-    (if pythonpath
-        (concat extra path-separator pythonpath)
-      extra)))
 
 (defvar python-shell--package-depth 10)
 
@@ -2720,7 +2784,8 @@ of `error' with a user-friendly message."
   (or (python-shell-get-process)
       (if interactivep
           (user-error
-           "Start a Python process first with `M-x run-python' or `%s'."
+           "Start a Python process first with ‘%s’ or ‘%s’."
+           (substitute-command-keys "\\[run-python]")
            ;; Get the binding.
            (key-description
             (where-is-internal
@@ -3051,18 +3116,18 @@ t when called interactively."
   "Send all setup code for shell.
 This function takes the list of setup code to send from the
 `python-shell-setup-codes' list."
-  (let ((process (python-shell-get-process))
-        (code (concat
-               (mapconcat
-                (lambda (elt)
-                  (cond ((stringp elt) elt)
-                        ((symbolp elt) (symbol-value elt))
-                        (t "")))
-                python-shell-setup-codes
-                "\n\n")
-               "\n\nprint ('python.el: sent setup code')")))
-    (python-shell-send-string code process)
-    (python-shell-accept-process-output process)))
+  (when python-shell-setup-codes
+    (let ((process (python-shell-get-process))
+          (code (concat
+                 (mapconcat
+                  (lambda (elt)
+                    (cond ((stringp elt) elt)
+                          ((symbolp elt) (symbol-value elt))
+                          (t "")))
+                  python-shell-setup-codes
+                  "\n\nprint ('python.el: sent setup code')"))))
+      (python-shell-send-string code process)
+      (python-shell-accept-process-output process))))
 
 (add-hook 'inferior-python-mode-hook
           #'python-shell-send-setup-code)
@@ -3120,7 +3185,7 @@ else:
   :group 'python)
 
 (defcustom python-shell-completion-string-code
-  "';'.join(__PYTHON_EL_get_completions('''%s'''))\n"
+  "';'.join(__PYTHON_EL_get_completions('''%s'''))"
   "Python code used to get a string of completions separated by semicolons.
 The string passed to the function is the current python name or
 the full statement in the case of imports."
@@ -3185,48 +3250,78 @@ When a match is found, native completion is disabled."
 def __PYTHON_EL_native_completion_setup():
     try:
         import readline
+
         try:
             import __builtin__
         except ImportError:
             # Python 3
             import builtins as __builtin__
+
         builtins = dir(__builtin__)
         is_ipython = ('__IPYTHON__' in builtins or
                       '__IPYTHON__active' in builtins)
+
         class __PYTHON_EL_Completer:
+            '''Completer wrapper that prints candidates to stdout.
+
+            It wraps an existing completer function and changes its behavior so
+            that the user input is unchanged and real candidates are printed to
+            stdout.
+
+            Returned candidates are '0__dummy_completion__' and
+            '1__dummy_completion__' in that order ('0__dummy_completion__' is
+            returned repeatedly until all possible candidates are consumed).
+
+            The real candidates are printed to stdout so that they can be
+            easily retrieved through comint output redirect trickery.
+            '''
+
             PYTHON_EL_WRAPPED = True
+
             def __init__(self, completer):
                 self.completer = completer
                 self.last_completion = None
+
             def __call__(self, text, state):
                 if state == 0:
-                    # The first completion is always a dummy completion.  This
-                    # ensures proper output for sole completions and a current
-                    # input safeguard when no completions are available.
+                    # Set the first dummy completion.
                     self.last_completion = None
                     completion = '0__dummy_completion__'
                 else:
                     completion = self.completer(text, state - 1)
+
                 if not completion:
-                    if state == 1:
-                        # When no completions are available, two non-sharing
-                        # prefix strings are returned just to ensure output
+                    if self.last_completion != '1__dummy_completion__':
+                        # When no more completions are available, returning a
+                        # dummy with non-sharing prefix allow to ensure output
                         # while preventing changes to current input.
+                        # Coincidentally it's also the end of output.
                         completion = '1__dummy_completion__'
-                    elif self.last_completion != '~~~~__dummy_completion__':
-                        # This marks the end of output.
-                        completion = '~~~~__dummy_completion__'
                 elif completion.endswith('('):
                     # Remove parens on callables as it breaks completion on
                     # arguments (e.g. str(Ari<tab>)).
                     completion = completion[:-1]
                 self.last_completion = completion
-                return completion
+
+                if completion in (
+                        '0__dummy_completion__', '1__dummy_completion__'):
+                    return completion
+                elif completion:
+                    # For every non-dummy completion, return a repeated dummy
+                    # one and print the real candidate so it can be retrieved
+                    # by comint output filters.
+                    print (completion)
+                    return '0__dummy_completion__'
+                else:
+                    return completion
+
         completer = readline.get_completer()
+
         if not completer:
             # Used as last resort to avoid breaking customizations.
             import rlcompleter
             completer = readline.get_completer()
+
         if completer and not getattr(completer, 'PYTHON_EL_WRAPPED', False):
             # Wrap the existing completer function only once.
             new_completer = __PYTHON_EL_Completer(completer)
@@ -3241,15 +3336,18 @@ def __PYTHON_EL_native_completion_setup():
                 # function into the existing instance directly:
                 instance = getattr(completer, 'im_self', completer.__self__)
                 instance.rlcomplete = new_completer
+
         if readline.__doc__ and 'libedit' in readline.__doc__:
             readline.parse_and_bind('bind ^I rl_complete')
         else:
             readline.parse_and_bind('tab: complete')
             # Require just one tab to send output.
             readline.parse_and_bind('set show-all-if-ambiguous on')
+
         print ('python.el: readline is available')
-    except IOError:
+    except:
         print ('python.el: readline not available')
+
 __PYTHON_EL_native_completion_setup()"
      process)
     (python-shell-accept-process-output process)
@@ -3328,7 +3426,6 @@ completion."
              (original-filter-fn (process-filter process))
              (redirect-buffer (get-buffer-create
                                python-shell-completion-native-redirect-buffer))
-             (separators (python-rx (or whitespace open-paren close-paren)))
              (trigger "\t")
              (new-input (concat input trigger))
              (input-length
@@ -3341,18 +3438,17 @@ completion."
         (unwind-protect
             (with-current-buffer redirect-buffer
               ;; Cleanup the redirect buffer
-              (delete-region (point-min) (point-max))
+              (erase-buffer)
               ;; Mimic `comint-redirect-send-command', unfortunately it
               ;; can't be used here because it expects a newline in the
               ;; command and that's exactly what we are trying to avoid.
               (let ((comint-redirect-echo-input nil)
-                    (comint-redirect-verbose nil)
+                    (comint-redirect-completed nil)
                     (comint-redirect-perform-sanity-check nil)
-                    (comint-redirect-insert-matching-regexp nil)
-                    ;; Feed it some regex that will never match.
-                    (comint-redirect-finished-regexp "^\\'$")
-                    (comint-redirect-output-buffer redirect-buffer)
-                    (current-time (float-time)))
+                    (comint-redirect-insert-matching-regexp t)
+                    (comint-redirect-finished-regexp
+                     "1__dummy_completion__[[:space:]]*\n")
+                    (comint-redirect-output-buffer redirect-buffer))
                 ;; Compatibility with Emacs 24.x.  Comint changed and
                 ;; now `comint-redirect-filter' gets 3 args.  This
                 ;; checks which version of `comint-redirect-filter' is
@@ -3366,21 +3462,17 @@ completion."
                   (set-process-filter process #'comint-redirect-filter))
                 (process-send-string process input-to-send)
                 ;; Grab output until our dummy completion used as
-                ;; output end marker is found.  Output is accepted
-                ;; *very* quickly to keep the shell super-responsive.
-                (while (and (not (re-search-backward "~~~~__dummy_completion__" nil t))
-                            (< (- (float-time) current-time)
-                               python-shell-completion-native-output-timeout))
-                  (accept-process-output process 0.01))
-                (cl-remove-duplicates
-                 (cl-remove-if
-                  (lambda (c)
-                    (string-match "__dummy_completion__" c))
-                  (split-string
-                   (buffer-substring-no-properties
-                    (point-min) (point-max))
-                   separators t))
-                 :test #'string=)))
+                ;; output end marker is found.
+                (when (python-shell-accept-process-output
+                       process python-shell-completion-native-output-timeout
+                       comint-redirect-finished-regexp)
+                  (re-search-backward "0__dummy_completion__" nil t)
+                  (cl-remove-duplicates
+                   (split-string
+                    (buffer-substring-no-properties
+                     (line-beginning-position) (point-min))
+                    "[ \f\t\n\r\v()]+" t)
+                   :test #'string=))))
           (set-process-filter process original-filter-fn))))))
 
 (defun python-shell-completion-get-completions (process import input)
@@ -3396,28 +3488,22 @@ completion."
             ;; Check whether a prompt matches a pdb string, an import
             ;; statement or just the standard prompt and use the
             ;; correct python-shell-completion-*-code string
-            (cond ((and (string-match
-                         (concat "^" python-shell-prompt-pdb-regexp) prompt))
-                   ;; Since there are no guarantees the user will remain
-                   ;; in the same context where completion code was sent
-                   ;; (e.g. user steps into a function), safeguard
-                   ;; resending completion setup continuously.
-                   (concat python-shell-completion-setup-code
-                           "\nprint (" python-shell-completion-string-code ")"))
-                  ((string-match
-                    python-shell--prompt-calculated-input-regexp prompt)
-                   python-shell-completion-string-code)
-                  (t nil)))
+            (when (string-match python-shell--prompt-calculated-input-regexp prompt)
+              ;; Since there are no guarantees the user will remain
+              ;; in the same context where completion code was sent
+              ;; (e.g. user steps into a function), safeguard
+              ;; resending completion setup continuously.
+              (concat python-shell-completion-setup-code
+                      "\nprint (" python-shell-completion-string-code ")")))
            (subject (or import input)))
-      (and completion-code
-           (> (length input) 0)
-           (let ((completions
-                  (python-util-strip-string
-                   (python-shell-send-string-no-output
-                    (format completion-code subject) process))))
-             (and (> (length completions) 2)
-                  (split-string completions
-                                "^'\\|^\"\\|;\\|'$\\|\"$" t)))))))
+      (when (and completion-code (> (length input) 0))
+        (let ((completions
+               (python-util-strip-string
+                (python-shell-send-string-no-output
+                 (format completion-code subject) process))))
+          (when (> (length completions) 2)
+            (split-string completions
+                          "^'\\|^\"\\|;\\|'$\\|\"$" t)))))))
 
 (defun python-shell-completion-at-point (&optional process)
   "Function for `completion-at-point-functions' in `inferior-python-mode'.
@@ -3961,13 +4047,22 @@ The skeleton will be bound to python-skeleton-NAME."
 ;;; FFAP
 
 (defcustom python-ffap-setup-code
-  "def __FFAP_get_module_path(module):
+  "
+def __FFAP_get_module_path(objstr):
     try:
-        import os
-        path = __import__(module).__file__
-        if path[-4:] == '.pyc' and os.path.exists(path[0:-1]):
-            path = path[:-1]
-        return path
+        import inspect
+        import os.path
+        # NameError exceptions are delayed until this point.
+        obj = eval(objstr)
+        module = inspect.getmodule(obj)
+        filename = module.__file__
+        ext = os.path.splitext(filename)[1]
+        if ext in ('.pyc', '.pyo'):
+            # Point to the source file.
+            filename = filename[:-1]
+        if os.path.exists(filename):
+            return filename
+        return ''
     except:
         return ''"
   "Python code to get a module path."
@@ -3975,7 +4070,7 @@ The skeleton will be bound to python-skeleton-NAME."
   :group 'python)
 
 (defcustom python-ffap-string-code
-  "__FFAP_get_module_path('''%s''')\n"
+  "__FFAP_get_module_path('''%s''')"
   "Python code used to get a string with the path of a module."
   :type 'string
   :group 'python)
@@ -3990,9 +4085,12 @@ The skeleton will be bound to python-skeleton-NAME."
         nil
       (let ((module-file
              (python-shell-send-string-no-output
-              (format python-ffap-string-code module) process)))
-        (when module-file
-          (substring-no-properties module-file 1 -1))))))
+              (concat
+               python-ffap-setup-code
+               "\nprint (" (format python-ffap-string-code module) ")")
+              process)))
+        (unless (zerop (length module-file))
+          (python-util-strip-string module-file))))))
 
 (defvar ffap-alist)
 
@@ -4078,13 +4176,13 @@ See `python-check-command' for the default."
             doc = doc.splitlines()[0]
     except:
         doc = ''
-    print (doc)"
+    return doc"
   "Python code to setup documentation retrieval."
   :type 'string
   :group 'python)
 
 (defcustom python-eldoc-string-code
-  "__PYDOC_get_help('''%s''')\n"
+  "__PYDOC_get_help('''%s''')"
   "Python code used to get a string with the documentation of an object."
   :type 'string
   :group 'python)
@@ -4110,15 +4208,20 @@ returns will be used.  If not FORCE-PROCESS is passed what
 `python-shell-get-process' returns is used."
   (let ((process (or force-process (python-shell-get-process))))
     (when process
-      (let ((input (or force-input
-                       (python-eldoc--get-symbol-at-point))))
-        (and input
-             ;; Prevent resizing the echo area when iPython is
-             ;; enabled.  Bug#18794.
-             (python-util-strip-string
-              (python-shell-send-string-no-output
-               (format python-eldoc-string-code input)
-               process)))))))
+      (let* ((input (or force-input
+                        (python-eldoc--get-symbol-at-point)))
+             (docstring
+              (when input
+                ;; Prevent resizing the echo area when iPython is
+                ;; enabled.  Bug#18794.
+                (python-util-strip-string
+                 (python-shell-send-string-no-output
+                  (concat
+                   python-eldoc-setup-code
+                   "\nprint(" (format python-eldoc-string-code input) ")")
+                  process)))))
+        (unless (zerop (length docstring))
+          docstring)))))
 
 (defun python-eldoc-function ()
   "`eldoc-documentation-function' for Python.
