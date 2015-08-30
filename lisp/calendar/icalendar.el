@@ -261,7 +261,7 @@ If non-nil all sexp diary entries are enumerated for
 `icalendar-export-sexp-enumeration-days' days instead of
 translating into an icalendar equivalent.  This affects the
 following sexp diary entries: `diary-anniversary',
-`diary-cyclic', `diary-date', `diary-float',`diary-block'.  All
+`diary-cyclic', `diary-date', `diary-float', `diary-block'.  All
 other sexp entries are enumerated in any case."
   :version "25.1"
   :type 'boolean
@@ -482,7 +482,7 @@ children."
     result))
 
 (defun icalendar--split-value (value-string)
-  "Split VALUE-STRING at ';='."
+  "Split VALUE-STRING at ‘;=’."
   (let ((result '())
         param-name param-value)
     (when value-string
@@ -1118,10 +1118,10 @@ FExport diary data into iCalendar file: ")
            (setq found-error t)
            (save-current-buffer
              (set-buffer (get-buffer-create "*icalendar-errors*"))
-             (insert (format "Error in line %d -- %s: ‘%s’\n"
-                             (count-lines (point-min) (point))
-                             error-val
-                             entry-main))))))
+             (insert (format-message "Error in line %d -- %s: ‘%s’\n"
+                                     (count-lines (point-min) (point))
+                                     error-val
+                                     entry-main))))))
 
       ;; we're done, insert everything into the file
       (save-current-buffer
@@ -2473,8 +2473,8 @@ SUMMARY is not nil it must be a string that gives the summary of the
 entry.  In this case the user will be asked whether he wants to insert
 the entry."
   (when (or (not summary)
-            (y-or-n-p (format "Add appointment for ‘%s’ to diary? "
-                              summary)))
+            (y-or-n-p (format-message "Add appointment for ‘%s’ to diary? "
+                                      summary)))
     (when summary
       (setq non-marking
             (y-or-n-p (format "Make appointment non-marking? "))))

@@ -1661,7 +1661,7 @@ used as key in `ispell-local-dictionary-alist' and `ispell-dictionary-alist'.")
 
 (defvar ispell-current-personal-dictionary nil
   "The name of the current personal dictionary, or nil for the default.
-This is passed to the Ispella process using the `-p' switch.")
+This is passed to the Ispell process using the `-p' switch.")
 
 (defun ispell-decode-string (str)
   "Decodes multibyte character strings.
@@ -1896,7 +1896,7 @@ Currently the only other valid parser is `tex'.
 
 You can set this variable in hooks in your init file -- eg:
 
-\(add-hook 'tex-mode-hook (lambda () (setq ispell-parser 'tex)))")
+\(add-hook \\='tex-mode-hook (lambda () (setq ispell-parser \\='tex)))")
 
 (defvar ispell-region-end (make-marker)
   "Marker that allows spelling continuations.")
@@ -4039,14 +4039,14 @@ The `X' command aborts sending the message so that you can edit the buffer.
 
 To spell-check whenever a message is sent, include the appropriate lines
 in your init file:
-   (add-hook 'message-send-hook 'ispell-message)  ;; GNUS 5
-   (add-hook 'news-inews-hook 'ispell-message)    ;; GNUS 4
-   (add-hook 'mail-send-hook  'ispell-message)
-   (add-hook 'mh-before-send-letter-hook 'ispell-message)
+   (add-hook \\='message-send-hook \\='ispell-message)  ;; GNUS 5
+   (add-hook \\='news-inews-hook \\='ispell-message)    ;; GNUS 4
+   (add-hook \\='mail-send-hook  \\='ispell-message)
+   (add-hook \\='mh-before-send-letter-hook \\='ispell-message)
 
 You can bind this to the key C-c i in GNUS or mail by adding to
 `news-reply-mode-hook' or `mail-mode-hook' the following lambda expression:
-   (function (lambda () (local-set-key \"\\C-ci\" 'ispell-message)))"
+   (function (lambda () (local-set-key \"\\C-ci\" \\='ispell-message)))"
   (interactive)
   (save-excursion
     (goto-char (point-min))

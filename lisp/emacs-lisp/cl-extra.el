@@ -38,7 +38,6 @@
 ;;; Code:
 
 (require 'cl-lib)
-(require 'seq)
 
 ;;; Type coercion.
 
@@ -520,19 +519,42 @@ This sets the values of: `cl-most-positive-float', `cl-most-negative-float',
 If END is omitted, it defaults to the length of the sequence.
 If START or END is negative, it counts from the end.
 Signal an error if START or END are outside of the sequence (i.e
-too large if positive or too small if negative)"
+too large if positive or too small if negative)."
   (declare (gv-setter
             (lambda (new)
               (macroexp-let2 nil new new
 		`(progn (cl-replace ,seq ,new :start1 ,start :end1 ,end)
 			,new)))))
-  (seq-subseq seq start end))
+  (cond ((or (stringp seq) (vectorp seq)) (substring seq start end))
+        ((listp seq)
+         (let (len
+               (errtext (format "Bad bounding indices: %s, %s" start end)))
+           (and end (< end 0) (setq end (+ end (setq len (length seq)))))
+           (if (< start 0) (setq start (+ start (or len (setq len (length seq))))))
+           (unless (>= start 0)
+             (error "%s" errtext))
+           (when (> start 0)
+             (setq seq (nthcdr (1- start) seq))
+             (or seq (error "%s" errtext))
+             (setq seq (cdr seq)))
+           (if end
+               (let ((res nil))
+                 (while (and (>= (setq end (1- end)) start) seq)
+                   (push (pop seq) res))
+                 (or (= (1+ end) start) (error "%s" errtext))
+                 (nreverse res))
+             (copy-sequence seq))))
+        (t (error "Unsupported sequence: %s" seq))))
 
 ;;;###autoload
-(defalias 'cl-concatenate #'seq-concatenate
+(defun cl-concatenate (type &rest sequences)
   "Concatenate, into a sequence of type TYPE, the argument SEQUENCEs.
-\n(fn TYPE SEQUENCE...)")
-
+\n(fn TYPE SEQUENCE...)"
+  (pcase type
+    (`vector (apply #'vconcat sequences))
+    (`string (apply #'concat sequences))
+    (`list (apply #'append (append sequences '(nil))))
+    (_ (error "Not a sequence type name: %S" type))))
 
 ;;; List functions.
 
@@ -752,16 +774,16 @@ including `cl-block' and `cl-eval-when'."
         ;; FIXME: Add a `cl-class-of' or `cl-typeof' or somesuch.
         (metatype (cl--class-name (symbol-value (aref class 0)))))
     (insert (symbol-name type)
-            (format " is a type (of kind ‘"))
+            (substitute-command-keys " is a type (of kind ‘"))
     (help-insert-xref-button (symbol-name metatype)
                              'cl-help-type metatype)
-    (insert (format "’)"))
+    (insert (substitute-command-keys "’)"))
     (when location
-      (insert (format " in ‘"))
+      (insert (substitute-command-keys " in ‘"))
       (help-insert-xref-button
        (help-fns-short-filename location)
        'cl-type-definition type location 'define-type)
-      (insert (format "’")))
+      (insert (substitute-command-keys "’")))
     (insert ".\n")
 
     ;; Parents.
@@ -771,10 +793,10 @@ including `cl-block' and `cl-eval-when'."
         (insert " Inherits from ")
         (while (setq cur (pop pl))
           (setq cur (cl--class-name cur))
-          (insert (format "‘"))
+          (insert (substitute-command-keys "‘"))
           (help-insert-xref-button (symbol-name cur)
                                    'cl-help-type cur)
-          (insert (format (if pl "’, " "’"))))
+          (insert (substitute-command-keys (if pl "’, " "’"))))
         (insert ".\n")))
 
     ;; Children, if available.  ¡For EIEIO!
@@ -785,10 +807,10 @@ including `cl-block' and `cl-eval-when'."
       (when ch
         (insert " Children ")
         (while (setq cur (pop ch))
-          (insert (format "‘"))
+          (insert (substitute-command-keys "‘"))
           (help-insert-xref-button (symbol-name cur)
                                    'cl-help-type cur)
-          (insert (format (if ch "’, " "’"))))
+          (insert (substitute-command-keys (if ch "’, " "’"))))
         (insert ".\n")))
 
     ;; Type's documentation.
@@ -804,10 +826,10 @@ including `cl-block' and `cl-eval-when'."
       (when generics
         (insert (propertize "Specialized Methods:\n\n" 'face 'bold))
         (dolist (generic generics)
-          (insert (format "‘"))
+          (insert (substitute-command-keys "‘"))
           (help-insert-xref-button (symbol-name generic)
                                    'help-function generic)
-          (insert (format "’"))
+          (insert (substitute-command-keys "’"))
           (pcase-dolist (`(,qualifiers ,args ,doc)
                          (cl--generic-method-documentation generic type))
             (insert (format " %s%S\n" qualifiers args)

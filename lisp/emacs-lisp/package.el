@@ -1592,11 +1592,12 @@ SEEN is used internally to detect infinite recursion."
                 (unless problem
                   (setq problem
                         (if (stringp disabled)
-                            (format "Package ‘%s’ held at version %s, but version %s required"
-                                    next-pkg disabled
-                                    (package-version-join next-version))
-                          (format "Required package ‘%s’ is disabled"
-                                  next-pkg)))))
+                            (format-message
+                             "Package ‘%s’ held at version %s, but version %s required"
+                             next-pkg disabled
+                             (package-version-join next-version))
+                          (format-message "Required package ‘%s’ is disabled"
+                                          next-pkg)))))
                (t (setq found pkg-desc)))))
           (unless found
             (cond
@@ -2204,7 +2205,7 @@ Otherwise no newline is inserted."
                                    "Installed"
                                  (capitalize status))
                                'font-lock-face 'package-status-builtin-face))
-           (insert (format " in ‘"))
+           (insert (substitute-command-keys " in ‘"))
            (let ((dir (abbreviate-file-name
                        (file-name-as-directory
                         (if (file-in-directory-p pkg-dir package-user-dir)
@@ -2213,10 +2214,11 @@ Otherwise no newline is inserted."
              (help-insert-xref-button dir 'help-package-def pkg-dir))
            (if (and (package-built-in-p name)
                     (not (package-built-in-p name version)))
-               (insert (format "’,\n             shadowing a ")
+               (insert (substitute-command-keys
+                        "’,\n             shadowing a ")
                        (propertize "built-in package"
                                    'font-lock-face 'package-status-builtin-face))
-             (insert (format "’")))
+             (insert (substitute-command-keys "’")))
            (if signed
                (insert ".")
              (insert " (unsigned)."))
@@ -2364,16 +2366,16 @@ Otherwise no newline is inserted."
 
 (defun package-install-button-action (button)
   (let ((pkg-desc (button-get button 'package-desc)))
-    (when (y-or-n-p (format "Install package ‘%s’? "
-                            (package-desc-full-name pkg-desc)))
+    (when (y-or-n-p (format-message "Install package ‘%s’? "
+                                    (package-desc-full-name pkg-desc)))
       (package-install pkg-desc nil)
       (revert-buffer nil t)
       (goto-char (point-min)))))
 
 (defun package-delete-button-action (button)
   (let ((pkg-desc (button-get button 'package-desc)))
-    (when (y-or-n-p (format "Delete package ‘%s’? "
-                      (package-desc-full-name pkg-desc)))
+    (when (y-or-n-p (format-message "Delete package ‘%s’? "
+                                    (package-desc-full-name pkg-desc)))
       (package-delete pkg-desc)
       (revert-buffer nil t)
       (goto-char (point-min)))))
@@ -3076,8 +3078,8 @@ prompt (see `package-menu--prompt-transaction-p')."
       (length packages)
       (mapconcat #'package-desc-full-name packages ", ")))
    ;; Exactly 1
-   (t (format "package ‘%s’"
-        (package-desc-full-name (car packages))))))
+   (t (format-message "package ‘%s’"
+                      (package-desc-full-name (car packages))))))
 
 (defun package-menu--prompt-transaction-p (delete install upgrade)
   "Prompt the user about DELETE, INSTALL, and UPGRADE.

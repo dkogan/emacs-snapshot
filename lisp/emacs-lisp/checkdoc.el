@@ -1419,7 +1419,7 @@ regexp short cuts work.  FP is the function defun information."
        (when (re-search-forward "^(" e t)
 	 (if (checkdoc-autofix-ask-replace (match-beginning 0)
 					   (match-end 0)
-					   "Escape this '('? "
+					   "Escape this ‘(’? "
 					   "\\(")
 	     nil
 	   (checkdoc-create-error
@@ -1714,7 +1714,7 @@ function,command,variable,option or symbol." ms1))))))
 				e t))
 			     (if (checkdoc-autofix-ask-replace
 				  (match-beginning 1) (match-end 1)
-				  (format
+				  (format-message
 				   "If this is the argument ‘%s’, it should appear as %s.  Fix? "
 				   (car args) (upcase (car args)))
 				  (upcase (car args)) t)
@@ -1740,7 +1740,7 @@ function,command,variable,option or symbol." ms1))))))
 			     (insert "."))
 			 nil)
 		     (checkdoc-create-error
-		      (format
+		      (format-message
 		       "Argument ‘%s’ should appear (as %s) in the doc string"
 		       (car args) (upcase (car args)))
 		      s (marker-position e)))
@@ -1824,16 +1824,16 @@ Replace with \"%s\"? " original replace)
 		    (setq found (intern-soft ms))
 		    (or (boundp found) (fboundp found)))
 	       (progn
-		 (setq msg (format "Add quotes around Lisp symbol ‘%s’? "
-				   ms))
+		 (setq msg (format-message
+                            "Add quotes around Lisp symbol ‘%s’? " ms))
 		 (if (checkdoc-autofix-ask-replace
 		      (match-beginning 1) (+ (match-beginning 1)
 					     (length ms))
 		      msg (concat "‘" ms "’") t)
 		     (setq msg nil)
 		   (setq msg
-			 (format "Lisp symbol ‘%s’ should appear in quotes"
-				 ms))))))
+			 (format-message
+                          "Lisp symbol ‘%s’ should appear in quotes" ms))))))
 	 (if msg
 	     (checkdoc-create-error msg (match-beginning 1)
 				    (+ (match-beginning 1)
@@ -1954,7 +1954,7 @@ from the comment."
   "Return non-nil if the current point is in a code fragment.
 A code fragment is identified by an open parenthesis followed by a
 symbol which is a valid function or a word in all CAPS, or a parenthesis
-that is quoted with the ' character.  Only the region from START to LIMIT
+that is quoted with the \\=' character.  Only the region from START to LIMIT
 is allowed while searching for the bounding parenthesis."
   (save-match-data
     (save-restriction

@@ -2436,7 +2436,7 @@ Using `python-shell-interpreter' and
         (python-shell-interpreter-args "-B"))
     (should (string=
              (format "%s %s"
-                     python-shell-interpreter
+                     (shell-quote-argument python-shell-interpreter)
                      python-shell-interpreter-args)
              (python-shell-calculate-command)))))
 
@@ -2445,14 +2445,17 @@ Using `python-shell-interpreter' and
   (let ((process-environment '("PYTHONPATH=/path0"))
         (python-shell-extra-pythonpaths '("/path1" "/path2")))
     (should (string= (python-shell-calculate-pythonpath)
-                     "/path1:/path2:/path0"))))
+                     (concat "/path1" path-separator
+                             "/path2" path-separator "/path0")))))
 
 (ert-deftest python-shell-calculate-pythonpath-2 ()
   "Test existing paths are moved to front."
-  (let ((process-environment '("PYTHONPATH=/path0:/path1"))
+  (let ((process-environment
+         (list (concat "PYTHONPATH=/path0" path-separator "/path1")))
         (python-shell-extra-pythonpaths '("/path1" "/path2")))
     (should (string= (python-shell-calculate-pythonpath)
-                     "/path1:/path2:/path0"))))
+                     (concat "/path1" path-separator
+                             "/path2" path-separator "/path0")))))
 
 (ert-deftest python-shell-calculate-process-environment-1 ()
   "Test `python-shell-process-environment' modification."
@@ -2468,7 +2471,9 @@ Using `python-shell-interpreter' and
          (original-pythonpath (setenv "PYTHONPATH" "/path0"))
          (python-shell-extra-pythonpaths '("/path1" "/path2"))
          (process-environment (python-shell-calculate-process-environment)))
-    (should (equal (getenv "PYTHONPATH") "/path1:/path2:/path0"))))
+    (should (equal (getenv "PYTHONPATH")
+                   (concat "/path1" path-separator
+                           "/path2" path-separator "/path0")))))
 
 (ert-deftest python-shell-calculate-process-environment-3 ()
   "Test `python-shell-virtualenv-root' modification."
@@ -2545,7 +2550,8 @@ Using `python-shell-interpreter' and
   (let* ((exec-path '("/path0"))
          (python-shell-virtualenv-root "/env")
          (new-exec-path (python-shell-calculate-exec-path)))
-    (should (equal new-exec-path '("/env/bin" "/path0")))))
+    (should (equal new-exec-path
+                   (list (expand-file-name "/env/bin") "/path0")))))
 
 (ert-deftest python-shell-calculate-exec-path-3 ()
   "Test complete `python-shell-virtualenv-root' modification."
@@ -2553,7 +2559,9 @@ Using `python-shell-interpreter' and
          (python-shell-exec-path '("/path1" "/path2"))
          (python-shell-virtualenv-root "/env")
          (new-exec-path (python-shell-calculate-exec-path)))
-    (should (equal new-exec-path '("/env/bin" "/path1" "/path2" "/path0")))))
+    (should (equal new-exec-path
+                   (list (expand-file-name "/env/bin")
+                         "/path1" "/path2" "/path0")))))
 
 (ert-deftest python-shell-calculate-exec-path-4 ()
   "Test complete `python-shell-virtualenv-root' with remote."
@@ -2562,7 +2570,9 @@ Using `python-shell-interpreter' and
          (python-shell-exec-path '("/path1" "/path2"))
          (python-shell-virtualenv-root "/env")
          (new-exec-path (python-shell-calculate-exec-path)))
-    (should (equal new-exec-path '("/env/bin" "/path1" "/path2" "/path0")))))
+    (should (equal new-exec-path
+                   (list (expand-file-name "/env/bin")
+                         "/path1" "/path2" "/path0")))))
 
 (ert-deftest python-shell-calculate-exec-path-5 ()
   "Test no side-effects on `exec-path'."
@@ -2590,7 +2600,9 @@ Using `python-shell-interpreter' and
          (original-exec-path exec-path)
          (python-shell-virtualenv-root "/env"))
     (python-shell-with-environment
-      (should (equal exec-path '("/env/bin" "/path1" "/path2" "/path0")))
+     (should (equal exec-path
+                    (list (expand-file-name "/env/bin")
+                          "/path1" "/path2" "/path0")))
       (should (not (getenv "PYTHONHOME")))
       (should (string= (getenv "VIRTUAL_ENV") "/env")))
     (should (equal exec-path original-exec-path))))
@@ -2605,7 +2617,8 @@ Using `python-shell-interpreter' and
          (python-shell-virtualenv-root "/env"))
     (python-shell-with-environment
       (should (equal (python-shell-calculate-exec-path)
-                     '("/env/bin" "/path1" "/path2" "/remote1" "/remote2")))
+                     (list (expand-file-name "/env/bin")
+                           "/path1" "/path2" "/remote1" "/remote2")))
       (let ((process-environment (python-shell-calculate-process-environment)))
         (should (not (getenv "PYTHONHOME")))
         (should (string= (getenv "VIRTUAL_ENV") "/env"))
@@ -3275,6 +3288,61 @@ class Foo(models.Model):
     pass
 
 "))))
+
+(ert-deftest python-shell-buffer-substring-10 ()
+  "Check substring from partial block."
+  (python-tests-with-temp-buffer
+   "
+def foo():
+    print ('a')
+"
+   (should (string= (python-shell-buffer-substring
+                     (python-tests-look-at "print ('a')")
+                     (point-max))
+                    "if True:
+
+    print ('a')
+"))))
+
+(ert-deftest python-shell-buffer-substring-11 ()
+  "Check substring from partial block and point within indentation."
+  (python-tests-with-temp-buffer
+   "
+def foo():
+    print ('a')
+"
+   (should (string= (python-shell-buffer-substring
+                     (progn
+                       (python-tests-look-at "print ('a')")
+                       (backward-char 1)
+                       (point))
+                     (point-max))
+                    "if True:
+
+    print ('a')
+"))))
+
+(ert-deftest python-shell-buffer-substring-12 ()
+  "Check substring from partial block and point in whitespace."
+  (python-tests-with-temp-buffer
+   "
+def foo():
+
+        # Whitespace
+
+    print ('a')
+"
+   (should (string= (python-shell-buffer-substring
+                     (python-tests-look-at "# Whitespace")
+                     (point-max))
+                    "if True:
+
+
+        # Whitespace
+
+    print ('a')
+"))))
+
 
 
 ;;; Shell completion

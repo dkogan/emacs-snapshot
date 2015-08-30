@@ -533,7 +533,8 @@ Creates the directory if necessary and makes sure:
 		  ((and w32 (zerop uid))	  ; on FAT32?
 		   (display-warning
 		    'server
-		    (format "Using `%s' to store Emacs-server authentication files.
+		    (format-message "\
+Using `%s' to store Emacs-server authentication files.
 Directories on FAT32 filesystems are NOT secure against tampering.
 See variable `server-auth-dir' for details."
 			    (file-name-as-directory dir))
@@ -574,7 +575,7 @@ If the key is not valid, signal an error."
   (if server-auth-key
     (if (string-match-p "^[!-~]\\{64\\}$" server-auth-key)
         server-auth-key
-      (error "The key '%s' is invalid" server-auth-key))
+      (error "The key ‘%s’ is invalid" server-auth-key))
     (server-generate-key)))
 
 ;;;###autoload

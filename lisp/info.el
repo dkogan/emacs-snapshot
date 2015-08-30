@@ -3381,11 +3381,11 @@ Give an empty topic name to go to the Index node itself."
 	   (car (car Info-index-alternatives))
 	   (nth 2 (car Info-index-alternatives))
 	   (if (cdr Info-index-alternatives)
-	       (format "(%s total; use `%s' for next)"
-		       (length Info-index-alternatives)
-		       (key-description (where-is-internal
-					 'Info-index-next overriding-local-map
-					 t)))
+	       (format-message
+		"(%s total; use `%s' for next)"
+		(length Info-index-alternatives)
+		(key-description (where-is-internal
+				  'Info-index-next overriding-local-map t)))
 	     "(Only match)")))
 
 (defun Info-find-index-name (name)
@@ -3398,12 +3398,10 @@ Give an empty topic name to go to the Index node itself."
 	    (re-search-forward (format
                                 "[a-zA-Z]+: [a-zA-Z0-9_ *&]+ %s\\( \\|$\\)"
                                 (regexp-quote name)) nil t)
-	    (search-forward (concat "['`‘]" name "['’]") nil t)
+	    (search-forward (format "['`‘]%s['’]" name) nil t)
 	    (and (string-match "\\`.*\\( (.*)\\)\\'" name)
 		 (search-forward
-		  (concat "['`%‘]"
-                          (substring name 0 (match-beginning 1))
-                          "['%’]")
+		  (format "['`‘]%s['’]" (substring name 0 (match-beginning 1)))
 		  nil t))
 	    (search-forward name nil t)
 	    ;; Try again without the " <1>" makeinfo can append
@@ -3462,7 +3460,7 @@ MATCHES is a list of index matches found by `Info-index'.")
 	(when (equal (car (nth 0 nodeinfo)) (or filename Info-current-file))
 	  (insert
 	   (format "* %-20s %s.\n"
-		   (format "*Index for ‘%s’*::" (cdr (nth 0 nodeinfo)))
+		   (format-message "*Index for ‘%s’*::" (cdr (nth 0 nodeinfo)))
 		   (cdr (nth 0 nodeinfo)))))))))
 
 (defun Info-virtual-index (topic)
@@ -3497,7 +3495,8 @@ search results."
 	(setq Info-history-list ohist-list)
 	(Info-goto-node orignode)
 	(message "")))
-    (Info-find-node Info-current-file (format "*Index for ‘%s’*" topic))))
+    (Info-find-node Info-current-file
+                    (format-message "*Index for ‘%s’*" topic))))
 
 (add-to-list 'Info-virtual-files
 	     '("\\`\\*Apropos\\*\\'"
@@ -3636,7 +3635,7 @@ Build a menu of the possible matches."
 	(setq nodes (cdr nodes)))
       (if nodes
 	  (Info-find-node Info-apropos-file (car (car nodes)))
-	(setq nodename (format "Index for ‘%s’" string))
+	(setq nodename (format-message "Index for ‘%s’" string))
 	(push (list nodename string (Info-apropos-matches string))
 	      Info-apropos-nodes)
 	(Info-find-node Info-apropos-file nodename)))))
@@ -3764,7 +3763,7 @@ Build a menu of the possible matches."
     ;; I think nxml is the only exception - maybe it should be just be renamed.
     (let ((str (ignore-errors (lm-commentary (find-library-name nodename)))))
       (if (null str)
-	  (insert "Can't find package description.\n\n")
+	  (insert "Can’t find package description.\n\n")
 	(insert
 	 (with-temp-buffer
 	   (insert str)
@@ -3839,7 +3838,7 @@ START is a regular expression which will match the
     beginning of the tokens delimited string.
 ALL is a regular expression with a single
     parenthesized subpattern which is the token to be
-    returned.  E.g. '{\(.*\)}' would return any string
+    returned.  E.g. `{\(.*\)}' would return any string
     enclosed in braces around POS.
 ERRORSTRING optional fourth argument, controls action on no match:
     nil: return nil

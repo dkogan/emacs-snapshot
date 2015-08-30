@@ -295,7 +295,7 @@ In Emacs, the convention is that error messages start with a capital
 letter but *do not* end with a period.  Please follow this convention
 for the sake of consistency."
   (declare (advertised-calling-convention (string &rest args) "23.1"))
-  (signal 'error (list (apply 'format args))))
+  (signal 'error (list (apply #'format-message args))))
 
 (defun user-error (format &rest args)
   "Signal a pilot error, making error message by passing all args to `format'.
@@ -305,7 +305,7 @@ for the sake of consistency.
 This is just like `error' except that `user-error's are expected to be the
 result of an incorrect manipulation on the part of the user, rather than the
 result of an actual problem."
-  (signal 'user-error (list (apply #'format format args))))
+  (signal 'user-error (list (apply #'format-message format args))))
 
 (defun define-error (name message &optional parent)
   "Define NAME as a new error signal.
@@ -1606,8 +1606,9 @@ can do the job."
           exp
         (let* ((sym (cadr list-var))
                (append (eval append))
-               (msg (format "‘add-to-list’ can't use lexical var ‘%s’; use ‘push’ or ‘cl-pushnew’"
-                            sym))
+               (msg (format-message
+                     "‘add-to-list’ can't use lexical var ‘%s’; use ‘push’ or ‘cl-pushnew’"
+                     sym))
                ;; Big ugly hack so we only output a warning during
                ;; byte-compilation, and so we can use
                ;; byte-compile-not-lexical-var-p to silence the warning
@@ -2276,7 +2277,18 @@ floating point support."
     t)
    ((input-pending-p t)
     nil)
-   ((<= seconds 0)
+   ((or (<= seconds 0)
+        ;; We are going to call read-event below, which will record
+        ;; the the next key as part of the macro, even if that key
+        ;; invokes kmacro-end-macro, so if we are recording a macro,
+        ;; the macro will recursively call itself.  In addition, when
+        ;; that key is removed from unread-command-events, it will be
+        ;; recorded the second time, so the macro will have each key
+        ;; doubled.  This used to happen if a macro was defined with
+        ;; Flyspell mode active (because Flyspell calls sit-for in its
+        ;; post-command-hook, see bug #21329.)  To avoid all that, we
+        ;; simply disable the wait when we are recording a macro.
+        defining-kbd-macro)
     (or nodisp (redisplay)))
    (t
     (or nodisp (redisplay))
@@ -4761,7 +4773,7 @@ Examples of version conversion:
 
 See documentation for `version-separator' and `version-regexp-alist'."
   (or (and (stringp ver) (> (length ver) 0))
-      (error "Invalid version string: '%s'" ver))
+      (error "Invalid version string: ‘%s’" ver))
   ;; Change .x.y to 0.x.y
   (if (and (>= (length ver) (length version-separator))
 	   (string-equal (substring ver 0 (length version-separator))
@@ -4793,9 +4805,9 @@ See documentation for `version-separator' and `version-regexp-alist'."
 		  ((string-match "^[-_+ ]?\\([a-zA-Z]\\)$" s)
 		   (push (- (aref (downcase (match-string 1 s)) 0) ?a -1)
 			 lst))
-		  (t (error "Invalid version syntax: '%s'" ver))))))
+		  (t (error "Invalid version syntax: ‘%s’" ver))))))
       (if (null lst)
-	  (error "Invalid version syntax: '%s'" ver)
+	  (error "Invalid version syntax: ‘%s’" ver)
 	(nreverse lst)))))
 
 

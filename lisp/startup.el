@@ -1115,8 +1115,9 @@ please check its value")
 			      "~/.emacs")
 			     ((directory-files "~" nil "^_emacs\\(\\.elc?\\)?$")
 			      ;; Also support _emacs for compatibility, but warn about it.
-			      (push '(initialization
-				      "`_emacs' init file is deprecated, please use `.emacs'")
+			      (push `(initialization
+				      ,(format-message
+					"`_emacs' init file is deprecated, please use `.emacs'"))
 				    delayed-warnings-list)
 			      "~/_emacs")
 			     (t ;; But default to .emacs if _emacs does not exist.
@@ -1177,7 +1178,8 @@ please check its value")
 	    (error
 	     (display-warning
 	      'initialization
-	      (format "An error occurred while loading ‘%s’:\n\n%s%s%s\n\n\
+	      (format-message "\
+An error occurred while loading ‘%s’:\n\n%s%s%s\n\n\
 To ensure normal operation, you should investigate and remove the
 cause of the error in your initialization file.  Start Emacs with
 the ‘--debug-init’ option to view a complete error backtrace."
@@ -1312,7 +1314,8 @@ the ‘--debug-init’ option to view a complete error backtrace."
 			 (expand-file-name user-emacs-directory))
 	   (setq warned t)
 	   (display-warning 'initialization
-			    (format "Your ‘load-path’ seems to contain
+			    (format-message "\
+Your ‘load-path’ seems to contain\n\
 your ‘.emacs.d’ directory: %s\n\
 This is likely to cause problems...\n\
 Consider using a subdirectory instead, e.g.: %s"
@@ -1883,7 +1886,7 @@ splash screen in another window."
 				   auto-save-list-file-prefix)))
 	    t)
 	   (insert "\n\nIf an Emacs session crashed recently, "
-		   "type Meta-x recover-session RET\nto recover"
+		   "type M-x recover-session RET\nto recover"
 		   " the files you were editing.\n"))
 
       (use-local-map splash-screen-keymap)
@@ -1932,7 +1935,8 @@ To quit a partially entered command, type Control-g.\n")
   (insert-button "Visit New File"
 		 'action (lambda (_button) (call-interactively 'find-file))
 		 'follow-link t)
-  (insert "\t\tSpecify a new file's name, to edit the file\n")
+  (insert (substitute-command-keys
+	   "\t\tSpecify a new file's name, to edit the file\n"))
   (insert-button "Open Home Directory"
 		 'action (lambda (_button) (dired "~"))
 		 'follow-link t)
@@ -1998,9 +2002,9 @@ To quit a partially entered command, type Control-g.\n")
     (insert (substitute-command-keys "   \\[tmm-menubar]")))
 
   ;; Many users seem to have problems with these.
-  (insert "
+  (insert (substitute-command-keys "
 \(`C-' means use the CTRL key.  `M-' means use the Meta (or Alt) key.
-If you have no Meta key, you may instead type ESC followed by the character.)")
+If you have no Meta key, you may instead type ESC followed by the character.)"))
 
   ;; Insert links to useful tasks
   (insert "\nUseful tasks:\n")

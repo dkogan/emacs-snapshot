@@ -369,12 +369,12 @@ If SCOPE is nil, the user is asked to specify the scope."
 	  (setq scope
 		(cond
 		 ((y-or-n-p
-		   (format
-		    "Map this macro for buffer `%s' only? "
+		   (format-message
+		    "Map this macro for buffer ‘%s’ only? "
 		    (buffer-name)))
 		  (setq msg
-			(format
-			 "%S is mapped to %s for %s in `%s'"
+			(format-message
+			 "%S is mapped to %s for %s in ‘%s’"
 			 (viper-display-macro macro-name)
 			 (viper-abbreviate-string
 			  (format
@@ -385,12 +385,12 @@ If SCOPE is nil, the user is asked to specify the scope."
 			 state-name (buffer-name)))
 		  (buffer-name))
 		 ((y-or-n-p
-		   (format
-		    "Map this macro for the major mode `%S' only? "
+		   (format-message
+		    "Map this macro for the major mode ‘%S’ only? "
 		    major-mode))
 		  (setq msg
-			(format
-			 "%S is mapped to %s for %s in `%S'"
+			(format-message
+			 "%S is mapped to %s for %s in ‘%S’"
 			 (viper-display-macro macro-name)
 			 (viper-abbreviate-string
 			  (format
@@ -529,9 +529,9 @@ mistakes in macro names to be passed to this function is to use
     (cond ((and (cdr buf-mapping)
 		(or (and (not (cdr mode-mapping)) (not (cdr global-mapping)))
 		    (y-or-n-p
-		     (format "Unmap %S for `%s' only? "
-			     (viper-display-macro macro-name)
-			     (buffer-name)))))
+		     (format-message "Unmap %S for `%s' only? "
+				     (viper-display-macro macro-name)
+				     (buffer-name)))))
 	   (setq macro-pair buf-mapping)
 	   (message "%S is unmapped for %s in `%s'"
 		    (viper-display-macro macro-name)
@@ -539,9 +539,9 @@ mistakes in macro names to be passed to this function is to use
 	  ((and (cdr mode-mapping)
 		(or (not (cdr global-mapping))
 		    (y-or-n-p
-		     (format "Unmap %S for the major mode `%S' only? "
-			     (viper-display-macro macro-name)
-			     major-mode))))
+		     (format-message "Unmap %S for the major mode `%S' only? "
+				     (viper-display-macro macro-name)
+				     major-mode))))
 	   (setq macro-pair mode-mapping)
 	   (message "%S is unmapped for %s in %S"
 		    (viper-display-macro macro-name) state-name major-mode))

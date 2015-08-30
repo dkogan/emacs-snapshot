@@ -35,7 +35,7 @@
 
 (defcustom replace-character-fold nil
   "Non-nil means `query-replace' should do character folding in matches.
-This means, for instance, that ' will match a large variety of
+This means, for instance, that \\=' will match a large variety of
 unicode quotes."
   :type 'boolean
   :group 'matching
@@ -1495,7 +1495,8 @@ See also `multi-occur'."
 		     ;; Don't display regexp if with remaining text
 		     ;; it is longer than window-width.
 		     (if (> (+ (length regexp) 42) (window-width))
-			 "" (format " for ‘%s’" (query-replace-descr regexp)))))
+			 "" (format-message
+                             " for ‘%s’" (query-replace-descr regexp)))))
 	  (setq occur-revert-arguments (list regexp nlines bufs))
           (if (= count 0)
               (kill-buffer occur-buf)

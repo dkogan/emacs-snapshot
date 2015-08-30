@@ -185,9 +185,9 @@ diary buffer to be displayed with diary entries from various
 included files, each day's entries sorted into lexicographic
 order, add the following to your init file:
 
-     (setq diary-display-function 'diary-fancy-display)
-     (add-hook 'diary-list-entries-hook 'diary-include-other-diary-files)
-     (add-hook 'diary-list-entries-hook 'diary-sort-entries t)
+     (setq diary-display-function \\='diary-fancy-display)
+     (add-hook \\='diary-list-entries-hook \\='diary-include-other-diary-files)
+     (add-hook \\='diary-list-entries-hook \\='diary-sort-entries t)
 
 Note how the sort function is placed last, so that it can sort
 the entries included from other files.
@@ -910,10 +910,12 @@ This is recursive; that is, included files may include other files."
                                 (diary-list-entries original-date number t)))))
             (display-warning
              :error
-             (format "Can't read included diary file %s\n" diary-file)))
+             (format-message "Can't read included diary file %s\n"
+			     diary-file)))
         (display-warning
          :error
-         (format "Can't find included diary file %s\n" diary-file)))))
+         (format-message "Can't find included diary file %s\n"
+			 diary-file)))))
   (goto-char (point-min)))
 
 (defun diary-include-other-diary-files ()

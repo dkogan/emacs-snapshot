@@ -1817,7 +1817,7 @@ order to Calc's."
 (defun math-read-giac-subscr (x op)
   (let ((idx (math-read-expr-level 0)))
     (or (equal math-expr-data "]")
-	(throw 'syntax "Expected ']'"))
+	(throw 'syntax "Expected ‘]’"))
     (math-read-token)
     (list 'calcFunc-subscr x (calc-normalize (list '+ idx 1)))))
 
@@ -1954,7 +1954,7 @@ order to Calc's."
 	     (progn
 	       (math-read-token)
 	       (equal math-expr-data "]")))
-	(throw 'syntax "Expected ']]'"))
+	(throw 'syntax "Expected ‘]]’"))
     (math-read-token)
     (list 'calcFunc-subscr x idx)))
 
@@ -2508,7 +2508,8 @@ order to Calc's."
     (while (> count 0)
       (if (>= h len)
 	  (if what
-	      (math-read-big-error nil v (format "Unmatched ‘%s’" what))
+	      (math-read-big-error nil v (format-message
+                                          "Unmatched ‘%s’" what))
 	    (setq count 0))
 	(if (memq (aref line h) '(?\( ?\[))
 	    (setq count (1+ count))
