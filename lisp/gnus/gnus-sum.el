@@ -997,7 +997,7 @@ following hook:
 		       (mail-header-set-subject
 			header
 			(gnus-simplify-subject
-			 (mail-header-subject header) 're-only)))
+			 (mail-header-subject header) \\='re-only)))
 		     gnus-newsgroup-headers)))"
   :group 'gnus-group-select
   :type 'hook)
@@ -1656,7 +1656,7 @@ while still allowing them to affect operations done in other buffers.
 For example:
 
 \(setq gnus-newsgroup-variables
-     '(message-use-followup-to
+     \\='(message-use-followup-to
        (gnus-visible-headers .
 	 \"^From:\\\\|^Newsgroups:\\\\|^Subject:\\\\|^Date:\\\\|^To:\")))
 ")
@@ -9489,6 +9489,7 @@ Optional argument BACKWARD means do search for backward.
     ;; Return whether we found the regexp.
     (when (eq found 'found)
       (goto-char point)
+      (sit-for 0) ;; Ensure that the point is visible in the summary window.
       (gnus-summary-show-thread)
       (gnus-summary-goto-subject gnus-current-article)
       (gnus-summary-position-point)

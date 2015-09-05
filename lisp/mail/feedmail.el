@@ -566,7 +566,7 @@ but common in some proprietary systems."
   "If non-nil and the email has no Sender: header, use this value.
 May be nil, in which case nothing in particular is done with respect
 to Sender: lines.  By design, will not replace an existing Sender:
-line, but you can achieve that with a fiddle-plex 'replace action.
+line, but you can achieve that with a fiddle-plex replace action.
 NB: it makes no sense to use the value t since there is no sensible
 default for Sender:.
 
@@ -1745,7 +1745,7 @@ applied to a file after you've just read it from disk: for example, a
 feedmail FQM message file from a queue.  You could use something like
 this:
 
-\(setq auto-mode-alist \(cons \'\(\"\\\\.fqm$\" . feedmail-vm-mail-mode\) auto-mode-alist\)\)
+\(setq auto-mode-alist \(cons \\='\(\"\\\\.fqm$\" . feedmail-vm-mail-mode\) auto-mode-alist\)\)
 "
   (feedmail-say-debug ">in-> feedmail-vm-mail-mode")
   (let ((the-buf (current-buffer)))
@@ -1889,7 +1889,8 @@ with various lower-level mechanisms to provide features such as queueing."
 (defun feedmail-message-action-help-blat (d-string)
   (feedmail-say-debug ">in-> feedmail-message-action-help-blat")
   (with-output-to-temp-buffer feedmail-p-h-b-n
-    (princ "You're dispatching a message and feedmail queuing is enabled.
+    (princ (substitute-command-keys "\
+You're dispatching a message and feedmail queuing is enabled.
 Typing ? again will normally scroll this help buffer.
 
 Choices:
@@ -1914,7 +1915,7 @@ Synonyms:
    y  YUP          do the default behavior \(same as \"C-m\"\)
   SPC SCROLL UP    \(same as \">\"\)
 
-The user-configurable default is currently \"")
+The user-configurable default is currently \""))
 	(princ d-string)
 	(princ "\".  For other possibilities,
 see the variable feedmail-prompt-before-queue-user-alist.

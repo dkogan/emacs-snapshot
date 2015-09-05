@@ -235,7 +235,8 @@ This method is obsolete."
            (let ((f (intern (format "%s-child-p" name))))
              `((defalias ',f ',testsym2)
                (make-obsolete
-                ',f ,(format "use (cl-typep ... '%s) instead" name) "25.1"))))
+                ',f ,(format "use (cl-typep ... \\='%s) instead" name)
+                "25.1"))))
 
        ;; When using typep, (typep OBJ 'myclass) returns t for objects which
        ;; are subclasses of myclass.  For our predicates, however, it is
@@ -683,12 +684,12 @@ This class is not stored in the `parent' slot of a class vector."
   "Make a new instance of CLASS based on INITARGS.
 For example:
 
-  (make-instance 'foo)
+  (make-instance \\='foo)
 
 INITARGS is a property list with keywords based on the `:initarg'
 for each slot.  For example:
 
-  (make-instance 'foo :slot1 value1 :slotN valueN)")
+  (make-instance \\='foo :slot1 value1 :slotN valueN)")
 
 (define-obsolete-function-alias 'constructor #'make-instance "25.1")
 

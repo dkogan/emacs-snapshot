@@ -388,7 +388,7 @@ It consists of pairs (REGEXP . DICTIONARY).  If REGEXP is found
 in the message headers, `ispell-local-dictionary' will be set to
 DICTIONARY if `ispell-local-dictionary' is not buffer-local.
 E.g. you may use the following value:
-  '((\"^Newsgroups:[ \\t]*de\\\\.\" . \"deutsch8\")
+   ((\"^Newsgroups:[ \\t]*de\\\\.\" . \"deutsch8\")
     (\"^To:[^\\n,]+\\\\.de[ \\t\\n,>]\" . \"deutsch8\"))"
   :type '(repeat (cons regexp string))
   :group 'ispell)
@@ -484,7 +484,7 @@ The function must take one string argument and return a string."
   "When non-nil ispell uses framepop to display choices in a dedicated frame.
 You can set this variable to dynamically use framepop if you are in a
 window system by evaluating the following on startup to set this variable:
-  (and window-system (condition-case () (require 'framepop) (error nil)))"
+  (and window-system (condition-case () (require \\='framepop) (error nil)))"
   :type 'boolean
   :group 'ispell)
 
@@ -2297,7 +2297,8 @@ Global `ispell-quit' set to start location to continue spell session."
 		(insert "\n\t"))
 	      (insert (car guess) "    ")
 	      (setq guess (cdr guess)))
-	    (insert "\nUse option `i' to accept this spelling and put it in your private dictionary.\n")))
+	    (insert (substitute-command-keys
+		     "\nUse option `i' to accept this spelling and put it in your private dictionary.\n"))))
       (while choices
 	(when (> (+ 7 (current-column)
 		    (length (car choices))

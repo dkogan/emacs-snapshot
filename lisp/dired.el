@@ -91,7 +91,7 @@ spaces.  You might want to install ls from GNU Coreutils, which does
 support this option.  Alternatively, you might want to use Emacs's
 own emulation of \"ls\", by using:
   (setq ls-lisp-use-insert-directory-program nil)
-  (require 'ls-lisp)
+  (require \\='ls-lisp)
 This is used by default on MS Windows, which does not have an \"ls\" program.
 Note that `ls-lisp' does not support as many options as GNU ls, though.
 For more details, see Info node `(emacs)ls in Lisp'."
@@ -4399,7 +4399,7 @@ instead.
 
 ;;;***
 
-;;;### (autoloads nil "dired-x" "dired-x.el" "c1a6289ba8504b605595321436a9c04d")
+;;;### (autoloads nil "dired-x" "dired-x.el" "06a24044ec0f92e6f187101321d1e926")
 ;;; Generated autoloads from dired-x.el
 
 (autoload 'dired-jump "dired-x" "\

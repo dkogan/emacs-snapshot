@@ -972,14 +972,14 @@ checked via the following code:
         (erase-buffer)
         (let ((proc (start-process (buffer-name) (current-buffer)
                                    \"ssh\" \"-l\" user host \"wc\" \"-c\")))
-          (when (memq (process-status proc) '(run open))
+          (when (memq (process-status proc) \\='(run open))
             (process-send-string proc (make-string sent ?\\ ))
             (process-send-eof proc)
             (process-send-eof proc))
           (while (not (progn (goto-char (point-min))
                              (re-search-forward \"\\\\w+\" (point-max) t)))
             (accept-process-output proc 1))
-          (when (memq (process-status proc) '(run open))
+          (when (memq (process-status proc) \\='(run open))
             (setq received (string-to-number (match-string 0)))
             (delete-process proc)
             (message \"Bytes sent: %s\\tBytes received: %s\" sent received)
@@ -1750,7 +1750,7 @@ Example:
 
     (tramp-set-completion-function
      \"ssh\"
-     '((tramp-parse-sconfig \"/etc/ssh_config\")
+     \\='((tramp-parse-sconfig \"/etc/ssh_config\")
        (tramp-parse-sconfig \"~/.ssh/config\")))"
 
   (let ((r function-list)
@@ -4258,6 +4258,16 @@ Invokes `password-read' if available, `read-passwd' else."
 ;;;###tramp-autoload
 (defun tramp-clear-passwd (vec)
   "Clear password cache for connection related to VEC."
+  (let ((hop (tramp-file-name-hop vec)))
+    (when hop
+      ;; Clear also the passwords of the hops.
+      (tramp-clear-passwd
+       (tramp-dissect-file-name
+	(concat
+	 tramp-prefix-format
+	 (tramp-compat-replace-regexp-in-string
+	  (concat tramp-postfix-hop-regexp "$")
+	  tramp-postfix-host-format hop))))))
   (tramp-compat-funcall
    'password-cache-remove
    (tramp-make-tramp-file-name

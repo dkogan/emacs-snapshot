@@ -538,12 +538,13 @@ and what they do:
  dollar-sign character.  Hash characters in other contexts will still
  follow whatever the syntax table says about the hash character.
 
- (\"\\\\('\\\\).\\\\('\\\\)\"
+ (\"\\\\(\\='\\\\).\\\\(\\='\\\\)\"
   (1 \"\\\"\")
   (2 \"\\\"\"))
 
- gives a pair single-quotes, which surround a single character, a SYNTAX of
- \"\\\"\" (meaning string quote syntax).  Single-quote characters in other
+ gives a pair of apostrophes, which surround a single character, a
+ SYNTAX of \"\\\"\" (meaning string quote syntax).  Apostrophes in other
+
  contexts will not be affected.
 
 This is normally set via `font-lock-defaults'.")
@@ -683,9 +684,9 @@ end of the current highlighting list.
 
 For example:
 
- (font-lock-add-keywords 'c-mode
-  '((\"\\\\\\=<\\\\(FIXME\\\\):\" 1 'font-lock-warning-face prepend)
-    (\"\\\\\\=<\\\\(and\\\\|or\\\\|not\\\\)\\\\\\=>\" . 'font-lock-keyword-face)))
+ (font-lock-add-keywords \\='c-mode
+  \\='((\"\\\\\\=<\\\\(FIXME\\\\):\" 1 \\='font-lock-warning-face prepend)
+    (\"\\\\\\=<\\\\(and\\\\|or\\\\|not\\\\)\\\\\\=>\" . \\='font-lock-keyword-face)))
 
 adds two fontification patterns for C mode, to fontify `FIXME:' words, even in
 comments, and to fontify `and', `or' and `not' words as keywords.

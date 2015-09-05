@@ -927,7 +927,7 @@ If no elements match, then the empty string is used.
 
 As an example:
   (setq erc-quit-reason-various-alist
-      '((\"xmms\" dme:now-playing)
+      \\='((\"xmms\" dme:now-playing)
         (\"version\" erc-quit-reason-normal)
         (\"home\" \"Gone home !\")
         (\"^$\" \"Default Reason\")))
@@ -950,7 +950,7 @@ If no elements match, then the empty string is used.
 
 As an example:
   (setq erc-part-reason-various-alist
-      '((\"xmms\" dme:now-playing)
+      \\='((\"xmms\" dme:now-playing)
         (\"version\" erc-part-reason-normal)
         (\"home\" \"Gone home !\")
         (\"^$\" \"Default Reason\")))
@@ -5203,7 +5203,7 @@ So far the following TYPE/L pairs are supported:
 
        Event                    TYPE                   L
 
-    nickname change            'nick                (NEW-NICK)"
+    nickname change            `nick'                (NEW-NICK)"
   (erc-log (format "user-change: type: %S  nlh: %S  l: %S" type nlh l))
   (cond
    ;; nickname change

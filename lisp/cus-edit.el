@@ -477,7 +477,7 @@
 (defun custom-split-regexp-maybe (regexp)
   "If REGEXP is a string, split it to a list at `\\|'.
 You can get the original back from the result with:
-  (mapconcat 'identity result \"\\|\")
+  (mapconcat \\='identity result \"\\|\")
 
 IF REGEXP is not a string, return it unchanged."
   (if (stringp regexp)
@@ -1189,8 +1189,8 @@ and `defface'.
 
 For example, the MH-E package updates this alist as follows:
 
-     (add-to-list 'customize-package-emacs-version-alist
-                  '(MH-E (\"6.0\" . \"22.1\") (\"6.1\" . \"22.1\")
+     (add-to-list \\='customize-package-emacs-version-alist
+                  \\='(MH-E (\"6.0\" . \"22.1\") (\"6.1\" . \"22.1\")
                          (\"7.0\" . \"22.1\") (\"7.1\" . \"22.1\")
                          (\"7.2\" . \"22.1\") (\"7.3\" . \"22.1\")
                          (\"7.4\" . \"22.1\") (\"8.0\" . \"22.1\")))

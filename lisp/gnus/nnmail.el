@@ -83,7 +83,7 @@ If you'd like, for instance, one mail group for mail from the
 else, you could do something like this:
 
  (setq nnmail-split-methods
-       '((\"mail.4ad\" \"From:.*4ad\")
+       \\='((\"mail.4ad\" \"From:.*4ad\")
 	 (\"mail.junk\" \"From:.*Lars\\\\|Subject:.*buy\")
 	 (\"mail.misc\" \"\")))
 
@@ -180,7 +180,7 @@ E.g.:
       (lambda (newsgroup)
 	(cond ((string-match \"private\" newsgroup) 31)
 	      ((string-match \"junk\" newsgroup) 1)
-	      ((string-match \"important\" newsgroup) 'never)
+	      ((string-match \"important\" newsgroup) \\='never)
 	      (t 7))))"
   :group 'nnmail-expire
   :type '(choice (const :tag "nnmail-expiry-wait" nil)
@@ -217,7 +217,7 @@ will try to match against both the From and the To header.
 Example:
 
 \(setq nnmail-fancy-expiry-targets
-      '((to-from \"boss\" \"nnfolder:Work\")
+      \\='((to-from \"boss\" \"nnfolder:Work\")
 	(\"Subject\" \"IMPORTANT\" \"nnfolder:IMPORTANT.%Y.%b\")
 	(\"from\" \".*\" \"nnfolder:Archive-%Y\")))
 
@@ -465,7 +465,7 @@ GROUP: Mail will be stored in GROUP (a string).
 junk: Mail will be deleted.  Use with care!  Do not submerge in water!
   Example:
   (setq nnmail-split-fancy
-	'(| (\"Subject\" \"MAKE MONEY FAST\" junk)
+	\\='(| (\"Subject\" \"MAKE MONEY FAST\" junk)
 	    ...other.rules.omitted...))
 
 FIELD must match a complete field name.  VALUE must match a complete

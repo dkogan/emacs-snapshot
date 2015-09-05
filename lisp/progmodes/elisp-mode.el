@@ -653,7 +653,8 @@ non-nil result supercedes the xrefs produced by
 
       ;; FIXME: advised function; list of advice functions
 
-      ;; FIXME: aliased variable
+      ;; Coding system symbols do not appear in ‘load-history’,
+      ;; so we can’t get a location for them.
 
       (when (and (symbolp symbol)
                  (symbol-function symbol)
@@ -1321,7 +1322,7 @@ which see."
   0 - contains the last symbol read from the buffer.
   1 - contains the string last displayed in the echo area for variables,
       or argument string for functions.
-  2 - 'function if function args, 'variable if variable documentation.")
+  2 - `function' if function args, `variable' if variable documentation.")
 
 (defun elisp-eldoc-documentation-function ()
   "`eldoc-documentation-function' (which see) for Emacs Lisp."

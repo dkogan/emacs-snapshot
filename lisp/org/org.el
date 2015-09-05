@@ -1982,7 +1982,7 @@ file identifier are
                  filename matches the regexp.  If you want to
                  use groups here, use shy groups.
 
-                 Example: (\"\\.x?html\\'\" . \"firefox %s\")
+                 Example: (\"\\.x?html\\\\='\" . \"firefox %s\")
                           (\"\\(?:xhtml\\|html\\)\" . \"firefox %s\")
                           to open *.html and *.xhtml with firefox.
 
@@ -1998,7 +1998,7 @@ file identifier are
                  In a custom lisp form, you can access the group matches with
                  (match-string n link).
 
-                 Example: (\"\\.pdf::\\(\\d+\\)\\'\" . \"evince -p %1 %s\")
+                 Example: (\"\\.pdf::\\(\\d+\\)\\\\='\" . \"evince -p %1 %s\")
                      to open [[file:document.pdf::5]] with evince at page 5.
 
  `directory'   Matches a directory
@@ -6629,7 +6629,7 @@ in special contexts.
        ;; Table: enter it or move to the next field.
        ((org-at-table-p 'any)
 	(if (org-at-table.el-p)
-	    (message "Use C-c ' to edit table.el tables")
+	    (message "%s" "Use C-c ' to edit table.el tables")
 	  (if arg (org-table-edit-field t)
 	    (org-table-justify-field-maybe)
 	    (call-interactively 'org-table-next-field))))
@@ -12222,13 +12222,13 @@ With a triple \\[universal-argument] prefix, circumvent any state blocking.
 With a numeric prefix arg of 0, inhibit note taking for the change.
 
 For calling through lisp, arg is also interpreted in the following way:
-'none             -> empty state
-\"\"(empty string)  -> switch to empty state
-'done             -> switch to DONE
-'nextset          -> switch to the next set of keywords
-'previousset      -> switch to the previous set of keywords
-\"WAITING\"         -> switch to the specified keyword, but only if it
-                     really is a member of `org-todo-keywords'."
+`none'             -> empty state
+\"\" (empty string)  -> switch to empty state
+`done'             -> switch to DONE
+`nextset'          -> switch to the next set of keywords
+`previousset'      -> switch to the previous set of keywords
+\"WAITING\"          -> switch to the specified keyword, but only if it
+                      really is a member of `org-todo-keywords'."
   (interactive "P")
   (if (and (org-region-active-p) org-loop-over-headlines-in-active-region)
       (let ((cl (if (eq org-loop-over-headlines-in-active-region 'start-level)
@@ -17102,7 +17102,7 @@ days in order to avoid rounding problems."
     (error (error "Bad timestamp `%s'%s\nError was: %s"
 		  s (if (not (and buffer pos))
 			""
-		      (format " at %d in buffer `%s'" pos buffer))
+		      (format-message " at %d in buffer `%s'" pos buffer))
 		  (cdr errdata)))))
 
 (defun org-time-string-to-seconds (s)
@@ -17130,7 +17130,7 @@ The variable `date' is bound by the calendar when this is called."
 	 (error (error "Bad timestamp `%s'%s\nError was: %s"
 		       s (if (not (and buffer pos))
 			     ""
-			   (format " at %d in buffer `%s'" pos buffer))
+			   (format-message " at %d in buffer `%s'" pos buffer))
 		       (cdr errdata))))))))
 
 (defun org-days-to-iso-week (days)
@@ -20446,7 +20446,7 @@ This command does many different things, depending on context:
 	   ;; a `table.el' type, just give up.  At a table row or
 	   ;; cell, maybe recalculate line but always align table.
 	   (if (eq (org-element-property :type context) 'table.el)
-	       (message "Use C-c ' to edit table.el tables")
+	       (message "%s" "Use C-c ' to edit table.el tables")
 	     (let ((org-enable-table-editor t))
 	       (if (or (eq type 'table)
 		       ;; Check if point is at a TBLFM line.
