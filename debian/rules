@@ -105,6 +105,7 @@ deb_host_multiarch := $(shell dpkg-architecture -qDEB_HOST_MULTIARCH)
 
 CFLAGS = $(shell dpkg-buildflags --get CFLAGS)
 CFLAGS += -Wall
+CFLAGS += -fno-omit-frame-pointer
 LDFLAGS = $(shell dpkg-buildflags --get LDFLAGS)
 CPPFLAGS = $(shell dpkg-buildflags --get CPPFLAGS)
 
