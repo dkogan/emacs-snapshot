@@ -11,15 +11,15 @@ Added-by: Rob Browning <rlb@defaultvalue.org>
  1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/lisp/version.el b/lisp/version.el
-index c0b975e..ff4bb7d 100644
+index 43103fd..3962d0d 100644
 --- a/lisp/version.el
 +++ b/lisp/version.el
-@@ -57,8 +57,8 @@ to the system configuration; look at `system-configuration' instead."
+@@ -59,8 +59,8 @@ to the system configuration; look at `system-configuration' instead."
    (interactive "P")
    (let ((version-string
           (format (if (not (called-interactively-p 'interactive))
--		     "GNU Emacs %s (%s%s%s%s)\n of %s on %s"
--		   "GNU Emacs %s (%s%s%s%s) of %s on %s")
+-		     "GNU Emacs %s (%s%s%s%s)\n of %s"
+-		   "GNU Emacs %s (%s%s%s%s) of %s")
 +		     "GNU Emacs %s (%s%s%s%s)\n of %s on %s, modified by Debian"
 +		   "GNU Emacs %s (%s%s%s%s) of %s on %s, modified by Debian")
                   emacs-version
