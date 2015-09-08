@@ -59,8 +59,8 @@ to the system configuration; look at `system-configuration' instead."
   (interactive "P")
   (let ((version-string
          (format (if (not (called-interactively-p 'interactive))
-		     "GNU Emacs %s (%s%s%s%s)\n of %s on %s, modified by Debian"
-		   "GNU Emacs %s (%s%s%s%s) of %s on %s, modified by Debian")
+		     "GNU Emacs %s (%s%s%s%s)\n of %s, modified by Debian"
+		   "GNU Emacs %s (%s%s%s%s) of %s, modified by Debian")
                  emacs-version
 		 system-configuration
 		 (cond ((featurep 'motif)
