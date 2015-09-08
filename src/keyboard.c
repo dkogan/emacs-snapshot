@@ -703,11 +703,11 @@ force_auto_save_soon (void)
 
 DEFUN ("recursive-edit", Frecursive_edit, Srecursive_edit, 0, 0, "",
        doc: /* Invoke the editor command loop recursively.
-To get out of the recursive edit, a command can throw to ‘exit’ -- for
-instance ‘(throw \\='exit nil)’.
-If you throw a value other than t, ‘recursive-edit’ returns normally
+To get out of the recursive edit, a command can throw to `exit' -- for
+instance (throw \\='exit nil).
+If you throw a value other than t, `recursive-edit' returns normally
 to the function that called it.  Throwing a t value causes
-‘recursive-edit’ to quit, so that control returns to the command loop
+`recursive-edit' to quit, so that control returns to the command loop
 one level up.
 
 This function is called by the editor initialization to begin editing.  */)
@@ -8874,6 +8874,7 @@ read_key_sequence (Lisp_Object *keybuf, int bufsize, Lisp_Object prompt,
 	     of echoing, so that it serves as a prompt for the next
 	     character.  */
 	  kset_echo_prompt (current_kboard, prompt);
+	  current_kboard->immediate_echo = false;
 	  echo_now ();
 	}
       else if (cursor_in_echo_area
