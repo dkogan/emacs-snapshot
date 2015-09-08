@@ -1,0 +1,23 @@
+From: Dima Kogan <dima@secretsauce.net>
+Date: Mon, 7 Sep 2015 23:22:51 -0700
+Subject: version.el: removed extra %s. Some previous rebase broke it
+
+---
+ lisp/version.el | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/lisp/version.el b/lisp/version.el
+index 3962d0d..ae843ea 100644
+--- a/lisp/version.el
++++ b/lisp/version.el
+@@ -59,8 +59,8 @@ to the system configuration; look at `system-configuration' instead."
+   (interactive "P")
+   (let ((version-string
+          (format (if (not (called-interactively-p 'interactive))
+-		     "GNU Emacs %s (%s%s%s%s)\n of %s on %s, modified by Debian"
+-		   "GNU Emacs %s (%s%s%s%s) of %s on %s, modified by Debian")
++		     "GNU Emacs %s (%s%s%s%s)\n of %s, modified by Debian"
++		   "GNU Emacs %s (%s%s%s%s) of %s, modified by Debian")
+                  emacs-version
+ 		 system-configuration
+ 		 (cond ((featurep 'motif)
