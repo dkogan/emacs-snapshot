@@ -14,7 +14,7 @@ Emacs runs debian-startup and sets debian-emacs-flavor.
  1 file changed, 19 insertions(+), 2 deletions(-)
 
 diff --git a/lisp/startup.el b/lisp/startup.el
-index 9caf485..a6736e2 100644
+index 971841f..25ff0fd 100644
 --- a/lisp/startup.el
 +++ b/lisp/startup.el
 @@ -427,6 +427,10 @@ Warning Warning!!!  Pure space overflow    !!!Warning Warning
@@ -28,7 +28,7 @@ index 9caf485..a6736e2 100644
  (defun normal-top-level-add-subdirs-to-load-path ()
    "Add all subdirectories of `default-directory' to `load-path'.
  More precisely, this uses only the subdirectories whose names
-@@ -1067,8 +1071,21 @@ please check its value")
+@@ -1109,8 +1113,21 @@ please check its value")
      ;; be loaded from site-run-file and wants to test if -q was given
      ;; should check init-file-user instead, since that is already set.
      ;; See cus-edit.el for an example.
