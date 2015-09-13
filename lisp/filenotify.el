@@ -1,4 +1,4 @@
-;;; filenotify.el --- watch files for changes on disk
+;;; filenotify.el --- watch files for changes on disk  -*- lexical-binding:t -*-
 
 ;; Copyright (C) 2013-2015 Free Software Foundation, Inc.
 
@@ -177,9 +177,9 @@ EVENT is the cadr of the event in `file-notify-handle-event'
                               (car file-notify--pending-event)))
                   ;; If the source is handled by another watch, we
                   ;; must fire the rename event there as well.
-                  (when (not (eq (file-notify--descriptor desc)
-                                 (file-notify--descriptor
-                                  (caar file-notify--pending-event))))
+                  (when (not (equal (file-notify--descriptor desc)
+                                    (file-notify--descriptor
+                                     (caar file-notify--pending-event))))
                     (setq pending-event
                           `((,(caar file-notify--pending-event)
                              renamed ,file ,file1)
@@ -300,11 +300,10 @@ FILE is the name of the file whose event is being reported."
 	    ((eq file-notify--library 'w32notify)
 	     '(file-name directory-name size last-write-time)))))
 	(when (memq 'attribute-change flags)
-	  (add-to-list
-	   'l-flags
-	   (cond
-	    ((eq file-notify--library 'inotify) 'attrib)
-	    ((eq file-notify--library 'w32notify) 'attributes)))))
+	  (push (cond
+                 ((eq file-notify--library 'inotify) 'attrib)
+                 ((eq file-notify--library 'w32notify) 'attributes))
+                l-flags)))
 
       ;; Call low-level function.
       (setq desc (funcall func dir l-flags 'file-notify-callback)))

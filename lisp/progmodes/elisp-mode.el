@@ -632,16 +632,16 @@ otherwise build the summary from TYPE and SYMBOL."
 	     (xref-make-elisp-location symbol type file)))
 
 (defvar elisp-xref-find-def-functions nil
-  "List of functions to be run from ‘elisp--xref-find-definitions’ to add additional xrefs.
+  "List of functions to be run from `elisp--xref-find-definitions' to add additional xrefs.
 Called with one arg; the symbol whose definition is desired.
 Each function should return a list of xrefs, or nil; the first
 non-nil result supercedes the xrefs produced by
-‘elisp--xref-find-definitions’.")
+`elisp--xref-find-definitions'.")
 
 ;; FIXME: name should be singular; match xref-find-definition
 (defun elisp--xref-find-definitions (symbol)
   ;; The file name is not known when `symbol' is defined via interactive eval.
-  (let (xrefs temp)
+  (let (xrefs)
 
     (let ((temp elisp-xref-find-def-functions))
       (while (and (null xrefs)
@@ -928,6 +928,7 @@ Semicolons start comments.
             (goto-char end)))))))
 
 (defun elisp-byte-code-syntax-propertize (start end)
+  (goto-char start)
   (elisp--byte-code-comment end (point))
   (funcall
    (syntax-propertize-rules

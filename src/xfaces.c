@@ -1669,8 +1669,7 @@ check_lface_attrs (Lisp_Object attrs[LFACE_VECTOR_SIZE])
 	   || SYMBOLP (attrs[LFACE_SWIDTH_INDEX]));
   eassert (UNSPECIFIEDP (attrs[LFACE_HEIGHT_INDEX])
 	   || IGNORE_DEFFACE_P (attrs[LFACE_HEIGHT_INDEX])
-	   || INTEGERP (attrs[LFACE_HEIGHT_INDEX])
-	   || FLOATP (attrs[LFACE_HEIGHT_INDEX])
+	   || NUMBERP (attrs[LFACE_HEIGHT_INDEX])
 	   || FUNCTIONP (attrs[LFACE_HEIGHT_INDEX]));
   eassert (UNSPECIFIEDP (attrs[LFACE_WEIGHT_INDEX])
 	   || IGNORE_DEFFACE_P (attrs[LFACE_WEIGHT_INDEX])
@@ -4186,7 +4185,7 @@ free_realized_faces (struct face_cache *c)
       if (WINDOWP (f->root_window))
 	{
 	  clear_current_matrices (f);
-	  windows_or_buffers_changed = 58;
+	  fset_redisplay (f);
 	}
 
       unblock_input ();
@@ -4206,6 +4205,7 @@ free_all_realized_faces (Lisp_Object frame)
       Lisp_Object rest;
       FOR_EACH_FRAME (rest, frame)
 	free_realized_faces (FRAME_FACE_CACHE (XFRAME (frame)));
+      windows_or_buffers_changed = 58;
     }
   else
     free_realized_faces (FRAME_FACE_CACHE (XFRAME (frame)));
