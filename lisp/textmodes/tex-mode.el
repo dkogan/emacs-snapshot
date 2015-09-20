@@ -135,8 +135,8 @@ If nil, TeX runs with no options.  See the documentation of `tex-command'."
   "TeX commands to use when starting TeX.
 They are shell-quoted and precede the input file name, with a separating space.
 If nil, no commands are used.  See the documentation of `tex-command'."
-  :type '(radio (const :tag "Interactive \(nil\)" nil)
-		(const :tag "Nonstop \(\"\\nonstopmode\\input\"\)"
+  :type '(radio (const :tag "Interactive (nil)" nil)
+		(const :tag "Nonstop (\"\\nonstopmode\\input\")"
 		       "\\nonstopmode\\input")
 		(string :tag "String at your choice"))
   :group 'tex-run
@@ -266,8 +266,8 @@ tex shell terminates.")
 
 (defvar tex-command "tex"
   "Command to run TeX.
-If this string contains an asterisk \(`*'\), that is replaced by the file name;
-otherwise the value of `tex-start-options', the \(shell-quoted\)
+If this string contains an asterisk \(`*'), that is replaced by the file name;
+otherwise the value of `tex-start-options', the \(shell-quoted)
 value of `tex-start-commands', and the file name are added at the end
 with blanks as separators.
 
@@ -387,7 +387,7 @@ An alternative value is \" . \", if you use a font with a narrow period."
       (goto-char (point-min))
       (while (search-forward-regexp
 	      "\\\\\\(include\\|input\\|verbatiminput\\|bibliography\\)\
-\[ \t]*{\\([^}\n]+\\)}"
+[ \t]*{\\([^}\n]+\\)}"
 	      nil t)
 	(push (cons (concat "<<" (buffer-substring-no-properties
 				  (match-beginning 2)
@@ -1550,7 +1550,7 @@ Puts point on a blank line between them."
   "\\end{" str "}" > \n)
 
 (define-skeleton latex-insert-item
-  "Insert a \item macro."
+  "Insert an \\item macro."
   nil
   \n "\\item " >)
 
@@ -3272,7 +3272,8 @@ There might be text before point."
     ("\\prod" . ?∏)
     ("\\propto" . ?∝)
     ("\\qed" . ?∎)
-    ("\\quad" . ? )
+    ("\\qquad" . ?⧢)
+    ("\\quad" . ?␣)
     ("\\rangle" . 10217)            ; Literal ?⟩ breaks indentation.
     ("\\rbrace" . ?})
     ("\\rbrack" . ?\])
@@ -3359,6 +3360,7 @@ There might be text before point."
     ("\\vDash" . ?⊨)
     ("\\varprime" . ?′)
     ("\\varpropto" . ?∝)
+    ("\\varrho" . ?ϱ)
     ;; ("\\varsigma" ?ς)		;FIXME: Looks reversed with the non\var.
     ("\\vartriangleleft" . ?⊲)
     ("\\vartriangleright" . ?⊳)

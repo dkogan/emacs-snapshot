@@ -68,10 +68,14 @@
 
   (when (and file-notify--test-tmpfile
              (file-exists-p file-notify--test-tmpfile))
-    (delete-file file-notify--test-tmpfile))
+    (if (directory-name-p file-notify--test-tmpfile)
+        (delete-directory file-notify--test-tmpfile)
+      (delete-file file-notify--test-tmpfile)))
   (when (and file-notify--test-tmpfile1
              (file-exists-p file-notify--test-tmpfile1))
-    (delete-file file-notify--test-tmpfile1))
+    (if (directory-name-p file-notify--test-tmpfile1)
+        (delete-directory file-notify--test-tmpfile1)
+      (delete-file file-notify--test-tmpfile1)))
 
   (setq file-notify--test-tmpfile nil)
   (setq file-notify--test-tmpfile1 nil)
@@ -317,8 +321,7 @@ Don't wait longer than TIMEOUT seconds for the events to be delivered."
       auto-revert-stop-on-user-input nil)
 
 (ert-deftest file-notify-test03-autorevert ()
-  "Check autorevert via file notification.
-This test is skipped in batch mode."
+  "Check autorevert via file notification."
   (skip-unless (file-notify--test-local-enabled))
   ;; `auto-revert-buffers' runs every 5".  And we must wait, until the
   ;; file has been reverted.
@@ -369,8 +372,69 @@ This test is skipped in batch mode."
       (file-notify--test-cleanup))))
 
 (file-notify--deftest-remote file-notify-test03-autorevert
-  "Check autorevert via file notification for remote files.
-This test is skipped in batch mode.")
+  "Check autorevert via file notification for remote files.")
+
+(ert-deftest file-notify-test04-file-validity ()
+  "Check `file-notify-valid-p' for files."
+  (skip-unless (file-notify--test-local-enabled))
+  ;; The batch-mode operation of w32notify is fragile (there's no
+  ;; input threads to send the message to).
+  (skip-unless (not (and noninteractive (eq file-notify--library 'w32notify))))
+  (unwind-protect
+      (let ((temporary-file-directory (make-temp-file
+                                       "file-notify-test-parent" t)))
+        (setq file-notify--test-tmpfile (file-notify--test-make-temp-name))
+        (setq file-notify--test-desc (file-notify-add-watch
+                                      file-notify--test-tmpfile
+                                      '(change)
+                                      #'file-notify--test-event-handler))
+        (file-notify--test-with-events
+            2 3 (lambda (events)
+                  (should (equal '(created changed)
+                                 (mapcar #'cadr events))))
+          (should (file-notify-valid-p file-notify--test-desc))
+          (write-region
+           "any text" nil file-notify--test-tmpfile nil 'no-message)
+          (should (file-notify-valid-p file-notify--test-desc)))
+        ;; After deleting the parent, the descriptor must not be valid
+        ;; anymore.
+        (delete-directory temporary-file-directory t)
+        (read-event nil nil 0.5)
+        (should-not (file-notify-valid-p file-notify--test-desc)))
+
+    ;; Exit.
+    (file-notify--test-cleanup)))
+
+(file-notify--deftest-remote file-notify-test04-file-validity
+  "Check `file-notify-valid-p' via file notification for remote files.")
+
+(ert-deftest file-notify-test05-dir-validity ()
+  "Check `file-notify-valid-p' for directories."
+  (skip-unless (file-notify--test-local-enabled))
+  ;; The batch-mode operation of w32notify is fragile (there's no
+  ;; input threads to send the message to).
+  (skip-unless (not (and noninteractive (eq file-notify--library 'w32notify))))
+  (unwind-protect
+      (progn
+        (setq file-notify--test-tmpfile (file-name-as-directory
+                                         (file-notify--test-make-temp-name)))
+        (make-directory file-notify--test-tmpfile)
+        (setq file-notify--test-desc (file-notify-add-watch
+                                      file-notify--test-tmpfile
+                                      '(change)
+                                      #'file-notify--test-event-handler))
+        (should (file-notify-valid-p file-notify--test-desc))
+        (delete-directory file-notify--test-tmpfile t)
+        ;; After deleting the directory, the descriptor must not be
+        ;; valid anymore.
+        (read-event nil nil 0.5)
+        (should-not (file-notify-valid-p file-notify--test-desc)))
+
+    ;; Exit.
+    (file-notify--test-cleanup)))
+
+(file-notify--deftest-remote file-notify-test05-dir-validity
+  "Check `file-notify-valid-p' via file notification for remote directories.")
 
 (defun file-notify-test-all (&optional interactive)
   "Run all tests for \\[file-notify]."
