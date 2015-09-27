@@ -1370,17 +1370,6 @@ LIMIT defaults to point."
              (looking-at "\"\\s-*,\\s-*\\[")
              (eq (match-end 0) (1+ list-begin)))))))
 
-(defun js--syntax-begin-function ()
-  (when (< js--cache-end (point))
-    (goto-char (max (point-min) js--cache-end)))
-
-  (let ((pitem))
-    (while (and (setq pitem (car (js--backward-pstate)))
-                (not (eq 0 (js--pitem-paren-depth pitem)))))
-
-    (when pitem
-      (goto-char (js--pitem-h-begin pitem )))))
-
 ;;; Font Lock
 (defun js--make-framework-matcher (framework &rest regexps)
   "Helper function for building `js--font-lock-keywords'.
@@ -1734,6 +1723,12 @@ This performs fontification according to `js--class-styles'."
                               'syntax-table (string-to-syntax "\"/"))
            (js-syntax-propertize-regexp end))))))
    (point) end))
+
+(defconst js--prettify-symbols-alist
+  '(("=>" . ?⇒)
+    (">=" . ?≥)
+    ("<=" . ?≤))
+  "Alist of symbol prettifications for JavaScript.")
 
 ;;; Indentation
 
@@ -3506,6 +3501,7 @@ If one hasn't been set, or if it's stale, prompt for a new one."
   (setq-local open-paren-in-column-0-is-defun-start nil)
   (setq-local font-lock-defaults (list js--font-lock-keywords))
   (setq-local syntax-propertize-function #'js-syntax-propertize)
+  (setq-local prettify-symbols-alist js--prettify-symbols-alist)
 
   (setq-local parse-sexp-ignore-comments t)
   (setq-local parse-sexp-lookup-properties t)
@@ -3550,8 +3546,6 @@ If one hasn't been set, or if it's stale, prompt for a new one."
     (make-local-variable 'adaptive-fill-regexp)
     (c-setup-paragraph-variables))
 
-  (setq-local syntax-begin-function #'js--syntax-begin-function)
-
   ;; Important to fontify the whole buffer syntactically! If we don't,
   ;; then we might have regular expression literals that aren't marked
   ;; as strings, which will screw up parse-partial-sexp, scan-lists,
@@ -3576,5 +3570,9 @@ If one hasn't been set, or if it's stale, prompt for a new one."
   (add-to-list 'interpreter-mode-alist (cons (purecopy name) 'js-mode)))
 
 (provide 'js)
+
+;; Local Variables:
+;; coding: utf-8
+;; End:
 
 ;; js.el ends here

@@ -2661,10 +2661,18 @@ init_iterator (struct it *it, struct window *w,
      free realized faces now because they depend on face definitions
      that might have changed.  Don't free faces while there might be
      desired matrices pending which reference these faces.  */
-  if (face_change && !inhibit_free_realized_faces)
+  if (!inhibit_free_realized_faces)
     {
-      face_change = false;
-      free_all_realized_faces (Qnil);
+      if (face_change)
+	{
+	  face_change = false;
+	  free_all_realized_faces (Qnil);
+	}
+      else if (XFRAME (w->frame)->face_change)
+	{
+	  XFRAME (w->frame)->face_change = 0;
+	  free_all_realized_faces (w->frame);
+	}
     }
 
   /* Perhaps remap BASE_FACE_ID to a user-specified alternative.  */
@@ -4014,21 +4022,26 @@ face_before_or_after_it_pos (struct it *it, bool before_p)
 	      /* With bidi iteration, the character before the current
 		 in the visual order cannot be found by simple
 		 iteration, because "reverse" reordering is not
-		 supported.  Instead, we need to use the move_it_*
-		 family of functions.  */
+		 supported.  Instead, we need to start from the string
+		 beginning and go all the way to the current string
+		 position, remembering the previous position.  */
 	      /* Ignore face changes before the first visible
 		 character on this display line.  */
 	      if (it->current_x <= it->first_visible_x)
 		return it->face_id;
 	      SAVE_IT (it_copy, *it, it_copy_data);
-	      /* Implementation note: Since move_it_in_display_line
-		 works in the iterator geometry, and thinks the first
-		 character is always the leftmost, even in R2L lines,
-		 we don't need to distinguish between the R2L and L2R
-		 cases here.  */
-	      move_it_in_display_line (&it_copy, SCHARS (it_copy.string),
-				       it_copy.current_x - 1, MOVE_TO_X);
-	      charpos = IT_STRING_CHARPOS (it_copy);
+	      IT_STRING_CHARPOS (it_copy) = 0;
+	      bidi_init_it (0, 0, FRAME_WINDOW_P (it_copy.f), &it_copy.bidi_it);
+
+	      do
+		{
+		  charpos = IT_STRING_CHARPOS (it_copy);
+		  if (charpos >= SCHARS (it->string))
+		    break;
+		  bidi_move_to_visually_next (&it_copy.bidi_it);
+		}
+	      while (IT_STRING_CHARPOS (it_copy) != IT_STRING_CHARPOS (*it));
+
 	      RESTORE_IT (it, it, it_copy_data);
 	    }
 	  else
@@ -4108,11 +4121,15 @@ face_before_or_after_it_pos (struct it *it, bool before_p)
 	{
 	  if (before_p)
 	    {
+	      int current_x;
+
 	      /* With bidi iteration, the character before the current
 		 in the visual order cannot be found by simple
 		 iteration, because "reverse" reordering is not
 		 supported.  Instead, we need to use the move_it_*
-		 family of functions.  */
+		 family of functions, and move to the previous
+		 character starting from the beginning of the visual
+		 line.  */
 	      /* Ignore face changes before the first visible
 		 character on this display line.  */
 	      if (it->current_x <= it->first_visible_x)
@@ -4123,8 +4140,9 @@ face_before_or_after_it_pos (struct it *it, bool before_p)
 		 character is always the leftmost, even in R2L lines,
 		 we don't need to distinguish between the R2L and L2R
 		 cases here.  */
-	      move_it_in_display_line (&it_copy, ZV,
-				       it_copy.current_x - 1, MOVE_TO_X);
+	      current_x = it_copy.current_x;
+	      move_it_vertically_backward (&it_copy, 0);
+	      move_it_in_display_line (&it_copy, ZV, current_x - 1, MOVE_TO_X);
 	      pos = it_copy.current.pos;
 	      RESTORE_IT (it, it, it_copy_data);
 	    }
@@ -13531,6 +13549,7 @@ redisplay_internal (void)
       && FRAME_VISIBLE_P (XFRAME (w->frame))
       && !FRAME_OBSCURED_P (XFRAME (w->frame))
       && !XFRAME (w->frame)->cursor_type_changed
+      && !XFRAME (w->frame)->face_change
       /* Make sure recorded data applies to current buffer, etc.  */
       && this_line_buffer == current_buffer
       && match_p
@@ -15877,6 +15896,7 @@ redisplay_window (Lisp_Object window, bool just_this_one_p)
       && REDISPLAY_SOME_P ()
       && !w->redisplay
       && !w->update_mode_line
+      && !f->face_change
       && !f->redisplay
       && !buffer->text->redisplay
       && BUF_PT (buffer) == w->last_point)
@@ -25946,9 +25966,7 @@ produce_stretch_glyph (struct it *it)
       zero_width_ok_p = true;
       width = (int)tem;
     }
-#ifdef HAVE_WINDOW_SYSTEM
-  else if (FRAME_WINDOW_P (it->f)
-	   && (prop = Fplist_get (plist, QCrelative_width), NUMVAL (prop) > 0))
+  else if (prop = Fplist_get (plist, QCrelative_width), NUMVAL (prop) > 0)
     {
       /* Relative width `:relative-width FACTOR' specified and valid.
 	 Compute the width of the characters having the `glyph'
@@ -25968,10 +25986,9 @@ produce_stretch_glyph (struct it *it)
 
       it2.glyph_row = NULL;
       it2.what = IT_CHARACTER;
-      x_produce_glyphs (&it2);
+      PRODUCE_GLYPHS (&it2);
       width = NUMVAL (prop) * it2.pixel_width;
     }
-#endif	/* HAVE_WINDOW_SYSTEM */
   else if ((prop = Fplist_get (plist, QCalign_to), !NILP (prop))
 	   && calc_pixel_width_or_height (&tem, it, prop, font, true,
 					  &align_to))

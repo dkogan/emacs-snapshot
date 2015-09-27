@@ -2955,7 +2955,7 @@ There might be text before point."
     ("\\beta" . ?β)
     ("\\gamma" . ?γ)
     ("\\delta" . ?δ)
-    ("\\epsilon" . ?ε)
+    ("\\epsilon" . ?ϵ)
     ("\\zeta" . ?ζ)
     ("\\eta" . ?η)
     ("\\theta" . ?θ)
@@ -3358,6 +3358,7 @@ There might be text before point."
     ("\\urcorner" . ?⌝)
     ("\\u{i}" . ?ĭ)
     ("\\vDash" . ?⊨)
+    ("\\varepsilon" . ?ε)
     ("\\varprime" . ?′)
     ("\\varpropto" . ?∝)
     ("\\varrho" . ?ϱ)
@@ -3408,16 +3409,17 @@ There might be text before point."
 
 (defun tex--prettify-symbols-compose-p (start end _match)
   (let* ((after-char (char-after end))
-         (after-syntax  (char-syntax after-char)))
+         (after-syntax (char-syntax after-char)))
     (not (or
           ;; Don't compose \alpha@foo.
-          (eq after-syntax ?_)
-          ;; Don't compose inside verbatim blocks!
-          (nth 8 (syntax-ppss))
-          ;; The \alpha in \alpha2 may be composed but of course \alphax may not.
+          (eq after-char ?@)
+          ;; The \alpha in \alpha2 or \alpha-\beta may be composed but
+          ;; of course \alphax may not.
           (and (eq after-syntax ?w)
-               (or (< after-char ?0)
-                   (> after-char ?9)))))))
+               (not (memq after-char
+                          '(?0 ?1 ?2 ?3 ?4 ?5 ?6 ?7 ?8 ?9 ?+ ?- ?' ?\"))))
+          ;; Don't compose inside verbatim blocks.
+	  (eq 2 (nth 7 (syntax-ppss)))))))
 
 (run-hooks 'tex-mode-load-hook)
 
