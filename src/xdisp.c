@@ -13336,6 +13336,9 @@ redisplay_internal (void)
   /* True means redisplay has to redisplay the miniwindow.  */
   bool update_miniwindow_p = false;
 
+  /* True means we need to redraw frames whose 'redisplay' bit is set.  */
+  bool consider_some_frames_p = false;
+
   TRACE ((stderr, "redisplay_internal %d\n", redisplaying_p));
 
   /* No redisplay if running in batch mode or frame is not yet fully
@@ -13382,6 +13385,10 @@ redisplay_internal (void)
 
   pending = false;
   forget_escape_and_glyphless_faces ();
+
+  inhibit_free_realized_faces = false;
+
+  consider_some_frames_p = false;
 
   /* If face_change, init_iterator will free all realized faces, which
      includes the faces referenced from current matrices.  So, we
@@ -13430,7 +13437,7 @@ redisplay_internal (void)
 	  /* If cursor type has been changed on the frame
 	     other than selected, consider all frames.  */
 	  if (f != sf && f->cursor_type_changed)
-	    update_mode_lines = 31;
+	    fset_redisplay (f);
 	}
       clear_desired_matrices (f);
     }
@@ -13528,9 +13535,12 @@ redisplay_internal (void)
   consider_all_windows_p = (update_mode_lines
 			    || windows_or_buffers_changed);
 
-#define AINC(a,i) \
-  if (VECTORP (a) && i >= 0 && i < ASIZE (a) && INTEGERP (AREF (a, i))) \
-    ASET (a, i, make_number (1 + XINT (AREF (a, i))))
+#define AINC(a,i)							\
+  {									\
+    Lisp_Object entry = Fgethash (make_number (i), a, make_number (0));	\
+    if (INTEGERP (entry))						\
+      Fputhash (make_number (i), make_number (1 + XINT (entry)), a);	\
+  }
 
   AINC (Vredisplay__all_windows_cause, windows_or_buffers_changed);
   AINC (Vredisplay__mode_lines_cause, update_mode_lines);
@@ -13550,6 +13560,7 @@ redisplay_internal (void)
       && !FRAME_OBSCURED_P (XFRAME (w->frame))
       && !XFRAME (w->frame)->cursor_type_changed
       && !XFRAME (w->frame)->face_change
+      && !XFRAME (w->frame)->redisplay
       /* Make sure recorded data applies to current buffer, etc.  */
       && this_line_buffer == current_buffer
       && match_p
@@ -13745,13 +13756,31 @@ redisplay_internal (void)
 #endif
 
   /* Build desired matrices, and update the display.  If
-     consider_all_windows_p, do it for all windows on all frames.
-     Otherwise do it for selected_window, only.  */
+     consider_all_windows_p, do it for all windows on all frames.  If
+     a frame's 'redisplay' flag is set, do it for all windows on each
+     such frame.  Otherwise do it for selected_window, only.  */
 
-  if (consider_all_windows_p)
+  if (!consider_all_windows_p)
     {
       FOR_EACH_FRAME (tail, frame)
-	XFRAME (frame)->updated_p = false;
+	{
+	  if (XFRAME (frame)->redisplay
+	      && XFRAME (frame) != sf
+	      && !FRAME_INITIAL_P (XFRAME (frame)))
+	    {
+	      consider_some_frames_p = true;
+	      break;
+	    }
+	}
+    }
+
+  if (consider_all_windows_p || consider_some_frames_p)
+    {
+      FOR_EACH_FRAME (tail, frame)
+	{
+	  if (XFRAME (frame)->redisplay || consider_all_windows_p)
+	    XFRAME (frame)->updated_p = false;
+	}
 
       propagate_buffer_redisplay ();
 
@@ -13763,6 +13792,9 @@ redisplay_internal (void)
 	     frames.  */
 	  if ((FRAME_TERMCAP_P (f) || FRAME_MSDOS_P (f))
 	      && !EQ (FRAME_TTY (f)->top_frame, frame))
+	    continue;
+
+	  if (!consider_all_windows_p && !f->redisplay)
 	    continue;
 
 	retry_frame:
@@ -13870,6 +13902,10 @@ redisplay_internal (void)
       /* If fonts changed, display again.  */
       if (sf->fonts_changed)
 	goto retry;
+
+      /* Prevent freeing of realized faces, since desired matrices are
+	 pending that reference the faces we computed and cached.  */
+      inhibit_free_realized_faces = true;
 
       /* Prevent various kinds of signals during display update.
 	 stdio is not robust about handling signals,
@@ -15406,6 +15442,7 @@ try_cursor_movement (Lisp_Object window, struct text_pos startp,
       && !update_mode_lines
       && !windows_or_buffers_changed
       && !f->cursor_type_changed
+      && !f->redisplay
       && NILP (Vshow_trailing_whitespace)
       /* This code is not used for mini-buffer for the sake of the case
 	 of redisplaying to replace an echo area message; since in
@@ -17016,6 +17053,7 @@ try_window_reusing_current_matrix (struct window *w)
       /* Don't try to reuse the display if windows have been split
 	 or such.  */
       || windows_or_buffers_changed
+      || f->redisplay
       || f->cursor_type_changed)
     return false;
 
@@ -17793,7 +17831,7 @@ try_window_id (struct window *w)
     GIVE_UP (1);
 
   /* This flag is used to prevent redisplay optimizations.  */
-  if (windows_or_buffers_changed || f->cursor_type_changed)
+  if (windows_or_buffers_changed || f->cursor_type_changed || f->redisplay)
     GIVE_UP (2);
 
   /* This function's optimizations cannot be used if overlays have
@@ -19802,7 +19840,8 @@ push_prefix_prop (struct it *it, Lisp_Object prop)
 
   eassert (it->method == GET_FROM_BUFFER
 	   || it->method == GET_FROM_DISPLAY_VECTOR
-	   || it->method == GET_FROM_STRING);
+	   || it->method == GET_FROM_STRING
+	   || it->method == GET_FROM_IMAGE);
 
   /* We need to save the current buffer/string position, so it will be
      restored by pop_it, because iterate_out_of_display_property
@@ -31381,13 +31420,11 @@ display table takes effect; in this case, Emacs does not consult
 
   DEFVAR_LISP ("redisplay--all-windows-cause", Vredisplay__all_windows_cause,
 	       doc: /*  */);
-  Vredisplay__all_windows_cause
-    = Fmake_vector (make_number (100), make_number (0));
+  Vredisplay__all_windows_cause = Fmake_hash_table (0, NULL);
 
   DEFVAR_LISP ("redisplay--mode-lines-cause", Vredisplay__mode_lines_cause,
 	       doc: /*  */);
-  Vredisplay__mode_lines_cause
-    = Fmake_vector (make_number (100), make_number (0));
+  Vredisplay__mode_lines_cause = Fmake_hash_table (0, NULL);
 }
 
 
