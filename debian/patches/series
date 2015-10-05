@@ -5,3 +5,5 @@
 0005-Modify-the-output-of-version-to-indicate-Debian-modi.patch
 0006-Don-t-try-to-build-src-macuvs.h-via-IVD_Sequences.tx.patch
 0007-version.el-removed-extra-s.-Some-previous-rebase-bro.patch
+0008-compact_font_cache_entry-now-properly-checks-for-mar.patch
+0009-copy_font_spec-now-makes-a-deeper-copy-of-its-input.patch

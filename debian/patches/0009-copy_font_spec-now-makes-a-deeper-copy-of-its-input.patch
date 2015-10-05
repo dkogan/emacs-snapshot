@@ -1,0 +1,26 @@
+From: Dima Kogan <dima@secretsauce.net>
+Date: Mon, 5 Oct 2015 11:21:12 -0700
+Subject: (copy_font_spec) now makes a deeper copy of its input
+
+---
+ src/font.c | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/src/font.c b/src/font.c
+index a52a653..0b2999e 100644
+--- a/src/font.c
++++ b/src/font.c
+@@ -3981,7 +3981,12 @@ copy_font_spec (Lisp_Object font)
+   pcdr = spec->props + FONT_EXTRA_INDEX;
+   for (tail = AREF (font, FONT_EXTRA_INDEX); CONSP (tail); tail = XCDR (tail))
+     if (!EQ (XCAR (XCAR (tail)), QCfont_entity))
+-      *pcdr = Fcons (XCAR (tail), Qnil), pcdr = xcdr_addr (*pcdr);
++      {
++        *pcdr = Fcons (Fcons( XCAR (XCAR (tail)),
++                              XCDR (XCAR (tail))),
++                       Qnil);
++        pcdr = xcdr_addr (*pcdr);
++      }
+ 
+   XSETFONT (new_spec, spec);
+   return new_spec;
