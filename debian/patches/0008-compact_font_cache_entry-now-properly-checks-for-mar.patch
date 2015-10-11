@@ -12,7 +12,7 @@ Fixes: bug#21556
  1 file changed, 25 insertions(+), 2 deletions(-)
 
 diff --git a/src/alloc.c b/src/alloc.c
-index 3ab2a6e..03df258 100644
+index 5fc40d1..21dab79 100644
 --- a/src/alloc.c
 +++ b/src/alloc.c
 @@ -5303,8 +5303,31 @@ compact_font_cache_entry (Lisp_Object entry)
