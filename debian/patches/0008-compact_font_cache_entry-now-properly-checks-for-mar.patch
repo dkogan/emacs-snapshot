@@ -12,10 +12,10 @@ Fixes: bug#21556
  1 file changed, 25 insertions(+), 2 deletions(-)
 
 diff --git a/src/alloc.c b/src/alloc.c
-index 5fc40d1..21dab79 100644
+index f08a350..e87b561 100644
 --- a/src/alloc.c
 +++ b/src/alloc.c
-@@ -5303,8 +5303,31 @@ compact_font_cache_entry (Lisp_Object entry)
+@@ -5314,8 +5314,31 @@ compact_font_cache_entry (Lisp_Object entry)
  	     are not marked too.  But we must be sure that nothing is
  	     marked within OBJ before we really drop it.  */
  	  for (i = 0; i < size; i++)

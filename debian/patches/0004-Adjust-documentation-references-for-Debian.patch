@@ -11,10 +11,10 @@ appropriate, etc.
  1 file changed, 5 insertions(+)
 
 diff --git a/etc/NEWS b/etc/NEWS
-index dbe0de3..4685ade 100644
+index 7b31357..17f12c9 100644
 --- a/etc/NEWS
 +++ b/etc/NEWS
-@@ -21,6 +21,11 @@ Temporary note:
+@@ -22,6 +22,11 @@ Temporary note:
  When you add a new item, use the appropriate mark if you are sure it applies,
  otherwise leave it unmarked.
  

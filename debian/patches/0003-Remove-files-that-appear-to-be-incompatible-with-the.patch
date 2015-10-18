@@ -134,7 +134,7 @@ index 23e1d40..dbaa127 100755
              ## FIXME do not ignore w32 if OS is w32.
              case $file in
 diff --git a/configure.ac b/configure.ac
-index 90c4e12..5939afb 100644
+index 5b2d9c7..67cd64d 100644
 --- a/configure.ac
 +++ b/configure.ac
 @@ -5275,11 +5275,11 @@ dnl This will work, but you get a config.status that is not quite right
