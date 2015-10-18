@@ -1596,7 +1596,9 @@ w32_setup_relief_color (struct frame *f, struct relief *relief, double factor,
   unsigned long mask = GCForeground;
   COLORREF pixel;
   COLORREF background = di->relief_background;
+#if 0
   struct w32_display_info *dpyinfo = FRAME_DISPLAY_INFO (f);
+#endif
 
   /* TODO: Free colors (if using palette)? */
 
@@ -4350,8 +4352,6 @@ w32_horizontal_scroll_bar_handle_click (struct scroll_bar *bar, W32Msg *msg,
 	if (dragging)
 	  {
 	    SCROLLINFO si;
-	    int start = bar->start;
-	    int end = bar->end;
 
 	    si.cbSize = sizeof (si);
 	    si.fMask = SIF_POS;
@@ -5159,7 +5159,7 @@ w32_read_socket (struct terminal *terminal,
 	  if (f && !FRAME_ICONIFIED_P (f) && msg.msg.wParam != SIZE_MINIMIZED)
 	    {
 	      RECT rect;
-	      int rows, columns, width, height, text_width, text_height;
+	      int /* rows, columns, */ width, height, text_width, text_height;
 
 	      if (GetClientRect (msg.msg.hwnd, &rect)
 		  /* GetClientRect evidently returns (0, 0, 0, 0) if
@@ -6176,6 +6176,13 @@ x_set_window_size (struct frame *f, bool change_gravity,
 
   if (pixelwidth > 0 || pixelheight > 0)
     {
+      frame_size_history_add
+	(f, Qx_set_window_size_1, width, height,
+	 list2 (Fcons (make_number (pixelwidth),
+		       make_number (pixelheight)),
+		Fcons (make_number (rect.right - rect.left),
+		       make_number (rect.bottom - rect.top))));
+
       my_set_window_pos (FRAME_W32_WINDOW (f), NULL,
 			 0, 0,
 			 rect.right - rect.left,
