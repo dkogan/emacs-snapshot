@@ -788,19 +788,23 @@ Else returns nil for success."
 
 (defun dired-shell-command (cmd)
   "Run CMD, and check for output.
-On error, pop up the log buffer."
-  (let ((out-buffer " *dired-check-process output*"))
+On error, pop up the log buffer.
+Return the result of `process-file' - zero for success."
+  (let ((out-buffer " *dired-check-process output*")
+        (dir default-directory))
     (with-current-buffer (get-buffer-create out-buffer)
       (erase-buffer)
-      (let ((res (process-file
-                  shell-file-name
-                  nil
-                  t
-                  nil
-                  shell-command-switch
-                  cmd)))
+      (let* ((default-directory dir)
+             (res (process-file
+                   shell-file-name
+                   nil
+                   t
+                   nil
+                   shell-command-switch
+                   cmd)))
         (unless (zerop res)
-          (pop-to-buffer out-buffer))))))
+          (pop-to-buffer out-buffer))
+        res))))
 
 ;; Commands that delete or redisplay part of the dired buffer.
 
@@ -880,7 +884,11 @@ command with a prefix argument (the value does not matter)."
       from-file)))
 
 (defvar dired-compress-file-suffixes
-  '(("\\.tar\\.gz\\'" "" "tar -zxvf %i")
+  '(
+    ;; "tar -zxf" isn't used because it's not available on the
+    ;; Solaris10 version of tar. Solaris10 becomes obsolete in 2021.
+    ;; Same thing on AIX 7.1.
+    ("\\.tar\\.gz\\'" "" "gzip -dc %i | tar -xv")
     ("\\.gz\\'" "" "gunzip")
     ("\\.tgz\\'" ".tar" "gunzip")
     ("\\.Z\\'" "" "uncompress")
@@ -893,7 +901,9 @@ command with a prefix argument (the value does not matter)."
     ("\\.xz\\'" "" "unxz")
     ("\\.zip\\'" "" "unzip -o -d %o %i")
     ;; This item controls naming for compression.
-    ("\\.tar\\'" ".tgz" nil))
+    ("\\.tar\\'" ".tgz" nil)
+    ;; This item controls the compression of directories
+    (":" ".tar.gz" "tar -c %i | gzip -c9 > %o"))
   "Control changes in file name suffixes for compression and uncompression.
 Each element specifies one transformation rule, and has the form:
   (REGEXP NEW-SUFFIX PROGRAM)
@@ -908,6 +918,54 @@ output file.
 
 Otherwise, the rule is a compression rule, and compression is done with gzip.
 ARGS are command switches passed to PROGRAM.")
+
+(defvar dired-compress-files-alist
+  '(("\\.tar\\.gz\\'" . "tar -c %i | gzip -c9 > %o")
+    ("\\.tar\\.bz2\\'" . "tar -c %i | bzip2 -c9 > %o")
+    ("\\.tar\\.xz\\'" . "tar -c %i | xz -c9 > %o")
+    ("\\.zip\\'" . "zip %o -r --filesync %i"))
+  "Control the compression shell command for `dired-do-compress-to'.
+
+Each element is (REGEXP . CMD), where REGEXP is the name of the
+archive to which you want to compress, and CMD the the
+corresponding command.
+
+Within CMD, %i denotes the input file(s), and %o denotes the
+output file. %i path(s) are relative, while %o is absolute.")
+
+;;;###autoload
+(defun dired-do-compress-to ()
+  "Compress selected files and directories to an archive.
+You are prompted for the archive name.
+The archiving command is chosen based on the archive name extension and
+`dired-compress-files-alist'."
+  (interactive)
+  (let* ((in-files (dired-get-marked-files))
+         (out-file (read-file-name "Compress to: "))
+         (rule (cl-find-if
+                (lambda (x)
+                  (string-match (car x) out-file))
+                dired-compress-files-alist)))
+    (cond ((not rule)
+           (error
+            "No compression rule found for %s, see `dired-compress-files-alist'"
+            out-file))
+          ((and (file-exists-p out-file)
+                (not (y-or-n-p
+                      (format "%s exists, overwrite?"
+                              (abbreviate-file-name out-file)))))
+           (message "Compression aborted"))
+          (t
+           (when (zerop
+                  (dired-shell-command
+                   (replace-regexp-in-string
+                    "%o" out-file
+                    (replace-regexp-in-string
+                     "%i" (mapconcat #'file-name-nondirectory in-files " ")
+                     (cdr rule)))))
+             (message "Compressed %d file(s) to %s"
+                      (length in-files)
+                      (file-name-nondirectory out-file)))))))
 
 ;;;###autoload
 (defun dired-compress-file (file)
@@ -952,31 +1010,36 @@ Return nil if no change in files."
            ;; We don't recognize the file as compressed, so compress it.
            ;; Try gzip; if we don't have that, use compress.
            (condition-case nil
-               (let ((out-name (concat file (if (file-directory-p file)
-                                                ".tar.gz"
-                                              ".gz"))))
-                 (and (or (not (file-exists-p out-name))
-                          (y-or-n-p
-                           (format "File %s already exists.  Really compress? "
-                                   out-name)))
-                      (not
-                       (if (file-directory-p file)
-                           (let ((default-directory (file-name-directory file)))
-                             (dired-check-process
-                              (concat "Compressing " file)
-                              "tar" "-czf"
-                              out-name (file-name-nondirectory file)))
+               (if (file-directory-p file)
+                   (progn
+                     (setq suffix (cdr (assoc ":" dired-compress-file-suffixes)))
+                     (when suffix
+                       (let ((out-name (concat file (car suffix)))
+                             (default-directory (file-name-directory file)))
+                         (dired-shell-command
+                          (replace-regexp-in-string
+                           "%o" out-name
+                           (replace-regexp-in-string
+                            "%i" (file-name-nondirectory file)
+                            (cadr suffix))))
+                         out-name)))
+                 (let ((out-name (concat file ".gz")))
+                   (and (or (not (file-exists-p out-name))
+                            (y-or-n-p
+                             (format "File %s already exists.  Really compress? "
+                                     out-name)))
+                        (not
                          (dired-check-process (concat "Compressing " file)
-                                              "gzip" "-f" file)))
-                      (or (file-exists-p out-name)
-                          (setq out-name (concat file ".z")))
-                      ;; Rename the compressed file to NEWNAME
-                      ;; if it hasn't got that name already.
-                      (if (and newname (not (equal newname out-name)))
-                          (progn
-                            (rename-file out-name newname t)
-                            newname)
-                        out-name)))
+                                              "gzip" "-f" file))
+                        (or (file-exists-p out-name)
+                            (setq out-name (concat file ".z")))
+                        ;; Rename the compressed file to NEWNAME
+                        ;; if it hasn't got that name already.
+                        (if (and newname (not (equal newname out-name)))
+                            (progn
+                              (rename-file out-name newname t)
+                              newname)
+                          out-name))))
              (file-error
               (if (not (dired-check-process (concat "Compressing " file)
                                             "compress" "-f" file))
