@@ -839,6 +839,9 @@ static NSRect constrain_frame_rect(NSRect frameRect)
 
 static void
 ns_constrain_all_frames (void)
+/* --------------------------------------------------------------------------
+     Ensure that the menu bar doesn't cover any frames.
+   -------------------------------------------------------------------------- */
 {
   Lisp_Object tail, frame;
 
@@ -851,10 +854,14 @@ ns_constrain_all_frames (void)
       struct frame *f = XFRAME (frame);
       if (FRAME_NS_P (f))
         {
-          NSView *view = FRAME_NS_VIEW (f);
+          EmacsView *view = FRAME_NS_VIEW (f);
 
-          [[view window] setFrame:constrain_frame_rect([[view window] frame])
-                          display:NO];
+          if (![view isFullscreen])
+            {
+              [[view window]
+                setFrame:constrain_frame_rect([[view window] frame])
+                 display:NO];
+            }
         }
     }
 
@@ -862,10 +869,11 @@ ns_constrain_all_frames (void)
 }
 
 
-/* Show or hide the menu bar, based on user setting.  */
-
 static void
 ns_update_auto_hide_menu_bar (void)
+/* --------------------------------------------------------------------------
+     Show or hide the menu bar, based on user setting.
+   -------------------------------------------------------------------------- */
 {
 #ifdef NS_IMPL_COCOA
   NSTRACE ("ns_update_auto_hide_menu_bar");
@@ -2456,10 +2464,30 @@ ns_draw_fringe_bitmap (struct window *w, struct glyph_row *row,
     External (RIF); fringe-related
    -------------------------------------------------------------------------- */
 {
+  /* Fringe bitmaps comes in two variants, normal and periodic.  A
+     periodic bitmap is used to create a continuous pattern.  Since a
+     bitmap is rendered one text line at a time, the start offset (dh)
+     of the bitmap varies.  Concretely, this is used for the empty
+     line indicator.
+
+     For a bitmap, "h + dh" is the full height and is always
+     invariant.  For a normal bitmap "dh" is zero.
+
+     For example, when the period is three and the full height is 72
+     the following combinations exists:
+
+       h=72 dh=0
+       h=71 dh=1
+       h=70 dh=2 */
+
   struct frame *f = XFRAME (WINDOW_FRAME (w));
   struct face *face = p->face;
   static EmacsImage **bimgs = NULL;
   static int nBimgs = 0;
+
+  NSTRACE ("ns_draw_fringe_bitmap");
+  NSTRACE_MSG ("which:%d cursor:%d overlay:%d width:%d height:%d period:%d",
+               p->which, p->cursor_p, p->overlay_p, p->wd, p->h, p->dh);
 
   /* grow bimgs if needed */
   if (nBimgs < max_used_fringe_bitmap)
@@ -2493,18 +2521,23 @@ ns_draw_fringe_bitmap (struct window *w, struct glyph_row *row,
 
       if (!img)
         {
-          unsigned short *bits = p->bits + p->dh;
-          int len = p->h;
+          // Note: For "periodic" images, allocate one EmacsImage for
+          // the base image, and use it for all dh:s.
+          unsigned short *bits = p->bits;
+          int full_height = p->h + p->dh;
           int i;
-          unsigned char *cbits = xmalloc (len);
+          unsigned char *cbits = xmalloc (full_height);
 
-          for (i = 0; i < len; i++)
-            cbits[i] = ~(bits[i] & 0xff);
-          img = [[EmacsImage alloc] initFromXBM: cbits width: 8 height: p->h
+          for (i = 0; i < full_height; i++)
+            cbits[i] = bits[i];
+          img = [[EmacsImage alloc] initFromXBM: cbits width: 8
+                                         height: full_height
                                              fg: 0 bg: 0];
           bimgs[p->which - 1] = img;
           xfree (cbits);
         }
+
+      NSTRACE_RECT ("r", r);
 
       NSRectClip (r);
       /* Since we composite the bitmap instead of just blitting it, we need
@@ -2523,9 +2556,15 @@ ns_draw_fringe_bitmap (struct window *w, struct glyph_row *row,
         [img setXBMColor: bm_color];
       }
 
+      // Note: For periodic images, the full image height is "h + hd".
+      // By using the height h, a suitable part of the image is used.
+      NSRect fromRect = NSMakeRect(0, 0, p->wd, p->h);
+
+      NSTRACE_RECT ("fromRect", fromRect);
+
 #ifdef NS_IMPL_COCOA
       [img drawInRect: r
-              fromRect: NSZeroRect
+              fromRect: fromRect
              operation: NSCompositeSourceOver
               fraction: 1.0
            respectFlipped: YES
@@ -6228,7 +6267,10 @@ not_in_argv (NSString *arg)
       wr = NSMakeRect (0, 0, neww, newh);
       NSTRACE_RECT ("setFrame", wr);
       [view setFrame: wr];
-      [self windowDidMove:nil];   // Update top/left.
+      // to do: consider using [NSNotificationCenter postNotificationName:].
+      [self windowDidMove: // Update top/left.
+	      [NSNotification notificationWithName:NSWindowDidMoveNotification
+					    object:[view window]]];
     }
   else
     {
@@ -6341,7 +6383,11 @@ not_in_argv (NSString *arg)
 - (void)windowDidResize: (NSNotification *)notification
 {
   NSTRACE ("windowDidResize");
-
+  if (!FRAME_LIVE_P (emacsframe))
+    {
+      NSTRACE_MSG ("Ignored (frame dead)");
+      return;
+    }
   if (emacsframe->output_data.ns->in_animation)
     {
       NSTRACE_MSG ("Ignored (in animation)");
@@ -6863,7 +6909,11 @@ not_in_argv (NSString *arg)
 - (void)windowWillExitFullScreen:(NSNotification *)notification
 {
   NSTRACE ("windowWillExitFullScreen");
-
+  if (!FRAME_LIVE_P (emacsframe))
+    {
+      NSTRACE_MSG ("Ignored (frame dead)");
+      return;
+    }
   if (next_maximized != -1)
     fs_before_fs = next_maximized;
 }
@@ -6871,7 +6921,11 @@ not_in_argv (NSString *arg)
 - (void)windowDidExitFullScreen:(NSNotification *)notification
 {
   NSTRACE ("windowDidExitFullScreen");
-
+  if (!FRAME_LIVE_P (emacsframe))
+    {
+      NSTRACE_MSG ("Ignored (frame dead)");
+      return;
+    }
   [self setFSValue: fs_before_fs];
   fs_before_fs = -1;
 #ifdef HAVE_NATIVE_FS
@@ -7000,13 +7054,17 @@ not_in_argv (NSString *arg)
 
       nonfs_window = w;
 
-      [self windowWillEnterFullScreen:nil];
+      [self windowWillEnterFullScreen:
+	      [NSNotification notificationWithName:NSWindowWillEnterFullScreenNotification
+					    object:[self window]]];
       [fw makeKeyAndOrderFront:NSApp];
       [fw makeFirstResponder:self];
       [w orderOut:self];
       r = [fw frameRectForContentRect:[screen frame]];
       [fw setFrame: r display:YES animate:ns_use_fullscreen_animation];
-      [self windowDidEnterFullScreen:nil];
+      [self windowDidEnterFullScreen:
+	      [NSNotification notificationWithName:NSWindowDidEnterFullScreenNotification
+					    object:[self window]]];
       [fw display];
     }
   else
@@ -7034,11 +7092,17 @@ not_in_argv (NSString *arg)
       if (FRAME_EXTERNAL_TOOL_BAR (f))
         FRAME_TOOLBAR_HEIGHT (f) = tobar_height;
 
-      [self windowWillExitFullScreen:nil];
+      // to do: consider using [NSNotificationCenter postNotificationName:] to send notifications.
+
+      [self windowWillExitFullScreen:
+	      [NSNotification notificationWithName:NSWindowWillExitFullScreenNotification
+					    object:[self window]]];
       [fw setFrame: [w frame] display:YES animate:ns_use_fullscreen_animation];
       [fw close];
       [w makeKeyAndOrderFront:NSApp];
-      [self windowDidExitFullScreen:nil];
+      [self windowDidExitFullScreen:
+	      [NSNotification notificationWithName:NSWindowDidExitFullScreenNotification
+					    object:[self window]]];
       [self updateFrameSize:YES];
     }
 }

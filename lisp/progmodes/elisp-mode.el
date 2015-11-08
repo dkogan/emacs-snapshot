@@ -1120,7 +1120,6 @@ character)."
      (eval (eval-sexp-add-defvars (elisp--preceding-sexp)) lexical-binding)
      eval-last-sexp-arg-internal)))
 
-
 (defun elisp--eval-last-sexp-print-value (value &optional eval-last-sexp-arg-internal)
   (let ((unabbreviated (let ((print-length nil) (print-level nil))
 			 (prin1-to-string value)))
