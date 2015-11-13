@@ -6353,7 +6353,7 @@ not_in_argv (NSString *arg)
 
   /* Restrict the new size to the text gird.
 
-     Don't restict the width if the user only adjusted the height, and
+     Don't restrict the width if the user only adjusted the height, and
      vice versa.  (Without this, the frame would shrink, and move
      slightly, if the window was resized by dragging one of its
      borders.) */
@@ -6866,12 +6866,26 @@ not_in_argv (NSString *arg)
 }
 #endif
 
+#if !defined (NS_IMPL_COCOA) || MAC_OS_X_VERSION_MAX_ALLOWED < MAC_OS_X_VERSION_10_7
+#define NSWindowDidEnterFullScreenNotification "NSWindowDidEnterFullScreenNotification"
+#endif
+
 - (void)windowWillEnterFullScreen:(NSNotification *)notification
+{
+  [self windowWillEnterFullScreen];
+}
+- (void)windowWillEnterFullScreen /* provided for direct calls */
 {
   NSTRACE ("windowWillEnterFullScreen");
   fs_before_fs = fs_state;
 }
 
+- (void)windowDidEnterFullScreen /* provided for direct calls */
+{
+  [self windowDidEnterFullScreen:
+	      [NSNotification notificationWithName:NSWindowDidEnterFullScreenNotification
+					    object:[self window]]];
+}
 - (void)windowDidEnterFullScreen:(NSNotification *)notification
 {
   NSTRACE ("windowDidEnterFullScreen");
@@ -6908,6 +6922,11 @@ not_in_argv (NSString *arg)
 
 - (void)windowWillExitFullScreen:(NSNotification *)notification
 {
+  [self windowWillExitFullScreen];
+}
+
+- (void)windowWillExitFullScreen /* provided for direct calls */
+{
   NSTRACE ("windowWillExitFullScreen");
   if (!FRAME_LIVE_P (emacsframe))
     {
@@ -6919,6 +6938,11 @@ not_in_argv (NSString *arg)
 }
 
 - (void)windowDidExitFullScreen:(NSNotification *)notification
+{
+  [self windowDidExitFullScreen];
+}
+
+- (void)windowDidExitFullScreen /* provided for direct calls */
 {
   NSTRACE ("windowDidExitFullScreen");
   if (!FRAME_LIVE_P (emacsframe))
@@ -7054,17 +7078,13 @@ not_in_argv (NSString *arg)
 
       nonfs_window = w;
 
-      [self windowWillEnterFullScreen:
-	      [NSNotification notificationWithName:NSWindowWillEnterFullScreenNotification
-					    object:[self window]]];
+      [self windowWillEnterFullScreen];
       [fw makeKeyAndOrderFront:NSApp];
       [fw makeFirstResponder:self];
       [w orderOut:self];
       r = [fw frameRectForContentRect:[screen frame]];
       [fw setFrame: r display:YES animate:ns_use_fullscreen_animation];
-      [self windowDidEnterFullScreen:
-	      [NSNotification notificationWithName:NSWindowDidEnterFullScreenNotification
-					    object:[self window]]];
+      [self windowDidEnterFullScreen];
       [fw display];
     }
   else
@@ -7094,15 +7114,11 @@ not_in_argv (NSString *arg)
 
       // to do: consider using [NSNotificationCenter postNotificationName:] to send notifications.
 
-      [self windowWillExitFullScreen:
-	      [NSNotification notificationWithName:NSWindowWillExitFullScreenNotification
-					    object:[self window]]];
+      [self windowWillExitFullScreen];
       [fw setFrame: [w frame] display:YES animate:ns_use_fullscreen_animation];
       [fw close];
       [w makeKeyAndOrderFront:NSApp];
-      [self windowDidExitFullScreen:
-	      [NSNotification notificationWithName:NSWindowDidExitFullScreenNotification
-					    object:[self window]]];
+      [self windowDidExitFullScreen];
       [self updateFrameSize:YES];
     }
 }
@@ -7591,7 +7607,7 @@ not_in_argv (NSString *arg)
 /* Constrain size and placement of a frame.
 
    By returning the original "frameRect", the frame is not
-   contrained. This can lead to unwanted situations where, for
+   constrained. This can lead to unwanted situations where, for
    example, the menu bar covers the frame.
 
    The default implementation (accessed using "super") constrains the
@@ -7647,7 +7663,7 @@ not_in_argv (NSString *arg)
 
 #if 0
   // Native zoom done using the standard zoom animation.  Size of the
-  // resulting frame reduced to accomodate the Dock and, if present,
+  // resulting frame reduced to accommodate the Dock and, if present,
   // the menu-bar.
   [super zoom:sender];
 
@@ -7661,8 +7677,8 @@ not_in_argv (NSString *arg)
   //
   // This works for all practical purposes.  (The only minor oddity is
   // when transiting from full-height frame to a maximized, the
-  // animation reduces the height of the frame slighty (to the 4
-  // pixels needed to accomodate the Doc) before it snaps back into
+  // animation reduces the height of the frame slightly (to the 4
+  // pixels needed to accommodate the Doc) before it snaps back into
   // full height.  The user would need a very trained eye to spot
   // this.)
   NSScreen * screen = [self screen];
@@ -7702,8 +7718,8 @@ not_in_argv (NSString *arg)
         }
     }
 #else
-  // Non-native zoom which is done instantaneous.  The resulting frame
-  // covert the entire scrren, except the menu-bar, if present.
+  // Non-native zoom which is done instantaneously.  The resulting frame
+  // covers the entire screen, except the menu-bar, if present.
   NSScreen * screen = [self screen];
   if (screen != nil)
     {

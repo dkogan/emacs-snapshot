@@ -970,14 +970,33 @@ instead of deleted."
 (defvar region-extract-function
   (lambda (delete)
     (when (region-beginning)
-      (if (eq delete 'delete-only)
-          (delete-region (region-beginning) (region-end))
-        (filter-buffer-substring (region-beginning) (region-end) delete))))
+      (cond
+       ((eq delete 'bounds)
+        (list (cons (region-beginning) (region-end))))
+       ((eq delete 'delete-only)
+        (delete-region (region-beginning) (region-end)))
+       (t
+        (filter-buffer-substring (region-beginning) (region-end) delete)))))
   "Function to get the region's content.
 Called with one argument DELETE.
 If DELETE is `delete-only', then only delete the region and the return value
 is undefined.  If DELETE is nil, just return the content as a string.
+If DELETE is `bounds', then don't delete, but just return the
+boundaries of the region as a list of (START . END) positions.
 If anything else, delete the region and return its content as a string.")
+
+(defvar region-insert-function
+  (lambda (lines)
+    (let ((first t))
+      (while lines
+        (or first
+            (insert ?\n))
+        (insert-for-yank (car lines))
+        (setq lines (cdr lines)
+              first nil))))
+  "Function to insert the region's content.
+Called with one argument LINES.
+Insert the region as a list of lines.")
 
 (defun delete-backward-char (n &optional killflag)
   "Delete the previous N characters (following if N is negative).
@@ -2768,6 +2787,143 @@ with < or <= based on USE-<."
 	     '(0 . 0)))
     '(0 . 0)))
 
+;;; Default undo-boundary addition
+;;
+;; This section adds a new undo-boundary at either after a command is
+;; called or in some cases on a timer called after a change is made in
+;; any buffer.
+(defvar-local undo-auto--last-boundary-cause nil
+  "Describe the cause of the last undo-boundary.
+
+If `explicit', the last boundary was caused by an explicit call to
+`undo-boundary', that is one not called by the code in this
+section.
+
+If it is equal to `timer', then the last boundary was inserted
+by `undo-auto--boundary-timer'.
+
+If it is equal to `command', then the last boundary was inserted
+automatically after a command, that is by the code defined in
+this section.
+
+If it is equal to a list, then the last boundary was inserted by
+an amalgamating command.  The car of the list is the number of
+times an amalgamating command has been called, and the cdr are the
+buffers that were changed during the last command.")
+
+(defvar undo-auto--current-boundary-timer nil
+  "Current timer which will run `undo-auto--boundary-timer' or nil.
+
+If set to non-nil, this will effectively disable the timer.")
+
+(defvar undo-auto--this-command-amalgamating nil
+  "Non-nil if `this-command' should be amalgamated.
+This variable is set to nil by `undo-auto--boundaries' and is set
+by `undo-auto--amalgamate'." )
+
+(defun undo-auto--needs-boundary-p ()
+  "Return non-nil if `buffer-undo-list' needs a boundary at the start."
+  (car-safe buffer-undo-list))
+
+(defun undo-auto--last-boundary-amalgamating-number ()
+  "Return the number of amalgamating last commands or nil.
+Amalgamating commands are, by default, either
+`self-insert-command' and `delete-char', but can be any command
+that calls `undo-auto--amalgamate'."
+  (car-safe undo-auto--last-boundary-cause))
+
+(defun undo-auto--ensure-boundary (cause)
+  "Add an `undo-boundary' to the current buffer if needed.
+REASON describes the reason that the boundary is being added; see
+`undo-auto--last-boundary' for more information."
+  (when (and
+         (undo-auto--needs-boundary-p))
+    (let ((last-amalgamating
+           (undo-auto--last-boundary-amalgamating-number)))
+      (undo-boundary)
+      (setq undo-auto--last-boundary-cause
+            (if (eq 'amalgamate cause)
+                (cons
+                 (if last-amalgamating (1+ last-amalgamating) 0)
+                 undo-auto--undoably-changed-buffers)
+              cause)))))
+
+(defun undo-auto--boundaries (cause)
+  "Check recently changed buffers and add a boundary if necessary.
+REASON describes the reason that the boundary is being added; see
+`undo-last-boundary' for more information."
+  (dolist (b undo-auto--undoably-changed-buffers)
+          (when (buffer-live-p b)
+            (with-current-buffer b
+              (undo-auto--ensure-boundary cause))))
+  (setq undo-auto--undoably-changed-buffers nil))
+
+(defun undo-auto--boundary-timer ()
+  "Timer which will run `undo--auto-boundary-timer'."
+  (setq undo-auto--current-boundary-timer nil)
+  (undo-auto--boundaries 'timer))
+
+(defun undo-auto--boundary-ensure-timer ()
+  "Ensure that the `undo-auto-boundary-timer' is set."
+  (unless undo-auto--current-boundary-timer
+    (setq undo-auto--current-boundary-timer
+          (run-at-time 10 nil #'undo-auto--boundary-timer))))
+
+(defvar undo-auto--undoably-changed-buffers nil
+  "List of buffers that have changed recently.
+
+This list is maintained by `undo-auto--undoable-change' and
+`undo-auto--boundaries' and can be affected by changes to their
+default values.
+
+See also `undo-auto--buffer-undoably-changed'.")
+
+(defun undo-auto--add-boundary ()
+  "Add an `undo-boundary' in appropriate buffers."
+  (undo-auto--boundaries
+   (if undo-auto--this-command-amalgamating
+       'amalgamate
+     'command))
+  (setq undo-auto--this-command-amalgamating nil))
+
+(defun undo-auto--amalgamate ()
+  "Amalgamate undo if necessary.
+This function can be called after an amalgamating command.  It
+removes the previous `undo-boundary' if a series of such calls
+have been made.  By default `self-insert-command' and
+`delete-char' are the only amalgamating commands, although this
+function could be called by any command wishing to have this
+behaviour."
+  (let ((last-amalgamating-count
+         (undo-auto--last-boundary-amalgamating-number)))
+    (setq undo-auto--this-command-amalgamating t)
+    (when
+        last-amalgamating-count
+      (if
+          (and
+           (< last-amalgamating-count 20)
+           (eq this-command last-command))
+          ;; Amalgamate all buffers that have changed.
+          (dolist (b (cdr undo-auto--last-boundary-cause))
+            (when (buffer-live-p b)
+              (with-current-buffer
+                  b
+                (when
+                    ;; The head of `buffer-undo-list' is nil.
+                    ;; `car-safe' doesn't work because
+                    ;; `buffer-undo-list' need not be a list!
+                    (and (listp buffer-undo-list)
+                         (not (car buffer-undo-list)))
+                  (setq buffer-undo-list
+                        (cdr buffer-undo-list))))))
+        (setq undo-auto--last-boundary-cause 0)))))
+
+(defun undo-auto--undoable-change ()
+  "Called after every undoable buffer change."
+  (add-to-list 'undo-auto--undoably-changed-buffers (current-buffer))
+  (undo-auto--boundary-ensure-timer))
+;; End auto-boundary section
+
 (defcustom undo-ask-before-discard nil
   "If non-nil ask about discarding undo info for the current command.
 Normally, Emacs discards the undo info for the current command if
@@ -3282,7 +3438,8 @@ and only used if a buffer is displayed."
 
 (defun shell-command-on-region (start end command
 				      &optional output-buffer replace
-				      error-buffer display-error-buffer)
+				      error-buffer display-error-buffer
+				      region-noncontiguous-p)
   "Execute string COMMAND in inferior shell with region as input.
 Normally display output (if any) in temp buffer `*Shell Command Output*';
 Prefix arg means replace the region with it.  Return the exit code of
@@ -3345,7 +3502,8 @@ interactively, this is t."
 		       current-prefix-arg
 		       current-prefix-arg
 		       shell-command-default-error-buffer
-		       t)))
+		       t
+		       (region-noncontiguous-p))))
   (let ((error-file
 	 (if error-buffer
 	     (make-temp-file
@@ -3354,96 +3512,109 @@ interactively, this is t."
 				    temporary-file-directory)))
 	   nil))
 	exit-status)
-    (if (or replace
-	    (and output-buffer
-		 (not (or (bufferp output-buffer) (stringp output-buffer)))))
-	;; Replace specified region with output from command.
-	(let ((swap (and replace (< start end))))
-	  ;; Don't muck with mark unless REPLACE says we should.
-	  (goto-char start)
-	  (and replace (push-mark (point) 'nomsg))
-	  (setq exit-status
-		(call-process-region start end shell-file-name replace
-				     (if error-file
-					 (list t error-file)
-				       t)
-				     nil shell-command-switch command))
-	  ;; It is rude to delete a buffer which the command is not using.
-	  ;; (let ((shell-buffer (get-buffer "*Shell Command Output*")))
-	  ;;   (and shell-buffer (not (eq shell-buffer (current-buffer)))
-	  ;; 	 (kill-buffer shell-buffer)))
-	  ;; Don't muck with mark unless REPLACE says we should.
-	  (and replace swap (exchange-point-and-mark)))
-      ;; No prefix argument: put the output in a temp buffer,
-      ;; replacing its entire contents.
-      (let ((buffer (get-buffer-create
-		     (or output-buffer "*Shell Command Output*"))))
-	(unwind-protect
-	    (if (eq buffer (current-buffer))
-		;; If the input is the same buffer as the output,
-		;; delete everything but the specified region,
-		;; then replace that region with the output.
-		(progn (setq buffer-read-only nil)
-		       (delete-region (max start end) (point-max))
-		       (delete-region (point-min) (min start end))
-		       (setq exit-status
-			     (call-process-region (point-min) (point-max)
-						  shell-file-name t
-						  (if error-file
-						      (list t error-file)
-						    t)
-						  nil shell-command-switch
-						  command)))
-	      ;; Clear the output buffer, then run the command with
-	      ;; output there.
-	      (let ((directory default-directory))
-		(with-current-buffer buffer
-		  (setq buffer-read-only nil)
-		  (if (not output-buffer)
-		      (setq default-directory directory))
-		  (erase-buffer)))
-	      (setq exit-status
-		    (call-process-region start end shell-file-name nil
-					 (if error-file
-					     (list buffer error-file)
-					   buffer)
-					 nil shell-command-switch command)))
-	  ;; Report the output.
-	  (with-current-buffer buffer
-	    (setq mode-line-process
-		  (cond ((null exit-status)
-			 " - Error")
-			((stringp exit-status)
-			 (format " - Signal [%s]" exit-status))
-			((not (equal 0 exit-status))
-			 (format " - Exit [%d]" exit-status)))))
-	  (if (with-current-buffer buffer (> (point-max) (point-min)))
-	      ;; There's some output, display it
-	      (display-message-or-buffer buffer)
-	    ;; No output; error?
-	    (let ((output
-		   (if (and error-file
-			    (< 0 (nth 7 (file-attributes error-file))))
-		       (format "some error output%s"
-			       (if shell-command-default-error-buffer
-				   (format " to the \"%s\" buffer"
-					   shell-command-default-error-buffer)
-				 ""))
-		     "no output")))
-	      (cond ((null exit-status)
-		     (message "(Shell command failed with error)"))
-		    ((equal 0 exit-status)
-		     (message "(Shell command succeeded with %s)"
-			      output))
-		    ((stringp exit-status)
-		     (message "(Shell command killed by signal %s)"
-			      exit-status))
-		    (t
-		     (message "(Shell command failed with code %d and %s)"
-			      exit-status output))))
-	    ;; Don't kill: there might be useful info in the undo-log.
-	    ;; (kill-buffer buffer)
-	    ))))
+    ;; Unless a single contiguous chunk is selected, operate on multiple chunks.
+    (if region-noncontiguous-p
+        (let ((input (concat (funcall region-extract-function 'delete) "\n"))
+              output)
+          (with-temp-buffer
+            (insert input)
+            (call-process-region (point-min) (point-max)
+                                 shell-file-name t t
+                                 nil shell-command-switch
+                                 command)
+            (setq output (split-string (buffer-string) "\n")))
+          (goto-char start)
+          (funcall region-insert-function output))
+      (if (or replace
+              (and output-buffer
+                   (not (or (bufferp output-buffer) (stringp output-buffer)))))
+          ;; Replace specified region with output from command.
+          (let ((swap (and replace (< start end))))
+            ;; Don't muck with mark unless REPLACE says we should.
+            (goto-char start)
+            (and replace (push-mark (point) 'nomsg))
+            (setq exit-status
+                  (call-process-region start end shell-file-name replace
+                                       (if error-file
+                                           (list t error-file)
+                                         t)
+                                       nil shell-command-switch command))
+            ;; It is rude to delete a buffer which the command is not using.
+            ;; (let ((shell-buffer (get-buffer "*Shell Command Output*")))
+            ;;   (and shell-buffer (not (eq shell-buffer (current-buffer)))
+            ;; 	 (kill-buffer shell-buffer)))
+            ;; Don't muck with mark unless REPLACE says we should.
+            (and replace swap (exchange-point-and-mark)))
+        ;; No prefix argument: put the output in a temp buffer,
+        ;; replacing its entire contents.
+        (let ((buffer (get-buffer-create
+                       (or output-buffer "*Shell Command Output*"))))
+          (unwind-protect
+              (if (eq buffer (current-buffer))
+                  ;; If the input is the same buffer as the output,
+                  ;; delete everything but the specified region,
+                  ;; then replace that region with the output.
+                  (progn (setq buffer-read-only nil)
+                         (delete-region (max start end) (point-max))
+                         (delete-region (point-min) (min start end))
+                         (setq exit-status
+                               (call-process-region (point-min) (point-max)
+                                                    shell-file-name t
+                                                    (if error-file
+                                                        (list t error-file)
+                                                      t)
+                                                    nil shell-command-switch
+                                                    command)))
+                ;; Clear the output buffer, then run the command with
+                ;; output there.
+                (let ((directory default-directory))
+                  (with-current-buffer buffer
+                    (setq buffer-read-only nil)
+                    (if (not output-buffer)
+                        (setq default-directory directory))
+                    (erase-buffer)))
+                (setq exit-status
+                      (call-process-region start end shell-file-name nil
+                                           (if error-file
+                                               (list buffer error-file)
+                                             buffer)
+                                           nil shell-command-switch command)))
+            ;; Report the output.
+            (with-current-buffer buffer
+              (setq mode-line-process
+                    (cond ((null exit-status)
+                           " - Error")
+                          ((stringp exit-status)
+                           (format " - Signal [%s]" exit-status))
+                          ((not (equal 0 exit-status))
+                           (format " - Exit [%d]" exit-status)))))
+            (if (with-current-buffer buffer (> (point-max) (point-min)))
+                ;; There's some output, display it
+                (display-message-or-buffer buffer)
+              ;; No output; error?
+              (let ((output
+                     (if (and error-file
+                              (< 0 (nth 7 (file-attributes error-file))))
+                         (format "some error output%s"
+                                 (if shell-command-default-error-buffer
+                                     (format " to the \"%s\" buffer"
+                                             shell-command-default-error-buffer)
+                                   ""))
+                       "no output")))
+                (cond ((null exit-status)
+                       (message "(Shell command failed with error)"))
+                      ((equal 0 exit-status)
+                       (message "(Shell command succeeded with %s)"
+                                output))
+                      ((stringp exit-status)
+                       (message "(Shell command killed by signal %s)"
+                                exit-status))
+                      (t
+                       (message "(Shell command failed with code %d and %s)"
+                                exit-status output))))
+              ;; Don't kill: there might be useful info in the undo-log.
+              ;; (kill-buffer buffer)
+              )))))
 
     (when (and error-file (file-exists-p error-file))
       (if (< 0 (nth 7 (file-attributes error-file)))
@@ -5038,6 +5209,11 @@ also checks the value of `use-empty-active-region'."
        ;; region is active when there's no mark.
        (progn (cl-assert (mark)) t)))
 
+(defun region-noncontiguous-p ()
+  "Return non-nil if the region contains several pieces.
+An example is a rectangular region handled as a list of
+separate contiguous regions for each line."
+  (> (length (funcall region-extract-function 'bounds)) 1))
 
 (defvar redisplay-unhighlight-region-function
   (lambda (rol) (when (overlayp rol) (delete-overlay rol))))
@@ -6497,7 +6673,8 @@ current object."
       (setq pos1 (funcall aux -1))
       (goto-char (car pos1))
       (setq pos2 (funcall aux arg))
-      (transpose-subr-1 pos1 pos2)))))
+      (transpose-subr-1 pos1 pos2)
+      (goto-char (+ (car pos2) (- (cdr pos1) (car pos1))))))))
 
 (defun transpose-subr-1 (pos1 pos2)
   (when (> (car pos1) (cdr pos1)) (setq pos1 (cons (cdr pos1) (car pos1))))
