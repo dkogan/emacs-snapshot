@@ -1,6 +1,8 @@
 emacs-snapshot (2:20151126+emacs-24.5-rc3-fixed-6658-g75336a2-1) unstable; urgency=medium
 
   * New snapshot
+  * Disabled leim (fancy user inputs) because it was breaking my build.
+    Hopefully this is temporary
 
  -- Dima Kogan <dima@secretsauce.net>  Thu, 26 Nov 2015 21:24:58 -0800
 
