@@ -167,6 +167,7 @@
 
 (require 'tabulated-list)
 (require 'macroexp)
+(require 'url-handlers)
 
 (defgroup package nil
   "Manager for Emacs Lisp packages."
