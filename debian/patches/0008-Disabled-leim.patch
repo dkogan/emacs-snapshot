@@ -1,0 +1,27 @@
+From: Dima Kogan <dima@secretsauce.net>
+Date: Fri, 27 Nov 2015 19:02:02 -0800
+Subject: Disabled leim
+
+My packages fail to build if leim is on: leim-list.el becomes corrupt. I do
+not know why yet, but in the meantime I simply disable all this
+---
+ leim/Makefile.in | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/leim/Makefile.in b/leim/Makefile.in
+index e30895f..295a902 100644
+--- a/leim/Makefile.in
++++ b/leim/Makefile.in
+@@ -87,7 +87,11 @@ MISC= \
+ 	${leimdir}/quail/CTLau-b5.el
+ 
+ ## All the generated .el files.
+-TIT_MISC = ${TIT_GB} ${TIT_BIG5} ${MISC}
++
++# I disable all this for now, and I don't build ANY leim inputs. These were
++# breaking my build
++TIT_MISC =
++#${TIT_GB} ${TIT_BIG5} ${MISC}
+ 
+ 
+ all: ${leimdir}/leim-list.el ${leimdir}/ja-dic/ja-dic.el
