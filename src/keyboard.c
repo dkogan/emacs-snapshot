@@ -202,7 +202,7 @@ uintmax_t num_input_events;
 
 static EMACS_INT last_auto_save;
 
-/* The value of point when the last command was started.  */
+/* The value of point when the last command was started. */
 static ptrdiff_t last_point_position;
 
 /* The frame in which the last input event occurred, or Qmacro if the
@@ -1448,6 +1448,11 @@ command_loop_1 (void)
             /* Ensure that we have added appropriate undo-boundaries as a
                result of changes from the last command. */
             call0 (Qundo_auto__add_boundary);
+
+            /* Record point and buffer, so we can put point into the undo
+               information if necessary. */
+            point_before_last_command_or_undo = PT;
+            buffer_before_last_command_or_undo = current_buffer;
 
             call1 (Qcommand_execute, Vthis_command);
 
@@ -3313,14 +3318,12 @@ readable_events (int flags)
 #endif
 		   ))
         {
-          union buffered_input_event *event;
-
-          event = ((kbd_fetch_ptr < kbd_buffer + KBD_BUFFER_SIZE)
-                   ? kbd_fetch_ptr
-                   : kbd_buffer);
+          union buffered_input_event *event = kbd_fetch_ptr;
 
 	  do
 	    {
+              if (event == kbd_buffer + KBD_BUFFER_SIZE)
+                event = kbd_buffer;
 	      if (!(
 #ifdef USE_TOOLKIT_SCROLL_BARS
 		    (flags & READABLE_EVENTS_FILTER_EVENTS) &&
@@ -3337,8 +3340,6 @@ readable_events (int flags)
 		       && event->kind == BUFFER_SWITCH_EVENT))
 		return 1;
 	      event++;
-              if (event == kbd_buffer + KBD_BUFFER_SIZE)
-                event = kbd_buffer;
 	    }
 	  while (event != kbd_store_ptr);
         }
@@ -11372,7 +11373,7 @@ If an unhandled error happens in running this hook,
 the function in which the error occurred is unconditionally removed, since
 otherwise the error might happen repeatedly and make Emacs nonfunctional.
 
-See also `pre-command-hook'.  */);
+See also `post-command-hook'.  */);
   Vpre_command_hook = Qnil;
 
   DEFVAR_LISP ("post-command-hook", Vpost_command_hook,

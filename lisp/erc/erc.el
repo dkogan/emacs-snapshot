@@ -629,7 +629,7 @@ See also: `erc-get-channel-user-list'."
 
 (defvar erc-channel-modes nil
   "List of strings representing channel modes.
-E.g. '(\"i\" \"m\" \"s\" \"b Quake!*@*\")
+E.g. (\"i\" \"m\" \"s\" \"b Quake!*@*\")
 \(not sure the ban list will be here, but why not)")
 (make-variable-buffer-local 'erc-channel-modes)
 
@@ -1963,7 +1963,9 @@ Returns the buffer for the given server or channel."
     (erc-update-modules)
     (set-buffer buffer)
     (setq old-point (point))
-    (erc-mode)
+    (let ((old-recon-count erc-server-reconnect-count))
+      (erc-mode)
+      (setq erc-server-reconnect-count old-recon-count))
     (setq erc-server-announced-name server-announced-name)
     (setq erc-server-connected connected-p)
     ;; connection parameters
@@ -2203,6 +2205,7 @@ Arguments are the same as for `erc'."
 The process will be given the name NAME, its target buffer will be
 BUFFER.  HOST and PORT specify the connection target."
   (open-network-stream name buffer host port
+		       :nowait t
                        :type 'tls))
 
 ;;; Displaying error messages
@@ -2416,9 +2419,9 @@ If STRING is nil, the function does nothing."
   "Display STRING in the ERC BUFFER.
 All screen output must be done through this function.  If BUFFER is nil
 or omitted, the default ERC buffer for the `erc-session-server' is used.
-The BUFFER can be an actual buffer, a list of buffers, 'all or 'active.
-If BUFFER = 'all, the string is displayed in all the ERC buffers for the
-current session.  'active means the current active buffer
+The BUFFER can be an actual buffer, a list of buffers, `all' or `active'.
+If BUFFER = `all', the string is displayed in all the ERC buffers for the
+current session.  `active' means the current active buffer
 \(`erc-active-buffer').  If the buffer can't be resolved, the current
 buffer is used.  `erc-display-line-1' is used to display STRING.
 
@@ -3246,7 +3249,7 @@ LINE has the format \"USER ACTION\"."
 (put 'erc-cmd-ME 'do-not-parse-args t)
 
 (defun erc-cmd-ME\'S (line)
-  "Do a /ME command, but add the string \" 's\" to the beginning."
+  "Do a /ME command, but add the string \" \\='s\" to the beginning."
   (erc-cmd-ME (concat " 's" line)))
 (put 'erc-cmd-ME\'S 'do-not-parse-args t)
 
@@ -4483,6 +4486,7 @@ Set user modes and run `erc-after-connect' hook."
             (nick (car (erc-response.command-args parsed)))
             (buffer (process-buffer proc)))
         (setq erc-server-connected t)
+	(setq erc-server-reconnect-count 0)
         (erc-update-mode-line)
         (erc-set-initial-user-mode nick buffer)
         (erc-server-setup-periodical-ping buffer)
@@ -5021,7 +5025,7 @@ See also `erc-remove-current-channel-member'."
 (defun erc-update-channel-topic (channel topic &optional modify)
   "Find a buffer for CHANNEL and set the TOPIC for it.
 
-If optional MODIFY is 'append or 'prepend, then append or prepend the
+If optional MODIFY is `append' or `prepend', then append or prepend the
 TOPIC string to the current topic."
   (erc-with-buffer (channel)
     (cond ((eq modify 'append)
@@ -5184,7 +5188,7 @@ person who changed the modes."
               (t (setq erc-channel-user-limit nil))))))
 
 (defun erc-update-channel-key (channel onoff key)
-  "Update CHANNEL's key to KEY if ONOFF is 'on or to nil if it's 'off."
+  "Update CHANNEL's key to KEY if ONOFF is `on' or to nil if it's `off'."
   (erc-with-buffer
       (channel)
     (cond ((eq onoff 'on) (setq erc-channel-key key))
@@ -6726,7 +6730,7 @@ This function should be on `erc-kill-channel-hook'."
   (text-property-not-all (point-min) (point-max) 'erc-parsed nil))
 
 (defun erc-restore-text-properties ()
-  "Restore the property 'erc-parsed for the region."
+  "Restore the property `erc-parsed' for the region."
   (let ((parsed-posn (erc-find-parsed-property)))
     (put-text-property
      (point-min) (point-max)

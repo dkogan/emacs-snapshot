@@ -3707,7 +3707,7 @@ and no others."
 (defun window-deletable-p (&optional window)
   "Return t if WINDOW can be safely deleted from its frame.
 WINDOW must be a valid window and defaults to the selected one.
-Return 'frame if deleting WINDOW should also delete its frame."
+Return `frame' if deleting WINDOW should also delete its frame."
   (setq window (window-normalize-window window))
 
   (unless (or ignore-window-parameters
@@ -4851,8 +4851,9 @@ frame.  The selected window is not changed by this function."
 	      (set-window-parameter (window-parent new) 'window-atom t))
 	    (set-window-parameter new 'window-atom t)))
 
-	  ;; Sanitize sizes.
-	  (window--sanitize-window-sizes frame horizontal)
+	  ;; Sanitize sizes unless SIZE was specified.
+	  (unless size
+            (window--sanitize-window-sizes frame horizontal))
 
 	  (run-window-configuration-change-hook frame)
 	  (run-window-scroll-functions new)
@@ -6491,7 +6492,7 @@ action.  Its form is described below.
 Optional argument FRAME, if non-nil, acts like an additional
 ALIST entry (reusable-frames . FRAME) to the action list of ACTION,
 specifying the frame(s) to search for a window that is already
-displaying the buffer.  See `display-buffer-reuse-window'
+displaying the buffer.  See `display-buffer-reuse-window'.
 
 If ACTION is non-nil, it should have the form (FUNCTION . ALIST),
 where FUNCTION is either a function or a list of functions, and
@@ -6562,9 +6563,9 @@ Recognized alist entries include:
     of not displaying the buffer and FUNCTION can safely return
     a non-window value to suppress displaying.
 
- `preserve-size' -- Value should be either '(t . nil)' to
-    preserve the width of the window, '(nil . t)' to preserve its
-    height or '(t . t)' to preserve both.
+ `preserve-size' -- Value should be either (t . nil) to
+    preserve the width of the window, (nil . t) to preserve its
+    height or (t . t) to preserve both.
 
 The ACTION argument to `display-buffer' can also have a non-nil
 and non-list value.  This means to display the buffer in a window
@@ -6845,7 +6846,7 @@ selected frame."
     (or (and bottom-window-shows-buffer
 	     (window--display-buffer
 	      buffer bottom-window 'reuse alist display-buffer-mark-dedicated))
-     (and (not (frame-parameter nil 'unsplittable))
+	(and (not (frame-parameter nil 'unsplittable))
 	     (let (split-width-threshold)
 	       (setq window (window--try-to-split-window bottom-window alist)))
 	     (window--display-buffer

@@ -47,6 +47,17 @@ variable @code{vc-handled-backends} to @code{nil}
 (@pxref{Customizing VC}).
 @end ifnottex
 
+@findex vc-refresh-state
+@findex vc-state-refresh
+  To update the VC state information for the file visited in the
+current buffer, use the command @code{vc-refresh-state}.  This command
+is useful when you perform version control commands outside Emacs
+(e.g., from the shell prompt), or if you put the buffer's file under a
+different version control system, or remove it from version control
+entirely.  A companion command @code{vc-state-refresh} does the same,
+but does not consider switching the version control system or removal
+from VC.
+
 @menu
 * Introduction to VC::  How version control works in general.
 * VC Mode Line::        How the mode line shows version control status.
@@ -2285,7 +2296,7 @@ input.  @xref{Query Replace}, for more information on query replace.
   You can control the case-sensitivity of tags search commands by
 customizing the value of the variable @code{tags-case-fold-search}.  The
 default is to use the same setting as the value of
-@code{case-fold-search} (@pxref{Search Case}).
+@code{case-fold-search} (@pxref{Lax Search}).
 
   It is possible to get through all the files in the tags table with a
 single invocation of @kbd{M-x tags-query-replace}.  But often it is

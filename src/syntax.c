@@ -519,8 +519,7 @@ update_syntax_table_forward (ptrdiff_t charpos, bool init,
   else
     {
       update_syntax_table (charpos, 1, init, object);
-      if (gl_state.e_property > syntax_propertize__done
-	  && NILP (object))
+      if (NILP (object) && gl_state.e_property > syntax_propertize__done)
 	parse_sexp_propertize (charpos);
     }
 }

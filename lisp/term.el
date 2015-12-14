@@ -110,19 +110,6 @@
 ;;
 ;;             ----------------------------------------
 ;;
-;;  If you'd like to check out my complete configuration, you can download
-;; it from http://www.polito.it/~s64912/things.html, it's ~500k in size and
-;; contains my .cshrc, .emacs and my whole site-lisp subdirectory.  (notice
-;; that this term.el may be newer/older than the one in there, please
-;; check!)
-;;
-;;  This complete configuration contains, among other things, a complete
-;; rectangular marking solution (based on rect-mark.el and
-;; pc-bindings.el) and should be a good example of how extensively Emacs
-;; can be configured on a ppp-connected ws.
-;;
-;;             ----------------------------------------
-;;
 ;;  TODO:
 ;;
 ;;  - Add hooks to allow raw-mode keys to be configurable
@@ -2140,7 +2127,7 @@ The prompt skip is done by skipping text matching the regular expression
 (defun term-read-noecho (prompt &optional stars)
   "Read a single line of text from user without echoing, and return it.
 Prompt with argument PROMPT, a string.  Optional argument STARS causes
-input to be echoed with '*' characters on the prompt line.  Input ends with
+input to be echoed with `*' characters on the prompt line.  Input ends with
 RET, LFD, or ESC.  DEL or C-h rubs out.  C-u kills line.  C-g aborts (if
 `inhibit-quit' is set because e.g. this function was called from a process
 filter and C-g is pressed, this function returns nil rather than a string).
