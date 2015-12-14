@@ -144,23 +144,12 @@ nonpersistent_autogen_install_files := \
   debian/$(flavor)-common.lintian-overrides \
   debian/$(flavor)-common.postinst \
   debian/$(flavor)-common.prerm \
-  debian/$(flavor)-nox.README.Debian \
-  debian/$(flavor)-nox.lintian-overrides \
-  debian/$(flavor)-nox.menu \
-  debian/$(flavor)-nox.postinst \
-  debian/$(flavor)-nox.prerm \
   debian/$(flavor)-lucid.README.Debian \
   debian/$(flavor)-lucid.desktop \
   debian/$(flavor)-lucid.lintian-overrides \
   debian/$(flavor)-lucid.menu \
   debian/$(flavor)-lucid.postinst \
-  debian/$(flavor)-lucid.prerm \
-  debian/$(flavor).README.Debian \
-  debian/$(flavor).desktop \
-  debian/$(flavor).menu \
-  debian/$(flavor).lintian-overrides \
-  debian/$(flavor).postinst \
-  debian/$(flavor).prerm
+  debian/$(flavor)-lucid.prerm
 
 autogen_build_files := \
   $(nonpersistent_autogen_build_files) $(persistent_autogen_build_files)
@@ -178,13 +167,9 @@ nonpersistent_autogen_files := \
 # Build directories
 pkgdir_common := $(CURDIR)/debian/$(flavor)-common
 pkgdir_bin_common := $(CURDIR)/debian/$(flavor)-bin-common
-pkgdir_x := $(CURDIR)/debian/$(flavor)
-pkgdir_nox := $(CURDIR)/debian/$(flavor)-nox
 pkgdir_lucid := $(CURDIR)/debian/$(flavor)-lucid
 pkgdir_el := $(CURDIR)/debian/$(flavor)-el
 
-install_dir_x := $(CURDIR)/debian/install-x
-install_dir_nox := $(CURDIR)/debian/install-nox
 install_dir_lucid := $(CURDIR)/debian/install-lucid
 
 local_lpath := /etc/$(flavor):/etc/emacs
@@ -233,7 +218,7 @@ define deb_sub
 endef
 
 %:
-	dh $@ --parallel
+	dh $@
 
 check-vars:
 	@echo "src_name: $(src_name)"
@@ -249,12 +234,6 @@ check-vars:
 debian-sync: $(persistent_autogen_files)
         # so dh pattern rule doesn't try to handle this target
 	true
-
-debian/$(flavor).%: xsupport := "x"
-debian/$(flavor).%: pkg_name := $(flavor)
-
-debian/$(flavor)-nox.%: xsupport := "nox"
-debian/$(flavor)-nox.%: pkg_name := $(flavor)-nox
 
 debian/$(flavor)-lucid.%: xsupport := "lucid"
 debian/$(flavor)-lucid.%: pkg_name := $(flavor)-lucid
@@ -272,12 +251,6 @@ debian/$(flavor)-common.%: debian/emacsVER-common.% debian/changelog
 	$(call deb_sub,$<,$@)
 
 debian/$(flavor)-el.%: debian/emacsVER-el.% debian/changelog
-	$(call deb_sub,$<,$@)
-
-debian/$(flavor).%: debian/emacsVER.% debian/changelog
-	$(call deb_sub,$<,$@)
-
-debian/$(flavor)-nox.%: debian/emacsVER.% debian/changelog
 	$(call deb_sub,$<,$@)
 
 debian/$(flavor)-lucid.%: debian/emacsVER.% debian/changelog
@@ -314,21 +287,6 @@ confflags += --mandir=/usr/share/man
 confflags += --with-pop=yes
 confflags += --enable-locallisppath=$(local_lpath)
 
-# x configure flags
-confflags_x := $(confflags) 
-confflags_x += --with-x=yes
-confflags_x += --with-x-toolkit=gtk3
-# For those who prefer the old-style non-toolkit scrollbars, just
-# change the assignment below to --without-toolkit-scroll-bars.  The
-# resulting emacsXY package will have the old scrollbars.
-confflags_x += --with-toolkit-scroll-bars
-
-# nox configure flags
-confflags_nox := $(confflags) 
-confflags_nox += --with-x=no
-confflags_nox += --without-gconf
-confflags_nox += --without-gsettings
-
 # lucid configure flags
 confflags_lucid := $(confflags)
 confflags_lucid += --with-x=yes
@@ -345,7 +303,7 @@ define cfg_tree
 endef
 
 define build_cmd
-  $(MAKE) -C $(1) -j $(joblimit)
+  V=1 $(MAKE) -C $(1) -j $(joblimit)
   # If we don't use bootstrap, we need to explicitly build info.
   $(MAKE) -C $(1) -j $(joblimit) info
   # Make sure we chose liblockfile.
@@ -358,13 +316,22 @@ override_dh_auto_configure: debian/setup-stamp
         # from the source tree.
 	cp -a /usr/share/misc/config.guess .
 	cp -a /usr/share/misc/config.sub .
-	$(call cfg_tree,debian/build-x,$(confflags_x))
-	$(call cfg_tree,debian/build-nox,$(confflags_nox))
 	$(call cfg_tree,debian/build-lucid,$(confflags_lucid))
 
 override_dh_auto_build: $(autogen_build_files)
-	$(call build_cmd,debian/build-x)
-	$(call build_cmd,debian/build-nox)
+
+
+
+	# env
+	# # V=1 make -C debian/build-lucid
+
+	# V=1 make -C debian/build-lucid/lib all
+	# V=1 make -C debian/build-lucid/lib-src all
+	# V=1 make -C debian/build-lucid/src VCSWITNESS='' all
+
+	# false
+
+
 	$(call build_cmd,debian/build-lucid)
 
 define install_common_binpkg_bits
@@ -390,15 +357,11 @@ endef
 
 override_dh_auto_install: $(autogen_install_files)
 	rm -rf \
-	  $(install_dir_x) $(install_dir_nox) $(install_dir_lucid) \
+	  $(install_dir_lucid) \
 	  $(pkgdir_common)/* \
 	  $(pkgdir_bin_common)/* \
-	  $(pkgdir_x)/* \
-	  $(pkgdir_nox)/* \
 	  $(pkgdir_lucid)/* \
 	  $(pkgdir_el)/*
-
-	$(call emacs_inst,build-x,$(install_dir_x))
 
         ##################################################
         # emacsXY-common
@@ -542,27 +505,6 @@ override_dh_auto_install: $(autogen_install_files)
         endif
 
         ##################################################
-        # emacsXY
-        ifneq (,$(findstring $(flavor), $(shell dh_listpackages)))
-	  $(call install_common_binpkg_bits,\
-	    $(install_dir_x),$(pkgdir_x),$(flavor),x)
-
-          # install desktop entry
-	  install -d $(pkgdir_x)/usr/share/applications
-	  install -m 0644 \
-	    debian/$(flavor).desktop $(pkgdir_x)/usr/share/applications/
-        endif
-
-        ##################################################
-        # emacsXY-nox
-        ifneq (,$(findstring $(flavor)-nox, $(shell dh_listpackages)))
-	  $(call emacs_inst,build-nox,$(install_dir_nox))
-	  $(call install_common_binpkg_bits,\
-	    $(install_dir_nox),$(pkgdir_nox),$(flavor)-nox,nox)
-	  rm -rf $(install_dir_nox)
-        endif
-
-        ##################################################
         # emacsXY-lucid
         ifneq (,$(findstring $(flavor)-lucid, $(shell dh_listpackages)))
 	  $(call emacs_inst,build-lucid,$(install_dir_lucid))
@@ -589,15 +531,11 @@ override_dh_auto_install: $(autogen_install_files)
 
         ##################################################
         # final cleanup
-	rm -rf $(install_dir_x)
-	rm -rf $(install_dir_nox)
 	rm -rf $(install_dir_lucid)
 
 .PHONY: override_dh_strip
 override_dh_strip:
-	dh_strip -p$(flavor) --dbg-package=$(flavor)-dbg
 	dh_strip -p$(flavor)-lucid --dbg-package=$(flavor)-lucid-dbg
-	dh_strip -p$(flavor)-nox --dbg-package=$(flavor)-nox-dbg
 	dh_strip
 
 override_dh_testdir:
@@ -620,13 +558,9 @@ override_dh_clean: $(persistent_autogen_files)
 	  configure \
 	  debian/*-stamp \
 	  debian/build-lucid \
-	  debian/build-nox \
-	  debian/build-x \
 	  debian/emacsVER-common.README.00 \
 	  debian/emacsVER-common.README.01 \
 	  debian/install-lucid \
-	  debian/install-nox \
-	  debian/install-x \
 	  lib/Makefile.in \
 	  src/config.in \
 	  src/stamp-h1 src/stamp-h.in
