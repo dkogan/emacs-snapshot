@@ -816,9 +816,37 @@ See the command `isearch-forward' for more information."
   "Do incremental search backward for regular expression.
 With a prefix argument, do a regular string search instead.
 Like ordinary incremental search except that your input is treated
-as a regexp.  See the command `isearch-forward-regexp' for more information."
+as a regexp.  See the command `isearch-forward' for more information.
+
+In incremental searches, a space or spaces normally matches any
+whitespace defined by the variable `search-whitespace-regexp'.
+To search for a literal space and nothing else, enter C-q SPC.
+To toggle whitespace matching, use `isearch-toggle-lax-whitespace'.
+This command does not support character folding."
   (interactive "P\np")
   (isearch-mode nil (null not-regexp) nil (not no-recursive-edit)))
+
+(defun isearch-backward-word (&optional not-word no-recursive-edit)
+  "Do incremental search backward for a sequence of words.
+With a prefix argument, do a regular string search instead.
+Like ordinary incremental search except that your input is treated
+as a sequence of words without regard to how the words are separated.
+See the command `isearch-forward' for more information.
+This command does not support character folding, and lax space matching
+has no effect on it."
+  (interactive "P\np")
+  (isearch-mode nil nil nil (not no-recursive-edit) (null not-word)))
+
+(defun isearch-backward-symbol (&optional not-symbol no-recursive-edit)
+  "Do incremental search backward for a symbol.
+The prefix argument is currently unused.
+Like ordinary incremental search except that your input is treated
+as a symbol surrounded by symbol boundary constructs \\_< and \\_>.
+See the command `isearch-forward' for more information.
+This command does not support character folding, and lax space matching
+has no effect on it."
+  (interactive "P\np")
+  (isearch-mode nil nil nil (not no-recursive-edit) 'isearch-symbol-regexp))
 
 (defun isearch-forward-symbol-at-point ()
   "Do incremental search forward for a symbol found near point.
