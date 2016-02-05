@@ -960,6 +960,24 @@ used to set the value of `isearch-regexp-function'."
   isearch-success)
 
 
+(defmacro isearch--filtered-ring-pos-max (&rest regexp)
+  "Returns a vector [ring-symbol ring-yank-pointer-symbol
+ring-max] for the appropriate search history.  If a REGEXP
+argument is passed, it is evaluated to see if the regexp history
+should be used.  If no REGEXP is passed, `isearch-regexp' is
+evaluated instead."
+
+  `(if ,(cond
+         ((null regexp) 'isearch-regexp)
+         (t             (car regexp)))
+
+       (vector 'regexp-search-ring
+               'regexp-search-ring-yank-pointer
+               regexp-search-ring-max)
+     (vector 'search-ring
+             'search-ring-yank-pointer
+             search-ring-max)))
+
 ;; Some high level utilities.  Others below.
 (defvar isearch--current-buffer nil)
 
@@ -1113,10 +1131,10 @@ NOPUSH is t and EDIT is t."
 (defun isearch-update-ring (string &optional regexp)
   "Add STRING to the beginning of the search ring.
 REGEXP if non-nil says use the regexp search ring."
-  (add-to-history
-   (if regexp 'regexp-search-ring 'search-ring)
-   string
-   (if regexp regexp-search-ring-max search-ring-max)))
+  (let* ((ring-pos-max (isearch--filtered-ring-pos-max regexp))
+         (ring-sym (aref ring-pos-max 0))
+         (max      (aref ring-pos-max 2)))
+    (add-to-history ring-sym string max)))
 
 ;; Switching buffers should first terminate isearch-mode.
 ;; ;; For Emacs 19, the frame switch event is handled.
@@ -1328,9 +1346,9 @@ You can update the global isearch variables by setting new values to
 
 	  ;; Empty isearch-string means use default.
 	  (when (= 0 (length isearch-string))
-	    (setq isearch-string (or (car (if isearch-regexp
-					      regexp-search-ring
-					    search-ring))
+	     (setq isearch-string
+		   (or (car (symbol-value
+			     (aref (isearch--filtered-ring-pos-max) 0)))
 				     "")
 
 		  isearch-message
@@ -1388,11 +1406,10 @@ The following additional command keys are active while editing.
 	    (cons isearch-string (1+ (or (isearch-fail-pos)
 					 (length isearch-string))))
 	    minibuffer-local-isearch-map nil
-	    (if isearch-regexp
-		(cons 'regexp-search-ring
-		      (1+ (or regexp-search-ring-yank-pointer -1)))
-	      (cons 'search-ring
-		    (1+ (or search-ring-yank-pointer -1))))
+	     (let* ((ring-pos-max (isearch--filtered-ring-pos-max))
+		    (ring-sym (aref ring-pos-max 0))
+		    (pos-sym  (aref ring-pos-max 1)))
+	       (cons ring-sym (1+ (or (symbol-value pos-sym) -1))))
 	    nil t)
 	   isearch-new-message
 	   (mapconcat 'isearch-text-char-description
@@ -1456,16 +1473,18 @@ Use `isearch-exit' to quit without signaling."
       ;; C-s in forward or C-r in reverse.
       (if (equal isearch-string "")
 	  ;; If search string is empty, use last one.
-	  (if (null (if isearch-regexp regexp-search-ring search-ring))
-	      (setq isearch-error "No previous search string")
-	    (setq isearch-string
-		  (car (if isearch-regexp regexp-search-ring search-ring))
-		  isearch-message
-		  (mapconcat 'isearch-text-char-description
-			     isearch-string "")
-		  isearch-case-fold-search isearch-last-case-fold-search)
-	    ;; After taking the last element, adjust ring to previous one.
-	    (isearch-ring-adjust1 nil))
+	   (let* ((ring (symbol-value
+			 (aref (isearch--filtered-ring-pos-max) 0))))
+	     (if (null ring)
+		 (setq isearch-error "No previous search string")
+	       (setq isearch-string
+		     (car ring)
+		     isearch-message
+		     (mapconcat 'isearch-text-char-description
+				isearch-string "")
+		     isearch-case-fold-search isearch-last-case-fold-search)
+	       ;; After taking the last element, adjust ring to previous one.
+	       (isearch-ring-adjust1 nil)))
 	;; If already have what to search for, repeat it.
 	(or isearch-success
 	    (progn
@@ -2448,12 +2467,11 @@ Search is updated accordingly."
 
 (defun isearch-ring-adjust1 (advance)
   ;; Helper for isearch-ring-adjust
-  (let* ((ring (if isearch-regexp regexp-search-ring search-ring))
-	 (length (length ring))
-	 (yank-pointer-name (if isearch-regexp
-				'regexp-search-ring-yank-pointer
-			      'search-ring-yank-pointer))
-	 (yank-pointer (eval yank-pointer-name)))
+  (let* ((ring-pos-max (isearch--filtered-ring-pos-max))
+	  (ring		(symbol-value (aref ring-pos-max 0)))
+	 (length       (length ring))
+	  (yank-pointer-name (aref ring-pos-max 1))
+	  (yank-pointer (symbol-value yank-pointer-name)))
     (if (zerop length)
 	()
       (set yank-pointer-name
@@ -2493,7 +2511,8 @@ Search is updated accordingly."
 (defun isearch-complete1 ()
   ;; Helper for isearch-complete and isearch-complete-edit
   ;; Return t if completion OK, nil if no completion exists.
-  (let* ((ring (if isearch-regexp regexp-search-ring search-ring))
+  (let* ((ring (symbol-value
+                (aref (isearch--filtered-ring-pos-max) 0)))
          (completion-ignore-case case-fold-search)
          (completion (try-completion isearch-string ring)))
     (cond
