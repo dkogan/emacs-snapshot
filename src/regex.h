@@ -407,6 +407,10 @@ struct re_pattern_buffer
      recognized as a multibyte character.  */
   unsigned target_multibyte : 1;
 
+  /* If true, apply the TRANSLATE table by default.  This can be
+     turned on/off in the pattern.  */
+  unsigned case_fold : 1;
+
   /* Charset of unibyte characters at compiling time. */
   int charset_unibyte;
 #endif
