@@ -103,9 +103,10 @@ matcher_overflow (void)
 /* Compile a regexp and signal a Lisp error if anything goes wrong.
    PATTERN is the pattern to compile.
    CP is the place to put the result.
-   CASE_FOLD_TRANSLATE is a translation table for ignoring case, or nil for none.
-   CASE_FOLD is true if TRANSLATE should be used by default.  Can be
-   turned on/off in the pattern.
+   CASE_FOLD_TRANSLATE is a translation table for ignoring case, or
+   nil for none.
+   CASE_FOLD is true if CASE_FOLD_TRANSLATE should be used by default.
+   Can be turned on/off in the pattern.
    POSIX is true if we want full backtracking (POSIX style) for this pattern.
    False means backtrack only enough to get a valid match.
 
@@ -201,9 +202,10 @@ clear_regexp_cache (void)
 /* Compile a regexp if necessary, but first check to see if there's one in
    the cache.
    PATTERN is the pattern to compile.
-   CASE_FOLD_TRANSLATE is a translation table for ignoring case, or nil for none.
-   CASE_FOLD is true if TRANSLATE should be used by default.  Can be
-   turned on/off in the pattern.
+   CASE_FOLD_TRANSLATE is a translation table for ignoring case, or
+   nil for none.
+   CASE_FOLD is true if CASE_FOLD_TRANSLATE should be used by default.
+   Can be turned on/off in the pattern.
    REGP is the structure that says where to store the "register"
    values that will result from matching this pattern.
    If it is 0, we should compile the pattern not to record any
@@ -1383,14 +1385,15 @@ search_buffer (Lisp_Object string, ptrdiff_t pos, ptrdiff_t pos_byte,
       if (multibyte)
 	{
 	  /* Fill patbuf by translated characters in STRING while
-	     checking if we can use boyer-moore search.  If CASE_FOLD_TRT is
-	     non-nil, we can use boyer-moore search only if CASE_FOLD_TRT can be
-	     represented by the byte array of 256 elements.  For that,
-	     all non-ASCII case-equivalents of all case-sensitive
-	     characters in STRING must belong to the same character
-	     group (two characters belong to the same group iff their
-	     multibyte forms are the same except for the last byte;
-	     i.e. every 64 characters form a group; U+0000..U+003F,
+	     checking if we can use boyer-moore search.  If
+	     CASE_FOLD_TRT is non-nil, we can use boyer-moore search
+	     only if CASE_FOLD_TRT can be represented by the byte
+	     array of 256 elements.  For that, all non-ASCII
+	     case-equivalents of all case-sensitive characters in
+	     STRING must belong to the same character group (two
+	     characters belong to the same group iff their multibyte
+	     forms are the same except for the last byte; i.e. every
+	     64 characters form a group; U+0000..U+003F,
 	     U+0040..U+007F, U+0080..U+00BF, ...).  */
 
 	  while (--len >= 0)
