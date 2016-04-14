@@ -28,7 +28,7 @@ dir ../lwlib
 # This has one unfortunate effect: you can't type C-c
 # at the GDB to stop Emacs, when using X.
 # However, C-z works just as well in that case.
-handle 2 noprint pass
+#handle 2 noprint pass
 
 # Make it work like SIGINT normally does.
 handle SIGTSTP nopass

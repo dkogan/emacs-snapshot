@@ -3314,6 +3314,24 @@ the buffer.  If the buffer doesn't have a cache, the value is nil.  */)
   return val;
 }
 
+
+
+
+DEFUN ("do-debug", Fdo_debug, Sdo_debug, 1, 1, 0,
+       doc: /* turn on regex debugging.  */)
+  (Lisp_Object x)
+{
+    regex_do_debug( XINT(x) );
+    return Qnil;
+}
+
+
+
+
+
+
+
+
 void
 syms_of_search (void)
 {
@@ -3389,6 +3407,9 @@ is to bind it with `let' around a small expression.  */);
   defsubr (&Sset_match_data);
   defsubr (&Sregexp_quote);
   defsubr (&Snewline_cache_check);
+
+
+  defsubr (&Sdo_debug);
 }
 
 /* Local Variables:  */

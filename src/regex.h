@@ -25,6 +25,12 @@
 extern "C" {
 #endif
 
+    int regex_debug(void);
+    void regex_do_debug(int x);
+
+
+
+
 /* POSIX says that <sys/types.h> must be included (by the caller) before
    <regex.h>.  */
 

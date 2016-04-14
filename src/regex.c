@@ -26,6 +26,16 @@
      rather than at run-time, so that re_match can be reentrant.
 */
 
+
+#define DEBUG 1
+
+
+
+
+
+
+
+
 /* AIX requires this to be the first thing in the file.  */
 #if defined _AIX && !defined REGEX_MALLOC
   #pragma alloca
@@ -2501,6 +2511,17 @@ do {									\
     free (compile_stack.stack);				\
     return value;					\
   } while (0)
+
+
+
+void regex_do_debug(int x)
+{
+    debug = x;
+}
+int regex_debug(void)
+{
+    return debug;
+}
 
 static reg_errcode_t
 regex_compile (const_re_char *pattern, size_t size, reg_syntax_t syntax,
