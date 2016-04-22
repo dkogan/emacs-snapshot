@@ -1147,6 +1147,7 @@ trivial_regexp_p (Lisp_Object regexp)
    POSIX is nonzero if we want full backtracking (POSIX style)
    for this pattern.  0 means backtrack only enough to get a valid match.  */
 
+#warning track TRANSLATE() and RE_TRANSLATE_P(); the former uses the latter; the latter checks for nilp(translate) which is now always false
 #define TRANSLATE(out, trt, d)			\
 do						\
   {						\
@@ -1337,7 +1338,6 @@ search_buffer (Lisp_Object string, ptrdiff_t pos, ptrdiff_t pos_byte,
          with case-folding.  */
       if (!case_fold)
 	case_fold_trt = case_fold_inverse_trt = Qnil;
-
 
       /* MULTIBYTE says whether the text to be searched is multibyte.
 	 We must convert PATTERN to match that, or we will not really
@@ -3390,3 +3390,8 @@ is to bind it with `let' around a small expression.  */);
   defsubr (&Sregexp_quote);
   defsubr (&Snewline_cache_check);
 }
+
+/* Local Variables:  */
+/* indent-tabs-mode: t */
+/* eval: (c-set-style "gnu") */
+/* End:              */
