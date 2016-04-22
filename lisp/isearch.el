@@ -1159,6 +1159,10 @@ NOPUSH is t and EDIT is t."
 (defun isearch-update-ring (string &optional regexp)
   "Add STRING to the beginning of the search ring.
 REGEXP if non-nil says use the regexp search ring."
+
+
+  ;; xxx add to search ring. somehow indicate which type of search this is
+  ;; yyy ring write
   (let* ((ring-pos-max (isearch--filtered-ring-pos-max regexp))
          (ring-sym (aref ring-pos-max 0))
          (max      (aref ring-pos-max 2)))
@@ -1374,6 +1378,8 @@ You can update the global isearch variables by setting new values to
 
 	  ;; Empty isearch-string means use default.
 	  (when (= 0 (length isearch-string))
+            ;; xxx pull out first ring element
+            ;; yyy read ring[0]
 	     (setq isearch-string
 		   (or (car (symbol-value
 			     (aref (isearch--filtered-ring-pos-max) 0)))
@@ -1434,6 +1440,9 @@ The following additional command keys are active while editing.
 	    (cons isearch-string (1+ (or (isearch-fail-pos)
 					 (length isearch-string))))
 	    minibuffer-local-isearch-map nil
+            ;; xxx grab the appropriate ring, filter it, return symbol for
+            ;; the filtered list
+            ;; yyy HIST argument to read-from-minibuffer; cons cell of strings/positions
 	     (let* ((ring-pos-max (isearch--filtered-ring-pos-max))
 		    (ring-sym (aref ring-pos-max 0))
 		    (pos-sym  (aref ring-pos-max 1)))
@@ -1501,10 +1510,13 @@ Use `isearch-exit' to quit without signaling."
       ;; C-s in forward or C-r in reverse.
       (if (equal isearch-string "")
 	  ;; If search string is empty, use last one.
+          ;; xxx is the ring empty?
 	   (let* ((ring (symbol-value
 			 (aref (isearch--filtered-ring-pos-max) 0))))
 	     (if (null ring)
 		 (setq isearch-error "No previous search string")
+               ;; xxx pull out the top of the ring to repeat a search
+               ;; yyy read ring[0]
 	       (setq isearch-string
 		     (car ring)
 		     isearch-message
@@ -2495,6 +2507,8 @@ Search is updated accordingly."
 
 (defun isearch-ring-adjust1 (advance)
   ;; Helper for isearch-ring-adjust
+  ;; xxx cycle through the ring
+  ;; yyy read ring[n]
   (let* ((ring-pos-max (isearch--filtered-ring-pos-max))
 	  (ring		(symbol-value (aref ring-pos-max 0)))
 	 (length       (length ring))
@@ -2539,6 +2553,9 @@ Search is updated accordingly."
 (defun isearch-complete1 ()
   ;; Helper for isearch-complete and isearch-complete-edit
   ;; Return t if completion OK, nil if no completion exists.
+
+  ;; xxx completion
+  ;; yyy reads ring[]
   (let* ((ring (symbol-value
                 (aref (isearch--filtered-ring-pos-max) 0)))
          (completion-ignore-case case-fold-search)
@@ -3335,3 +3352,70 @@ CASE-FOLD non-nil means the search was case-insensitive."
   (isearch-update))
 
 ;;; isearch.el ends here
+
+
+
+;; macro test
+;; ;; if no argument is given, isearch--filtered-ring-pos-max should look at
+;; ;; isearch-regexp. So the below should yield repeats of
+;; ;;
+;; ;; search-ring regexp-search-ring
+;;  (let ((isearch-regexp nil)) (aref (isearch--filtered-ring-pos-max) 0))
+;;  (let ((isearch-regexp t))   (aref (isearch--filtered-ring-pos-max) 0))
+;;  (let ((isearch-regexp nil)) (aref (isearch--filtered-ring-pos-max nil) 0))
+;;  (let ((isearch-regexp nil)) (aref (isearch--filtered-ring-pos-max t) 0))
+;;  (let ((isearch-regexp t)) (aref (isearch--filtered-ring-pos-max nil) 0))
+;;  (let ((isearch-regexp t)) (aref (isearch--filtered-ring-pos-max t) 0))
+
+;;  (let ((isearch-regexp nil) (x nil)) (aref (isearch--filtered-ring-pos-max x) 0))
+;;  (let ((isearch-regexp nil) (x t  )) (aref (isearch--filtered-ring-pos-max x) 0))
+;;  (let ((isearch-regexp t  ) (x nil)) (aref (isearch--filtered-ring-pos-max x) 0))
+;;  (let ((isearch-regexp t  ) (x t  )) (aref (isearch--filtered-ring-pos-max x) 0))
+;;  )
+
+
+
+
+
+
+
+  ;; todo:
+  ;;
+  ;; highlight from isearch shouldnt' make crazy regexen anymore. the
+  ;; [Aa][Bb][Cc] business should be gone
+  ;;
+  ;; The inconsistent mode notification should be fixed
+  ;;
+  ;; I should be able to have char-fold and case-fold at the same time
+  ;;
+  ;; test: ( (?i) blah ) \s+ \g1 will match "blah" in any case, some
+  ;;    spaces, and an exact (including the case!)  repetition of the
+  ;;    previous word, assuming the "/x" modifier, and no "/i"
+  ;;    modifier outside this group.
+  ;;
+  ;; tests should move forwards and backwards
+  ;;
+  ;; test shy groups: /\(\(?-i\)abc\)ABC/ and /\(?:\(?-i\)abc\)ABC/
+  ;; should both work
+
+
+
+  ;; get history type
+  ;; make filtered list
+  ;; return filtered list
+  ;; state is [regextype laxwhitespace-t casefold-t]
+  ;; regextype is no/yes/word/symbol/char-fold
+
+  ;; alternative 1: keep everything in the "normal" lists
+
+  ;; Need supplemental meta-data. If not available or invalid,
+  ;; the "normal" lists do the right thing
+
+
+
+
+
+  ;; alternative 2: keep separate lists. the "write" hook updates both
+
+  ;; This is difficult. Things like (if regexp-search-ring ...)
+  ;; should work
