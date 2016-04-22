@@ -165,3 +165,6 @@
 0:^[[:xdigit:]]*$:01234a
 1:^[[:xdigit:]]*$:01234g
 0:^[[:alnum:][:space:]]*$:Hello world
+
+
+#shy groups: (?:....) aren't tested anywhere
