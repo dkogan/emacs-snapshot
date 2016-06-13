@@ -1303,34 +1303,88 @@ via `match-string'.")
   "Internal implementation of `python-nav-beginning-of-defun'.
 With positive ARG search backwards, else search forwards."
   (when (or (null arg) (= arg 0)) (setq arg 1))
-  (let* ((re-search-fn (if (> arg 0)
-                           #'re-search-backward
-                         #'re-search-forward))
-         (line-beg-pos (line-beginning-position))
+  (let* ((line-beg-pos (line-beginning-position))
          (line-content-start (+ line-beg-pos (current-indentation)))
          (pos (point-marker))
-         (beg-indentation
-          (and (> arg 0)
-               (save-excursion
-                 (while (and
-                         (not (python-info-looking-at-beginning-of-defun))
-                         (python-nav-backward-block)))
-                 (or (and (python-info-looking-at-beginning-of-defun)
-                          (+ (current-indentation) python-indent-offset))
-                     0))))
          (found
           (progn
-            (when (and (< arg 0)
-                       (python-info-looking-at-beginning-of-defun))
-              (end-of-line 1))
-            (while (and (funcall re-search-fn
-                                 python-nav-beginning-of-defun-regexp nil t)
-                        (or (python-syntax-context-type)
-                            ;; Handle nested defuns when moving
-                            ;; backwards by checking indentation.
-                            (and (> arg 0)
-                                 (not (= (current-indentation) 0))
-                                 (>= (current-indentation) beg-indentation)))))
+
+            (if (< arg 0)
+
+                ;; looking forward
+                (progn
+                  (when (python-info-looking-at-beginning-of-defun)
+                    (end-of-line 1))
+
+                  (while (and (re-search-forward
+                               python-nav-beginning-of-defun-regexp nil t)
+                              (or (python-syntax-context-type)))))
+
+              ;; looking backward
+
+              ;; If we're at the end of a "def xxx():" line, just go
+              ;; to the beginning of the "def", and do nothing
+              ;; else. This is needed to make C-M-h work properly at
+              ;; 'print 33' in the below example:
+              ;;
+              ;;     def bbb():
+              ;;         print 11
+              ;;         print 11
+              ;;
+              ;;         print 22
+              ;;         print 22
+              ;;
+              ;;         def ccc():
+              ;;
+              ;;             print 33
+              ;;             print 33
+              ;;
+              ;;             if 5:
+              ;;                 print asfd
+              ;;
+              ;;             print 44
+              ;;             print 44
+              ;;
+              ;;         print 55
+              ;;         print 55
+              ;;
+              ;;         print 66
+              ;;         print 66
+              (if (and (python-info-looking-at-beginning-of-defun)
+                       (eolp))
+                  (python-nav-beginning-of-statement)
+
+                ;; if we're already at the start of a def, I get the
+                ;; current indentation level, and traverse the defuns
+                ;; backwards until I hit one at the same or higher
+                ;; level. Otherwise, I move up the indents
+                (if (python-info-looking-at-beginning-of-defun)
+                    (let ((indent (current-indentation))
+                          (here   (point)))
+
+                      (python-nav-backward-defun)
+                      (while (and (not (= here (point)))
+                                  (> (current-indentation) indent))
+                        (setq here (point))
+                        (python-nav-backward-defun)))
+
+                  (while
+                      (let ((lastpos (progn (python-nav-beginning-of-statement) (point))))
+                        ;; move up a level.
+                        (python-nav-backward-up-list)
+                        (python-nav-beginning-of-statement)
+
+                        ;; keep going until any or these are true:
+                        (not
+                         (or
+                          ;; if we're at a function definition, we found
+                          ;; what we're looking for. Done
+                          (python-info-looking-at-beginning-of-defun)
+
+                          ;; If we made negative progress, We're in an
+                          ;; infinite loop. Done
+                          (>= (point) lastpos))))))))
+
             (and (python-info-looking-at-beginning-of-defun)
                  (or (not (= (line-number-at-pos pos)
                              (line-number-at-pos)))
