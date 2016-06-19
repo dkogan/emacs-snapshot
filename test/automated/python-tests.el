@@ -1662,6 +1662,78 @@ class C(object):
                 (beginning-of-line)
                 (point))))))
 
+(ert-deftest python-nav-beginning-of-defun-5 ()
+  (python-tests-with-temp-buffer
+   "
+class C(object):
+
+    def m(self):
+        self.c()
+
+        def b():
+
+            print b
+
+        def a():
+
+            print a
+
+        print d
+
+    def c(self):
+        print c
+"
+   ;; Nested defuns, looking at blank lines
+   (should (= (save-excursion
+                (python-tests-look-at "Class C")
+                (forward-line 1)
+                (python-nav-beginning-of-defun)
+                (point))
+              (save-excursion
+                (python-tests-look-at "class C")
+                (beginning-of-line)
+                (point))))
+
+   (should (= (save-excursion
+                (python-tests-look-at "self.c")
+                (forward-line 1)
+                (python-nav-beginning-of-defun)
+                (point))
+              (save-excursion
+                (python-tests-look-at "def m")
+                (beginning-of-line)
+                (point))))
+
+   (should (= (save-excursion
+                (python-tests-look-at "def b")
+                (forward-line 1)
+                (python-nav-beginning-of-defun)
+                (point))
+              (save-excursion
+                (python-tests-look-at "def b")
+                (beginning-of-line)
+                (point))))
+
+   (should (= (save-excursion
+                (python-tests-look-at "def a")
+                (forward-line 1)
+                (python-nav-beginning-of-defun)
+                (point))
+              (save-excursion
+                (python-tests-look-at "def a")
+                (beginning-of-line)
+                (point))))
+
+   (should (= (save-excursion
+                (python-tests-look-at "print d")
+                (forward-line 1)
+                (python-nav-beginning-of-defun)
+                (point))
+              (save-excursion
+                (python-tests-look-at "def m")
+                (beginning-of-line)
+                (point))))))
+
 (ert-deftest python-nav-end-of-defun-1 ()
   (python-tests-with-temp-buffer
    "
@@ -1871,6 +1943,72 @@ class C(object):
                 (point))
               (save-excursion
                 (point-max))))))
+
+(ert-deftest python-nav-end-of-defun-4 ()
+  (python-tests-with-temp-buffer
+   "
+class C(object):
+
+    def m(self):
+        self.c()
+
+        def b():
+
+            print b
+
+        def a():
+
+            print a
+
+        print d
+
+    def c(self):
+        print c
+"
+   ;; Nested defuns, looking at blank lines
+   (should (= (save-excursion
+                (python-tests-look-at "Class C")
+                (python-nav-beginning-of-defun)
+                (point))
+              (save-excursion
+                (python-tests-look-at "def c")
+                (forward-line -1)
+                (point))))
+
+   (should (= (save-excursion
+                (python-tests-look-at "self.c")
+                (python-nav-beginning-of-defun)
+                (point))
+              (save-excursion
+                (python-tests-look-at "def c")
+                (forward-line -1)
+                (point))))
+
+   (should (= (save-excursion
+                (python-tests-look-at "def b")
+                (python-nav-beginning-of-defun)
+                (point))
+              (save-excursion
+                (python-tests-look-at "def a")
+                (forward-line -1)
+                (point))))
+
+   (should (= (save-excursion
+                (python-tests-look-at "def a")
+                (python-nav-beginning-of-defun)
+                (point))
+              (save-excursion
+                (python-tests-look-at "print d")
+                (forward-line -1)
+                (point))))
+
+   (should (= (save-excursion
+                (python-tests-look-at "print d")
+                (python-nav-beginning-of-defun)
+                (point))
+              (save-excursion
+                (point-max))))))
+
 
 (ert-deftest python-nav-backward-defun-1 ()
   (python-tests-with-temp-buffer
