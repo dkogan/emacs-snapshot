@@ -4569,6 +4569,7 @@ since it returns nil if point is not inside a defun."
   (save-restriction
     (widen)
     (save-excursion
+      (python-nav-backward-statement)
       (end-of-line 1)
       (let ((names)
             (starting-indentation (current-indentation))
