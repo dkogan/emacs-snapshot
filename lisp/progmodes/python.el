@@ -1577,25 +1577,50 @@ backward to previous statement."
   "Move to start of current block."
   (interactive "^")
   (let ((starting-pos (point)))
-    (if (progn
-          (python-nav-beginning-of-statement)
-          (looking-at (python-rx block-start)))
+
+    (python-nav-beginning-of-statement)
+
+    (if (looking-at (python-rx block-start))
+
+        ;; We're already at the block-start statement, so we're done
         (point-marker)
-      ;; Go to first line beginning a statement
-      (while (and (not (bobp))
-                  (or (and (python-nav-beginning-of-statement) nil)
-                      (python-info-current-line-comment-p)
-                      (python-info-current-line-empty-p)))
-        (forward-line -1))
-      (let ((block-matching-indent
-             (- (current-indentation) python-indent-offset)))
-        (while
-            (and (python-nav-backward-block)
-                 (> (current-indentation) block-matching-indent)))
-        (if (and (looking-at (python-rx block-start))
-                 (= (current-indentation) block-matching-indent))
-            (point-marker)
-          (and (goto-char starting-pos) nil))))))
+
+      ;; If we're at a blank/comment line, I go backwards until the
+      ;; start of the previous statement. If that statement begins a
+      ;; block, we're done
+      (if (and
+
+           ;; if we're at a blank/comment line ...
+           (or
+            (python-info-current-line-comment-p)
+            (python-info-current-line-empty-p))
+           (progn
+             ;; ... then skip statements going backwards ...
+             (while (and (not (bobp))
+                         ;; ... until we have something to look at ...
+                         (or
+                          (python-info-current-line-comment-p)
+                          (python-info-current-line-empty-p)))
+               (forward-line -1)
+               (python-nav-beginning-of-statement))
+
+             ;; ... and if we then end up at a start of a block ...
+             (looking-at (python-rx block-start))))
+
+          ;; ... then we're done and can return the resulting point ...
+          (point-marker)
+
+        ;; ... otherwise, grab the current indent level (we know there
+        ;; is one), and walk up looking for a dedent
+        (let ((block-matching-indent
+               (- (current-indentation) python-indent-offset)))
+          (while
+              (and (python-nav-backward-block)
+                   (> (current-indentation) block-matching-indent)))
+          (if (and (looking-at (python-rx block-start))
+                   (= (current-indentation) block-matching-indent))
+              (point-marker)
+            (and (goto-char starting-pos) nil)))))))
 
 (defun python-nav-end-of-block ()
   "Move to end of current block."
