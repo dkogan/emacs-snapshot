@@ -1485,14 +1485,14 @@ repeat it."
 
 (defun python-nav-backward-defun (&optional arg)
   "Navigate to closer defun backward ARG times.
-Unlikely `python-nav-beginning-of-defun' this doesn't care about
+Unlike `python-nav-beginning-of-defun' this doesn't care about
 nested definitions."
   (interactive "^p")
   (python-nav--forward-defun (- (or arg 1))))
 
 (defun python-nav-forward-defun (&optional arg)
   "Navigate to closer defun forward ARG times.
-Unlikely `python-nav-beginning-of-defun' this doesn't care about
+Unlike `python-nav-beginning-of-defun' this doesn't care about
 nested definitions."
   (interactive "^p")
   (python-nav--forward-defun (or arg 1)))
