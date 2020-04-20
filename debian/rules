@@ -454,6 +454,7 @@ override_dh_auto_install: $(autogen_install_files)
 	  # unversioned images) and prepare for update-alternatives.
 	  cd $(pkgdir_common)/usr/share/icons/hicolor \
 	    && mv scalable/apps/emacs.svg scalable/apps/${flavor}.svg \
+	    && mv scalable/apps/emacs.ico scalable/apps/${flavor}.ico \
 	    && mv 16x16/apps/emacs.png 16x16/apps/${flavor}.png \
 	    && mv 24x24/apps/emacs.png 24x24/apps/${flavor}.png \
 	    && mv 32x32/apps/emacs.png 32x32/apps/${flavor}.png \
