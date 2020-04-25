@@ -11,6 +11,7 @@ Build-Depends: bsd-mailx | mailx, libncurses5-dev, texinfo, liblockfile-dev, lib
  libgnutls28-dev, libxml2-dev, libselinux1-dev [linux-any], libmagick++-dev,
  libgconf2-dev, libasound2-dev [!hurd-i386 !kfreebsd-i386 !kfreebsd-amd64],
  libacl1-dev,
+ libjansson-dev,
  zlib1g-dev
 Homepage: http://www.gnu.org/software/emacs/
 Standards-Version: 3.7.2
