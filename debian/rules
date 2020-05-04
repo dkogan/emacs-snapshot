@@ -316,6 +316,7 @@ confflags += --infodir=/usr/share/info
 confflags += --mandir=/usr/share/man
 confflags += --with-pop=yes
 confflags += --enable-locallisppath=$(local_lpath)
+confflags += --with-nativecomp
 
 # x configure flags
 confflags_x := $(confflags) 
