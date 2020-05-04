@@ -1,0 +1,25 @@
+From: Rob Browning <rlb@defaultvalue.org>
+Date: Mon, 4 Apr 2011 22:46:28 -0500
+Subject: Modify the output of (version) to indicate Debian modifications.
+
+The output of (version) has been modified to indicate Debian modifications.
+
+Author: Rob Browning <rlb@defaultvalue.org>
+Added-by: Rob Browning <rlb@defaultvalue.org>
+---
+ lisp/version.el | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/lisp/version.el b/lisp/version.el
+index 24da21c..cdd124d 100644
+--- a/lisp/version.el
++++ b/lisp/version.el
+@@ -62,7 +62,7 @@ emacs-version
+ to the system configuration; look at `system-configuration' instead."
+   (interactive "P")
+   (let ((version-string
+-         (format "GNU Emacs %s (build %s, %s%s%s%s)%s"
++         (format "GNU Emacs %s (build %s, %s%s%s%s)%s, unofficial emacs-snapshot build: http://emacs.secretsauce.net"
+                  emacs-version
+                  emacs-build-number
+ 		 system-configuration

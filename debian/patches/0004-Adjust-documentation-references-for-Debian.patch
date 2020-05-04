@@ -1,0 +1,27 @@
+From: Rob Browning <rlb@defaultvalue.org>
+Date: Mon, 4 Apr 2011 22:46:25 -0500
+Subject: Adjust documentation references for Debian.
+
+Various documentation references have been adjusted for Debian.
+
+References to /usr/local/... have been changed to /usr/... as
+appropriate, etc.
+---
+ etc/NEWS | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/etc/NEWS b/etc/NEWS
+index 753b7a7..e706051 100644
+--- a/etc/NEWS
++++ b/etc/NEWS
+@@ -21,6 +21,10 @@ Temporary note:
+ When you add a new item, use the appropriate mark if you are sure it
+ applies, and please also update docstrings as needed.
+ 
++* Debian specific changes to Emacs
++
++Please see /usr/share/doc/emacs-snapshot-common/README.Debian.gz.
++
+ 
+ * Installation Changes in Emacs 28.1
+ 

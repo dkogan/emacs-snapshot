@@ -1,0 +1,6 @@
+0001-Prefer-usr-share-info-emacs-24-over-usr-share-info.patch
+0002-Run-debian-startup-and-set-debian-emacs-flavor.patch
+0003-Remove-files-that-appear-to-be-incompatible-with-the.patch
+0004-Adjust-documentation-references-for-Debian.patch
+0005-Modify-the-output-of-version-to-indicate-Debian-modi.patch
+0006-Don-t-try-to-build-src-macuvs.h-via-IVD_Sequences.tx.patch

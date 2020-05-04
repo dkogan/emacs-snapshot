@@ -1,0 +1,52 @@
+From: Rob Browning <rlb@defaultvalue.org>
+Date: Mon, 4 Apr 2011 22:46:22 -0500
+Subject: Run debian-startup and set debian-emacs-flavor.
+
+Emacs runs debian-startup and sets debian-emacs-flavor.
+
+* Emacs runs debian-startup during the startup process unless
+  site-run-file is false.
+
+* The global variable debian-emacs-flavor is bound to 'emacs-snapshot.
+  Author: Rob Browning <rlb@defaultvalue.org>
+---
+ lisp/startup.el | 18 ++++++++++++++----
+ 1 file changed, 14 insertions(+), 4 deletions(-)
+
+diff --git a/lisp/startup.el b/lisp/startup.el
+index bff1000..94345d0 100644
+--- a/lisp/startup.el
++++ b/lisp/startup.el
+@@ -436,6 +436,10 @@ tutorial-directory
+   :type 'directory
+   :initialize #'custom-initialize-delay)
+ 
++(defconst debian-emacs-flavor 'emacs-snapshot
++  "A symbol representing the particular debian flavor of emacs running.
++Something like 'emacs20, 'xemacs20, etc.")
++
+ (defun normal-top-level-add-subdirs-to-load-path ()
+   "Recursively add all subdirectories of `default-directory' to `load-path'.
+ More precisely, this uses only the subdirectories whose names
+@@ -1357,11 +1361,17 @@ command-line
+     ;; be loaded from site-run-file and wants to test if -q was given
+     ;; should check init-file-user instead, since that is already set.
+     ;; See cus-edit.el for an example.
++
++    ;; Debian startup
+     (if site-run-file
+-        ;; Sites should not disable the startup screen.
+-        ;; Only individuals should disable the startup screen.
+-        (let ((inhibit-startup-screen inhibit-startup-screen))
+-	  (load site-run-file t t)))
++        (progn
++          ;; Load all the debian package snippets.
++          ;; It's in here because we want -q to kill it too.
++          (if (load "debian-startup" t t nil)
++              (debian-startup debian-emacs-flavor))
++          ;; Now the normal site file...
++          (let ((inhibit-startup-screen inhibit-startup-screen))
++            (load site-run-file t t))))
+ 
+     ;; Load that user's init file, or the default one, or none.
+     (startup--load-user-init-file

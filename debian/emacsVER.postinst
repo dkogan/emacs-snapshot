@@ -1,0 +1,37 @@
+#!/bin/sh
+
+set -e
+
+FLAVOR=@DEB_FLAVOR@
+
+update-alternatives \
+  --install /usr/bin/emacs emacs \
+            /usr/bin/${FLAVOR}-@X_SUPPORT@ @BIN_PRIORITY@ \
+  --slave /usr/share/man/man1/emacs.1.gz emacs.1.gz \
+          /usr/share/man/man1/emacs.${FLAVOR}.1.gz \
+  --slave /usr/share/icons/hicolor/scalable/apps/emacs.svg emacs.svg \
+          /usr/share/icons/hicolor/scalable/apps/${FLAVOR}.svg \
+  --slave /usr/share/icons/hicolor/scalable/mimetypes/emacs-document.svg \
+          emacs-document.svg \
+          /usr/share/icons/hicolor/scalable/mimetypes/${FLAVOR}-document.svg \
+  --slave /usr/share/icons/hicolor/16x16/apps/emacs.png emacs-16x16.png \
+          /usr/share/icons/hicolor/16x16/apps/${FLAVOR}.png \
+  --slave /usr/share/icons/hicolor/24x24/apps/emacs.png  emacs-24x24.png \
+          /usr/share/icons/hicolor/24x24/apps/${FLAVOR}.png \
+  --slave /usr/share/icons/hicolor/32x32/apps/emacs.png emacs-32x32.png \
+          /usr/share/icons/hicolor/32x32/apps/${FLAVOR}.png \
+  --slave /usr/share/icons/hicolor/48x48/apps/emacs.png emacs-48x48.png \
+          /usr/share/icons/hicolor/48x48/apps/${FLAVOR}.png \
+  --slave /usr/share/icons/hicolor/128x128/apps/emacs.png emacs-128x128.png \
+          /usr/share/icons/hicolor/128x128/apps/${FLAVOR}.png
+
+update-alternatives \
+  --install /usr/bin/editor editor \
+            /usr/bin/${FLAVOR} 0 \
+  --slave /usr/share/man/man1/editor.1.gz editor.1.gz \
+          /usr/share/man/man1/emacs.${FLAVOR}.1.gz
+
+# emacsen-common registration.
+/usr/lib/emacsen-common/emacs-install ${FLAVOR}
+
+#DEBHELPER#

@@ -1,0 +1,17 @@
+#!/usr/bin/perl -w -i
+
+use English;
+use strict;
+
+$RS = undef;
+
+my $prefix = $ENV{"DEBIAN_INFO_PREFIX"};
+
+my $x = <>;
+if(!($x =~ m/^(\s*START-INFO-DIR-ENTRY\s+\*\s*[^:]+:\s*)\(([^\)]+)\)/mo)) {
+  die "Couldn't find START-INFO-DIR-ENTRY.";
+}
+   
+print ${PREMATCH};
+print "$1($prefix/$2)";
+print ${POSTMATCH};

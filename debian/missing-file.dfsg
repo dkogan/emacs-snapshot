@@ -1,0 +1,10 @@
+
+The file that would normally be displayed here (@FILE@) has been moved
+to the emacs@MAJOR_VERSION@-common-non-dfsg package because its
+license does not appear to be compatible with the Debian Free Software
+Guidelines (DFSG).  Please see
+/usr/share/doc/emacs@MAJOR_VERSION@-common/copyright for more
+information.
+
+Please install @FILE@ from Debian's non-free distribution if you would
+like for Emacs to display the original file.

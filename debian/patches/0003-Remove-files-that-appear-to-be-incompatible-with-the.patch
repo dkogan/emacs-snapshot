@@ -1,0 +1,210 @@
+From: Rob Browning <rlb@defaultvalue.org>
+Date: Mon, 4 Apr 2011 22:46:24 -0500
+Subject: Remove files that appear to be incompatible with the DFSG
+
+Files that appear to be incompatible with the DFSG have been removed.
+
+A number of files have been removed from this package because their
+licenses are not compatible with the Debian Free Software Guidelines
+(DFSG), or because it wasn't completely clear that their licenses are
+compatible.
+
+In particular, all of the files which are covered under the GFDL and
+have invariant sections have been removed in accordance with this
+General Resolution: http://www.debian.org/vote/2006/vote_001.
+
+The files that have been removed, but still appear to be
+distributable, have been moved to packages in Debian's non-free
+section.
+
+Author: Rob Browning <rlb@defaultvalue.org>
+Added-by: Rob Browning <rlb@defaultvalue.org>
+Status: new
+---
+ Makefile.in          | 45 ++++++++++++++++++---------------------------
+ admin/update_autogen |  3 +--
+ configure.ac         | 11 +----------
+ doc/misc/Makefile.in | 12 ++++--------
+ lisp/help.el         |  8 ++++++++
+ 5 files changed, 32 insertions(+), 47 deletions(-)
+
+diff --git a/Makefile.in b/Makefile.in
+index 67e15cf..a032172 100644
+--- a/Makefile.in
++++ b/Makefile.in
+@@ -164,7 +164,9 @@ man1dir=
+ # Where to install and expect the info files describing Emacs.
+ infodir=@infodir@
+ # Info files not in the doc/misc directory (we get those via make echo-info).
+-INFO_NONMISC=emacs.info eintr.info elisp.info
++# Debian: moved DFSG incompatible files to emacs*-common-non-dfsg
++# package (see /usr/share/doc/emacs*-common/copyright).
++INFO_NONMISC=
+ 
+ # If no makeinfo was found and configured --without-makeinfo, "no"; else "yes".
+ HAVE_MAKEINFO=@HAVE_MAKEINFO@
+@@ -830,8 +832,7 @@ $(1)_$(2):
+ ###      normally don't want to recompile.  For example, the 'mostlyclean'
+ ###      target for GCC does not delete 'libgcc.a', because recompiling it
+ ###      is rarely necessary and takes a lot of time.
+-mostlyclean_dirs = src oldXMenu lwlib lib lib-src nt doc/emacs doc/misc \
+-  doc/lispref doc/lispintro
++mostlyclean_dirs = src oldXMenu lwlib lib lib-src nt doc/misc
+ 
+ $(foreach dir,$(mostlyclean_dirs),$(eval $(call submake_template,$(dir),mostlyclean)))
+ 
+@@ -965,11 +966,11 @@ $(CHECK_TARGETS):
+ dist:
+ 	cd ${srcdir}; ./make-dist
+ 
+-DVIS  = lispref-dvi  lispintro-dvi  emacs-dvi  misc-dvi
+-HTMLS = lispref-html lispintro-html emacs-html misc-html
+-INFOS = lispref-info lispintro-info emacs-info misc-info
+-PDFS  = lispref-pdf  lispintro-pdf  emacs-pdf  misc-pdf
+-PSS   = lispref-ps   lispintro-ps   emacs-ps   misc-ps
++DVIS  = misc-dvi
++HTMLS = misc-html
++INFOS = misc-info
++PDFS  = misc-pdf
++PSS   = misc-ps
+ 
+ DOCS = $(DVIS) $(HTMLS) $(INFOS) $(PDFS) $(PSS)
+ $(DOCS):
+@@ -990,9 +991,7 @@ info-dir:
+ 
+ ## Hopefully doc/misc/*.texi is not too long for some systems?
+ srcdir_doc_info_dir_inputs = \
+-  ${srcdir}/doc/emacs/emacs.texi \
+-  ${srcdir}/doc/lispintro/emacs-lisp-intro.texi \
+-  ${srcdir}/doc/lispref/elisp.texi \
++  ${srcdir}/doc/misc/*.texi \
+   $(sort $(wildcard ${srcdir}/doc/misc/*.texi))
+ info_dir_inputs = \
+   ../build-aux/dir_top \
+@@ -1014,14 +1013,10 @@ ${srcdir}/info/dir:
+ 	 AWK='${AWK}' ../build-aux/make-info-dir ${info_dir_inputs} \
+ 	) >$@.tmp && mv $@.tmp $@
+ 
+-INSTALL_DVI = install-emacs-dvi install-lispref-dvi \
+-	install-lispintro-dvi install-misc-dvi
+-INSTALL_HTML = install-emacs-html install-lispref-html \
+-	install-lispintro-html install-misc-html
+-INSTALL_PDF = install-emacs-pdf install-lispref-pdf \
+-	install-lispintro-pdf install-misc-pdf
+-INSTALL_PS = install-emacs-ps install-lispref-ps \
+-	install-lispintro-ps install-misc-ps
++INSTALL_DVI = install-misc-dvi
++INSTALL_HTML = install-misc-html
++INSTALL_PDF = install-misc-pdf
++INSTALL_PS = install-misc-ps
+ INSTALL_DOC = $(INSTALL_DVI) $(INSTALL_HTML) $(INSTALL_PDF) $(INSTALL_PS)
+ 
+ ## Install non .info forms of the documentation.
+@@ -1039,14 +1034,10 @@ install-pdf:
+ install-ps: $(INSTALL_PS)
+ 
+ 
+-UNINSTALL_DVI = uninstall-emacs-dvi uninstall-lispref-dvi \
+-	uninstall-lispintro-dvi uninstall-misc-dvi
+-UNINSTALL_HTML = uninstall-emacs-html uninstall-lispref-html \
+-	uninstall-lispintro-html uninstall-misc-html
+-UNINSTALL_PDF = uninstall-emacs-pdf uninstall-lispref-pdf \
+-	uninstall-lispintro-pdf uninstall-misc-pdf
+-UNINSTALL_PS = uninstall-emacs-ps uninstall-lispref-ps \
+-	uninstall-lispintro-ps uninstall-misc-ps
++UNINSTALL_DVI = uninstall-misc-dvi
++UNINSTALL_HTML = uninstall-misc-html
++UNINSTALL_PDF = uninstall-misc-pdf
++UNINSTALL_PS = uninstall-misc-ps
+ UNINSTALL_DOC = $(UNINSTALL_DVI) $(UNINSTALL_HTML) $(UNINSTALL_PDF) $(UNINSTALL_PS)
+ 
+ $(UNINSTALL_DOC):
+diff --git a/admin/update_autogen b/admin/update_autogen
+index af339a9..4864d89 100755
+--- a/admin/update_autogen
++++ b/admin/update_autogen
+@@ -259,8 +259,7 @@ info_dir ()
+ $topic
+ EOF
+         ## Bit faster than doc/*/*.texi.
+-        for file in doc/emacs/emacs.texi doc/lispintro/*.texi \
+-            doc/lispref/elisp.texi doc/misc/*.texi; do
++        for file in doc/misc/*.texi; do
+ 
+             ## FIXME do not ignore w32 if OS is w32.
+             case $file in
+diff --git a/configure.ac b/configure.ac
+index 719eb74..a8dd3ca 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -5808,7 +5808,7 @@ AC_DEFUN
+ AC_CONFIG_FILES([$srcdir/doc/man/emacs.1])
+ 
+ m4_define([subdir_makefiles],
+-  [lib/Makefile lib-src/Makefile oldXMenu/Makefile doc/emacs/Makefile doc/misc/Makefile doc/lispintro/Makefile doc/lispref/Makefile src/Makefile lwlib/Makefile lisp/Makefile leim/Makefile nextstep/Makefile nt/Makefile])
++  [lib/Makefile lib-src/Makefile oldXMenu/Makefile doc/misc/Makefile src/Makefile lwlib/Makefile lisp/Makefile leim/Makefile])
+ SUBDIR_MAKEFILES="subdir_makefiles"
+ AC_CONFIG_FILES(subdir_makefiles)
+ 
+@@ -5860,15 +5860,6 @@ m4_define
+ fi
+ ])
+ 
+-dnl Perhaps this would be better named doc-emacs-emacsver.texi?
+-dnl See comments for etc-refcards-emacsver.tex.
+-dnl Since we get a doc/emacs directory generated anyway, for the Makefile,
+-dnl it is not quite the same.  But we are generating in $srcdir.
+-AC_CONFIG_COMMANDS([doc/emacs/emacsver.texi], [
+-${MAKE-make} -s --no-print-directory -C doc/emacs doc-emacsver || \
+-AC_MSG_ERROR(['doc/emacs/emacsver.texi' could not be made.])
+-])
+-
+ dnl If we give this the more natural name, etc/refcards/emacsver.texi,
+ dnl then a directory etc/refcards is created in the build directory,
+ dnl which is probably harmless, but confusing (in out-of-tree builds).
+diff --git a/doc/misc/Makefile.in b/doc/misc/Makefile.in
+index 7f536ad..aab4801 100644
+--- a/doc/misc/Makefile.in
++++ b/doc/misc/Makefile.in
+@@ -61,18 +61,14 @@ INSTALL_DATA =
+ MAKEINFO = @MAKEINFO@
+ MAKEINFO_OPTS = --force -I$(emacsdir)
+ 
++# Debian: moved DFSG incompatible files to emacs*-common-non-dfsg
++# package (see /usr/share/doc/emacs*-common/copyright).
++
+ ## On MS Windows, efaq-w32; otherwise blank.
+ DOCMISC_W32 = @DOCMISC_W32@
+ 
+ ## Info files to build and install on all platforms.
+-INFO_COMMON = auth autotype bovine calc ccmode cl \
+-	dbus dired-x ebrowse ede ediff edt eieio \
+-	emacs-mime epa erc ert eshell eudc efaq eww \
+-	flymake forms gnus emacs-gnutls htmlfontify idlwave ido info.info \
+-	mairix-el message mh-e newsticker nxml-mode octave-mode \
+-	org pcl-cvs pgg rcirc remember reftex sasl \
+-	sc semantic ses sieve smtpmail speedbar srecode todo-mode tramp \
+-	url vhdl-mode vip viper widget wisent woman
++INFO_COMMON = efaq
+ 
+ ## Info files to install on current platform.
+ INFO_INSTALL = $(INFO_COMMON) $(DOCMISC_W32)
+diff --git a/lisp/help.el b/lisp/help.el
+index b7d867e..9940a3c 100644
+--- a/lisp/help.el
++++ b/lisp/help.el
+@@ -296,6 +296,14 @@ view-help-file
+   (goto-address-mode 1)
+   (goto-char (point-min)))
+ 
++(defun debian-expand-file-name-dfsg (filename)
++  "Apply expand-file-name to FILENAME.
++If expand-file-name does not find a file, append `.dfsg' and try again."
++  (let ((file (expand-file-name filename data-directory)))
++    (if (file-exists-p file)
++        file
++      (expand-file-name (concat file ".dfsg") data-directory))))
++
+ (defun describe-distribution ()
+   "Display info on how to obtain the latest version of GNU Emacs."
+   (interactive)

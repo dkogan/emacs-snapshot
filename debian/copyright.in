@@ -1,0 +1,172 @@
+-*-text-*-
+
+This package was debianized by Rob Browning <rlb@defaultvalue.org> on
+Tue, 16 Dec 1997 00:05:45 -0600.
+
+The original source archive is emacs-@UPSTREAM_VERSION@.tar.gz, and it
+can be found here for stable releases:
+
+  ftp://ftp.gnu.org:/gnu/emacs/
+
+and here for alpha pre-releases:
+
+  ftp://alpha.gnu.org:/gnu/emacs/pretest/
+
+Please see /usr/share/doc/@DEB_FLAVOR@-common/README.Debian.gz for a
+description of the Debian specific differences from the upstream
+version.
+
+As mentioned there, some files (including some of the Emacs
+documentation) have been removed from this package because their
+licenses do not appear to satisfy the requirements of the Debian Free
+Software Guidelines (DFSG).  See http://www.debian.org/social_contract.
+
+In particular, some of the info pages are covered under the GNU Free
+Documentation License (GFDL), which Debian has decided does not
+satisfy the DFSG in cases where "Invariant Sections" are specified
+(this includes front and back cover texts).  See this Debian General
+Resolution on the topic: http://www.debian.org/vote/2006/vote_001.
+
+Some other files have been removed because their license only allows
+verbatim copying, or because there was some other question.
+
+Copyright:
+
+  Emacs itself is licensed under the terms of the GNU General Public
+  License (GPL), Version 3.  See the file
+  /usr/share/common-licenses/GPL-3 for more information.
+
+  doc/man/b2m.1, doc/man/ebrowse.1, doc/man/grep-changelog.1, and
+  doc/man/rcs-checkin.1 are licensed as follows:
+
+    Copyright (C) 2008, 2009 Free Software Foundation, Inc.
+
+    Permission is granted to make and distribute verbatim copies of this
+    document provided the copyright notice and this permission notice are
+    preserved on all copies.
+
+    Permission is granted to copy and distribute modified versions of
+    this document under the conditions for verbatim copying, provided that
+    the entire resulting derived work is distributed under the terms of
+    a permission notice identical to this one.
+
+    Permission is granted to copy and distribute translations of this
+    document into another language, under the above conditions for
+    modified versions, except that this permission notice may be stated
+    in a translation approved by the Free Software Foundation.
+
+  doc/man/emacs.1 is licensed as follows:
+
+    Copyright (C) 1995, 1999, 2000, 2001, 2002, 2003, 2004, 2005,
+      2006, 2007, 2008, 2009 Free Software Foundation, Inc.
+
+    Permission is granted to make and distribute verbatim copies of
+    this document provided the copyright notice and this permission
+    notice are preserved on all copies.
+
+    Permission is granted to copy and distribute modified versions of
+    this document under the conditions for verbatim copying, provided
+    that the entire resulting derived work is distributed under the
+    terms of a permission notice identical to this one.
+
+    Permission is granted to copy and distribute translations of this
+    document into another language, under the above conditions for
+    modified versions, except that this permission notice may be
+    stated in a translation approved by the Free Software Foundation.
+
+  doc/man/etags.1 is licensed as follows:
+
+    Copyright (C) 1992, 1999, 2001, 2002, 2003, 2004, 2005, 2006,
+      2007, 2008, 2009 Free Software Foundation, Inc.
+
+    Permission is granted to make and distribute verbatim copies of this
+    document provided the copyright notice and this permission notice are
+    preserved on all copies.
+
+    Permission is granted to copy and distribute modified versions of
+    this document under the conditions for verbatim copying, provided that
+    the entire resulting derived work is distributed under the terms of
+    a permission notice identical to this one.
+
+    Permission is granted to copy and distribute translations of this
+    document into another language, under the above conditions for
+    modified versions, except that this permission notice may be stated
+    in a translation approved by the Free Software Foundation.
+
+  etc/publicsuffix.txt is licensed as follows:
+
+    The contents of this file are subject to the Mozilla Public License Version
+    1.1 (the "License"); you may not use this file except in compliance with
+    the License. You may obtain a copy of the License at
+    http://www.mozilla.org/MPL/
+
+    Software distributed under the License is distributed on an "AS IS" basis,
+    WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+    for the specific language governing rights and limitations under the
+    License.
+
+  doc/misc/efaq.texi is licensed as follows:
+
+    This list of frequently asked questions about GNU Emacs with answers
+    (``FAQ'') may be translated into other languages, transformed into other
+    formats (e.g., Texinfo, Info, WWW, WAIS), and updated with new information.
+
+    The same conditions apply to any derivative of the FAQ as apply to the FAQ
+    itself.  Every copy of the FAQ must include this notice or an approved
+    translation, information on who is currently maintaining the FAQ and how to
+    contact them (including their e-mail address), and information on where the
+    latest version of the FAQ is archived (including FTP information).
+
+    The FAQ may be copied and redistributed under these conditions, except that
+    the FAQ may not be embedded in a larger literary work unless that work
+    itself allows free copying and redistribution.
+
+    [This version has been heavily edited since it was included in the Emacs
+    distribution.]
+
+  doc/misc/efaq-w32.texi is licensed as follows:
+
+    This list of frequently asked questions about GNU Emacs on MS Windows
+    with answers (``FAQ'') may be translated into other languages,
+    transformed into other formats (e.g. Texinfo, Info, WWW), and updated
+    with new information.
+
+    The same conditions apply to any derivative of the FAQ as apply to the FAQ
+    itself.  Every copy of the FAQ must include this notice or an approved
+    translation, information on who is currently maintaining the FAQ and how to
+    contact them (including their e-mail address), and information on where the
+    latest version of the FAQ is archived (including FTP information).
+
+    The FAQ may be copied and redistributed under these conditions, except that
+    the FAQ may not be embedded in a larger literary work unless that work
+    itself allows free copying and redistribution.
+
+  lisp/obsolete/meese.el is licensed as follows:
+
+    This is in the public domain on account of being distributed since
+    1985 or 1986 without a copyright notice.
+
+  msdos/sedadmin.inp is licensed as follows:
+
+    This file is part of GNU Emacs.
+
+    This file is free software; as a special exception, the author gives
+    unlimited permission to copy and/or distribute it, with or without
+    modifications, as long as this notice is preserved.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+  nt/inc/dirent.h is licensed as follows:
+
+    The code here is forced by the interface, and is not subject to
+    copyright, constituting the only possible expression of the
+    algorithm in this format.
+
+  All of the files in m4/ except gnulib-comp.m4 are licensed as
+  follows:
+
+    This file is free software; the Free Software Foundation
+    gives unlimited permission to copy and/or distribute it,
+    with or without modifications, as long as this notice is preserved.

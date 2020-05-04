@@ -1,0 +1,21 @@
+#!/bin/sh
+
+set -e
+
+FLAVOR=@DEB_FLAVOR@
+MAJOR=@MAJOR_VERSION@
+MINOR=@MINOR_VERSION@
+FULL=@FULL_VERSION@
+ALTERNATIVES="@ALTERNATIVES@"
+BIN_PRIORITY=@BIN_PRIORITY@
+
+# update-alternatives on things that collide with xemacs, other editors
+for i in ${ALTERNATIVES}
+do
+  update-alternatives \
+    --install /usr/bin/$i $i /usr/bin/$i.${FLAVOR} ${BIN_PRIORITY} \
+    --slave /usr/share/man/man1/$i.1.gz $i.1.gz \
+            /usr/share/man/man1/$i.${FLAVOR}.1.gz
+done
+
+#DEBHELPER#
