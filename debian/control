@@ -1,7 +1,7 @@
 Source: emacs-snapshot
 Section: editors
 Priority: optional
-Maintainer: Rob Browning <rlb@defaultvalue.org>
+Maintainer: Dima Kogan <dima@secretsauce.net>
 Build-Depends: bsd-mailx | mailx, libncurses5-dev, texinfo, liblockfile-dev, librsvg2-dev,
  libgif-dev | libungif4-dev, libtiff-dev | libtiff-dev, xaw3dg-dev,
  libpng-dev, libjpeg-dev, libm17n-dev, libotf-dev,
