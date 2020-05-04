@@ -12,7 +12,7 @@ and here for alpha pre-releases:
 
   ftp://alpha.gnu.org:/gnu/emacs/pretest/
 
-Please see /usr/share/doc/emacs-snapshot-common/README.Debian.gz for a
+Please see /usr/share/doc/emacs-snapshot-native-comp-common/README.Debian.gz for a
 description of the Debian specific differences from the upstream
 version.
 
