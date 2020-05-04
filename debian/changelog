@@ -2,6 +2,12 @@ emacs-snapshot-native-comp (2:20200504+emacs-27.0.91-1674-g766f4b96ee1-1) unstab
 
   * New snapshot
 
+ -- Dima Kogan <dima@secretsauce.net>  Mon, 04 May 2020 16:58:21 -0700
+
+emacs-snapshot-native-comp (2:20200504+emacs-27.0.91-1674-g766f4b96ee1-1) unstable; urgency=medium
+
+  * New snapshot
+
  -- Dima Kogan <dima@secretsauce.net>  Mon, 04 May 2020 16:57:52 -0700
 
 emacs-snapshot-native-comp (2:20200504+emacs-27.0.91-1674-g766f4b96ee1-1) unstable; urgency=medium
