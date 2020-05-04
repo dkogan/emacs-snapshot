@@ -36,7 +36,7 @@ dch -r ''
 git commit -m 'new snapshot' debian/changelog
 
 # done preparing the source. Push and build
-git push origin master:master
+git push origin master:master-native-comp
 
 git clean -ffdx; git reset --hard
 ./debian/rules debian/control
