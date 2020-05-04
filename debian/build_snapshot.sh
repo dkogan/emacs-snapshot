@@ -2,6 +2,8 @@
 
 set -e -x
 
+UPSTREAM_MASTER=upstream/feature/native-comp
+
 # report the previous state so that we can try again
 git show-ref | grep refs/heads
 
@@ -12,7 +14,7 @@ git reset --hard
 git clean -ffdx
 
 git checkout upstream
-git merge -m 'Merged upstream' upstream/master
+git merge -m 'Merged upstream' $UPSTREAM_MASTER
 
 git checkout master
 git merge -m 'Merging new upstream' upstream
@@ -25,7 +27,7 @@ git add -vf debian/patches/
 git commit --no-verify -m 'patch update' debian/patches/ || true
 
 # need to make this non-interactive
-UPSTREAM_VER=`git describe --tags --always upstream/master`
+UPSTREAM_VER=`git describe --tags --always $UPSTREAM_MASTER`
 test -n "$UPSTREAM_VER" # make sure version was parsed
 export DEBEMAIL=dima@secretsauce.net
 export DEBFULLNAME='Dima Kogan'
