@@ -47,6 +47,6 @@ gbp buildpackage --git-builder=true --git-cleaner=true --git-ignore-new
 
 # build the package
 # note that on my box the "unstable" chroot is actually "jessie"
-sbuild --nolog -s --force-orig-source -A -d unstable
+sbuild --anything-failed-commands '%s' --nolog -s --force-orig-source -A -d unstable
 
 #dput -u digitalocean_emacs  ../emacs-snapshot*.changes(om[1])
