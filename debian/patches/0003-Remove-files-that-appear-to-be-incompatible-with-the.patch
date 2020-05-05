@@ -32,7 +32,7 @@ diff --git a/Makefile.in b/Makefile.in
 index 2f6a68f..e9c86f9 100644
 --- a/Makefile.in
 +++ b/Makefile.in
-@@ -164,7 +164,9 @@ man1dir=
+@@ -164,7 +164,9 @@ man1dir=$(mandir)/man1
  # Where to install and expect the info files describing Emacs.
  infodir=@infodir@
  # Info files not in the doc/misc directory (we get those via make echo-info).
@@ -43,7 +43,7 @@ index 2f6a68f..e9c86f9 100644
  
  # If no makeinfo was found and configured --without-makeinfo, "no"; else "yes".
  HAVE_MAKEINFO=@HAVE_MAKEINFO@
-@@ -831,8 +833,7 @@ $(1)_$(2):
+@@ -831,8 +833,7 @@ endef
  ###      normally don't want to recompile.  For example, the 'mostlyclean'
  ###      target for GCC does not delete 'libgcc.a', because recompiling it
  ###      is rarely necessary and takes a lot of time.
@@ -53,7 +53,7 @@ index 2f6a68f..e9c86f9 100644
  
  $(foreach dir,$(mostlyclean_dirs),$(eval $(call submake_template,$(dir),mostlyclean)))
  
-@@ -966,11 +967,11 @@ $(CHECK_TARGETS):
+@@ -966,11 +967,11 @@ endif
  dist:
  	cd ${srcdir}; ./make-dist
  
@@ -70,7 +70,7 @@ index 2f6a68f..e9c86f9 100644
  
  DOCS = $(DVIS) $(HTMLS) $(INFOS) $(PDFS) $(PSS)
  $(DOCS):
-@@ -991,9 +992,7 @@ info-dir:
+@@ -991,9 +992,7 @@ info-dir: ${srcdir}/info/dir
  
  ## Hopefully doc/misc/*.texi is not too long for some systems?
  srcdir_doc_info_dir_inputs = \
@@ -81,7 +81,7 @@ index 2f6a68f..e9c86f9 100644
    $(sort $(wildcard ${srcdir}/doc/misc/*.texi))
  info_dir_inputs = \
    ../build-aux/dir_top \
-@@ -1015,14 +1014,10 @@ ${srcdir}/info/dir:
+@@ -1015,14 +1014,10 @@ ${srcdir}/info/dir: ${info_dir_deps}
  	 AWK='${AWK}' ../build-aux/make-info-dir ${info_dir_inputs} \
  	) >$@.tmp && mv $@.tmp $@
  
@@ -100,7 +100,7 @@ index 2f6a68f..e9c86f9 100644
  INSTALL_DOC = $(INSTALL_DVI) $(INSTALL_HTML) $(INSTALL_PDF) $(INSTALL_PS)
  
  ## Install non .info forms of the documentation.
-@@ -1040,14 +1035,10 @@ install-pdf:
+@@ -1040,14 +1035,10 @@ install-pdf: $(INSTALL_PDF)
  install-ps: $(INSTALL_PS)
  
  
@@ -134,10 +134,10 @@ index af339a9..4864d89 100755
              ## FIXME do not ignore w32 if OS is w32.
              case $file in
 diff --git a/configure.ac b/configure.ac
-index af12f20..90a86cd 100644
+index 23b94cf..d0edb55 100644
 --- a/configure.ac
 +++ b/configure.ac
-@@ -5885,7 +5885,7 @@ AC_DEFUN
+@@ -5888,7 +5888,7 @@ dnl config.status treats $srcdir specially, so I think this is ok...
  AC_CONFIG_FILES([$srcdir/doc/man/emacs.1])
  
  m4_define([subdir_makefiles],
@@ -146,7 +146,7 @@ index af12f20..90a86cd 100644
  SUBDIR_MAKEFILES="subdir_makefiles"
  AC_CONFIG_FILES(subdir_makefiles)
  
-@@ -5937,15 +5937,6 @@ m4_define
+@@ -5940,15 +5940,6 @@ if test ! -f src/.gdbinit && test -f "$srcdir/src/.gdbinit"; then
  fi
  ])
  
@@ -166,7 +166,7 @@ diff --git a/doc/misc/Makefile.in b/doc/misc/Makefile.in
 index 7f536ad..aab4801 100644
 --- a/doc/misc/Makefile.in
 +++ b/doc/misc/Makefile.in
-@@ -61,18 +61,14 @@ INSTALL_DATA =
+@@ -61,18 +61,14 @@ INSTALL_DATA = @INSTALL_DATA@
  MAKEINFO = @MAKEINFO@
  MAKEINFO_OPTS = --force -I$(emacsdir)
  
@@ -193,7 +193,7 @@ diff --git a/lisp/help.el b/lisp/help.el
 index b7d867e..9940a3c 100644
 --- a/lisp/help.el
 +++ b/lisp/help.el
-@@ -296,6 +296,14 @@ view-help-file
+@@ -296,6 +296,14 @@ If that doesn't give a function, return nil."
    (goto-address-mode 1)
    (goto-char (point-min)))
  

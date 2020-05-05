@@ -14,7 +14,7 @@ diff --git a/lisp/version.el b/lisp/version.el
 index 24da21c..cdd124d 100644
 --- a/lisp/version.el
 +++ b/lisp/version.el
-@@ -62,7 +62,7 @@ emacs-version
+@@ -62,7 +62,7 @@ Don't use this function in programs to choose actions according
  to the system configuration; look at `system-configuration' instead."
    (interactive "P")
    (let ((version-string
