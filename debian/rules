@@ -315,6 +315,7 @@ confflags += --localstatedir=/var/lib
 confflags += --infodir=/usr/share/info
 confflags += --mandir=/usr/share/man
 confflags += --enable-libsystemd
+confflags += --with-native-compilation
 confflags += --with-pop=yes
 confflags += --enable-locallisppath=$(local_lpath)
 
@@ -530,6 +531,9 @@ override_dh_auto_install: $(autogen_install_files)
 	  # The .pdmp is flavor-specific, so I don't install it here
 	  rm $(pkgdir_bin_common)/usr/lib/emacs/$(runtime_ver)/$(target)/emacs.pdmp
 
+	  # The .eln files under native-lisp are flavor-specific
+	  rm -rf $(pkgdir_bin_common)/usr/lib/emacs/$(runtime_ver)/native-lisp
+
 	  # The systemd service
 	  cd $(pkgdir_bin_common)/usr/lib/systemd/user \
 	    && mv emacs.service $(flavor).service \
@@ -565,6 +569,7 @@ override_dh_auto_install: $(autogen_install_files)
 	    $(install_dir_x),$(pkgdir_x),$(flavor),x)
 	  install -d $(pkgdir_x)/usr/lib/emacs/$(runtime_ver)/$(target)
 	  cp -a $(install_dir_x)/usr/lib/emacs/$(runtime_ver)/$(target)/emacs.pdmp $(pkgdir_x)/usr/lib/emacs/$(runtime_ver)/$(target)
+	  cp -a $(install_dir_x)/usr/lib/emacs/$(runtime_ver)/native-lisp $(pkgdir_x)/usr/lib/emacs/$(runtime_ver)
 
           # install desktop entry
 	  install -d $(pkgdir_x)/usr/share/applications
@@ -581,6 +586,7 @@ override_dh_auto_install: $(autogen_install_files)
 	    $(install_dir_nox),$(pkgdir_nox),$(flavor)-nox,nox)
 	  install -d $(pkgdir_nox)/usr/lib/emacs/$(runtime_ver)/$(target)
 	  cp -a $(install_dir_nox)/usr/lib/emacs/$(runtime_ver)/$(target)/emacs.pdmp $(pkgdir_nox)/usr/lib/emacs/$(runtime_ver)/$(target)
+	  cp -a $(install_dir_nox)/usr/lib/emacs/$(runtime_ver)/native-lisp $(pkgdir_nox)/usr/lib/emacs/$(runtime_ver)
 	  rm -rf $(install_dir_nox)
 
         endif
@@ -593,6 +599,7 @@ override_dh_auto_install: $(autogen_install_files)
 	    $(install_dir_lucid),$(pkgdir_lucid),$(flavor)-lucid,lucid)
 	  install -d $(pkgdir_lucid)/usr/lib/emacs/$(runtime_ver)/$(target)
 	  cp -a $(install_dir_lucid)/usr/lib/emacs/$(runtime_ver)/$(target)/emacs.pdmp $(pkgdir_lucid)/usr/lib/emacs/$(runtime_ver)/$(target)
+	  cp -a $(install_dir_lucid)/usr/lib/emacs/$(runtime_ver)/native-lisp $(pkgdir_lucid)/usr/lib/emacs/$(runtime_ver)
 
           # install desktop entry
 	  install -d $(pkgdir_lucid)/usr/share/applications
