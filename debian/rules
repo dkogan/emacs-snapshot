@@ -414,9 +414,10 @@ override_dh_auto_install: $(autogen_install_files)
 	  cp -a $(install_dir_x)/* $(pkgdir_common)
 
 	  rm -r $(pkgdir_common)/usr/bin
-	  rm -r $(pkgdir_common)/usr/include
 	  rm -r $(pkgdir_common)/usr/lib
 
+	  cd $(pkgdir_common)/usr/include \
+	    && mv emacs-module.h $(flavor)-module.h
 	  cd $(pkgdir_common)/usr/share/metainfo \
 	    && mv emacs.appdata.xml $(flavor).appdata.xml
 
