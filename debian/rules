@@ -126,6 +126,10 @@ ifeq (,$(joblimit))
   joblimit := 1
 endif
 
+ifeq ($(NO_NATIVE_COMP),)
+  export NATIVE_FULL_AOT := 1
+endif
+
 target := $(DEB_HOST_GNU_TYPE)
 movemail_bin := usr/lib/emacs/$(runtime_ver)/$(target)/movemail
 
