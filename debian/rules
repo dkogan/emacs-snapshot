@@ -480,6 +480,9 @@ override_dh_auto_install: $(autogen_install_files)
 	  rm $(pkgdir_common)/usr/share/emacs/$(runtime_ver)/etc/emacs.desktop
 	  rm $(pkgdir_common)/usr/share/applications/emacs.desktop
 
+	  # Remove desktop files possibly conflicted with emacs-common.
+	  rm -f $(pkgdir_common)/usr/share/applications/*.desktop
+
 	  # Mangle info files.
 	  chmod 755 debian/mangle-info
 	  for f in $(main_dir_info_files); \
