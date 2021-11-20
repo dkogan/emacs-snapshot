@@ -23,7 +23,8 @@ Architecture: any
 Depends: emacs-snapshot-bin-common (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
 Provides: emacs-snapshot, emacsen, editor, info-browser, mail-reader, news-reader
 Suggests: emacs-snapshot-common-non-dfsg
-Conflicts: emacs-snapshot, emacs-snapshot-nox, emacs-snapshot-common (<< 2:20150222+emacs-pretest-24.0.05-15849-g3f006e1-1)
+Conflicts: emacs-snapshot-no-native-comp-lucid,
+  emacs-snapshot, emacs-snapshot-nox, emacs-snapshot-common (<< 2:20150222+emacs-pretest-24.0.05-15849-g3f006e1-1)
 Replaces: emacs-snapshot, emacs-snapshot-nox
 Description: GNU Emacs editor (with Lucid GUI support)
  GNU Emacs is the extensible self-documenting text editor.  This
@@ -41,7 +42,8 @@ Architecture: any
 Depends: emacs-snapshot-bin-common (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
 Provides: emacs-snapshot, editor, emacsen, info-browser, mail-reader, news-reader
 Suggests: emacs-snapshot-common-non-dfsg
-Conflicts: emacs-snapshot, emacs-snapshot-lucid, emacs-snapshot-common (<< 2:20150222+emacs-pretest-24.0.05-15849-g3f006e1-1)
+Conflicts: emacs-snapshot-no-native-comp-nox,
+  emacs-snapshot, emacs-snapshot-lucid, emacs-snapshot-common (<< 2:20150222+emacs-pretest-24.0.05-15849-g3f006e1-1)
 Replaces: emacs-snapshot, emacs-snapshot-lucid
 Description: GNU Emacs editor (without GUI support)
  GNU Emacs is the extensible self-documenting text editor.  This
@@ -53,7 +55,8 @@ Architecture: any
 Depends: emacs-snapshot-bin-common (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
 Provides: editor, emacsen, info-browser, mail-reader, news-reader
 Suggests: emacs-snapshot-common-non-dfsg
-Conflicts: emacs-snapshot-lucid, emacs-snapshot-nox, emacs-snapshot-common (<< 2:20150222+emacs-pretest-24.0.05-15849-g3f006e1-1)
+Conflicts: emacs-snapshot-no-native-comp,
+  emacs-snapshot-lucid, emacs-snapshot-nox, emacs-snapshot-common (<< 2:20150222+emacs-pretest-24.0.05-15849-g3f006e1-1)
 Replaces: emacs-snapshot-lucid, emacs-snapshot-nox
 Description: GNU Emacs editor (with GTK+ GUI support)
  GNU Emacs is the extensible self-documenting text editor.  This
@@ -62,6 +65,7 @@ Description: GNU Emacs editor (with GTK+ GUI support)
  emacs-snapshot-lucid package).
 
 Package: emacs-snapshot-bin-common
+Conflicts: emacs-snapshot-no-native-comp-bin-common
 Architecture: any
 Depends: emacs-snapshot-common (= ${source:Version}), ${shlibs:Depends}, ${misc:Depends}
 Description: GNU Emacs editor's shared, architecture dependent files
@@ -69,17 +73,23 @@ Description: GNU Emacs editor's shared, architecture dependent files
  This package contains the architecture dependent infrastructure
  that's shared by emacs-snapshot, emacs-snapshot-lucid, and emacs-snapshot-nox.
 
+# This depends on the emacs-el package. It is needed only for the native-comp
+# packages so tha they have something to compile. I leave the Depends even for
+# the no-native-comp packages because doing that is not worth the required
+# typing. See: https://debbugs.gnu.org/cgi/bugreport.cgi?bug=48342
 Package: emacs-snapshot-common
 Architecture: all
-Depends: emacsen-common (>= 2.0.8), dpkg (>= 1.15.4) | install-info, ${misc:Depends}
-Suggests: emacs-snapshot-el, emacs-snapshot-common-non-dfsg
-Conflicts: emacs-snapshot-el (<< ${source:Version}), cedet, eieio, speedbar
+Depends: emacs-snapshot-el (= ${source:Version}), emacsen-common (>= 2.0.8), dpkg (>= 1.15.4) | install-info, ${misc:Depends}
+Suggests: emacs-snapshot-common-non-dfsg
+Conflicts: emacs-snapshot-no-native-comp-common,
+  emacs-snapshot-el (<< ${source:Version}), cedet, eieio, speedbar
 Description: GNU Emacs editor's shared, architecture independent infrastructure
  GNU Emacs is the extensible self-documenting text editor.
  This package contains the architecture independent infrastructure
  that's shared by emacs-snapshot, emacs-snapshot-lucid, and emacs-snapshot-nox.
 
 Package: emacs-snapshot-el
+Conflicts: emacs-snapshot-no-native-comp-el
 Architecture: all
 Depends: emacs-snapshot-common (= ${source:Version}), ${misc:Depends}
 Description: GNU Emacs LISP (.el) files
