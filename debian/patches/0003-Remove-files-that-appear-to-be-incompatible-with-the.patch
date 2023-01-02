@@ -150,29 +150,19 @@ diff --git a/doc/misc/Makefile.in b/doc/misc/Makefile.in
 index 1831bbb..c7a6da5 100644
 --- a/doc/misc/Makefile.in
 +++ b/doc/misc/Makefile.in
-@@ -63,18 +63,14 @@ INSTALL_DATA = @INSTALL_DATA@
- MAKEINFO = @MAKEINFO@
- MAKEINFO_OPTS = --force -I$(emacsdir)
+@@ -84,6 +84,12 @@ INFO_INSTALL = $(INFO_COMMON) $(DOCMISC_W32)
+ ## because the info files are pre-built in release tarfiles.
+ INFO_TARGETS = $(INFO_COMMON) efaq-w32
  
 +# Debian: moved DFSG incompatible files to emacs*-common-non-dfsg
 +# package (see /usr/share/doc/emacs*-common/copyright).
-+
- ## On MS Windows, efaq-w32; otherwise blank.
- DOCMISC_W32 = @DOCMISC_W32@
- 
- ## Info files to build and install on all platforms.
--INFO_COMMON = auth autotype bovine calc ccmode cl dbus dired-x		\
--	ebrowse ede ediff edt efaq eglot eieio emacs-gnutls		\
--	emacs-mime epa erc ert eshell eudc eww flymake forms gnus	\
--	htmlfontify idlwave ido info.info mairix-el message mh-e	\
--	modus-themes newsticker nxml-mode octave-mode org pcl-cvs pgg	\
--	rcirc reftex remember sasl sc semantic ses sieve smtpmail	\
--	speedbar srecode todo-mode tramp transient url use-package	\
--	vhdl-mode vip viper vtable widget wisent woman
 +INFO_COMMON = efaq
- 
- ## Info files to install on current platform.
- INFO_INSTALL = $(INFO_COMMON) $(DOCMISC_W32)
++INFO_INSTALL = $(INFO_COMMON)
++INFO_TARGETS = $(INFO_COMMON)
++
+ ## Some manuals have their source in .org format.
+ ## This is discouraged because the .texi files it generates
+ ## are not as well formatted as handwritten ones.
 diff --git a/lisp/help.el b/lisp/help.el
 index 83be85b..a847e35 100644
 --- a/lisp/help.el
