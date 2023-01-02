@@ -156,7 +156,7 @@ index 1831bbb..c7a6da5 100644
  
 +# Debian: moved DFSG incompatible files to emacs*-common-non-dfsg
 +# package (see /usr/share/doc/emacs*-common/copyright).
-+INFO_COMMON = efaq
++INFO_COMMON = efaq transient
 +INFO_INSTALL = $(INFO_COMMON)
 +INFO_TARGETS = $(INFO_COMMON)
 +

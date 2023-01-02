@@ -134,7 +134,7 @@ target := $(DEB_HOST_GNU_TYPE)
 movemail_bin := usr/lib/emacs/$(runtime_ver)/$(target)/movemail
 
 # Info files that are going to show up in the main dir.
-main_dir_info_files := efaq.info
+main_dir_info_files := efaq.info transient.info
 
 # Files that the build stage depends on (may also be listed in other vars).
 persistent_autogen_build_files := debian/control debian/copyright
