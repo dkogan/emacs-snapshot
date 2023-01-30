@@ -325,6 +325,7 @@ ifeq ($(NO_NATIVE_COMP),)
 confflags += --with-native-compilation
 endif
 confflags += --with-pop=yes
+confflags += --with-tree-sitter
 confflags += --enable-locallisppath=$(local_lpath)
 
 # x configure flags
