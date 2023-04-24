@@ -1227,7 +1227,10 @@ To continue searching for the next match, use the
 command \\[fileloop-continue]."
   (interactive "sSearch (regexp): ")
   (fileloop-initialize-search
-   regexp (project-files (project-current t)) 'default)
+   regexp
+   ;; XXX: See the comment in project-query-replace-regexp.
+   (cl-delete-if-not #'file-regular-p (project-files (project-current t)))
+   'default)
   (fileloop-continue))
 
 ;;;###autoload
@@ -1324,13 +1327,23 @@ general form of conditions."
             (and (memq (cdr buffer) buffers)
                  (not
                   (project--buffer-check
-                   (cdr buffer) project-ignore-buffer-conditions))))))
-    (read-buffer
-     "Switch to buffer: "
-     (when (funcall predicate (cons other-name other-buffer))
-       other-name)
-     nil
-     predicate)))
+                   (cdr buffer) project-ignore-buffer-conditions)))))
+         (buffer (read-buffer
+                  "Switch to buffer: "
+                  (when (funcall predicate (cons other-name other-buffer))
+                    other-name)
+                  nil
+                  predicate)))
+    ;; XXX: This check hardcodes the default buffer-belonging relation
+    ;; which `project-buffers' is allowed to override.  Straighten
+    ;; this up sometime later.  Or not.  Since we can add a method
+    ;; `project-contains-buffer-p', but a separate method to create a
+    ;; new project buffer seems too much.
+    (if (or (get-buffer buffer)
+            (file-in-directory-p default-directory (project-root pr)))
+        buffer
+      (let ((default-directory (project-root pr)))
+        (get-buffer-create buffer)))))
 
 ;;;###autoload
 (defun project-switch-to-buffer (buffer-or-name)

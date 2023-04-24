@@ -215,11 +215,11 @@ chosen (interactively or automatically)."
                                 ((R-mode ess-r-mode) . ("R" "--slave" "-e"
                                                         "languageserver::run()"))
                                 ((java-mode java-ts-mode) . ("jdtls"))
-                                (dart-mode . ("dart" "language-server"
-                                              "--client-id" "emacs.eglot-dart"))
+                                ((dart-mode dart-ts-mode)
+                                 . ("dart" "language-server"
+                                    "--client-id" "emacs.eglot-dart"))
                                 ((elixir-mode elixir-ts-mode heex-ts-mode)
-                                 . ,(if (and (fboundp 'w32-shell-dos-semantics)
-                                             (w32-shell-dos-semantics))
+                                 . ,(if (and (fboundp 'w32-shell-dos-semantics)                                             (w32-shell-dos-semantics))
                                         '("language_server.bat")
                                       '("language_server.sh")))
                                 (ada-mode . ("ada_language_server"))
@@ -250,7 +250,11 @@ chosen (interactively or automatically)."
                                        ("csharp-ls"))))
                                 (purescript-mode . ("purescript-language-server" "--stdio"))
                                 ((perl-mode cperl-mode) . ("perl" "-MPerl::LanguageServer" "-e" "Perl::LanguageServer::run"))
-                                (markdown-mode . ("marksman" "server")))
+                                (markdown-mode
+                                 . ,(eglot-alternatives
+                                     '(("marksman" "server")
+                                       ("vscode-markdown-language-server" "--stdio"))))
+                                (graphviz-dot-mode . ("dot-language-server" "--stdio")))
   "How the command `eglot' guesses the server to start.
 An association list of (MAJOR-MODE . CONTACT) pairs.  MAJOR-MODE
 identifies the buffers that are to be managed by a specific
@@ -1703,7 +1707,7 @@ under cursor."
           (const :tag "Go to definition" :definitionProvider)
           (const :tag "Go to type definition" :typeDefinitionProvider)
           (const :tag "Go to implementation" :implementationProvider)
-          (const :tag "Go to declaration" :implementationProvider)
+          (const :tag "Go to declaration" :declarationProvider)
           (const :tag "Find references" :referencesProvider)
           (const :tag "Highlight symbols automatically" :documentHighlightProvider)
           (const :tag "List symbols in buffer" :documentSymbolProvider)
@@ -1931,10 +1935,9 @@ Use `eglot-managed-p' to determine if current buffer is managed.")
   "Return logical Eglot server for current buffer, nil if none."
   (setq eglot--cached-server
         (or eglot--cached-server
-            (cl-find major-mode
-                     (gethash (eglot--current-project) eglot--servers-by-project)
-                     :key #'eglot--major-modes
-                     :test #'memq)
+            (cl-find-if #'eglot--languageId
+                        (gethash (eglot--current-project)
+                                 eglot--servers-by-project))
             (and eglot-extend-to-xref
                  buffer-file-name
                  (gethash (expand-file-name buffer-file-name)
@@ -2356,12 +2359,20 @@ THINGS are either registrations or unregisterations (sic)."
   (append (eglot--TextDocumentIdentifier)
           `(:version ,eglot--versioned-identifier)))
 
+(cl-defun eglot--languageId (&optional (server (eglot--current-server-or-lose)))
+  "Compute LSP \\='languageId\\=' string for current buffer.
+Doubles as an predicate telling if SERVER can manage current
+buffer."
+  (cl-loop for (mode . languageid) in
+           (eglot--languages server)
+           when (provided-mode-derived-p major-mode mode)
+           return languageid))
+
 (defun eglot--TextDocumentItem ()
   "Compute TextDocumentItem object for current buffer."
   (append
    (eglot--VersionedTextDocumentIdentifier)
-   (list :languageId
-         (alist-get major-mode (eglot--languages (eglot--current-server-or-lose)))
+   (list :languageId (eglot--languageId)
          :text
          (eglot--widening
           (buffer-substring-no-properties (point-min) (point-max))))))
@@ -3291,10 +3302,11 @@ Returns a list as described in docstring of `imenu--index-alist'."
                               `(:textDocument
                                 ,(eglot--TextDocumentIdentifier))
                               :cancel-on-input non-essential))
-         (head (and res (elt res 0))))
-    (eglot--dcase head
-      (((SymbolInformation)) (eglot--imenu-SymbolInformation res))
-      (((DocumentSymbol)) (eglot--imenu-DocumentSymbol res)))))
+         (head (and (cl-plusp (length res)) (elt res 0))))
+    (when head
+      (eglot--dcase head
+        (((SymbolInformation)) (eglot--imenu-SymbolInformation res))
+        (((DocumentSymbol)) (eglot--imenu-DocumentSymbol res))))))
 
 (cl-defun eglot--apply-text-edits (edits &optional version)
   "Apply EDITS for current buffer if at VERSION, or if it's nil."
