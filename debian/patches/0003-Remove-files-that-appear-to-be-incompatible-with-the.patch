@@ -28,7 +28,7 @@ Status: new
  4 files changed, 32 insertions(+), 37 deletions(-)
 
 diff --git a/Makefile.in b/Makefile.in
-index 4f2f2f1..17436eb 100644
+index 0b7c968..adaa71c 100644
 --- a/Makefile.in
 +++ b/Makefile.in
 @@ -174,7 +174,9 @@ man1dir=$(mandir)/man1
@@ -52,7 +52,7 @@ index 4f2f2f1..17436eb 100644
  
  $(foreach dir,$(mostlyclean_dirs),$(eval $(call submake_template,$(dir),mostlyclean)))
  
-@@ -1103,11 +1104,11 @@ test/%:
+@@ -1106,11 +1107,11 @@ test/%:
  dist:
  	cd ${srcdir}; ./make-dist
  
@@ -69,7 +69,7 @@ index 4f2f2f1..17436eb 100644
  
  DOCS = $(DVIS) $(HTMLS) $(INFOS) $(PDFS) $(PSS)
  $(DOCS):
-@@ -1138,9 +1139,6 @@ info-dir: ${srcdir}/info/dir
+@@ -1141,9 +1142,6 @@ info-dir: ${srcdir}/info/dir
  texi_misc = $(shell MAKEFLAGS= ${MAKE} --no-print-directory -s -C doc/misc echo-sources)
  
  srcdir_doc_info_dir_inputs = \
@@ -79,7 +79,7 @@ index 4f2f2f1..17436eb 100644
    $(addprefix ${srcdir}/doc/misc/,${texi_misc})
  info_dir_inputs = \
    ../build-aux/dir_top \
-@@ -1162,14 +1160,10 @@ ${srcdir}/info/dir: ${info_dir_deps}
+@@ -1165,14 +1163,10 @@ ${srcdir}/info/dir: ${info_dir_deps}
  	 AWK='${AWK}' ../build-aux/make-info-dir ${info_dir_inputs} \
  	) >$@.tmp && mv $@.tmp $@
  
@@ -98,7 +98,7 @@ index 4f2f2f1..17436eb 100644
  INSTALL_DOC = $(INSTALL_DVI) $(INSTALL_HTML) $(INSTALL_PDF) $(INSTALL_PS)
  
  ## Install non .info forms of the documentation.
-@@ -1187,14 +1181,10 @@ install-pdf: $(INSTALL_PDF)
+@@ -1190,14 +1184,10 @@ install-pdf: $(INSTALL_PDF)
  install-ps: $(INSTALL_PS)
  
  
@@ -118,10 +118,10 @@ index 4f2f2f1..17436eb 100644
  
  $(UNINSTALL_DOC):
 diff --git a/configure.ac b/configure.ac
-index 55396bd..e1bb729 100644
+index dd247e1..cfb7355 100644
 --- a/configure.ac
 +++ b/configure.ac
-@@ -6764,7 +6764,7 @@ dnl config.status treats $srcdir specially, so I think this is ok...
+@@ -6758,7 +6758,7 @@ dnl config.status treats $srcdir specially, so I think this is ok...
  AC_CONFIG_FILES([$srcdir/doc/man/emacs.1])
  
  m4_define([subdir_makefiles],
@@ -130,7 +130,7 @@ index 55396bd..e1bb729 100644
  SUBDIR_MAKEFILES="subdir_makefiles"
  AC_CONFIG_FILES(subdir_makefiles)
  
-@@ -6830,15 +6830,6 @@ if test ! -f src/.gdbinit && test -f "$srcdir/src/.gdbinit"; then
+@@ -6824,15 +6824,6 @@ if test ! -f src/.gdbinit && test -f "$srcdir/src/.gdbinit"; then
  fi
  ])
  
@@ -164,7 +164,7 @@ index 1831bbb..b4ffb77 100644
  ## This is discouraged because the .texi files it generates
  ## are not as well formatted as handwritten ones.
 diff --git a/lisp/help.el b/lisp/help.el
-index 6eac037..8f341e9 100644
+index 6f55136..898ce8b 100644
 --- a/lisp/help.el
 +++ b/lisp/help.el
 @@ -496,6 +496,14 @@ If that doesn't give a function, return nil."
