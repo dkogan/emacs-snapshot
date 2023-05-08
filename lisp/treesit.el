@@ -252,7 +252,7 @@ and more.  See `treesit-thing-settings' for details.
 
 If INCLUDE-NODE is non-nil, return NODE if it satisfies PRED."
   (let ((pred (or pred (rx-to-string
-                        `(bos ,(treesit-node-type node) eos))))
+                        `(seq bos ,(treesit-node-type node) eos))))
         (result nil))
     (cl-loop for cursor = (if include-node node
                             (treesit-node-parent node))
@@ -2753,7 +2753,6 @@ in the region."
 
 (defun treesit--explorer-jump (button)
   "Mark the original text corresponding to BUTTON."
-  (interactive)
   (when (and (derived-mode-p 'treesit--explorer-tree-mode)
              (buffer-live-p treesit--explorer-source-buffer))
     (with-current-buffer treesit--explorer-source-buffer
