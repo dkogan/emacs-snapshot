@@ -50,6 +50,14 @@ along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.  */
 #include "w32heap.h"		/* for mmap_* */
 #endif
 
+/* Work around GCC bug 109847
+   https://gcc.gnu.org/bugzilla/show_bug.cgi?id=109847
+   which causes GCC to mistakenly complain about
+   AUTO_STRING with "*scratch*".  */
+#if GNUC_PREREQ (13, 0, 0)
+# pragma GCC diagnostic ignored "-Wanalyzer-out-of-bounds"
+#endif
+
 /* This structure holds the default values of the buffer-local variables
    defined with DEFVAR_PER_BUFFER, that have special slots in each buffer.
    The default value occupies the same slot in this structure
@@ -2386,6 +2394,7 @@ Any narrowing restriction in effect (see `narrow-to-region') is removed,
 so the buffer is truly empty after this.  */)
   (void)
 {
+  labeled_restrictions_remove_in_current_buffer ();
   Fwiden ();
 
   del_range (BEG, Z);

@@ -30,6 +30,7 @@ along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.  */
 #include <limits.h>
 
 #include <attribute.h>
+#include <count-leading-zeros.h>
 #include <intprops.h>
 #include <verify.h>
 
@@ -3904,6 +3905,20 @@ integer_to_uintmax (Lisp_Object num, uintmax_t *n)
     }
 }
 
+/* Return floor (log2 (N)) as an int, where 0 < N <= ULLONG_MAX.  */
+#if (201112 <= __STDC_VERSION__ && INT_MAX <= UINT_MAX \
+     && LONG_MAX <= ULONG_MAX && LLONG_MAX <= ULLONG_MAX)
+# define elogb(n) \
+    _Generic (+(n), \
+	      int:           UINT_WIDTH   - 1 - count_leading_zeros    (n), \
+	      unsigned int:  UINT_WIDTH   - 1 - count_leading_zeros    (n), \
+	      long:          ULONG_WIDTH  - 1 - count_leading_zeros_l  (n), \
+	      unsigned long: ULONG_WIDTH  - 1 - count_leading_zeros_l  (n), \
+	      default:       ULLONG_WIDTH - 1 - count_leading_zeros_ll (n))
+#else
+# define elogb(n) (ULLONG_WIDTH - 1 - count_leading_zeros_ll (n))
+#endif
+
 /* A modification count.  These are wide enough, and incremented
    rarely enough, so that they should never overflow a 60-bit counter
    in practice, and the code below assumes this so a compiler can
@@ -3913,11 +3928,12 @@ typedef intmax_t modiff_count;
 INLINE modiff_count
 modiff_incr (modiff_count *a, ptrdiff_t len)
 {
-  modiff_count a0 = *a; int incr = len ? 1 : 0;
+  modiff_count a0 = *a;
   /* Increase the counter more for a large modification and less for a
      small modification.  Increase it logarithmically to avoid
      increasing it too much.  */
-  while (len >>= 1) incr++;
+  verify (PTRDIFF_MAX <= ULLONG_MAX);
+  int incr = len == 0 ? 1 : elogb (len) + 1;
   bool modiff_overflow = INT_ADD_WRAPV (a0, incr, a);
   eassert (!modiff_overflow && *a >> 30 >> 30 == 0);
   return a0;
@@ -4680,8 +4696,9 @@ extern void save_restriction_restore (Lisp_Object);
 extern Lisp_Object make_buffer_string (ptrdiff_t, ptrdiff_t, bool);
 extern Lisp_Object make_buffer_string_both (ptrdiff_t, ptrdiff_t, ptrdiff_t,
 					    ptrdiff_t, bool);
-extern void narrow_to_region_locked (Lisp_Object, Lisp_Object, Lisp_Object);
-extern void reset_outermost_narrowings (void);
+extern void labeled_narrow_to_region (Lisp_Object, Lisp_Object, Lisp_Object);
+extern void reset_outermost_restrictions (void);
+extern void labeled_restrictions_remove_in_current_buffer (void);
 extern void init_editfns (void);
 extern void syms_of_editfns (void);
 
@@ -4850,7 +4867,6 @@ extern bool detect_input_pending (void);
 extern bool detect_input_pending_ignore_squeezables (void);
 extern bool detect_input_pending_run_timers (bool);
 extern void safe_run_hooks (Lisp_Object);
-extern void safe_run_hooks_maybe_narrowed (Lisp_Object, struct window *);
 extern void safe_run_hooks_2 (Lisp_Object, Lisp_Object, Lisp_Object);
 extern void cmd_error_internal (Lisp_Object, const char *);
 extern Lisp_Object command_loop_2 (Lisp_Object);
@@ -5398,6 +5414,14 @@ safe_free_unbind_to (specpdl_ref count, specpdl_ref sa_count, Lisp_Object val)
   eassert (!specpdl_ref_lt (sa_count, count));
   return unbind_to (count, val);
 }
+
+/* Work around GCC bug 109577
+   https://gcc.gnu.org/bugzilla/show_bug.cgi?id=109577
+   which causes GCC to mistakenly complain about the
+   memory allocation in SAFE_ALLOCA_LISP_EXTRA.  */
+#if GNUC_PREREQ (13, 0, 0)
+# pragma GCC diagnostic ignored "-Wanalyzer-allocation-size"
+#endif
 
 /* Set BUF to point to an allocated array of NELT Lisp_Objects,
    immediately followed by EXTRA spare bytes.  */

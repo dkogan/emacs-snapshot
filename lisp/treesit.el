@@ -251,8 +251,7 @@ than using NODE's type.  PRED can also be a predicate function,
 and more.  See `treesit-thing-settings' for details.
 
 If INCLUDE-NODE is non-nil, return NODE if it satisfies PRED."
-  (let ((pred (or pred (rx-to-string
-                        `(seq bos ,(treesit-node-type node) eos))))
+  (let ((pred (or pred (rx bos (literal (treesit-node-type node)) eos)))
         (result nil))
     (cl-loop for cursor = (if include-node node
                             (treesit-node-parent node))
@@ -1953,6 +1952,10 @@ This is a tree-sitter equivalent of `beginning-of-defun'.
 Behavior of this function depends on `treesit-defun-type-regexp'
 and `treesit-defun-skipper'."
   (interactive "^p")
+  (or (not (eq this-command 'treesit-beginning-of-defun))
+      (eq last-command 'treesit-beginning-of-defun)
+      (and transient-mark-mode mark-active)
+      (push-mark))
   (let ((orig-point (point))
         (success nil))
     (catch 'done
@@ -1984,6 +1987,10 @@ this function depends on `treesit-defun-type-regexp' and
   (interactive "^p\nd")
   (let ((orig-point (point)))
     (if (or (null arg) (= arg 0)) (setq arg 1))
+    (or (not (eq this-command 'treesit-end-of-defun))
+        (eq last-command 'treesit-end-of-defun)
+        (and transient-mark-mode mark-active)
+        (push-mark))
     (catch 'done
       (dotimes (_ 2) ; Not making progress is better than infloop.
 

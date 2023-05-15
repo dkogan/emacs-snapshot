@@ -3590,7 +3590,9 @@ confusing to some users.")
 Return t if answer is \"y\" and nil if it is \"n\".
 
 PROMPT is the string to display to ask the question; `y-or-n-p'
-adds \"(y or n) \" to it.
+adds \"(y or n) \" to it.  If PROMPT is a non-empty string, and
+it ends with a non-space character, a space character will be
+appended to it.
 
 If you bind the variable `help-form' to a non-nil value
 while calling this function, then pressing `help-char'
@@ -4016,7 +4018,7 @@ same LABEL argument.
   "Helper function for `with-restriction', which see."
   (save-restriction
     (narrow-to-region start end)
-    (if label (internal--lock-narrowing label))
+    (if label (internal--label-restriction label))
     (funcall body)))
 
 (defmacro without-restriction (&rest rest)
@@ -4038,7 +4040,7 @@ are lifted.
 (defun internal--without-restriction (body &optional label)
   "Helper function for `without-restriction', which see."
   (save-restriction
-    (if label (internal--unlock-narrowing label))
+    (if label (internal--unlabel-restriction label))
     (widen)
     (funcall body)))
 
