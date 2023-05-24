@@ -66,13 +66,13 @@
 (defvar ange-ftp-make-backup-files)
 (defvar tramp-connection-properties)
 (defvar tramp-copy-size-limit)
-(defvar tramp-display-escape-sequence-regexp)
 (defvar tramp-fuse-remove-hidden-files)
 (defvar tramp-fuse-unmount-on-cleanup)
 (defvar tramp-inline-compress-start-size)
 (defvar tramp-persistency-file-name)
 (defvar tramp-remote-path)
 (defvar tramp-remote-process-environment)
+(defvar tramp-use-connection-share)
 
 ;; Needed for Emacs 27.
 (defvar lock-file-name-transforms)
@@ -4940,8 +4940,7 @@ This tests also `make-symbolic-link', `file-truename' and `add-name-to-file'."
 		    (if (bufferp destination) destination (current-buffer))
 		  ;; "ls" could produce colorized output.
 		  (goto-char (point-min))
-		  (while (re-search-forward
-			  tramp-display-escape-sequence-regexp nil t)
+		  (while (re-search-forward ansi-color-control-seq-regexp nil t)
 		    (replace-match "" nil nil))
 		  (should
 		   (string-equal (if destination (format "%s\n" fnnd) "")
@@ -4955,8 +4954,7 @@ This tests also `make-symbolic-link', `file-truename' and `add-name-to-file'."
 		    (if (bufferp destination) destination (current-buffer))
 		  ;; "ls" could produce colorized output.
 		  (goto-char (point-min))
-		  (while (re-search-forward
-			  tramp-display-escape-sequence-regexp nil t)
+		  (while (re-search-forward ansi-color-control-seq-regexp nil t)
 		    (replace-match "" nil nil))
 		  (should
 		   (string-equal
@@ -5670,8 +5668,7 @@ INPUT, if non-nil, is a string sent to the process."
 	       (current-buffer))
 	      ;; "ls" could produce colorized output.
 	      (goto-char (point-min))
-	      (while
-		  (re-search-forward tramp-display-escape-sequence-regexp nil t)
+	      (while (re-search-forward ansi-color-control-seq-regexp nil t)
 		(replace-match "" nil nil))
 	      (should
 	       (string-equal
@@ -6933,6 +6930,13 @@ This does not support external Emacs calls."
   "Check, whether an out-of-band method is used."
   (tramp-method-out-of-band-p tramp-test-vec 1))
 
+(defun tramp--test-putty-p ()
+  "Check, whether the method method usaes PuTTY.
+This does not support connection share for more than two connections."
+  (member
+   (file-remote-p ert-remote-temporary-file-directory 'method)
+   '("plink" "plinkx" "pscp" "psftp")))
+
 (defun tramp--test-rclone-p ()
   "Check, whether the remote host is offered by rclone.
 This requires restrictions of file name syntax."
@@ -7486,6 +7490,10 @@ process sentinels.  They shall not disturb each other."
                (string-to-number (getenv "REMOTE_PARALLEL_PROCESSES"))))
 	     ((getenv "EMACS_HYDRA_CI") 5)
              (t 10)))
+	   ;; PuTTY-based methods can only share up to 10 connections.
+	   (tramp-use-connection-share
+	    (if (and (tramp--test-putty-p) (>= number-proc 10))
+		'suppress (bound-and-true-p tramp-use-connection-share)))
            ;; On hydra, timings are bad.
            (timer-repeat
             (cond
@@ -7577,34 +7585,37 @@ process sentinels.  They shall not disturb each other."
 
             ;; Send a string to the processes.  Use a random order of
             ;; the buffers.  Mix with regular operation.
-            (let ((buffers (copy-sequence buffers)))
+            (let ((buffers (copy-sequence buffers))
+		  buf)
               (while buffers
-                (let* ((buf (seq-random-elt buffers))
-                       (proc (get-buffer-process buf))
-                       (file (process-get proc 'foo))
-                       (count (process-get proc 'bar)))
-                  (tramp--test-message
-                   "Start action %d %s %s" count buf (current-time-string))
-                  ;; Regular operation prior process action.
-		  (dired-uncache file)
-                  (if (= count 0)
-                      (should-not (file-attributes file))
-                    (should (file-attributes file)))
-                  ;; Send string to process.
-                  (process-send-string proc (format "%s\n" (buffer-name buf)))
-                  (while (accept-process-output nil 0))
-                  (tramp--test-message
-                   "Continue action %d %s %s" count buf (current-time-string))
-                  ;; Regular operation post process action.
-		  (dired-uncache file)
-                  (if (= count 2)
-                      (should-not (file-attributes file))
-                    (should (file-attributes file)))
-                  (tramp--test-message
-                   "Stop action %d %s %s" count buf (current-time-string))
-                  (process-put proc 'bar (1+ count))
-                  (unless (process-live-p proc)
-                    (setq buffers (delq buf buffers))))))
+		(setq buf (seq-random-elt buffers))
+                (if-let ((proc (get-buffer-process buf))
+			 (file (process-get proc 'foo))
+			 (count (process-get proc 'bar)))
+		    (progn
+                      (tramp--test-message
+                       "Start action %d %s %s" count buf (current-time-string))
+                      ;; Regular operation prior process action.
+		      (dired-uncache file)
+                      (if (= count 0)
+			  (should-not (file-attributes file))
+			(should (file-attributes file)))
+                      ;; Send string to process.
+                      (process-send-string proc (format "%s\n" (buffer-name buf)))
+                      (while (accept-process-output nil 0))
+                      (tramp--test-message
+                       "Continue action %d %s %s" count buf (current-time-string))
+                      ;; Regular operation post process action.
+		      (dired-uncache file)
+                      (if (= count 2)
+			  (should-not (file-attributes file))
+			(should (file-attributes file)))
+                      (tramp--test-message
+                       "Stop action %d %s %s" count buf (current-time-string))
+                      (process-put proc 'bar (1+ count))
+                      (unless (process-live-p proc)
+			(setq buffers (delq buf buffers))))
+		  (setq buffers (delq buf buffers)))))
 
             ;; Checks.  All process output shall exist in the
             ;; respective buffers.  All created files shall be

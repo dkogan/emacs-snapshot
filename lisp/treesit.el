@@ -1791,12 +1791,28 @@ however, smaller in scope than sentences.  This is used by
 
 (defun treesit-forward-sexp (&optional arg)
   "Tree-sitter implementation for `forward-sexp-function'.
-ARG is described in the docstring of `forward-sexp-function'."
+
+ARG is described in the docstring of `forward-sexp-function'.  If
+there are no further sexps to move across, signal `scan-error'
+like `forward-sexp' does.  If point is already at top-level,
+return nil without moving point."
   (interactive "^p")
-  (or arg (setq arg 1))
-  (funcall
-   (if (> arg 0) #'treesit-end-of-thing #'treesit-beginning-of-thing)
-   treesit-sexp-type-regexp (abs arg) 'restricted))
+  (let ((arg (or arg 1))
+        (pred treesit-sexp-type-regexp))
+    (or (if (> arg 0)
+            (treesit-end-of-thing pred (abs arg) 'restricted)
+          (treesit-beginning-of-thing pred (abs arg) 'restricted))
+        ;; If we couldn't move, we should signal an error and report
+        ;; the obstacle, like `forward-sexp' does.  If we couldn't
+        ;; find a parent, we simply return nil without moving point,
+        ;; then functions like `up-list' will signal "at top level".
+        (when-let* ((parent (nth 2 (treesit--things-around (point) pred)))
+                    (boundary (if (> arg 0)
+                                  (treesit-node-child parent -1)
+                                (treesit-node-child parent 0))))
+          (signal 'scan-error (list "No more sexp to move across"
+                                    (treesit-node-start boundary)
+                                    (treesit-node-end boundary)))))))
 
 (defun treesit-transpose-sexps (&optional arg)
   "Tree-sitter `transpose-sexps' function.
@@ -2424,7 +2440,10 @@ instead of emitting a warning."
     ;; Check for each condition and set MSG.
     (catch 'term
       (when (not (treesit-available-p))
-        (setq msg "tree-sitter library is not compiled with Emacs")
+        (setq msg (if (fboundp 'treesit-node-p)
+                      ;; Windows loads tree-sitter dynakically.
+                      "tree-sitter library is not available or failed to load"
+                    "Emacs is not compiled with tree-sitter library"))
         (throw 'term nil))
       (when (> (position-bytes (max (point-min) (1- (point-max))))
                treesit-max-buffer-size)

@@ -294,6 +294,11 @@ When non-nil, it will automatically register every package as a
 project, that you can quickly select using 'project-switch-project'
 ('C-x p p').
 
+---
+*** New user option 'package-vc-allow-side-effects'.
+When non-nil, package specifications with side-effects for building
+software will used when building a package.
+
 ** Flymake
 
 +++
@@ -322,6 +327,21 @@ instead of:
         and another_expression):
         do_something()
 
+** use-package
+
++++
+*** New ':vc' keyword.
+This keyword enables the user to install packages using 'package-vc'.
+
+** Rmail
+
+---
+*** New commands for reading mailing lists.
+The new Rmail commands 'rmail-mailing-list-post',
+'rmail-mailing-list-unsubscribe', 'rmail-mailing-list-help', and
+'rmail-mailing-list-archive allow to, respectively, post to,
+unsubscribe from, request help about, and browse the archives, of the
+mailing list from which the current email message was delivered.
 
 * New Modes and Packages in Emacs 30.1
 
@@ -376,6 +396,9 @@ This user option has been obsoleted in Emacs 27, use
 These hooks were named incorrectly, and so they never actually ran
 when unloading the correspending feature.  Instead, you should use
 hooks named after the feature name, like 'esh-mode-unload-hook'.
+
++++
+** 'copy-tree' now copies records when its optional 2nd argument is non-nil.
 
 
 * Lisp Changes in Emacs 30.1

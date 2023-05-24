@@ -624,9 +624,7 @@ Sometimes the prompt is reported to look like \"login as:\"."
   ;; connection initialization; Tramp redefines the prompt afterwards.
   (rx (| bol "\r")
       (* (not (any "\n#$%>]")))
-      (? "#") (any "#$%>]") (* blank)
-      ;; Escape characters.
-      (* "[" (* (any ";" digit)) alpha (* blank)))
+      (? "#") (any "#$%>]") (* blank))
   "Regexp to match prompts from remote shell.
 Normally, Tramp expects you to configure `shell-prompt-pattern'
 correctly, but sometimes it happens that you are connecting to a
@@ -699,7 +697,7 @@ See also `tramp-yesno-prompt-regexp'."
 (defcustom tramp-terminal-type "dumb"
   "Value of TERM environment variable for logging in to remote host.
 Because Tramp wants to parse the output of the remote shell, it is easily
-confused by ANSI color escape sequences and suchlike.  Often, shell init
+confused by ANSI control escape sequences and suchlike.  Often, shell init
 files conditionalize this setup based on the TERM environment variable."
   :group 'tramp
   :type 'string)
@@ -5142,7 +5140,7 @@ support symbolic links."
 
 (defun tramp-handle-memory-info ()
   "Like `memory-info' for Tramp files."
-  (let ((result '(0 0 0 0))
+  (let ((result (list 0 0 0 0))
         process-file-side-effects)
     (with-temp-buffer
       (cond
@@ -5717,11 +5715,16 @@ See `tramp-process-actions' for the format of ACTIONS."
       ;; Reread output once all actions have been performed.
       ;; Obviously, the output was not complete.
       (while (tramp-accept-process-output proc))
+      ;; Remove ANSI control escape sequences.
+      (with-current-buffer  (tramp-get-connection-buffer vec)
+	(goto-char (point-min))
+	(while (re-search-forward ansi-color-control-seq-regexp nil t)
+	  (replace-match "")))
       (setq todo actions)
       (while todo
 	(setq item (pop todo)
 	      tramp-process-action-regexp (symbol-value (nth 0 item))
-	      pattern (format "\\(%s\\)\\'" tramp-process-action-regexp)
+	      pattern (rx (group (regexp tramp-process-action-regexp)) eos)
 	      action (nth 1 item))
 	(tramp-message
 	 vec 5 "Looking for regexp \"%s\" from remote shell" pattern)
@@ -6276,10 +6279,9 @@ to cache the result.  Return the modified ATTR."
 	   (with-tramp-file-property ,vec ,localname "file-attributes"
 	     (when-let ((attr ,attr))
 	       (save-match-data
-		 ;; Remove color escape sequences from symlink.
+		 ;; Remove ANSI control escape sequences from symlink.
 		 (when (stringp (car attr))
-		   (while (string-match
-			   tramp-display-escape-sequence-regexp (car attr))
+		   (while (string-match ansi-color-control-seq-regexp (car attr))
 		     (setcar attr (replace-match "" nil nil (car attr)))))
 		 ;; Convert uid and gid.  Use `tramp-unknown-id-integer'
 		 ;; as indication of unusable value.

@@ -3561,7 +3561,7 @@ lambda-expression."
          ;; These functions are side-effect-free except for the
          ;; behaviour of functions passed as argument.
          mapcar mapcan mapconcat
-         assoc plist-get plist-member
+         assoc assoc-string plist-get plist-member
 
          ;; It's safe to ignore the value of `sort' and `nreverse'
          ;; when used on arrays, but most calls pass lists.
@@ -3569,7 +3569,7 @@ lambda-expression."
 
          ;; Adding these functions causes many warnings;
          ;; evaluate how many of them are false first.
-         ;;delq delete
+         delq delete
          ;;nconc plist-put
          )))
   (dolist (fn important-return-value-fns)
@@ -3590,6 +3590,7 @@ lambda-expression."
          (delq 2) (delete 2)
          (delete-dups 1) (delete-consecutive-dups 1)
          (plist-put 1)
+         (assoc-delete-all 2) (assq-delete-all 2) (rassq-delete-all 2)
          (fillarray 1)
          (store-substring 1)
          (clear-string 1)
