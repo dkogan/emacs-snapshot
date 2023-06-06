@@ -277,10 +277,10 @@ Useful to hook into pass checkers.")
 ;; FIXME this probably should not be here but... good for now.
 (defconst comp-known-type-specifiers
   `(
-    ;; Functions we can trust not to be or if redefined should expose
-    ;; the same type.  Vast majority of these is either pure or
-    ;; primitive, the original list is the union of pure +
-    ;; side-effect-free-fns + side-effect-and-error-free-fns:
+    ;; Functions we can trust not to be redefined, or, if redefined,
+    ;; to expose the same type.  The vast majority of these are
+    ;; either pure or primitive; the original list is the union of
+    ;; pure + side-effect-free-fns + side-effect-and-error-free-fns:
     (% (function ((or number marker) (or number marker)) number))
     (* (function (&rest (or number marker)) number))
     (+ (function (&rest (or number marker)) number))
@@ -307,7 +307,8 @@ Useful to hook into pass checkers.")
     (bignump (function (t) boolean))
     (bobp (function () boolean))
     (bolp (function () boolean))
-    (bool-vector-count-consecutive (function (bool-vector boolean integer) fixnum))
+    (bool-vector-count-consecutive
+     (function (bool-vector boolean integer) fixnum))
     (bool-vector-count-population (function (bool-vector) fixnum))
     (bool-vector-not (function (bool-vector &optional bool-vector) bool-vector))
     (bool-vector-p (function (t) boolean))
@@ -317,10 +318,12 @@ Useful to hook into pass checkers.")
     (buffer-file-name (function (&optional buffer) (or string null)))
     (buffer-list (function (&optional frame) list))
     (buffer-local-variables (function (&optional buffer) list))
-    (buffer-modified-p (function (&optional buffer) boolean))
+    (buffer-modified-p
+     (function (&optional buffer) (or boolean (member autosaved))))
     (buffer-size (function (&optional buffer) integer))
     (buffer-string (function () string))
-    (buffer-substring (function ((or integer marker) (or integer marker)) string))
+    (buffer-substring
+     (function ((or integer marker) (or integer marker)) string))
     (bufferp (function (t) boolean))
     (byte-code-function-p (function (t) boolean))
     (capitalize (function (or integer string) (or integer string)))
@@ -340,17 +343,27 @@ Useful to hook into pass checkers.")
     (characterp (function (t &optional t) boolean))
     (charsetp (function (t) boolean))
     (commandp (function (t &optional t) boolean))
-    (compare-strings (function (string (or integer marker null) (or integer marker null) string (or integer marker null) (or integer marker null) &optional t) (or (member t) fixnum)))
+    (compare-strings
+     (function (string (or integer marker null) (or integer marker null) string
+                       (or integer marker null) (or integer marker null)
+                       &optional t)
+               (or (member t) fixnum)))
     (concat (function (&rest sequence) string))
     (cons (function (t t) cons))
     (consp (function (t) boolean))
-    (coordinates-in-window-p (function (cons window) boolean))
+    (coordinates-in-window-p
+     (function (cons window)
+               (or cons null
+                   (member bottom-divider right-divider mode-line header-line
+                           tab-line left-fringe right-fringe vertical-line
+                           left-margin right-margin))))
     (copy-alist (function (list) list))
     (copy-marker (function (&optional (or integer marker) boolean) marker))
     (copy-sequence (function (sequence) sequence))
     (copysign (function (float float) float))
     (cos (function (number) float))
-    (count-lines (function ((or integer marker) (or integer marker) &optional t) integer))
+    (count-lines
+     (function ((or integer marker) (or integer marker) &optional t) integer))
     (current-buffer (function () buffer))
     (current-global-map (function () cons))
     (current-indentation (function () integer))
@@ -363,7 +376,7 @@ Useful to hook into pass checkers.")
     (current-time-zone (function (&optional (or number list)
                                             (or symbol string cons integer))
                                  cons))
-    (custom-variable-p (function (symbol) boolean))
+    (custom-variable-p (function (symbol) t))
     (decode-char (function (cons t) (or fixnum null)))
     (decode-time (function (&optional (or number list)
                                       (or symbol string cons integer)
@@ -372,7 +385,8 @@ Useful to hook into pass checkers.")
     (default-boundp (function (symbol) boolean))
     (default-value (function (symbol) t))
     (degrees-to-radians (function (number) float))
-    (documentation (function ((or function symbol subr) &optional t) (or null string)))
+    (documentation
+     (function ((or function symbol subr) &optional t) (or null string)))
     (downcase (function ((or fixnum string)) (or fixnum string)))
     (elt (function (sequence integer) t))
     (encode-char (function (fixnum symbol) (or fixnum null)))
@@ -385,18 +399,18 @@ Useful to hook into pass checkers.")
     (error-message-string (function (list) string))
     (eventp (function (t) boolean))
     (exp (function (number) float))
-    (expt (function (number number) float))
+    (expt (function (number number) number))
     (fboundp (function (symbol) boolean))
     (fceiling (function (float) float))
     (featurep (function (symbol &optional symbol) boolean))
     (ffloor (function (float) float))
     (file-directory-p (function (string) boolean))
     (file-exists-p (function (string) boolean))
-    (file-locked-p (function (string) boolean))
+    (file-locked-p (function (string) (or boolean string)))
     (file-name-absolute-p (function (string) boolean))
     (file-newer-than-file-p (function (string string) boolean))
     (file-readable-p (function (string) boolean))
-    (file-symlink-p (function (string) boolean))
+    (file-symlink-p (function (string) (or boolean string)))
     (file-writable-p (function (string) boolean))
     (fixnump (function (t) boolean))
     (float (function (number) float))
@@ -411,13 +425,15 @@ Useful to hook into pass checkers.")
     (frame-first-window (function ((or frame window)) window))
     (frame-root-window (function (&optional (or frame window)) window))
     (frame-selected-window (function (&optional (or frame window)) window))
-    (frame-visible-p (function (frame) boolean))
-    (framep (function (t) boolean))
+    (frame-visible-p (function (frame) (or boolean (member icon))))
+    (framep (function (t) symbol))
     (fround (function (float) float))
     (ftruncate (function (float) float))
     (get (function (symbol symbol) t))
     (get-buffer (function ((or buffer string)) (or buffer null)))
-    (get-buffer-window (function (&optional (or buffer string) (or symbol (integer 0 0))) (or null window)))
+    (get-buffer-window
+     (function (&optional (or buffer string) (or symbol (integer 0 0)))
+               (or null window)))
     (get-file-buffer (function (string) (or null buffer)))
     (get-largest-window (function (&optional t t t) (or window null)))
     (get-lru-window (function (&optional t t t) (or window null)))
@@ -462,7 +478,10 @@ Useful to hook into pass checkers.")
     (logxor (function (&rest (or integer marker)) integer))
     ;; (lsh (function ((integer ,most-negative-fixnum *) integer) integer)) ?
     (lsh (function (integer integer) integer))
-    (make-byte-code (function ((or fixnum list) string vector integer &optional string t &rest t) vector))
+    (make-byte-code
+     (function ((or fixnum list) string vector integer &optional string t
+                &rest t)
+               vector))
     (make-list (function (integer t) list))
     (make-marker (function () marker))
     (make-string (function (integer fixnum &optional t) string))
@@ -480,7 +499,9 @@ Useful to hook into pass checkers.")
     (min (function ((or number marker) &rest (or number marker)) number))
     (minibuffer-selected-window (function () (or window null)))
     (minibuffer-window (function (&optional frame) window))
-    (mod (function ((or number marker) (or number marker)) (or (integer 0 *) (float 0 *))))
+    (mod
+     (function ((or number marker) (or number marker))
+               (or (integer 0 *) (float 0 *))))
     (mouse-movement-p (function (t) boolean))
     (multibyte-char-to-unibyte (function (fixnum) fixnum))
     (natnump (function (t) boolean))
@@ -506,7 +527,7 @@ Useful to hook into pass checkers.")
     (previous-window (function (&optional window t t) window))
     (prin1-to-string (function (t &optional t t) string))
     (processp (function (t) boolean))
-    (proper-list-p (function (t) boolean))
+    (proper-list-p (function (t) (or fixnum null)))
     (propertize (function (string &rest t) string))
     (radians-to-degrees (function (number) float))
     (rassoc (function (t list) list))
@@ -544,7 +565,8 @@ Useful to hook into pass checkers.")
     (string= (function ((or string symbol) (or string symbol)) boolean))
     (stringp (function (t) boolean))
     (subrp (function (t) boolean))
-    (substring (function ((or string vector) &optional integer integer) (or string vector)))
+    (substring
+     (function ((or string vector) &optional integer integer) (or string vector)))
     (sxhash (function (t) integer))
     (sxhash-eq (function (t) integer))
     (sxhash-eql (function (t) integer))
@@ -1723,17 +1745,11 @@ Return value is the fall-through block name."
   ;; (byte-constant #s(hash-table size 3 test eq rehash-size 1.5 rehash-threshold 0.8125 purecopy t data (created 126 deleted 126 changed 126)) . 24)
   ;; (byte-switch)
   ;; (TAG 126 . 10)
-  (cl-loop
-   with labels = (cl-loop for target-label being each hash-value of jmp-table
-                          collect target-label)
-   with x = (car labels)
-   for l in (cdr-safe labels)
-   unless (= l x)
-     return nil
-   finally return (pcase (nth (1+ (comp-limplify-pc comp-pass))
-                              (comp-func-lap comp-func))
-                    (`(TAG ,label . ,_label-sp)
-                     (= label l)))))
+  (let ((targets (hash-table-values jmp-table)))
+    (when (apply #'= targets)
+      (pcase (nth (1+ (comp-limplify-pc comp-pass)) (comp-func-lap comp-func))
+        (`(TAG ,target . ,_label-sp)
+         (= target (car targets)))))))
 
 (defun comp-emit-switch (var last-insn)
   "Emit a Limple for a lap jump table given VAR and LAST-INSN."
@@ -4430,6 +4446,27 @@ of (commands) to run simultaneously."
           (when (directory-empty-p subdir)
             (delete-directory subdir))))))
   (message "Cache cleared"))
+
+;;;###autoload
+(defun comp-function-type-spec (function)
+  "Return the type specifier of FUNCTION.
+
+This function returns a cons cell whose car is the function
+specifier, and cdr is a symbol, either `inferred' or `know'.
+If the symbol is `inferred', the type specifier is automatically
+inferred from the code itself by the native compiler; if it is
+`know', the type specifier comes from `comp-known-type-specifiers'."
+  (let ((kind 'know)
+        type-spec )
+    (when-let ((res (gethash function comp-known-func-cstr-h)))
+      (setf type-spec (comp-cstr-to-type-spec res)))
+    (let ((f (symbol-function function)))
+      (when (and (null type-spec)
+                 (subr-native-elisp-p f))
+        (setf kind 'inferred
+              type-spec (subr-type f))))
+    (when type-spec
+        (cons type-spec kind))))
 
 (provide 'comp)
 
