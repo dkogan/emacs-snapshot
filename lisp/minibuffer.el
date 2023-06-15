@@ -2384,16 +2384,22 @@ These include:
           ;; If there are no completions, or if the current input is already
           ;; the sole completion, then hide (previous&stale) completions.
           (minibuffer-hide-completions)
-          (ding)
-          (completion--message
-           (if completions "Sole completion" "No completions")))
+          (if completions
+              (completion--message "Sole completion")
+            (unless completion-fail-discreetly
+	      (ding)
+	      (completion--message "No match"))))
 
       (let* ((last (last completions))
              (base-size (or (cdr last) 0))
              (prefix (unless (zerop base-size) (substring string 0 base-size)))
              (base-prefix (buffer-substring (minibuffer--completion-prompt-end)
                                             (+ start base-size)))
-             (base-suffix (buffer-substring (point) (point-max)))
+             (base-suffix
+              (if (eq (alist-get 'category (cdr md)) 'file)
+                  (buffer-substring (save-excursion (or (search-forward "/" nil t) (point-max)))
+                                    (point-max))
+                ""))
              (all-md (completion--metadata (buffer-substring-no-properties
                                             start (point))
                                            base-size md
@@ -4504,7 +4510,7 @@ of `completion-no-auto-exit'.
 If NO-QUIT is non-nil, insert the completion at point to the
 minibuffer, but don't quit the completions window."
   (interactive "P")
-  (with-minibuffer-completions-window
+    (with-minibuffer-completions-window
     (let ((completion-use-base-affixes t))
       (choose-completion nil no-exit no-quit))))
 
