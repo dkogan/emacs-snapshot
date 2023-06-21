@@ -425,14 +425,14 @@ BODY is the test body."
                ;; String query.
                '("(string) @string
 (pair key: (_) @keyword)
-((_) @bob (#match \"^B.b$\" @bob))
+((_) @bob (#match \"\\\\`B.b\\\\'\" @bob))
 (number) @number
 ((number) @n3 (#equal \"3\" @n3))
 ((number) @n3p (#pred treesit--ert-pred-last-sibling @n3p))"
                  ;; Sexp query.
                  ((string) @string
                   (pair key: (_) @keyword)
-                  ((_) @bob (:match "^B.b$" @bob))
+                  ((_) @bob (:match "\\`B.b\\'" @bob))
                   (number) @number
                   ((number) @n3 (:equal "3" @n3))
                   ((number) @n3p (:pred treesit--ert-pred-last-sibling
@@ -461,7 +461,12 @@ BODY is the test body."
         "(type field: (_) @capture .) ? * + \"return\""
         (treesit-query-expand
          '((type field: (_) @capture :anchor)
-           :? :* :+ "return")))))))
+           :? :* :+ "return"))))
+
+      ;; Test string conversion in `treesit-pattern-expand'.
+      (should (equal
+               (treesit-pattern-expand "a\nb\rc\td\0e\"f\1g\\h\fi")
+               "\"a\\nb\\rc\\td\\0e\\\"f\1g\\\\h\fi\"")))))
 
 ;;; Narrow
 

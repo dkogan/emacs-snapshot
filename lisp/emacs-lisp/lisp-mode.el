@@ -876,7 +876,7 @@ complete sexp in the innermost containing list at position
 2 (counting from 0).  This is important for Lisp indentation."
   (unless pos (setq pos (point)))
   (let ((pss (syntax-ppss pos)))
-    (if (nth 9 pss)
+    (if (and (not (nth 2 pss)) (nth 9 pss))
         (let ((sexp-start (car (last (nth 9 pss)))))
           (parse-partial-sexp sexp-start pos nil nil (syntax-ppss sexp-start)))
       pss)))
@@ -1453,7 +1453,7 @@ and initial semicolons."
       ;; are buffer-local, but we avoid changing them so that they can be set
       ;; to make `forward-paragraph' and friends do something the user wants.
       ;;
-      ;; `paragraph-start': The `(' in the character alternative and the
+      ;; `paragraph-start': The `(' in the bracket expression and the
       ;; left-singlequote plus `(' sequence after the \\| alternative prevent
       ;; sexps and backquoted sexps that follow a docstring from being filled
       ;; with the docstring.  This setting has the consequence of inhibiting

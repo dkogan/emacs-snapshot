@@ -37139,7 +37139,7 @@ shown in a window.  Absolute line numbers count from the beginning of
 the current narrowing, or from buffer beginning.  The variable
 `display-line-numbers-offset', if non-zero, is a signed offset added
 to each absolute line number; it also forces line numbers to be counted
-from the beginning of the buffer, as if `display-line-numbers-wide'
+from the beginning of the buffer, as if `display-line-numbers-widen'
 were non-nil.  It has no effect when line numbers are not absolute.
 
 If the value is `relative', display for each line not containing the
@@ -37494,7 +37494,7 @@ init_xdisp (void)
       r->pixel_top = r->top_line * FRAME_LINE_HEIGHT (f);
       r->total_cols = FRAME_COLS (f);
       r->pixel_width = r->total_cols * FRAME_COLUMN_WIDTH (f);
-      r->total_lines = FRAME_TOTAL_LINES (f) - 1 - FRAME_TOP_MARGIN (f);
+      r->total_lines = FRAME_TOTAL_LINES (f) - 1 - FRAME_MARGINS (f);
       r->pixel_height = r->total_lines * FRAME_LINE_HEIGHT (f);
 
       m->top_line = FRAME_TOTAL_LINES (f) - 1;

@@ -701,7 +701,7 @@ MODE is either `c' or `cpp'."
    `(((call_expression
        (call_expression function: (identifier) @fn)
        @c-ts-mode--fontify-DEFUN)
-      (:match "^DEFUN$" @fn))
+      (:match "\\`DEFUN\\'" @fn))
 
      ((function_definition type: (_) @for-each-tail)
       @c-ts-mode--fontify-for-each-tail
@@ -1355,7 +1355,7 @@ recommended to enable `electric-pair-mode' with this mode."
               "\\|" id "::"
               "\\|" id ws-maybe "=\\)"
               "\\|" "\\(?:inline" ws "\\)?namespace"
-              "\\(:?" ws "\\(?:" id "::\\)*" id "\\)?" ws-maybe "{"
+              "\\(?:" ws "\\(?:" id "::\\)*" id "\\)?" ws-maybe "{"
               "\\|" "class"     ws id
               "\\(?:" ws "final" "\\)?" ws-maybe "[:{;\n]"
               "\\|" "struct"     ws id "\\(?:" ws "final" ws-maybe "[:{\n]"
