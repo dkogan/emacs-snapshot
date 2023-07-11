@@ -118,10 +118,10 @@ index 729cd41..bc1a11b 100644
  
  $(UNINSTALL_DOC):
 diff --git a/configure.ac b/configure.ac
-index d6592de..8c26494 100644
+index a51aa44..21b9af9 100644
 --- a/configure.ac
 +++ b/configure.ac
-@@ -6753,7 +6753,7 @@ dnl config.status treats $srcdir specially, so I think this is ok...
+@@ -6758,7 +6758,7 @@ dnl config.status treats $srcdir specially, so I think this is ok...
  AC_CONFIG_FILES([$srcdir/doc/man/emacs.1])
  
  m4_define([subdir_makefiles],
@@ -130,7 +130,7 @@ index d6592de..8c26494 100644
  SUBDIR_MAKEFILES="subdir_makefiles"
  AC_CONFIG_FILES(subdir_makefiles)
  
-@@ -6819,15 +6819,6 @@ if test ! -f src/.gdbinit && test -f "$srcdir/src/.gdbinit"; then
+@@ -6824,15 +6824,6 @@ if test ! -f src/.gdbinit && test -f "$srcdir/src/.gdbinit"; then
  fi
  ])
  
