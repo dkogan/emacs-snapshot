@@ -38,6 +38,7 @@
 (declare-function dired-compress-file "dired-aux")
 (declare-function dired-remove-file "dired-aux")
 (defvar dired-compress-file-suffixes)
+(defvar ls-lisp-use-insert-directory-program)
 ;; Added in Emacs 28.1.
 (defvar process-file-return-signal-string)
 (defvar vc-handled-backends)
@@ -1965,7 +1966,11 @@ file names."
 	  (t2 (tramp-tramp-file-p newname))
 	  (length (file-attribute-size
 		   (file-attributes (file-truename filename))))
-	  (msg-operation (if (eq op 'copy) "Copying" "Renaming")))
+	  (file-times (file-attribute-modification-time
+		       (file-attributes filename)))
+	  (file-modes (tramp-default-file-modes filename))
+	  (msg-operation (if (eq op 'copy) "Copying" "Renaming"))
+          copy-keep-date)
 
       (with-parsed-tramp-file-name (if t1 filename newname) nil
 	(unless length
@@ -1990,6 +1995,8 @@ file names."
 		   ;; both files, we invoke `cp' or `mv' on the remote
 		   ;; host directly.
 		   ((tramp-equal-remote filename newname)
+	            (setq copy-keep-date
+			  (or (eq op 'rename) keep-date preserve-uid-gid))
 		    (tramp-do-copy-or-rename-file-directly
 		     op filename newname
 		     ok-if-already-exists keep-date preserve-uid-gid))
@@ -1998,6 +2005,8 @@ file names."
 		   ((and
 		     (tramp-method-out-of-band-p v1 length)
 		     (tramp-method-out-of-band-p v2 length))
+	            (setq copy-keep-date
+                          (tramp-get-method-parameter v 'tramp-copy-keep-date))
 		    (tramp-do-copy-or-rename-file-out-of-band
 		     op filename newname ok-if-already-exists keep-date))
 
@@ -2019,6 +2028,8 @@ file names."
 	      (cond
 	       ;; Fast track on local machine.
 	       ((tramp-local-host-p v)
+	        (setq copy-keep-date
+		      (or (eq op 'rename) keep-date preserve-uid-gid))
 		(tramp-do-copy-or-rename-file-directly
 		 op filename newname
 		 ok-if-already-exists keep-date preserve-uid-gid))
@@ -2026,6 +2037,8 @@ file names."
 	       ;; If the Tramp file has an out-of-band method, the
 	       ;; corresponding copy-program can be invoked.
 	       ((tramp-method-out-of-band-p v length)
+	        (setq copy-keep-date
+                      (tramp-get-method-parameter v 'tramp-copy-keep-date))
 		(tramp-do-copy-or-rename-file-out-of-band
 		 op filename newname ok-if-already-exists keep-date))
 
@@ -2053,10 +2066,19 @@ file names."
 	    ;; When newname did exist, we have wrong cached values.
 	    (when t2
 	      (with-parsed-tramp-file-name newname v2
-		(tramp-flush-file-properties v2 v2-localname)))))))))
+		(tramp-flush-file-properties v2 v2-localname)))
+
+            ;; KEEP-DATE handling.
+            (when (and keep-date (not copy-keep-date))
+              (tramp-compat-set-file-times
+               newname file-times (unless ok-if-already-exists 'nofollow)))
+
+            ;; Set the mode.
+            (unless (and keep-date copy-keep-date)
+              (set-file-modes newname file-modes))))))))
 
 (defun tramp-do-copy-or-rename-file-via-buffer
-    (op filename newname ok-if-already-exists keep-date)
+    (op filename newname _ok-if-already-exists _keep-date)
   "Use an Emacs buffer to copy or rename a file.
 First arg OP is either `copy' or `rename' and indicates the operation.
 FILENAME is the source file, NEWNAME the target file.
@@ -2083,14 +2105,7 @@ KEEP-DATE is non-nil if NEWNAME should have the same timestamp as FILENAME."
     (with-temp-file newname
       (set-buffer-multibyte nil)
       (insert-file-contents-literally filename)))
-  ;; KEEP-DATE handling.
-  (when keep-date
-    (tramp-compat-set-file-times
-     newname
-     (file-attribute-modification-time (file-attributes filename))
-     (unless ok-if-already-exists 'nofollow)))
-  ;; Set the mode.
-  (set-file-modes newname (tramp-default-file-modes filename))
+
   ;; If the operation was `rename', delete the original file.
   (unless (eq op 'copy) (delete-file filename)))
 
@@ -2106,12 +2121,10 @@ as FILENAME.  PRESERVE-UID-GID, when non-nil, instructs to keep
 the uid and gid from FILENAME."
   ;; FILENAME and NEWNAME are already expanded.
   (let ((t1 (tramp-tramp-file-p filename))
-	(t2 (tramp-tramp-file-p newname))
-	(file-times (file-attribute-modification-time
-		     (file-attributes filename)))
-	(file-modes (tramp-default-file-modes filename)))
+	(t2 (tramp-tramp-file-p newname)))
     (with-parsed-tramp-file-name (if t1 filename newname) nil
-      (let* ((cmd (cond ((and (eq op 'copy) preserve-uid-gid) "cp -f -p")
+      (let* ((cmd (cond ((and (eq op 'copy) (or keep-date preserve-uid-gid))
+                         "cp -f -p")
 			((eq op 'copy) "cp -f")
 			((eq op 'rename) "mv -f")
 			(t (tramp-error
@@ -2240,14 +2253,7 @@ the uid and gid from FILENAME."
 		       (list tmpfile localname2 ok-if-already-exists)))))
 
 		;; Save exit.
-		(ignore-errors (delete-file tmpfile)))))))))
-
-      ;; Set the time and mode.  Mask possible errors.
-      (ignore-errors
-	  (when keep-date
-	    (tramp-compat-set-file-times
-	     newname file-times (unless ok-if-already-exists 'nofollow))
-	    (set-file-modes newname file-modes))))))
+		(ignore-errors (delete-file tmpfile))))))))))))
 
 (defun tramp-do-copy-or-rename-file-out-of-band
     (op filename newname ok-if-already-exists keep-date)
@@ -2259,7 +2265,7 @@ The method used must be an out-of-band method."
 	 (v2 (and (tramp-tramp-file-p newname)
 		  (tramp-dissect-file-name newname)))
 	 (v (or v1 v2))
-	 copy-program copy-args copy-env copy-keep-date listener spec
+	 copy-program copy-args copy-env listener spec
 	 options source target remote-copy-program remote-copy-args p)
 
     (if (and v1 v2 (string-empty-p (tramp-scp-direct-remote-copying v1 v2)))
@@ -2331,8 +2337,6 @@ The method used must be an out-of-band method."
 		  ?y (tramp-scp-force-scp-protocol v)
 		  ?z (tramp-scp-direct-remote-copying v1 v2))
 	    copy-program (tramp-get-method-parameter v 'tramp-copy-program)
-	    copy-keep-date (tramp-get-method-parameter
-			    v 'tramp-copy-keep-date)
 	    copy-args
 	    ;; " " has either been a replacement of "%k" (when
 	    ;; keep-date argument is non-nil), or a replacement for
@@ -2440,19 +2444,7 @@ The method used must be an out-of-band method."
 	    ;; Houston, we have a problem!  Likely, the listener is
 	    ;; still running, so let's clear everything (but the
 	    ;; cached password).
-	    (tramp-cleanup-connection v 'keep-debug 'keep-password))))
-
-      ;; Handle KEEP-DATE argument.
-      (when (and keep-date (not copy-keep-date))
-	(tramp-compat-set-file-times
-	 newname
-	 (file-attribute-modification-time (file-attributes filename))
-	 (unless ok-if-already-exists 'nofollow)))
-
-      ;; Set the mode.
-      (unless (and keep-date copy-keep-date)
-	(ignore-errors
-	  (set-file-modes newname (tramp-default-file-modes filename)))))
+	    (tramp-cleanup-connection v 'keep-debug 'keep-password)))))
 
     ;; If the operation was `rename', delete the original file.
     (unless (eq op 'copy)
@@ -2551,7 +2543,7 @@ The method used must be an out-of-band method."
     (access-file filename "Reading directory"))
   (with-parsed-tramp-file-name (expand-file-name filename) nil
     (if (and (featurep 'ls-lisp)
-	     (not (symbol-value 'ls-lisp-use-insert-directory-program)))
+	     (not ls-lisp-use-insert-directory-program))
 	(tramp-handle-insert-directory
 	 filename switches wildcard full-directory-p)
       (when (stringp switches)
@@ -4323,6 +4315,14 @@ seconds.  If not, it produces an error message with the given ERROR-ARGS."
        (apply #'tramp-error-with-buffer
 	      (tramp-get-connection-buffer vec) vec 'file-error error-args)))))
 
+(defvar tramp-config-check nil
+  "A function to be called with one argument, VEC.
+It should return a string which is used to check, whether the
+configuration of the remote host has been changed (which would
+require to flush the cache data).  This string is kept as
+connection property \"config-check-data\".
+This variable is intended as connection-local variable.")
+
 (defun tramp-open-connection-setup-interactive-shell (proc vec)
   "Set up an interactive shell.
 Mainly sets the prompt and the echo correctly.  PROC is the shell
@@ -4369,7 +4369,7 @@ process to set up.  VEC specifies the connection."
 	     vec "uname"
 	     (tramp-send-command-and-read vec "echo \\\"`uname -sr`\\\""))))
 	 (config-check-function
-	  (tramp-get-method-parameter vec 'tramp-config-check))
+	  (buffer-local-value 'tramp-config-check (process-buffer proc)))
 	 (old-config-check
 	  (and config-check-function
 	       (tramp-get-connection-property vec "config-check-data")))

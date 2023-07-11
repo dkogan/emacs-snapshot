@@ -63,6 +63,23 @@
 (declare-function file-notify-rm-watch "filenotify")
 (declare-function netrc-parse "netrc")
 (defvar auto-save-file-name-transforms)
+(defvar ls-lisp-use-insert-directory-program)
+(defvar tramp-prefix-format)
+(defvar tramp-prefix-regexp)
+(defvar tramp-method-regexp)
+(defvar tramp-postfix-method-format)
+(defvar tramp-postfix-method-regexp)
+(defvar tramp-prefix-ipv6-format)
+(defvar tramp-prefix-ipv6-regexp)
+(defvar tramp-postfix-ipv6-format)
+(defvar tramp-postfix-ipv6-regexp)
+(defvar tramp-postfix-host-format)
+(defvar tramp-postfix-host-regexp)
+(defvar tramp-remote-file-name-spec-regexp)
+(defvar tramp-file-name-structure)
+(defvar tramp-file-name-regexp)
+(defvar tramp-completion-method-regexp)
+(defvar tramp-completion-file-name-regexp)
 
 ;; Reload `tramp-compat' when we reload `tramp-autoloads' of the GNU
 ;; ELPA package.
@@ -282,13 +299,6 @@ pair of the form (KEY VALUE).  The following KEYs are defined:
     Until now, just \"ssh\"-based, \"sshfs\"-based, \"adb\"-based
     and container methods do.  If it is a list of strings, they
     are used to construct the remote command.
-
-  * `tramp-config-check'
-    A function to be called with one argument, VEC.  It should
-    return a string which is used to check, whether the
-    configuration of the remote host has been changed (which
-    would require to flush the cache data).  This string is kept
-    as connection property \"config-check-data\".
 
   * `tramp-copy-program'
     This specifies the name of the program to use for remotely copying
@@ -518,6 +528,11 @@ interpreted as a regular expression which always matches."
 (defcustom tramp-save-ad-hoc-proxies nil
   "Whether to save ad-hoc proxies persistently."
   :version "24.3"
+  :type 'boolean)
+
+(defcustom tramp-show-ad-hoc-proxies nil
+  "Whether to show ad-hoc proxies in file names."
+  :version "29.2"
   :type 'boolean)
 
 ;; For some obscure technical reasons, `system-name' on w32 returns
@@ -813,23 +828,6 @@ Customize.  See also `tramp-change-syntax'."
   :require 'tramp
   :initialize #'custom-initialize-default
   :set #'tramp-set-syntax)
-
-(defvar tramp-prefix-format)
-(defvar tramp-prefix-regexp)
-(defvar tramp-method-regexp)
-(defvar tramp-postfix-method-format)
-(defvar tramp-postfix-method-regexp)
-(defvar tramp-prefix-ipv6-format)
-(defvar tramp-prefix-ipv6-regexp)
-(defvar tramp-postfix-ipv6-format)
-(defvar tramp-postfix-ipv6-regexp)
-(defvar tramp-postfix-host-format)
-(defvar tramp-postfix-host-regexp)
-(defvar tramp-remote-file-name-spec-regexp)
-(defvar tramp-file-name-structure)
-(defvar tramp-file-name-regexp)
-(defvar tramp-completion-method-regexp)
-(defvar tramp-completion-file-name-regexp)
 
 (defun tramp-set-syntax (symbol value)
   "Set SYMBOL to value VALUE.
@@ -1802,8 +1800,8 @@ the form (METHOD USER DOMAIN HOST PORT LOCALNAME &optional HOP)."
       (when (cadr args)
 	(setq localname (and (stringp (cadr args)) (cadr args))))
       (when hop
-	;; Keep hop in file name for completion.
-	(unless minibuffer-completing-file-name
+	;; Keep hop in file name for completion or when indicated.
+	(unless (or minibuffer-completing-file-name tramp-show-ad-hoc-proxies)
 	  (setq hop nil))
 	;; Assure that the hops are in `tramp-default-proxies-alist'.
 	;; In tramp-archive.el, the slot `hop' is used for the archive
@@ -1853,7 +1851,7 @@ the form (METHOD USER DOMAIN HOST PORT LOCALNAME &optional HOP)."
     (replace-regexp-in-string
      (rx (regexp tramp-postfix-host-regexp) eos)
      tramp-postfix-hop-format
-     (tramp-make-tramp-file-name vec 'noloc)))))
+     (tramp-make-tramp-file-name (tramp-file-name-unify vec))))))
 
 (defun tramp-completion-make-tramp-file-name (method user host localname)
   "Construct a Tramp file name from METHOD, USER, HOST and LOCALNAME.
@@ -1952,8 +1950,11 @@ version, the function does nothing."
   "Return contents of BUFFER.
 If BUFFER is not a buffer or a buffer name, return the contents
 of `current-buffer'."
-  (with-current-buffer (or buffer (current-buffer))
-    (substring-no-properties (buffer-string))))
+  (or (let ((buf (or buffer (current-buffer))))
+        (when (bufferp buf)
+          (with-current-buffer (or buffer (current-buffer))
+	    (substring-no-properties (buffer-string)))))
+      ""))
 
 (defun tramp-debug-buffer-name (vec)
   "A name for the debug buffer for VEC."
@@ -2430,6 +2431,35 @@ without a visible progress reporter."
          ;; Stop progress reporter.
          (if tm (cancel-timer tm))
          (tramp-message ,vec ,level "%s...%s" ,message cookie)))))
+
+(defmacro with-tramp-timeout (list &rest body)
+  "Like `with-timeout', but allow SECONDS to be nil.
+
+(fn (SECONDS TIMEOUT-FORMS...) BODY)"
+  (declare (indent 1) (debug ((form body) body)))
+  (let ((seconds (car list))
+	(timeout-forms (cdr list)))
+    ;; If non-nil, `seconds' must be a positive number.
+    `(if-let (((natnump ,seconds))
+	      ((not (zerop timeout))))
+         (with-timeout (,seconds ,@timeout-forms) ,@body)
+       ,@body)))
+
+(defvar tramp-dont-suspend-timers nil
+  "Don't suspend timers when checking reentrant calls.
+This shouldn't be changed globally, but let-bind where needed.")
+
+(defmacro with-tramp-suspended-timers (&rest body)
+  "Run BODY with suspended timers.
+Obey `tramp-dont-suspend-timers'."
+  (declare (indent 0) (debug ((form body) body)))
+  `(if tramp-dont-suspend-timers
+       (progn ,@body)
+     (let ((stimers (with-timeout-suspend))
+	   timer-list timer-idle-list)
+       (unwind-protect
+	   (progn ,@body)
+	 (with-timeout-unsuspend stimers)))))
 
 (defun tramp-drop-volume-letter (name)
   "Cut off unnecessary drive letter from file NAME.
@@ -3956,19 +3986,35 @@ Let-bind it when necessary.")
 
 (defun tramp-handle-access-file (filename string)
   "Like `access-file' for Tramp files."
-  (setq filename (file-truename filename))
-  (with-parsed-tramp-file-name filename v
-    (if (file-exists-p filename)
-	(unless
-	    (funcall
-	     (if (file-directory-p filename)
-		 #'file-accessible-directory-p #'file-readable-p)
-	     filename)
-	  (tramp-compat-permission-denied
-	   v (format "%s: Permission denied, %s" string filename)))
-      (tramp-error
-       v 'file-missing
-       (format "%s: No such file or directory, %s" string filename)))))
+  (let ((timeout
+	 ;; This variable exists since Emacs 30.1.
+	 (bound-and-true-p remote-file-name-access-timeout))
+	(v (tramp-dissect-file-name
+	    (if (file-name-absolute-p filename) filename default-directory)))
+	;; We rely on timers, so don't suspend them.
+	(tramp-dont-suspend-timers t))
+    (with-tramp-timeout
+	(timeout
+	 (unless (when-let ((p (tramp-get-connection-process v)))
+		   (and (process-live-p p)
+			(tramp-get-connection-property p "connected")))
+	   (tramp-cleanup-connection v 'keep-debug 'keep-password))
+	 (tramp-error
+	  v 'file-error
+	  (format
+	   "%s: Timeout %s second(s) accessing %s" string timeout filename)))
+      (setq filename (file-truename filename))
+      (if (file-exists-p filename)
+	  (unless
+	      (funcall
+	       (if (file-directory-p filename)
+		   #'file-accessible-directory-p #'file-readable-p)
+	       filename)
+	    (tramp-compat-permission-denied
+	     v (format "%s: Permission denied, %s" string filename)))
+	(tramp-error
+	 v 'file-missing
+	 (format "%s: No such file or directory, %s" string filename))))))
 
 (defun tramp-handle-add-name-to-file
   (filename newname &optional ok-if-already-exists)
@@ -4290,13 +4336,14 @@ Let-bind it when necessary.")
   (let ((tramp-verbose (min tramp-verbose 3)))
     (when (tramp-tramp-file-p filename)
       (let* ((o (tramp-dissect-file-name filename))
-	     (p (tramp-get-connection-process o))
+	     (p (and (not (eq connected 'never))
+                     (tramp-get-connection-process o)))
 	     (c (and (process-live-p p)
 		     (tramp-get-connection-property p "connected"))))
 	;; We expand the file name only, if there is already a connection.
 	(with-parsed-tramp-file-name
 	    (if c (expand-file-name filename) filename) nil
-	  (and (or (not connected) c)
+	  (and (or (memq connected '(nil never)) c)
 	       (cond
 		((eq identification 'method) method)
 		;; Domain and port are appended to user and host,
@@ -4402,6 +4449,7 @@ Let-bind it when necessary.")
 (defun tramp-handle-insert-directory
   (filename switches &optional wildcard full-directory-p)
   "Like `insert-directory' for Tramp files."
+  (require 'ls-lisp)
   (unless switches (setq switches ""))
   ;; Mark trailing "/".
   (when (and (directory-name-p filename)
@@ -4414,7 +4462,6 @@ Let-bind it when necessary.")
     (with-tramp-progress-reporter v 0 (format "Opening directory %s" filename)
       (let (ls-lisp-use-insert-directory-program start)
 	;; Silence byte compiler.
-	(ignore ls-lisp-use-insert-directory-program)
 	(tramp-run-real-handler
 	 #'insert-directory
 	 (list filename switches wildcard full-directory-p))
@@ -4949,14 +4996,31 @@ Do not set it manually, it is used buffer-local in `tramp-get-lock-pid'.")
     ;; Result.
     target-alist))
 
+(defvar tramp-extra-expand-args nil
+  "Method specific arguments.")
+
 (defun tramp-expand-args (vec parameter &rest spec-list)
   "Expand login arguments as given by PARAMETER in `tramp-methods'.
 PARAMETER is a symbol like `tramp-login-args', denoting a list of
 list of strings from `tramp-methods', containing %-sequences for
-substitution.  SPEC-LIST is a list of char/value pairs used for
-`format-spec-make'."
+substitution.
+SPEC-LIST is a list of char/value pairs used for
+`format-spec-make'.  It is appended by `tramp-extra-expand-args',
+a connection-local variable."
   (let ((args (tramp-get-method-parameter vec parameter))
-	(spec (apply 'format-spec-make spec-list)))
+	(extra-spec-list
+	 (mapcar
+	  #'eval
+	  (buffer-local-value
+	   'tramp-extra-expand-args (tramp-get-connection-buffer vec))))
+	spec)
+    ;; Merge both spec lists.  Remove duplicate entries.
+    (while spec-list
+      (unless (member (car spec-list) extra-spec-list)
+	(setq extra-spec-list
+	      (append (tramp-compat-take 2 spec-list) extra-spec-list)))
+      (setq spec-list (cddr spec-list)))
+    (setq spec (apply #'format-spec-make extra-spec-list))
     ;; Expand format spec.
     (flatten-tree
      (mapcar
@@ -5661,26 +5725,24 @@ The terminal type can be configured with `tramp-terminal-type'."
   "Show the user a message for confirmation.
 Wait, until the connection buffer changes."
   (with-current-buffer (process-buffer proc)
-    (let ((stimers (with-timeout-suspend))
-	  (cursor-in-echo-area t)
-	  set-message-function clear-message-function)
-      ;; Silence byte compiler.
-      (ignore set-message-function clear-message-function)
-      (tramp-message vec 6 "\n%s" (buffer-string))
-      (tramp-check-for-regexp proc tramp-process-action-regexp)
-      (with-temp-message
-	  (replace-regexp-in-string (rx (any "\r\n")) "" (match-string 0))
-	;; Hide message in buffer.
-	(narrow-to-region (point-max) (point-max))
-	;; Wait for new output.
-	(while (not (ignore-error file-error
-		      (tramp-wait-for-regexp
-		       proc 0.1 tramp-security-key-confirmed-regexp)))
-	  (when (tramp-check-for-regexp proc tramp-security-key-timeout-regexp)
-	    (throw 'tramp-action 'timeout))
-	  (redisplay 'force)))
-      ;; Reenable the timers.
-      (with-timeout-unsuspend stimers)))
+    (let ((cursor-in-echo-area t)
+	  set-message-function clear-message-function tramp-dont-suspend-timers)
+      (with-tramp-suspended-timers
+	;; Silence byte compiler.
+	(ignore set-message-function clear-message-function)
+	(tramp-message vec 6 "\n%s" (buffer-string))
+	(tramp-check-for-regexp proc tramp-process-action-regexp)
+	(with-temp-message
+	    (replace-regexp-in-string (rx (any "\r\n")) "" (match-string 0))
+	  ;; Hide message in buffer.
+	  (narrow-to-region (point-max) (point-max))
+	  ;; Wait for new output.
+	  (while (not (ignore-error file-error
+			(tramp-wait-for-regexp
+			 proc 0.1 tramp-security-key-confirmed-regexp)))
+	    (when (tramp-check-for-regexp proc tramp-security-key-timeout-regexp)
+	      (throw 'tramp-action 'timeout))
+	    (redisplay 'force))))))
   t)
 
 (defun tramp-action-process-alive (proc _vec)
@@ -5779,12 +5841,7 @@ performed successfully.  Any other value means an error."
 	proc 3 "Waiting for prompts from remote shell"
       (let ((enable-recursive-minibuffers t)
 	    exit)
-	(if timeout
-	    (with-timeout (timeout (setq exit 'timeout))
-	      (while (not exit)
-		(setq exit
-		      (catch 'tramp-action
-			(tramp-process-one-action proc vec actions)))))
+	(with-tramp-timeout (timeout (setq exit 'timeout))
 	  (while (not exit)
 	    (setq exit (catch 'tramp-action
 			 (tramp-process-one-action proc vec actions)))))
@@ -5840,14 +5897,12 @@ Mostly useful to protect BODY from being interrupted by timers."
 	   (throw 'non-essential 'non-essential)
 	 (tramp-error
 	  ,proc 'remote-file-error "Forbidden reentrant call of Tramp"))
-     (let ((stimers (with-timeout-suspend))
-	   timer-list timer-idle-list)
+     (with-tramp-suspended-timers
        (unwind-protect
 	   (progn
 	     (tramp-set-connection-property ,proc "locked" t)
 	     ,@body)
-	 (tramp-flush-connection-property ,proc "locked")
-	 (with-timeout-unsuspend stimers)))))
+	 (tramp-flush-connection-property ,proc "locked")))))
 
 (defun tramp-accept-process-output (proc &optional _timeout)
   "Like `accept-process-output' for Tramp processes.
@@ -5940,21 +5995,13 @@ Expects the output of PROC to be sent to the current buffer.  Returns
 the string that matched, or nil.  Waits indefinitely if TIMEOUT is
 nil."
   (let ((found (tramp-check-for-regexp proc regexp)))
-    (cond (timeout
-	   (with-timeout (timeout)
-	     (while (not found)
-	       (tramp-accept-process-output proc)
-	       (unless (process-live-p proc)
-		 (tramp-error-with-buffer
-		  nil proc 'file-error "Process has died"))
-	       (setq found (tramp-check-for-regexp proc regexp)))))
-	  (t
-	   (while (not found)
-	     (tramp-accept-process-output proc)
-	     (unless (process-live-p proc)
-	       (tramp-error-with-buffer
-		nil proc 'file-error "Process has died"))
-	     (setq found (tramp-check-for-regexp proc regexp)))))
+    (with-tramp-timeout (timeout)
+      (while (not found)
+	(tramp-accept-process-output proc)
+	(unless (process-live-p proc)
+	  (tramp-error-with-buffer
+	   nil proc 'file-error "Process has died"))
+	(setq found (tramp-check-for-regexp proc regexp))))
     ;; The process could have timed out, for example due to session
     ;; timeout of sudo.  The process buffer does not exist any longer then.
     (ignore-errors
@@ -6736,9 +6783,7 @@ Consults the auth-source package."
 	 (auth-source-creation-prompts `((secret . ,pw-prompt)))
 	 ;; Use connection-local value.
 	 (auth-sources (buffer-local-value 'auth-sources (process-buffer proc)))
-	 ;; We suspend the timers while reading the password.
-         (stimers (with-timeout-suspend))
-	 auth-info auth-passwd)
+	 auth-info auth-passwd tramp-dont-suspend-timers)
 
     (unwind-protect
 	;; We cannot use `with-parsed-tramp-file-name', because it
@@ -6763,7 +6808,7 @@ Consults the auth-source package."
 		      (tramp-compat-auth-info-password auth-info))))
 
 	 ;; Try the password cache.
-	 (progn
+	 (with-tramp-suspended-timers
 	   (setq auth-passwd (password-read pw-prompt key)
 		 tramp-password-save-function
 		 (lambda () (password-cache-add key auth-passwd)))
@@ -6773,25 +6818,20 @@ Consults the auth-source package."
       ;; passwords.  See discussion in Bug#50399.
       (when (tramp-string-empty-or-nil-p auth-passwd)
 	(setq tramp-password-save-function nil))
-      (tramp-set-connection-property vec "first-password-request" nil)
-
-      ;; Reenable the timers.
-      (with-timeout-unsuspend stimers))))
+      (tramp-set-connection-property vec "first-password-request" nil))))
 
 (put #'tramp-read-passwd 'tramp-suppress-trace t)
 
 (defun tramp-read-passwd-without-cache (proc &optional prompt)
   "Read a password from user (compat function)."
   ;; We suspend the timers while reading the password.
-  (let ((stimers (with-timeout-suspend)))
-    (unwind-protect
-	(password-read
-	 (or prompt
-	     (with-current-buffer (process-buffer proc)
-	       (tramp-check-for-regexp proc tramp-password-prompt-regexp)
-	       (match-string 0))))
-      ;; Reenable the timers.
-      (with-timeout-unsuspend stimers))))
+  (let (tramp-dont-suspend-timers)
+    (with-tramp-suspended-timers
+      (password-read
+       (or prompt
+	   (with-current-buffer (process-buffer proc)
+	     (tramp-check-for-regexp proc tramp-password-prompt-regexp)
+	     (match-string 0)))))))
 
 (put #'tramp-read-passwd-without-cache 'tramp-suppress-trace t)
 

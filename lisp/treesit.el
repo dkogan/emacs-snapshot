@@ -894,13 +894,12 @@ signals the `treesit-font-lock-error' error if that happens."
     (start end face override &optional bound-start bound-end)
   "Apply FACE to the region between START and END.
 OVERRIDE can be nil, t, `append', `prepend', or `keep'.
-See `treesit-font-lock-rules' for their semantic.
+See `treesit-font-lock-rules' for their semantics.
 
 If BOUND-START and BOUND-END are non-nil, only fontify the region
 in between them."
   (when (or (null bound-start) (null bound-end)
-            (and bound-start bound-end
-                 (<= bound-start end)
+            (and (<= bound-start end)
                  (>= bound-end start)))
     (when (and bound-start bound-end)
       (setq start (max bound-start start)
@@ -1114,7 +1113,8 @@ parser notifying of the change."
       (when treesit--font-lock-verbose
         (message "Notifier received range: %s-%s"
                  (car range) (cdr range)))
-      (put-text-property (car range) (cdr range) 'fontified nil))))
+      (with-silent-modifications
+        (put-text-property (car range) (cdr range) 'fontified nil)))))
 
 ;;; Indent
 
@@ -3094,8 +3094,7 @@ nil, the grammar is installed to the standard location, the
     (condition-case err
         (progn
           (apply #'treesit--install-language-grammar-1
-                 ;; The nil is OUT-DIR.
-                 (cons nil recipe))
+                 (cons out-dir recipe))
 
           ;; Check that the installed language grammar is loadable.
           (pcase-let ((`(,available . ,err)

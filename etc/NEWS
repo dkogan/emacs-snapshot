@@ -67,6 +67,11 @@ If this user option is non-nil, 'auto-save-mode' will not auto-save
 remote buffers.  The default is nil.
 
 +++
+** New user option 'remote-file-name-access-timeout'.
+When a positive number, this option limits the call of 'access-file'
+for remote files to this number of seconds.  Default is nil.
+
++++
 ** New user option 'yes-or-no-prompt'.
 This allows the user to customize the prompt that is appended by
 'yes-or-no-p' when asking questions.  The default value is
@@ -87,6 +92,12 @@ plus, minus, check-mark, start, etc.
 The 'tool-bar-position' frame parameter can be set to 'bottom' on all
 window systems other than Nextstep.
 
+** Modeline elements can now be right-aligned.
+Anything following the symbol 'mode-line-format-right-align' in
+'mode-line-format' will be right-aligned.  Exactly where it is
+right-aligned to is controlled by the new user option
+'mode-line-right-align-edge'.
+
 
 * Editing Changes in Emacs 30.1
 
@@ -101,6 +112,11 @@ mistaken compositions, this will now work as well.
 ** New command 'kill-matching-buffers-no-ask'.
 This works like 'kill-matching-buffers', but without asking for
 confirmation.
+
+---
+** New user option 'duplicate-region-final-position'.
+It controls the placement of point and the region after duplicating a
+region with 'duplicate-dwim'.
 
 
 * Changes in Specialized Modes and Packages in Emacs 30.1
@@ -152,6 +168,16 @@ This allows changing which type of whitespace changes are ignored when
 regenerating hunks with 'diff-ignore-whitespace-hunk'.  Defaults to
 the previously hard-coded "-b".
 
+** Ediff
+
+---
+*** New user option 'ediff-floating-control-frame'.
+If non-nil, try making the control frame be floating rather than tiled.
+
+Many X tiling window managers make the Ediff control frame a tiled
+window equal in size to the main Emacs frame, which works poorly.
+This option is useful to set if you use such a window manager.
+
 ** Buffer Selection
 
 ---
@@ -175,6 +201,20 @@ Now, you can retrieve the last element of a list with '$my-list[-1]'
 or get a sublist of elements 2 through 4 with '$my-list[2..5]'.  For
 more information, see the "(eshell) Dollars Expansion" node in the
 Eshell manual.
+
++++
+*** Eshell commands can now be explicitly-remote (or local).
+By prefixing a command name in Eshell with a remote identifier, like
+"/ssh:user@remote:whoami", you can now runs commands on a particular
+host no matter your current directory.  Likewise, you can run a
+command on your local system no matter your current directory via
+"/:whoami".  For more information, see the "(eshell) Remote Access"
+node in the Eshell manual.
+
++++
+*** Eshell's '$UID' and '$GID' variables are now connection-aware.
+Now, when expanding '$UID' or '$GID' in a remote directory, the value
+is the user or group ID associated with the remote connection.
 
 ---
 *** Eshell now uses 'field' properties in its output.
@@ -225,6 +265,14 @@ They allow accessing system containers provided by Toolbox or
 sandboxes provided by Flatpak.
 
 +++
+*** Connection method "kubernetes" supports now optional container name.
+The host name for Kubernetes connections can be of kind [CONTAINER.]POD,
+in order to specify a dedicated container.  If there is just the pod
+name, the first container in the pod is taken.  The new user options
+'tramp-kubernetes-context' and 'tramp-kubernetes-namespace' allow to
+access pods with different context or namespace but the default one.
+
++++
 *** Rename 'tramp-use-ssh-controlmaster-options' to 'tramp-use-connection-share'.
 The old name still exists as obsolete variable alias.  This user
 option controls now connection sharing for both ssh-based and
@@ -257,6 +305,13 @@ for tab completion.
 The interactive minibuffer prompt when invoking 'eww' now provides
 completions from 'eww-suggest-uris'.  'eww-suggest-uris' now includes
 bookmark URIs.
+
++++
+*** New command 'eww-copy-alternate-url'.
+It copies an alternate link on the page currently visited in EWW into
+the kill ring.  Alternate links are optional metadata that HTML pages
+use for linking to their alternative representations, such as
+translated versions or associated RSS feeds.
 
 ** go-ts-mode
 
@@ -402,12 +457,52 @@ name as a string.  The new function
 completion based on dictionaries that the server supports.
 
 ** Pp
-*** New 'pp-default-function' custom variable replaces 'pp-use-max-width'.
+
+*** New 'pp-default-function' user option replaces 'pp-use-max-width'.
 
 *** New default pretty printing function, which tries to obey 'fill-column'.
 
-*** 'pp-to-string' takes an additional 'pp-function' argument.
-This arg specifies the prettifying algorithm to use.
+*** 'pp-to-string' takes an additional PP-FUNCTION argument.
+This argument specifies the prettifying algorithm to use.
+
+** Emacs Lisp mode
+
+---
+*** ',@' now has 'prefix' syntax.
+Previously, the '@' character, which normally has 'symbol' syntax,
+would combine with a following Lisp symbol and interfere with symbol
+searching.
+
+** CPerl mode
+
+---
+*** Subroutine signatures are now supported.
+CPerl mode fontifies subroutine signatures like variable declarations
+which makes them visually distinct from subroutine prototypes.
+
+*** Syntax of Perl up to version 5.38 is supported.
+CPerl mode supports the new keywords for exception handling and the
+object oriented syntax which were added in Perl 5.36 and 5.38.
+
+** Emacs Sessions (Desktop)
+
++++
+*** Restoring buffers visiting remote files can now time out.
+When a buffer is restored which visits a remote file, the restoration
+of the session could hang if the remote host is off-line or slow to
+respond.  Setting the user option 'remote-file-name-access-timeout' to
+a positive number will abandon the attempt to restore such buffers
+after a timeout of that many seconds, thus allowing the rest of
+desktop restoration to continue.
+
+** Recentf
+
++++
+*** Checking recent remote files can now time out.
+Similarly to buffer restoration by Desktop, 'recentf-mode' checking
+of the accessibility of remote files can now time out if
+'remote-file-name-access-timeout' is set to a positive number.
+
 
 * New Modes and Packages in Emacs 30.1
 
@@ -468,13 +563,28 @@ hooks named after the feature name, like 'esh-mode-unload-hook'.
 ** 'copy-tree' now copies records when its optional 2nd argument is non-nil.
 
 +++
-** Certain values of 'header-line-format' now inhibit empty header line.
-Emacs now avoids displaying a header line, instead of displaying an
-empty one, when 'header-line-format' is a list whose 'car' is a
-symbol, and either that symbol is ':eval' and the second element of
-the list evaluates to 'nil' or the symbol's value as a variable is
-'nil' or void.
+** Regexp zero-width assertions followed by operators are better defined.
+Previously, regexps such as "xy\\B*" would have ill-defined behavior.
+Now any operator following a zero-width assertion applies to that
+assertion only (which is useless).  For historical compatibility, an
+operator character following '^' or '\`' becomes literal, but we
+advise against relying on this.
 
+---
+** Mode-line mnemonics for some coding-systems have changed.
+The mode-line mnemonic for 'utf-7' is now the lowercase 'u', to be
+consistent with the other encodings of this family.
+
+The mode-line mnemonic for 'koi8-u' is now 'У', U+0423 CYRILLIC
+CAPITAL LETTER U, to distinguish between this encoding and the
+UTF-8/UTF-16 family.
+
+If your terminal cannot display 'У', or if you want to get the old
+behavior back for any other reason, you can do that using the
+'coding-system-put' function.  For example, the following restores the
+previous behavior of showing 'U' in the mode line for 'koi8-u':
+
+     (coding-system-put 'koi8-u :mnemonic ?U)
 
 * Lisp Changes in Emacs 30.1
 
@@ -671,11 +781,6 @@ to create such a loop results in an error.
 Since circular alias chains now cannot occur, 'function-alias-p',
 'indirect-function' and 'indirect-variable' will never signal an error.
 Their 'noerror' arguments have no effect and are therefore obsolete.
-
----
-** New function 'eval-command-interactive-spec' in the subr-x library.
-This function evaluates a command's interactive form and returns the
-resultant list.
 
 
 * Changes in Emacs 30.1 on Non-Free Operating Systems

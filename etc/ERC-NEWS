@@ -78,17 +78,9 @@ appearing in their saved logs.
 ** Smarter reconnect handling for users on the move.
 ERC now offers a new, experimental reconnect strategy in the function
 'erc-server-delayed-check-reconnect', which tests for underlying
-connectivity before attempting to reconnect in earnest.  See options
-'erc-server-reconnect-function' and 'erc-nickname-in-use-functions' to
-get started.
-
-** Easily constrain all ERC-related business to a dedicated frame.
-The option 'erc-reuse-frames' can now be set to 'displayed', which
-tells ERC to show new buffers in frames already occupied by buffers
-from the same connection.  This customization depends on the option
-'erc-buffer-display' (formerly 'erc-join-buffer') being set to
-'frame'.  If you find the name 'displayed' unhelpful, please suggest
-an alternative by writing to the mailing list.
+connectivity before attempting to reconnect in earnest.  See option
+'erc-server-reconnect-function' and new local module 'services-regain'
+(also experimental) to get started.
 
 ** Module 'fill' can add a bit of space between messages.
 On graphical displays, it's now possible to add some breathing room
@@ -191,7 +183,7 @@ Luckily, ERC now leverages a feature introduced in Emacs 27, "hook
 depth," to secure the positions of a few key members of
 'erc-insert-modify-hook' and 'erc-send-modify-hook'.  So far, this
 includes the functions 'erc-button-add-buttons', 'erc-fill',
-'erc-add-timestamp', and 'erc-match-message', which now appear in that
+'erc-match-message', and 'erc-add-timestamp', which now appear in that
 order, when present, at depths beginning at 20 and ending below 80.
 Of most interest to module authors is the new relative positioning of
 the first two, 'erc-button-add-buttons' and 'erc-fill', which have

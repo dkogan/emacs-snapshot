@@ -243,6 +243,29 @@ The name is made by appending a number to PREFIX, default \"T\"."
 (defvar cl--bind-enquote)      ;Non-nil if &cl-quote was in the formal arglist!
 (defvar cl--bind-lets) (defvar cl--bind-forms)
 
+(defun cl--slet (bindings body &optional nowarn)
+  "Like `cl--slet*' but for \"parallel let\"."
+  (let ((dyns nil)) ;Vars declared as dynbound among the bindings?
+    (when lexical-binding
+      (dolist (binding bindings) ;; `seq-some' lead to bootstrap problems.
+        (when (macroexp--dynamic-variable-p (car binding))
+          (push (car binding) dyns))))
+    (cond
+     (dyns
+      (let ((form `(funcall (lambda (,@(mapcar #'car bindings))
+                              ,@(macroexp-unprogn body))
+                            ,@(mapcar #'cadr bindings))))
+        (if (not nowarn) form
+          `(with-suppressed-warnings ((lexical ,@dyns)) ,form))))
+     ((null (cdr bindings))
+      (macroexp-let* bindings body))
+     (t `(let ,bindings ,@(macroexp-unprogn body))))))
+
+(defun cl--slet* (bindings body)
+  "Like `macroexp-let*' but uses static scoping for all the BINDINGS."
+  (if (null bindings) body
+    (cl--slet `(,(car bindings)) (cl--slet* (cdr bindings) body))))
+
 (defun cl--transform-lambda (form bind-block)
   "Transform a function form FORM of name BIND-BLOCK.
 BIND-BLOCK is the name of the symbol to which the function will be bound,
@@ -337,10 +360,11 @@ FORM is of the form (ARGS . BODY)."
                 (list '&rest (car (pop cl--bind-lets))))))))
       `((,@(nreverse simple-args) ,@rest-args)
         ,@header
-        ,(macroexp-let* cl--bind-lets
-                        (macroexp-progn
-                         `(,@(nreverse cl--bind-forms)
-                           ,@body)))))))
+        ;; Function arguments are unconditionally statically scoped (bug#47552).
+        ,(cl--slet* cl--bind-lets
+                    (macroexp-progn
+                     `(,@(nreverse cl--bind-forms)
+                       ,@body)))))))
 
 ;;;###autoload
 (defmacro cl-defun (name args &rest body)
@@ -2896,9 +2920,10 @@ The function's arguments should be treated as immutable.
        (cl-defun ,name ,args ,@body))))
 
 (defun cl--defsubst-expand (argns body _simple whole _unsafe &rest argvs)
-  (if (and whole (not (cl--safe-expr-p (cons 'progn argvs))))
+  (if (and whole (not (cl--safe-expr-p (macroexp-progn argvs))))
       whole
-    `(let ,(cl-mapcar #'list argns argvs) ,body)))
+    ;; Function arguments are unconditionally statically scoped (bug#47552).
+    (cl--slet (cl-mapcar #'list argns argvs) body 'nowarn)))
 
 ;;; Structures.
 
@@ -2990,6 +3015,7 @@ To see the documentation for a defined struct type, use
          (defsym (if cl--struct-inline 'cl-defsubst 'defun))
 	 (forms nil)
          (docstring (if (stringp (car descs)) (pop descs)))
+         (dynbound-slotnames '())
 	 pred-form pred-check)
     ;; Can't use `cl-check-type' yet.
     (unless (cl--struct-name-p name)
@@ -3109,6 +3135,8 @@ To see the documentation for a defined struct type, use
       (while descp
 	(let* ((desc (pop descp))
 	       (slot (pop desc)))
+	  (when (macroexp--dynamic-variable-p slot)
+	    (push slot dynbound-slotnames))
 	  (if (memq slot '(cl-tag-slot cl-skip-slot))
 	      (progn
 		(push nil slots)
@@ -3239,7 +3267,10 @@ To see the documentation for a defined struct type, use
     ;;          forms))
     `(progn
        (defvar ,tag-symbol)
-       ,@(nreverse forms)
+       ,@(if (null dynbound-slotnames)
+             (nreverse forms)
+           `((with-suppressed-warnings ((lexical . ,dynbound-slotnames))
+               ,@(nreverse forms))))
        :autoload-end
        ;; Call cl-struct-define during compilation as well, so that
        ;; a subsequent cl-defstruct in the same file can correctly include this

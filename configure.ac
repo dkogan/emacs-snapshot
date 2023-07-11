@@ -901,6 +901,10 @@ ac_func_list=$funcs
 AC_DEFUN([gt_TYPE_WINT_T],
   [GNULIBHEADERS_OVERRIDE_WINT_T=0
    AC_SUBST([GNULIBHEADERS_OVERRIDE_WINT_T])])
+# Emacs does not need precise checks for the Solaris 10 MB_CUR_MAX bug.
+AC_DEFUN_ONCE([gl_STDLIB_H],
+  [AC_REQUIRE([gl_STDLIB_H_DEFAULTS])
+   gl_NEXT_HEADERS([stdlib.h])])
 
 # Initialize gnulib right after choosing the compiler.
 dnl Amongst other things, this sets AR and ARFLAGS.
@@ -1081,7 +1085,7 @@ AS_IF([test $gl_gcc_warnings = no],
 
   nw="$nw -Wcast-align=strict"      # Emacs is tricky with pointers.
   nw="$nw -Wduplicated-branches"    # Too many false alarms
-  nw="$nw -Wformat-overflow=2"      # False alarms due to GCC bug 80776
+  nw="$nw -Wformat-overflow=2"      # False alarms due to GCC bug 110333
   nw="$nw -Wsystem-headers"         # Don't let system headers trigger warnings
   nw="$nw -Woverlength-strings"     # Not a problem these days
   nw="$nw -Wvla"                    # Emacs uses <vla.h>.
@@ -6301,6 +6305,7 @@ if test "$emacs_cv_struct_alignment" = yes; then
      structure to an N-byte boundary.])
 fi
 
+AC_C_RESTRICT
 AC_C_TYPEOF
 
 AC_CACHE_CHECK([for statement expressions],

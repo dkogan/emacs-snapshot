@@ -230,7 +230,7 @@ chosen (interactively or automatically)."
                                  . ,(eglot-alternatives '("digestif" "texlab")))
                                 (erlang-mode . ("erlang_ls" "--transport" "stdio"))
                                 ((yaml-ts-mode yaml-mode) . ("yaml-language-server" "--stdio"))
-                                (nix-mode . ,(eglot-alternatives '("nil" "rnix-lsp")))
+                                (nix-mode . ,(eglot-alternatives '("nil" "rnix-lsp" "nixd")))
                                 (nickel-mode . ("nls"))
                                 (gdscript-mode . ("localhost" 6008))
                                 ((fortran-mode f90-mode) . ("fortls"))
@@ -463,7 +463,7 @@ This can be useful when using docker to run a language server.")
 (eval-and-compile
   (defvar eglot--lsp-interface-alist
     `(
-      (CodeAction (:title) (:kind :diagnostics :edit :command :isPreferred))
+      (CodeAction (:title) (:kind :diagnostics :edit :command :isPreferred :data))
       (ConfigurationItem () (:scopeUri :section))
       (Command ((:title . string) (:command . string)) (:arguments))
       (CompletionItem (:label)
@@ -739,9 +739,12 @@ ACTION is an LSP object of either `CodeAction' or `Command' type."
    (server action) "Default implementation."
    (eglot--dcase action
      (((Command)) (eglot--request server :workspace/executeCommand action))
-     (((CodeAction) edit command)
-      (when edit (eglot--apply-workspace-edit edit))
-      (when command (eglot--request server :workspace/executeCommand command))))))
+     (((CodeAction) edit command data)
+      (if (and (null edit) (null command) data
+               (eglot--server-capable :codeActionProvider :resolveProvider))
+          (eglot-execute server (eglot--request server :codeAction/resolve action))
+        (when edit (eglot--apply-workspace-edit edit))
+        (when command (eglot--request server :workspace/executeCommand command)))))))
 
 (cl-defgeneric eglot-initialization-options (server)
   "JSON object to send under `initializationOptions'."
@@ -825,6 +828,7 @@ ACTION is an LSP object of either `CodeAction' or `Command' type."
              :documentHighlight  `(:dynamicRegistration :json-false)
              :codeAction         (list
                                   :dynamicRegistration :json-false
+                                  :resolveSupport t :dataSupport t
                                   :codeActionLiteralSupport
                                   '(:codeActionKind
                                     (:valueSet
@@ -3196,49 +3200,60 @@ for which LSP on-type-formatting should be requested."
                  ((:documentation sigdoc)) parameters activeParameter)
       sig
     (with-temp-buffer
-      (save-excursion (insert siglabel))
-      ;; Ad-hoc attempt to parse label as <name>(<params>)
-        (when (looking-at "\\([^(]*\\)(\\([^)]+\\))")
-          (add-face-text-property (match-beginning 1) (match-end 1)
-                                  'font-lock-function-name-face))
-        ;; Add documentation, indented so we can distinguish multiple signatures
-        (when-let (doc (and (not briefp) sigdoc (eglot--format-markup sigdoc)))
-          (goto-char (point-max))
-          (insert "\n" (replace-regexp-in-string "^" "  " doc)))
-        ;; Now to the parameters
-        (cl-loop
-         with active-param = (or sig-active activeParameter)
-         for i from 0 for parameter across parameters do
-         (eglot--dbind ((ParameterInformation)
-                        ((:label parlabel))
-                        ((:documentation pardoc)))
-             parameter
-           ;; ...perhaps highlight it in the formals list
-           (when (and (eq i active-param))
-             (save-excursion
-               (goto-char (point-min))
-               (pcase-let
-                   ((`(,beg ,end)
-                     (if (stringp parlabel)
-                         (let ((case-fold-search nil))
-                           (and (search-forward parlabel (line-end-position) t)
-                                (list (match-beginning 0) (match-end 0))))
-                       (mapcar #'1+ (append parlabel nil)))))
-                 (if (and beg end)
-                     (add-face-text-property
-                      beg end
-                      'eldoc-highlight-function-argument)))))
-           ;; ...and/or maybe add its doc on a line by its own.
-           (let (fpardoc)
-             (when (and pardoc (not briefp)
-                        (not (string-empty-p
-                              (setq fpardoc (eglot--format-markup pardoc)))))
-               (insert "\n  "
-                       (propertize
-                        (if (stringp parlabel) parlabel
-                          (apply #'substring siglabel (mapcar #'1+ parlabel)))
-                        'face (and (eq i active-param) 'eldoc-highlight-function-argument))
-                       ": " fpardoc)))))
+      (insert siglabel)
+      ;; Add documentation, indented so we can distinguish multiple signatures
+      (when-let (doc (and (not briefp) sigdoc (eglot--format-markup sigdoc)))
+        (goto-char (point-max))
+        (insert "\n" (replace-regexp-in-string "^" "  " doc)))
+      ;; Try to highlight function name only
+      (let (first-parlabel)
+        (cond ((and (cl-plusp (length parameters))
+                    (vectorp (setq first-parlabel
+                                   (plist-get (aref parameters 0) :label))))
+               (save-excursion
+                (goto-char (elt first-parlabel 0))
+                (skip-syntax-backward "^w")
+                (add-face-text-property (point-min) (point)
+                                        'font-lock-function-name-face)))
+              ((save-excursion
+                 (goto-char (point-min))
+                 (looking-at "\\([^(]*\\)([^)]*)"))
+               (add-face-text-property (match-beginning 1) (match-end 1)
+                                       'font-lock-function-name-face))))
+      ;; Now to the parameters
+      (cl-loop
+       with active-param = (or sig-active activeParameter)
+       for i from 0 for parameter across parameters do
+       (eglot--dbind ((ParameterInformation)
+                      ((:label parlabel))
+                      ((:documentation pardoc)))
+           parameter
+         ;; ...perhaps highlight it in the formals list
+         (when (eq i active-param)
+           (save-excursion
+             (goto-char (point-min))
+             (pcase-let
+                 ((`(,beg ,end)
+                   (if (stringp parlabel)
+                       (let ((case-fold-search nil))
+                         (and (search-forward parlabel (line-end-position) t)
+                              (list (match-beginning 0) (match-end 0))))
+                     (mapcar #'1+ (append parlabel nil)))))
+               (if (and beg end)
+                   (add-face-text-property
+                    beg end
+                    'eldoc-highlight-function-argument)))))
+         ;; ...and/or maybe add its doc on a line by its own.
+         (let (fpardoc)
+           (when (and pardoc (not briefp)
+                      (not (string-empty-p
+                            (setq fpardoc (eglot--format-markup pardoc)))))
+             (insert "\n  "
+                     (propertize
+                      (if (stringp parlabel) parlabel
+                        (apply #'substring siglabel (mapcar #'1+ parlabel)))
+                      'face (and (eq i active-param) 'eldoc-highlight-function-argument))
+                     ": " fpardoc)))))
       (buffer-string))))
 
 (defun eglot-signature-eldoc-function (cb)
@@ -3348,9 +3363,11 @@ for which LSP on-type-formatting should be requested."
                             (mapcar (lambda (c) (apply #'dfs c)) children))))))
     (mapcar (lambda (s) (apply #'dfs s)) res)))
 
-(defun eglot-imenu ()
+(cl-defun eglot-imenu ()
   "Eglot's `imenu-create-index-function'.
 Returns a list as described in docstring of `imenu--index-alist'."
+  (unless (eglot--server-capable :textDocument/documentSymbol)
+    (cl-return-from eglot-imenu))
   (let* ((res (eglot--request (eglot--current-server-or-lose)
                               :textDocument/documentSymbol
                               `(:textDocument
@@ -3769,8 +3786,9 @@ If NOERROR, return predicate, else erroring function."
                      (if peg-after-p
                          (make-overlay (point) (1+ (point)) nil t)
                        (make-overlay (1- (point)) (point) nil nil nil)))
-                   (do-it (label lpad rpad firstp)
-                     (let* ((tweak-cursor-p (and firstp peg-after-p))
+                   (do-it (label lpad rpad i n)
+                     (let* ((firstp (zerop i))
+                            (tweak-cursor-p (and firstp peg-after-p))
                             (ov (make-ov))
                             (text (concat lpad label rpad)))
                        (when tweak-cursor-p (put-text-property 0 1 'cursor 1 text))
@@ -3781,17 +3799,18 @@ If NOERROR, return predicate, else erroring function."
                                              (1 'eglot-type-hint-face)
                                              (2 'eglot-parameter-hint-face)
                                              (_ 'eglot-inlay-hint-face))))
+                       (overlay-put ov 'priority (if peg-after-p i (- n i)))
                        (overlay-put ov 'eglot--inlay-hint t)
                        (overlay-put ov 'evaporate t)
                        (overlay-put ov 'eglot--overlay t))))
-                (if (stringp label) (do-it label left-pad right-pad t)
+                (if (stringp label) (do-it label left-pad right-pad 0 1)
                   (cl-loop
                    for i from 0 for ldetail across label
                    do (eglot--dbind ((InlayHintLabelPart) value) ldetail
                         (do-it value
                                (and (zerop i) left-pad)
                                (and (= i (1- (length label))) right-pad)
-                               (zerop i))))))))))
+                               i (length label))))))))))
     (jsonrpc-async-request
      (eglot--current-server-or-lose)
      :textDocument/inlayHint

@@ -1128,7 +1128,8 @@ Each function's symbol gets added to `byte-compile-noruntime-functions'."
 		     ;; we arguably should add it to b-c-noruntime-functions,
                      ;; but it's not clear it's worth the trouble
 		     ;; trying to recognize that case.
-		     (unless (get f 'function-history)
+		     (unless (or (get f 'function-history)
+                                 (assq f byte-compile-function-environment))
                        (push f byte-compile-noruntime-functions)))))))))))))
 
 (defun byte-compile-eval-before-compile (form)
@@ -3082,6 +3083,14 @@ If FORM is a lambda or a macro, byte-compile it as a function."
 	       (byte-compile-warn-x
                 arg "repeated variable %s in lambda-list" arg))
 	      (t
+	       (when (and lexical-binding
+	                  (cconv--not-lexical-var-p
+	                   arg byte-compile-bound-variables)
+	                  (byte-compile-warning-enabled-p 'lexical arg))
+	         (byte-compile-warn-x
+	          arg
+	          "Lexical argument shadows the dynamic variable %S"
+	          arg))
 	       (push arg vars))))
       (setq list (cdr list)))))
 
@@ -3465,8 +3474,9 @@ lambda-expression."
                              run-hook-with-args-until-failure))
           (pcase (cdr form)
             (`(',var . ,_)
-             (when (memq var byte-compile-lexical-variables)
-               (byte-compile-report-error
+             (when (and (memq var byte-compile-lexical-variables)
+                        (byte-compile-warning-enabled-p 'lexical var))
+               (byte-compile-warn
                 (format-message "%s cannot use lexical var `%s'" fn var))))))
         ;; Warn about using obsolete hooks.
         (if (memq fn '(add-hook remove-hook))
@@ -3556,12 +3566,6 @@ lambda-expression."
      ((and (byte-code-function-p (car form))
            (memq byte-optimize '(t lap)))
       (byte-compile-unfold-bcf form))
-     ((and (eq (car-safe (car form)) 'lambda)
-           ;; if the form comes out the same way it went in, that's
-           ;; because it was malformed, and we couldn't unfold it.
-           (not (eq form (setq form (macroexp--unfold-lambda form)))))
-      (byte-compile-form form byte-compile--for-effect)
-      (setq byte-compile--for-effect nil))
      ((byte-compile-normal-call form)))
     (if byte-compile--for-effect
         (byte-compile-discard))
@@ -5057,6 +5061,10 @@ binding slots have been popped."
           (byte-compile-warn-x
            condition "`condition-case' condition should not be quoted: %S"
            condition))
+        (when (and (consp condition) (memq :success condition))
+          (byte-compile-warn-x
+           condition
+           "`:success' must be the first element of a `condition-case' handler"))
         (unless (consp condition) (setq condition (list condition)))
         (dolist (c condition)
           (unless (and c (symbolp c))

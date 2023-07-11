@@ -52,7 +52,7 @@ they are hidden or highlighted.  This is controlled via the variables
 `erc-current-nick-highlight-type'.  For all these highlighting types,
 you can decide whether the entire message or only the sending nick is
 highlighted."
-  ((add-hook 'erc-insert-modify-hook #'erc-match-message 60)
+  ((add-hook 'erc-insert-modify-hook #'erc-match-message 50)
    (add-hook 'erc-mode-hook #'erc-match--modify-invisibility-spec)
    (unless erc--updating-modules-p
      (erc-buffer-do #'erc-match--modify-invisibility-spec))
@@ -233,10 +233,11 @@ for beeping to work."
 		 (const :tag "Don't beep" nil)))
 
 (defcustom erc-text-matched-hook '(erc-log-matches)
-  "Hook run when text matches a given match-type.
-Functions in this hook are passed as arguments:
-\(match-type nick!user@host message) where MATCH-TYPE is a symbol of:
-current-nick, keyword, pal, dangerous-host, fool."
+  "Abnormal hook for visiting text matching a predefined \"type\".
+ERC calls members with the arguments (MATCH-TYPE NUH MESSAGE),
+where MATCH-TYPE is one of the symbols `current-nick', `keyword',
+`pal', `dangerous-host', `fool', and NUH is an `erc-response'
+sender, like bob!~bob@example.org."
   :options '(erc-log-matches erc-hide-fools erc-beep-on-match)
   :type 'hook)
 

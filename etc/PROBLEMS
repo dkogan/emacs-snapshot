@@ -1707,7 +1707,7 @@ which can be carried out at the same time:
    forwarded X connection (ssh -XC remotehostname emacs ...).
 
    Keep in mind that this does not help with latency problems, only
-   andwidth ones.
+   bandwidth ones.
 
 5) Use lbxproxy on the remote end of the connection.  This is an
    interface to the low bandwidth X extension in some outdated X
@@ -2788,6 +2788,21 @@ With any of the above methods, you'd need to restart Emacs (and
 preferably also your Windows system) after making the changes, to have
 them take effect.
 
+*** MinGW64 Emacs built with -D_FORTIFY_SOURCE=2 misbehaves
+
+Using this preprocessor option when building Emacs with MinGW64
+produces an Emacs binary that behaves incorrectly.  In particular,
+running asynchronous shell command, e.g., with 'M-&', causes Emacs to
+use 100% of CPU and start allocating a lot of memory.  For the same
+reason, asynchronous native-compilation will hang Emacs (which could
+wedge Emacs during startup, if your Emacs is configured to download
+and install packages via package.el every startup).  'M-x run-python',
+'M-x shell', and similar commands also hang.  Other commands might
+also cause high CPU and/or memory usage.
+
+The workaround is to rebuild Emacs without the -D_FORTIFY_SOURCE=2
+option.
+
 ** Emacs on Windows 9X requires UNICOWS.DLL
 
 If that DLL is not available, Emacs will display an error dialog
@@ -3441,6 +3456,39 @@ issue is that Cygwin 1.5.19 did not have d_ino in 'struct dirent'.
 See
 
   https://lists.gnu.org/r/emacs-devel/2010-07/msg01266.html
+
+*** Building the MS-Windows port with native compilation fails
+
+This is known to happen when using MinGW64 GCC 13.1, and seems to
+affect byte-compilation: the built Emacs crashes while byte-compiling
+some Lisp files.  (This doesn't happen when building a release
+tarball, because all the Lisp files are already byte-compiled there,
+but then Emacs could crash later when you use it to byte-compile your
+or third-party Lisp packages.)
+
+The reason seems to be specific to MS-Windows or the MinGW64 port of
+GCC 13.1, and is somehow related to optimizations in this GCC version.
+There are several known workarounds:
+
+  . Use non-default optimization flags.  For example, configuring the
+    build like this will avoid the problem:
+
+     CFLAGS='-O1 -gdwarf-4 -g3' ./configure ...
+
+    (replace the ellipsis "..." with the rest of 'configure' options
+    and arguments).
+
+  . Prevent GCC from performing a specific optimization:
+
+     CFLAGS='-O2 -gdwarf-4 -g3 -fno-optimize-sibling-calls' ./configure ...
+
+    This is actually a variant of the previous workaround, except that
+    it allows you to have almost the full set of optimizations used by
+    -O2.
+
+  . Downgrade to GCC 12.x.
+
+  . Build Emacs without native compilation.
 
 *** Building the native MS-Windows port fails due to unresolved externals
 

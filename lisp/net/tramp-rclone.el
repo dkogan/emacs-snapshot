@@ -226,6 +226,7 @@ file names."
 
     (let ((t1 (tramp-tramp-file-p filename))
 	  (t2 (tramp-tramp-file-p newname))
+	  (equal-remote (tramp-equal-remote filename newname))
 	  (rclone-operation (if (eq op 'copy) "copyto" "moveto"))
 	  (msg-operation (if (eq op 'copy) "Copying" "Renaming")))
 
@@ -236,8 +237,12 @@ file names."
 	  (when (and (file-directory-p newname)
 		     (not (directory-name-p newname)))
 	    (tramp-error v 'file-error "File is a directory %s" newname))
+	  (when (file-regular-p newname)
+	    (delete-file newname))
 
-	  (if (or (and t1 (not (tramp-rclone-file-name-p filename)))
+	  (if (or (and equal-remote
+		       (tramp-get-connection-property v "direct-copy-failed"))
+		  (and t1 (not (tramp-rclone-file-name-p filename)))
 		  (and t2 (not (tramp-rclone-file-name-p newname))))
 
 	      ;; We cannot copy or rename directly.
@@ -257,9 +262,20 @@ file names."
 			v rclone-operation
 			(tramp-rclone-remote-file-name filename)
 			(tramp-rclone-remote-file-name newname)))
-		(tramp-error
-		 v 'file-error
-		 "Error %s `%s' `%s'" msg-operation filename newname)))
+		(if (or (not equal-remote)
+			(and equal-remote
+			     (tramp-get-connection-property
+			      v "direct-copy-failed")))
+		    (tramp-error
+		     v 'file-error
+		     "Error %s `%s' `%s'" msg-operation filename newname)
+
+		  ;; Some WebDAV server, like the one from QNAP, do
+		  ;; not support direct copy/move.  Try a fallback.
+		  (tramp-set-connection-property v "direct-copy-failed" t)
+		  (tramp-rclone-do-copy-or-rename-file
+		   op filename newname ok-if-already-exists keep-date
+		   preserve-uid-gid preserve-extended-attributes))))
 
 	    (when (and t1 (eq op 'rename))
 	      (while (file-exists-p filename)
@@ -300,25 +316,25 @@ file names."
       (setq filename (file-name-directory filename)))
     (with-parsed-tramp-file-name (expand-file-name filename) nil
       (tramp-message v 5 "file system info: %s" localname)
-      (tramp-rclone-send-command v "about" (concat host ":"))
-      (with-current-buffer (tramp-get-connection-buffer v)
-	(let (total used free)
-	  (goto-char (point-min))
-	  (while (not (eobp))
-	    (when (looking-at (rx "Total: " (+ blank) (group (+ digit))))
-	      (setq total (string-to-number (match-string 1))))
-	    (when (looking-at (rx "Used: " (+ blank) (group (+ digit))))
-	      (setq used (string-to-number (match-string 1))))
-	    (when (looking-at (rx "Free: " (+ blank) (group (+ digit))))
-	      (setq free (string-to-number (match-string 1))))
-	    (forward-line))
-	  (when used
-	    ;; The used number of bytes is not part of the result.  As
-	    ;; side effect, we store it as file property.
-	    (tramp-set-file-property v localname "used-bytes" used))
-	  ;; Result.
-	  (when (and total free)
-	    (list total free (- total free))))))))
+      (when (zerop (tramp-rclone-send-command v "about" (concat host ":")))
+        (with-current-buffer (tramp-get-connection-buffer v)
+	  (let (total used free)
+	    (goto-char (point-min))
+	    (while (not (eobp))
+	      (when (looking-at (rx "Total: " (+ blank) (group (+ digit))))
+	        (setq total (string-to-number (match-string 1))))
+	      (when (looking-at (rx "Used: " (+ blank) (group (+ digit))))
+	        (setq used (string-to-number (match-string 1))))
+	      (when (looking-at (rx "Free: " (+ blank) (group (+ digit))))
+	        (setq free (string-to-number (match-string 1))))
+	      (forward-line))
+	    (when used
+	      ;; The used number of bytes is not part of the result.
+	      ;; As side effect, we store it as file property.
+	      (tramp-set-file-property v localname "used-bytes" used))
+	    ;; Result.
+	    (when (and total free)
+	      (list total free (- total free)))))))))
 
 (defun tramp-rclone-handle-rename-file
   (filename newname &optional ok-if-already-exists)

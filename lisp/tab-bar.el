@@ -618,13 +618,18 @@ from all windows in the window configuration."
 
 (defun tab-bar-tab-name-current ()
   "Generate tab name from the buffer of the selected window."
-  (buffer-name (window-buffer (minibuffer-selected-window))))
+  ;; `minibuffer-selected-window' loses its original window
+  ;; after switching to another tab while the minibuffer was active,
+  ;; so get the most recently used non-minibuffer window.
+  (buffer-name (window-buffer (or (minibuffer-selected-window)
+                                  (and (window-minibuffer-p)
+                                       (get-mru-window))))))
 
 (defun tab-bar-tab-name-current-with-count ()
   "Generate tab name from the buffer of the selected window.
 Also add the number of windows in the window configuration."
   (let ((count (length (window-list-1 nil 'nomini)))
-        (name (window-buffer (minibuffer-selected-window))))
+        (name (tab-bar-tab-name-current)))
     (if (> count 1)
         (format "%s (%d)" name count)
       (format "%s" name))))
@@ -651,7 +656,7 @@ to `tab-bar-tab-name-truncated'."
   "Generate tab name from the buffer of the selected window.
 Truncate it to the length specified by `tab-bar-tab-name-truncated-max'.
 Append ellipsis `tab-bar-tab-name-ellipsis' in this case."
-  (let ((tab-name (buffer-name (window-buffer (minibuffer-selected-window)))))
+  (let ((tab-name (tab-bar-tab-name-current)))
     (if (< (length tab-name) tab-bar-tab-name-truncated-max)
         tab-name
       (propertize (truncate-string-to-width
@@ -1253,6 +1258,17 @@ inherits the current tab's `explicit-name' parameter."
                              tabs))))
 
 
+(defvar tab-bar-minibuffer-restore-tab nil
+  "Tab number for `tab-bar-minibuffer-restore-tab'.")
+
+(defun tab-bar-minibuffer-restore-tab ()
+  "Switch back to the tab where the minibuffer was activated.
+This is necessary to prepare the same window configuration where
+original windows were saved and will be restored.  This function
+is used only when `read-minibuffer-restore-windows' is non-nil."
+  (when tab-bar-minibuffer-restore-tab
+    (tab-bar-select-tab tab-bar-minibuffer-restore-tab)))
+
 (defun tab-bar-select-tab (&optional tab-number)
   "Switch to the tab by its absolute position TAB-NUMBER in the tab bar.
 When this command is bound to a numeric key (with a key prefix or modifier key
@@ -1277,6 +1293,11 @@ Negative TAB-NUMBER counts tabs from the end of the tab bar."
                           (t tab-number)))
          (to-index (1- (max 1 (min to-number (length tabs)))))
          (minibuffer-was-active (minibuffer-window-active-p (selected-window))))
+
+    (when (and read-minibuffer-restore-windows minibuffer-was-active
+               (not tab-bar-minibuffer-restore-tab))
+      (setq-local tab-bar-minibuffer-restore-tab (1+ from-index))
+      (add-hook 'minibuffer-exit-hook 'tab-bar-minibuffer-restore-tab nil t))
 
     (unless (eq from-index to-index)
       (let* ((from-tab (tab-bar--tab))

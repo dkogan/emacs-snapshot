@@ -2011,9 +2011,7 @@ ASCII_CHAR_P (intmax_t c)
    range of characters.  A sub-char-table is like a vector, but with
    two integer fields between the header and Lisp data, which means
    that it has to be marked with some precautions (see mark_char_table
-   in alloc.c).  A sub-char-table appears only in an element of a
-   char-table, and there's no way to access it directly from a Lisp
-   program.  */
+   in alloc.c).  A sub-char-table appears in an element of a char-table.  */
 
 enum CHARTAB_SIZE_BITS
   {
@@ -4174,7 +4172,6 @@ void set_frame_cursor_types (struct frame *, Lisp_Object);
 extern void syms_of_xdisp (void);
 extern void init_xdisp (void);
 extern Lisp_Object safe_eval (Lisp_Object);
-extern Lisp_Object safe_eval_inhibit_quit (Lisp_Object);
 extern bool pos_visible_p (struct window *, ptrdiff_t, int *,
 			   int *, int *, int *, int *, int *);
 
@@ -4809,7 +4806,7 @@ extern ptrdiff_t find_before_next_newline (ptrdiff_t, ptrdiff_t,
 					   ptrdiff_t, ptrdiff_t *);
 extern EMACS_INT search_buffer (Lisp_Object, ptrdiff_t, ptrdiff_t,
 				ptrdiff_t, ptrdiff_t, EMACS_INT,
-				int, Lisp_Object, Lisp_Object, bool);
+				bool, Lisp_Object, Lisp_Object, bool);
 extern void syms_of_search (void);
 extern void clear_regexp_cache (void);
 
@@ -4882,7 +4879,7 @@ extern void syms_of_indent (void);
 /* Defined in frame.c.  */
 extern void store_frame_param (struct frame *, Lisp_Object, Lisp_Object);
 extern void store_in_alist (Lisp_Object *, Lisp_Object, Lisp_Object);
-extern Lisp_Object do_switch_frame (Lisp_Object, int, Lisp_Object);
+extern Lisp_Object do_switch_frame (Lisp_Object, int, int, Lisp_Object);
 extern Lisp_Object get_frame_param (struct frame *, Lisp_Object);
 extern void frames_discard_buffer (Lisp_Object);
 extern void init_frame_once (void);

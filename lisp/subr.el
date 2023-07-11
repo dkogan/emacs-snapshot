@@ -4987,9 +4987,12 @@ even if this catches the signal."
   `(condition-case ,var
        ,bodyform
      ,@(mapcar (lambda (handler)
-                 `((debug ,@(if (listp (car handler)) (car handler)
-                              (list (car handler))))
-                   ,@(cdr handler)))
+                 (let ((condition (car handler)))
+                   (if (eq condition :success)
+                       handler
+                     `((debug ,@(if (listp condition) condition
+                                  (list condition)))
+                       ,@(cdr handler)))))
                handlers)))
 
 (defmacro with-demoted-errors (format &rest body)
@@ -5015,7 +5018,7 @@ but that should be robust in the unexpected case that an error is signaled."
       ;; The use without `format' is obsolete, let's warn when we bump
       ;; into any such remaining uses.
       (macroexp-warn-and-return
-       (format-message "Missing format argument in `with-demote-errors'")
+       (format-message "Missing format argument in `with-demoted-errors'")
        exp nil nil
        orig-format))))
 

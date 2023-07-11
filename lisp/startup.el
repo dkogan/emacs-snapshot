@@ -1025,13 +1025,21 @@ init-file, or to a default value if loading is not possible."
         (debug-on-error-should-be-set nil)
         (debug-on-error-initial
          (if (eq init-file-debug t)
-             'startup
+             'startup--witness  ;Dummy but recognizable non-nil value.
            init-file-debug))
+        (d-i-e-from-init-file nil)
+        (d-i-e-initial
+         ;; Use (startup--witness) instead of nil, so we can detect when the
+         ;; init files set `debug-ignored-errors' to nil.
+         (if init-file-debug '(startup--witness) debug-ignored-errors))
         ;; The init file might contain byte-code with embedded NULs,
         ;; which can cause problems when read back, so disable nul
         ;; byte detection.  (Bug#52554)
         (inhibit-null-byte-detection t))
-    (let ((debug-on-error debug-on-error-initial))
+    (let ((debug-on-error debug-on-error-initial)
+          ;; If they specified --debug-init, enter the debugger
+          ;; on any error whatsoever.
+          (debug-ignored-errors d-i-e-initial))
       (condition-case-unless-debug error
           (when init-file-user
             (let ((init-file-name (funcall filename-function)))
@@ -1112,10 +1120,14 @@ the `--debug-init' option to view a complete error backtrace."
 
       ;; If we can tell that the init file altered debug-on-error,
       ;; arrange to preserve the value that it set up.
+      (or (eq debug-ignored-errors d-i-e-initial)
+          (setq d-i-e-from-init-file (list debug-ignored-errors)))
       (or (eq debug-on-error debug-on-error-initial)
           (setq debug-on-error-should-be-set t
                 debug-on-error-from-init-file debug-on-error)))
 
+    (when d-i-e-from-init-file
+      (setq debug-ignored-errors (car d-i-e-from-init-file)))
     (when debug-on-error-should-be-set
       (setq debug-on-error debug-on-error-from-init-file))))
 

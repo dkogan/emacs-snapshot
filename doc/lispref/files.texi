@@ -969,9 +969,16 @@ guaranteed to be writable.
 @end defmac
 
 @defun access-file filename string
+@vindex remote-file-name-access-timeout
 If you can read @var{filename} this function returns @code{nil};
 otherwise it signals an error
 using @var{string} as the error message text.
+
+If the user option @code{remote-file-name-access-timeout} is a
+positive number, the function signals an error when it doesn't finish
+after that time (in seconds).  This applies only to remote files, and
+only when there is no additional time spent while reading passwords or
+alike.
 @end defun
 
 @defun file-ownership-preserved-p filename &optional group
@@ -3623,7 +3630,11 @@ be @code{root}.
 If @var{connected} is non-@code{nil}, this function returns @code{nil}
 even if @var{filename} is remote, if Emacs has no network connection
 to its host.  This is useful when you want to avoid the delay of
-making connections when they don't exist.
+making connections when they don't exist.  If @var{connected} is
+@code{never}, @emph{never} use an existing connection to return the
+identification, even if one is already present (this is otherwise like
+a value of @code{nil}).  This lets you prevent any connection-specific
+logic, such as expanding the local part of the file name.
 @end defun
 
 @defun unhandled-file-name-directory filename
