@@ -3033,7 +3033,8 @@ If the base used is not 10, STRING is always parsed as an integer.  */)
     p++;
 
   Lisp_Object val = string_to_number (p, b, 0);
-  return NILP (val) ? make_fixnum (0) : val;
+  return ((IEEE_FLOATING_POINT ? NILP (val) : !NUMBERP (val))
+	  ? make_fixnum (0) : val);
 }
 
 enum arithop
@@ -4109,7 +4110,14 @@ syms_of_data (void)
   DEFSYM (Qunevalled, "unevalled");
   DEFSYM (Qmany, "many");
 
+  DEFSYM (Qcar, "car");
   DEFSYM (Qcdr, "cdr");
+  DEFSYM (Qnth, "nth");
+  DEFSYM (Qelt, "elt");
+  DEFSYM (Qsetcar, "setcar");
+  DEFSYM (Qsetcdr, "setcdr");
+  DEFSYM (Qaref, "aref");
+  DEFSYM (Qaset, "aset");
 
   error_tail = pure_cons (Qerror, Qnil);
 

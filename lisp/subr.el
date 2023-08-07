@@ -423,8 +423,8 @@ PREFIX is a string, and defaults to \"g\"."
     (make-symbol (format "%s%d" (or prefix "g") num))))
 
 (defun ignore (&rest _arguments)
-  "Do nothing and return nil.
-This function accepts any number of ARGUMENTS, but ignores them.
+  "Ignore ARGUMENTS, do nothing, and return nil.
+This function accepts any number of arguments in ARGUMENTS.
 Also see `always'."
   ;; Not declared `side-effect-free' because we don't want calls to it
   ;; elided; see `byte-compile-ignore'.
@@ -433,8 +433,8 @@ Also see `always'."
   nil)
 
 (defun always (&rest _arguments)
-  "Do nothing and return t.
-This function accepts any number of ARGUMENTS, but ignores them.
+  "Ignore ARGUMENTS, do nothing, and return t.
+This function accepts any number of arguments in ARGUMENTS.
 Also see `ignore'."
   (declare (pure t) (side-effect-free error-free))
   t)
@@ -1675,7 +1675,13 @@ nil or (STRING . POSITION)'.
 
 For more information, see Info node `(elisp)Click Events'."
   (declare (side-effect-free t))
-  (or (and (consp event) (nth 1 event))
+  (or (and (consp event)
+           ;; Ignore touchscreen events.  They store the posn in a
+           ;; different format, and can have multiple posns.
+           (not (memq (car event) '(touchscreen-begin
+                                    touchscreen-update
+                                    touchscreen-end)))
+           (nth 1 event))
       (event--posn-at-point)))
 
 (defun event-end (event)
@@ -1684,7 +1690,11 @@ EVENT should be a click, drag, or key press event.
 
 See `event-start' for a description of the value returned."
   (declare (side-effect-free t))
-  (or (and (consp event) (nth (if (consp (nth 2 event)) 2 1) event))
+  (or (and (consp event)
+           (not (memq (car event) '(touchscreen-begin
+                                    touchscreen-update
+                                    touchscreen-end)))
+           (nth (if (consp (nth 2 event)) 2 1) event))
       (event--posn-at-point)))
 
 (defsubst event-click-count (event)
@@ -3087,6 +3097,11 @@ So escape sequences and keyboard encoding are taken into account.
 When there's an ambiguity because the key looks like the prefix of
 some sort of escape sequence, the ambiguity is resolved via `read-key-delay'.
 
+Also in contrast to `read-event', input method text conversion
+will be disabled while the key sequence is read, so that
+character input events will always be generated for keyboard
+input.
+
 If the optional argument PROMPT is non-nil, display that as a
 prompt.
 
@@ -3145,7 +3160,8 @@ only unbound fallback disabled is downcasing of the last event."
 		   (lookup-key global-map [tool-bar])))
              map))
           (let* ((keys
-                  (catch 'read-key (read-key-sequence-vector prompt nil t)))
+                  (catch 'read-key (read-key-sequence-vector prompt nil t
+                                                             nil nil t)))
                  (key (aref keys 0)))
             (if (and (> (length keys) 1)
                      (memq key '(mode-line header-line
@@ -3331,6 +3347,8 @@ causes it to evaluate `help-form' and display the result."
 	(while (not done)
 	  (unless (get-text-property 0 'face prompt)
 	    (setq prompt (propertize prompt 'face 'minibuffer-prompt)))
+          ;; Display the on screen keyboard if it exists.
+          (frame-toggle-on-screen-keyboard (selected-frame) nil)
 	  (setq char (let ((inhibit-quit inhibit-keyboard-quit))
 		       (read-key prompt)))
 	  (and show-help (buffer-live-p (get-buffer helpbuf))
@@ -3491,6 +3509,9 @@ an error message."
     (minibuffer-message "Wrong answer")
     (sit-for 2)))
 
+;; Defined in textconv.c.
+(defvar overriding-text-conversion-style)
+
 (defun read-char-from-minibuffer (prompt &optional chars history)
   "Read a character from the minibuffer, prompting for it with PROMPT.
 Like `read-char', but uses the minibuffer to read and return a character.
@@ -3505,7 +3526,15 @@ while calling this function, then pressing `help-char'
 causes it to evaluate `help-form' and display the result.
 There is no need to explicitly add `help-char' to CHARS;
 `help-char' is bound automatically to `help-form-show'."
-  (let* ((map (if (consp chars)
+
+  ;; If text conversion is enabled in this buffer, then it will only
+  ;; be disabled the next time `force-mode-line-update' happens.
+  (when (and (bound-and-true-p overriding-text-conversion-style)
+             (bound-and-true-p text-conversion-style))
+    (force-mode-line-update))
+
+  (let* ((overriding-text-conversion-style nil)
+         (map (if (consp chars)
                   (or (gethash (list help-form (cons help-char chars))
                                read-char-from-minibuffer-map-hash)
                       (let ((map (make-sparse-keymap))
@@ -3517,15 +3546,15 @@ There is no need to explicitly add `help-char' to CHARS;
                         ;; being a command char.
                         (when help-form
                           (define-key map (vector help-char)
-                            (lambda ()
-                              (interactive)
-                              (let ((help-form msg)) ; lexically bound msg
-                                (help-form-show)))))
+                                      (lambda ()
+                                        (interactive)
+                                        (let ((help-form msg)) ; lexically bound msg
+                                          (help-form-show)))))
                         (dolist (char chars)
                           (define-key map (vector char)
-                            #'read-char-from-minibuffer-insert-char))
+                                      #'read-char-from-minibuffer-insert-char))
                         (define-key map [remap self-insert-command]
-                          #'read-char-from-minibuffer-insert-other)
+                                    #'read-char-from-minibuffer-insert-other)
                         (puthash (list help-form (cons help-char chars))
                                  map read-char-from-minibuffer-map-hash)
                         map))
@@ -3630,8 +3659,13 @@ confusing to some users.")
        (or (consp last-nonmenu-event)   ; invoked by a mouse event
            (and (null last-nonmenu-event)
                 (consp last-input-event))
+           (featurep 'android)		; Prefer dialog boxes on Android.
            from--tty-menu-p)            ; invoked via TTY menu
        use-dialog-box))
+
+;; Actually in textconv.c.
+(defvar overriding-text-conversion-style)
+(declare-function set-text-conversion-style "textconv.c")
 
 (defun y-or-n-p (prompt)
   "Ask user a \"y or n\" question.
@@ -3711,6 +3745,9 @@ like) while `y-or-n-p' is running)."
       (while
           (let* ((scroll-actions '(recenter scroll-up scroll-down
                                             scroll-other-window scroll-other-window-down))
+                 ;; Disable text conversion so that real key events
+                 ;; are sent.
+                 (overriding-text-conversion-style nil)
                  (key
                   (let ((cursor-in-echo-area t))
                     (when minibuffer-auto-raise
@@ -3742,6 +3779,9 @@ like) while `y-or-n-p' is running)."
       (setq prompt (funcall padded prompt))
       (let* ((enable-recursive-minibuffers t)
              (msg help-form)
+             ;; Disable text conversion so that real Y or N events are
+             ;; sent.
+             (overriding-text-conversion-style nil)
              (keymap (let ((map (make-composed-keymap
                                  y-or-n-p-map query-replace-map)))
                        (when help-form
@@ -3755,9 +3795,15 @@ like) while `y-or-n-p' is running)."
                        map))
              ;; Protect this-command when called from pre-command-hook (bug#45029)
              (this-command this-command)
-             (str (read-from-minibuffer
-                   prompt nil keymap nil
-                   (or y-or-n-p-history-variable t))))
+             (str (progn
+                    ;; If the minibuffer is already active, the
+                    ;; selected window might not change.  Disable
+                    ;; text conversion by hand.
+                    (when (fboundp 'set-text-conversion-style)
+                      (set-text-conversion-style text-conversion-style))
+                    (read-from-minibuffer
+                     prompt nil keymap nil
+                     (or y-or-n-p-history-variable t)))))
         (setq answer (if (member str '("y" "Y")) 'act 'skip)))))
     (let ((ret (eq answer 'act)))
       (unless noninteractive
@@ -4061,11 +4107,11 @@ See also `locate-user-emacs-file'.")
 
 The current restrictions, if any, are restored upon return.
 
-When the optional :label LABEL argument is present, in which
-LABEL is a symbol, inside BODY, `narrow-to-region' and `widen'
-can be used only within the START and END limits.  To gain access
-to other portions of the buffer, use `without-restriction' with the
-same LABEL argument.
+When the optional LABEL argument, which is evaluated to get the
+label to use and must yield a non-nil value, is present, inside
+BODY, `narrow-to-region' and `widen' can be used only within the
+START and END limits.  To gain access to other portions of the
+buffer, use `without-restriction' with the same LABEL argument.
 
 \(fn START END [:label LABEL] BODY)"
   (declare (indent 2) (debug t))
@@ -4077,8 +4123,9 @@ same LABEL argument.
 (defun internal--with-restriction (start end body &optional label)
   "Helper function for `with-restriction', which see."
   (save-restriction
-    (narrow-to-region start end)
-    (if label (internal--label-restriction label))
+    (if label
+        (internal--labeled-narrow-to-region start end label)
+      (narrow-to-region start end))
     (funcall body)))
 
 (defmacro without-restriction (&rest rest)
@@ -4086,9 +4133,8 @@ same LABEL argument.
 
 The current restrictions, if any, are restored upon return.
 
-When the optional :label LABEL argument is present, the
-restrictions set by `with-restriction' with the same LABEL argument
-are lifted.
+When the optional LABEL argument is present, the restrictions set
+by `with-restriction' with the same LABEL argument are lifted.
 
 \(fn [:label LABEL] BODY)"
   (declare (indent 0) (debug t))

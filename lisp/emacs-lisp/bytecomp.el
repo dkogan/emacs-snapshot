@@ -1975,6 +1975,10 @@ also be compiled."
       (emacs-lisp-compilation-mode))
     (let ((directories (list default-directory))
 	  (default-directory default-directory)
+          (ignore-files-regexp
+           (if byte-compile-ignore-files
+               (mapconcat #'identity byte-compile-ignore-files "\\|")
+             regexp-unmatchable))
 	  (skip-count 0)
 	  (fail-count 0)
 	  (file-count 0)
@@ -1995,9 +1999,7 @@ also be compiled."
 		      (or (null arg) (eq 0 arg)
 			  (y-or-n-p (concat "Check " source "? ")))
                       ;; Directory is requested to be ignored
-                      (not (string-match-p
-                            (regexp-opt byte-compile-ignore-files)
-                            source))
+                      (not (string-match-p ignore-files-regexp source))
                       (setq directories (nconc directories (list source))))
                ;; It is an ordinary file.  Decide whether to compile it.
                (if (and (string-match emacs-lisp-file-regexp source)
@@ -2007,9 +2009,7 @@ also be compiled."
                         (not (auto-save-file-name-p source))
                         (not (member source (dir-locals--all-files directory)))
                         ;; File is requested to be ignored
-                        (not (string-match-p
-                              (regexp-opt byte-compile-ignore-files)
-                              source)))
+                        (not (string-match-p ignore-files-regexp source)))
                    (progn (cl-incf
                            (pcase (byte-recompile-file source force arg)
                              ('no-byte-compile skip-count)
@@ -4306,9 +4306,6 @@ This function is never called when `lexical-binding' is nil."
 
 ;; more complicated compiler macros
 
-(byte-defop-compiler char-before)
-(byte-defop-compiler backward-char)
-(byte-defop-compiler backward-word)
 (byte-defop-compiler list)
 (byte-defop-compiler concat)
 (byte-defop-compiler (indent-to-column byte-indent-to) byte-compile-indent-to)
@@ -4318,40 +4315,6 @@ This function is never called when `lexical-binding' is nil."
 (byte-defop-compiler (- byte-diff) byte-compile-minus)
 (byte-defop-compiler (/ byte-quo) byte-compile-quo)
 (byte-defop-compiler nconc)
-
-;; Is this worth it?  Both -before and -after are written in C.
-(defun byte-compile-char-before (form)
-  (cond ((or (= 1 (length form))
-	     (and (= 2 (length form)) (not (nth 1 form))))
-	 (byte-compile-form '(char-after (1- (point)))))
-	((= 2 (length form))
-	 (byte-compile-form (list 'char-after (if (numberp (nth 1 form))
-						  (1- (nth 1 form))
-						`(1- (or ,(nth 1 form)
-							 (point)))))))
-	(t (byte-compile-subr-wrong-args form "0-1"))))
-
-;; backward-... ==> forward-... with negated argument.
-;; Is this worth it?  Both -backward and -forward are written in C.
-(defun byte-compile-backward-char (form)
-  (cond ((or (= 1 (length form))
-	     (and (= 2 (length form)) (not (nth 1 form))))
-	 (byte-compile-form '(forward-char -1)))
-	((= 2 (length form))
-	 (byte-compile-form (list 'forward-char (if (numberp (nth 1 form))
-						    (- (nth 1 form))
-						  `(- (or ,(nth 1 form) 1))))))
-	(t (byte-compile-subr-wrong-args form "0-1"))))
-
-(defun byte-compile-backward-word (form)
-  (cond ((or (= 1 (length form))
-	     (and (= 2 (length form)) (not (nth 1 form))))
-	 (byte-compile-form '(forward-word -1)))
-	((= 2 (length form))
-	 (byte-compile-form (list 'forward-word (if (numberp (nth 1 form))
-						    (- (nth 1 form))
-						  `(- (or ,(nth 1 form) 1))))))
-	(t (byte-compile-subr-wrong-args form "0-1"))))
 
 (defun byte-compile-list (form)
   (let ((count (length (cdr form))))
@@ -5796,6 +5759,28 @@ and corresponding effects."
 (put 'rassq 'compiler-macro #'bytecomp--check-memq-args)
 (put 'remq  'compiler-macro #'bytecomp--check-memq-args)
 (put 'delq  'compiler-macro #'bytecomp--check-memq-args)
+
+;; Implement `char-before', `backward-char' and `backward-word' in
+;; terms of `char-after', `forward-char' and `forward-word' which have
+;; their own byte-ops.
+
+(put 'char-before 'compiler-macro #'bytecomp--char-before)
+(defun bytecomp--char-before (form &optional arg &rest junk-args)
+  (if junk-args
+      form    ; arity error
+    `(char-after (1- (or ,arg (point))))))
+
+(put 'backward-char 'compiler-macro #'bytecomp--backward-char)
+(defun bytecomp--backward-char (form &optional arg &rest junk-args)
+  (if junk-args
+      form    ; arity error
+    `(forward-char (- (or ,arg 1)))))
+
+(put 'backward-word 'compiler-macro #'bytecomp--backward-word)
+(defun bytecomp--backward-word (form &optional arg &rest junk-args)
+  (if junk-args
+      form    ; arity error
+    `(forward-word (- (or ,arg 1)))))
 
 (provide 'byte-compile)
 (provide 'bytecomp)

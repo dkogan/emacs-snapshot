@@ -786,6 +786,17 @@ for speeding up processing.")
                            make-marker copy-marker point-marker mark-marker
                            set-marker
                            kbd key-description
+                           skip-chars-forward skip-chars-backward
+                           skip-syntax-forward skip-syntax-backward
+                           current-column current-indentation
+                           char-syntax syntax-class-to-char
+                           parse-partial-sexp goto-char forward-line
+                           next-window previous-window minibuffer-window
+                           selected-frame selected-window
+                           standard-case-table standard-syntax-table
+                           syntax-table
+                           frame-first-window frame-root-window
+                           frame-selected-window
                            always))
                   t)
                  ((eq head 'if)
@@ -973,7 +984,7 @@ for speeding up processing.")
   (let ((nargs (length (cdr form))))
     (cond
      ((= nargs 1)
-      `(progn (cadr form) t))
+      `(progn ,(cadr form) t))
      ((>= nargs 3)
       ;; At least 3 arguments: transform to N-1 binary comparisons,
       ;; since those have their own byte-ops which are particularly
@@ -1924,7 +1935,7 @@ See Info node `(elisp) Integer Basics'."
 (let ((pure-fns
        '(
          ;; character.c
-         characterp
+         characterp max-char
          ;; data.c
          % * + - / /= 1+ 1- < <= = > >= aref arrayp ash atom bare-symbol
          bool-vector-count-consecutive bool-vector-count-population
@@ -2130,7 +2141,7 @@ See Info node `(elisp) Integer Basics'."
    '(byte-constant byte-dup byte-stack-ref byte-stack-set byte-discard
      byte-discardN byte-discardN-preserve-tos
      byte-symbolp byte-consp byte-stringp byte-listp byte-numberp byte-integerp
-     byte-eq byte-not
+     byte-not
      byte-cons byte-list1 byte-list2 byte-list3 byte-list4 byte-listN
      byte-interactive-p)
    ;; How about other side-effect-free-ops?  Is it safe to move an
@@ -2138,6 +2149,11 @@ See Info node `(elisp) Integer Basics'."
    ;; No, it is not, because the unwind-protect forms can alter
    ;; the inside of the object to which nth would apply.
    ;; For the same reason, byte-equal was deleted from this list.
+   ;;
+   ;; In particular, `byte-eq' isn't here despite `eq' being nominally
+   ;; pure because it is currently affected by `symbols-with-pos-enabled'
+   ;; and so cannot be sunk past an unwind op that might end a binding of
+   ;; that variable.  Yes, this is unsatisfactory.
    "Byte-codes that can be moved past an unbind.")
 
 (defconst byte-compile-side-effect-and-error-free-ops

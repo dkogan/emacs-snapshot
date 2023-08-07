@@ -2084,22 +2084,32 @@ killed."
 	  (kill-buffer obuf))))))
 
 ;; FIXME we really need to fold the uniquify stuff in here by default,
-;; not using advice, and add it to the doc string.
 (defun create-file-buffer (filename)
   "Create a suitably named buffer for visiting FILENAME, and return it.
 FILENAME (sans directory) is used unchanged if that name is free;
-otherwise a string <2> or <3> or ... is appended to get an unused name.
+otherwise the buffer is renamed according to
+`uniquify-buffer-name-style' to get an unused name.
 
 Emacs treats buffers whose names begin with a space as internal buffers.
 To avoid confusion when visiting a file whose name begins with a space,
 this function prepends a \"|\" to the final result if necessary."
-  (let* ((lastname (file-name-nondirectory filename))
-	 (lastname (if (string= lastname "")
-	               filename lastname))
-	 (buf (generate-new-buffer (if (string-prefix-p " " lastname)
-			               (concat "|" lastname)
-			             lastname))))
-    (uniquify--create-file-buffer-advice buf filename)
+  (let* ((lastname (file-name-nondirectory (directory-file-name filename)))
+         (lastname (if (string= lastname "") ; FILENAME is a root directory
+                       filename lastname))
+         (lastname (cond
+                    ((not (and uniquify-trailing-separator-p
+                               (file-directory-p filename)))
+                     lastname)
+                    ((eq uniquify-buffer-name-style 'forward)
+	             (file-name-as-directory lastname))
+	            ((eq uniquify-buffer-name-style 'reverse)
+	             (concat (or uniquify-separator "\\") lastname))
+                    (t lastname)))
+         (basename (if (string-prefix-p " " lastname)
+		       (concat "|" lastname)
+		     lastname))
+	 (buf (generate-new-buffer basename)))
+    (uniquify--create-file-buffer-advice buf filename basename)
     buf))
 
 (defvar abbreviated-home-dir nil
@@ -5785,9 +5795,14 @@ Before and after saving the buffer, this function runs
 	          (run-hook-with-args-until-success 'write-file-functions)
 	          ;; If a hook returned t, file is already "written".
 	          ;; Otherwise, write it the usual way now.
-	          (let ((dir (file-name-directory
+	          (let ((file (buffer-file-name))
+                        (dir (file-name-directory
 			      (expand-file-name buffer-file-name))))
-		    (unless (file-exists-p dir)
+                    ;; Some systems have directories (like /content on
+                    ;; Android) in which files can exist without a
+                    ;; corresponding parent directory.
+		    (unless (or (file-exists-p file)
+                                (file-exists-p dir))
 		      (if (y-or-n-p
 		           (format-message
                             "Directory `%s' does not exist; create? " dir))
@@ -6341,6 +6356,26 @@ non-nil and if FN fails due to a missing file or directory."
   (condition-case err
       (apply fn args)
     (file-missing (or no-such (signal (car err) (cdr err))))))
+
+(defun delete-file (filename &optional trash)
+  "Delete file named FILENAME.  If it is a symlink, remove the symlink.
+If file has multiple names, it continues to exist with the other names.
+TRASH non-nil means to trash the file instead of deleting, provided
+`delete-by-moving-to-trash' is non-nil.
+
+When called interactively, TRASH is t if no prefix argument is given.
+With a prefix argument, TRASH is nil."
+  (interactive (list (read-file-name
+                      (if (and delete-by-moving-to-trash (null current-prefix-arg))
+                          "Move file to trash: " "Delete file: ")
+                      nil default-directory (confirm-nonexistent-file-or-buffer))
+                     (null current-prefix-arg)))
+  (if (and (file-directory-p filename) (not (file-symlink-p filename)))
+      (signal 'file-error (list "Removing old name: is a directory" filename)))
+  (let* ((handler (find-file-name-handler filename 'delete-file)))
+    (cond (handler (funcall handler 'delete-file filename trash))
+          ((and delete-by-moving-to-trash trash) (move-file-to-trash filename))
+          (t (delete-file-internal filename)))))
 
 (defun delete-directory (directory &optional recursive trash)
   "Delete the directory named DIRECTORY.  Does not follow symlinks.

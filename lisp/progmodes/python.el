@@ -297,11 +297,18 @@
 
 (defcustom python-interpreter "python"
   "Python interpreter for noninteractive use.
-To customize the Python shell, modify `python-shell-interpreter'
-instead."
+Some Python interpreters also require changes to
+`python-interpreter-args'.
+
+To customize the Python interpreter for interactive use, modify
+`python-shell-interpreter' instead."
   :version "29.1"
   :type 'string)
 
+(defcustom python-interpreter-args ""
+  "Arguments for the Python interpreter for noninteractive use."
+  :version "30.1"
+  :type 'string)
 
 
 ;;; Bindings
@@ -2558,7 +2565,7 @@ position, else returns nil."
   (cond ((executable-find "python3") "python3")
         ((executable-find "python") "python")
         (t "python3"))
-  "Default Python interpreter for shell.
+  "Python interpreter for interactive use.
 
 Some Python interpreters also require changes to
 `python-shell-interpreter-args'.  In particular, setting
@@ -2573,11 +2580,12 @@ Some Python interpreters also require changes to
   :safe 'stringp)
 
 (defcustom python-shell-interpreter-args "-i"
-  "Default arguments for the Python interpreter."
+  "Arguments for the Python interpreter for interactive use."
   :type 'string)
 
 (defcustom python-shell-interpreter-interactive-arg "-i"
-  "Interpreter argument to force it to run interactively."
+  "Interpreter argument to force it to run interactively.
+This is used only for prompt detection."
   :type 'string
   :version "24.4")
 
@@ -5206,11 +5214,13 @@ def __FFAP_get_module_path(objstr):
 
 (defcustom python-check-command
   (cond ((executable-find "pyflakes") "pyflakes")
+        ((executable-find "ruff") "ruff")
+        ((executable-find "flake8") "flake8")
         ((executable-find "epylint") "epylint")
         (t "pyflakes"))
   "Command used to check a Python file."
   :type 'string
-  :version "29.1")
+  :version "30.1")
 
 (defcustom python-check-buffer-name
   "*Python check: %s*"
@@ -6451,9 +6461,9 @@ from sys import argv, exit, stdin
 try:
     from isort import find_imports_in_stream, find_imports_in_paths
 except ModuleNotFoundError:
-    exit(1)
-except ImportError:
     exit(2)
+except ImportError:
+    exit(3)
 
 query, files, result = argv[1] or None, argv[2:], {}
 
@@ -6484,6 +6494,17 @@ for key in sorted(result):
                   (project-files proj))
     (list default-directory)))
 
+(defun python--list-imports-check-status (status)
+  (unless (eq 0 status)
+    (let* ((details
+            (cond
+             ((eq 2 status) " (maybe isort is missing?)")
+             ((eq 3 status) " (maybe isort version is older than 5.7.0?)")
+             (t "")))
+           (msg
+            (concat "%s exited with status %s" details)))
+      (error msg python-interpreter status))))
+
 (defun python--list-imports (name source)
   "List all Python imports matching NAME in SOURCE.
 If NAME is nil, list all imports.  SOURCE can be a buffer or a
@@ -6494,26 +6515,27 @@ recursively."
       (let* ((temp (current-buffer))
              (status (if (bufferp source)
                          (with-current-buffer source
-                           (call-process-region (point-min) (point-max)
-                                                python-interpreter
-                                                nil (list temp nil) nil
-                                                "-c" python--list-imports
-                                                (or name "")))
+                           (apply #'call-process-region
+                                  (point-min) (point-max)
+                                  python-interpreter
+                                  nil (list temp nil) nil
+                                  (append
+                                   (split-string-shell-command
+                                    python-interpreter-args)
+                                   `("-c" ,python--list-imports)
+                                    (list (or name "")))))
                        (with-current-buffer buffer
                          (apply #'call-process
                                 python-interpreter
                                 nil (list temp nil) nil
-                                "-c" python--list-imports
-                                (or name "")
-                                (mapcar #'file-local-name source)))))
+                                (append
+                                 (split-string-shell-command
+                                  python-interpreter-args)
+                                 `("-c" ,python--list-imports)
+                                 (list (or name ""))
+                                 (mapcar #'file-local-name source))))))
              lines)
-        (cond
-         ((eq 1 status)
-          (error "%s exited with status %s (maybe isort is missing?)"
-                 python-interpreter status))
-         ((eq 2 status)
-          (error "%s exited with status %s (maybe isort version is <5.7.0?)"
-                 python-interpreter status)))
+        (python--list-imports-check-status status)
         (goto-char (point-min))
         (while (not (eobp))
 	  (push (buffer-substring-no-properties (point) (pos-eol))
@@ -6554,15 +6576,15 @@ Return non-nil if the buffer was actually modified."
                                (point-min) (point-max)
                                python-interpreter
                                nil (list temp nil) nil
-                               "-m" "isort" "-" args))
+                               (append
+                                 (split-string-shell-command
+                                  python-interpreter-args)
+                                 '("-m" "isort" "-")
+                                 args)))
                 (tick (buffer-chars-modified-tick)))
-            (cond
-             ((eq 1 status)
+            (unless (eq 0 status)
               (error "%s exited with status %s (maybe isort is missing?)"
                      python-interpreter status))
-             ((eq 2 status)
-              (error "%s exited with status %s (maybe isort version is <5.7.0?)"
-                     python-interpreter status)))
             (replace-buffer-contents temp)
             (not (eq tick (buffer-chars-modified-tick)))))))))
 
@@ -6628,10 +6650,14 @@ asking."
     (with-temp-buffer
       (let ((temp (current-buffer)))
         (with-current-buffer buffer
-          (call-process-region (point-min) (point-max)
-                               python-interpreter
-                               nil temp nil
-                               "-m" "pyflakes"))
+          (apply #'call-process-region
+                  (point-min) (point-max)
+                  python-interpreter
+                  nil temp nil
+                  (append
+                   (split-string-shell-command
+                    python-interpreter-args)
+                   '("-m" "pyflakes"))))
         (goto-char (point-min))
         (when (looking-at-p ".* No module named pyflakes$")
           (error "%s couldn't find pyflakes" python-interpreter))

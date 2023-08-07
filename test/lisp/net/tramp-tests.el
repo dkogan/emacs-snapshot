@@ -263,7 +263,6 @@ is greater than 10.
 `should-error' is not handled properly.  BODY shall not contain a timeout."
   (declare (indent 1) (debug (natnump body)))
   `(let* ((tramp-verbose (max (or ,verbose 0) (or tramp-verbose 0)))
-	  (trace-buffer (tramp-trace-buffer-name tramp-test-vec))
 	  (debug-ignored-errors
 	   (append
 	    '("^make-symbolic-link not supported$"
@@ -3502,14 +3501,14 @@ This tests also `file-directory-p' and `file-accessible-directory-p'."
 			"tramp-test*" ert-remote-temporary-file-directory)))
 	      (goto-char (point-min))
 	      (should
-	       (re-search-forward
+	       (search-forward-regexp
 		(rx
 		 (literal
 		  (file-relative-name
 		   tmp-name1 ert-remote-temporary-file-directory)))))
 	      (goto-char (point-min))
 	      (should
-	       (re-search-forward
+	       (search-forward-regexp
 		(rx
 		 (literal
 		  (file-relative-name
@@ -3524,14 +3523,14 @@ This tests also `file-directory-p' and `file-accessible-directory-p'."
 			"tramp-test*/*" ert-remote-temporary-file-directory)))
 	      (goto-char (point-min))
 	      (should
-	       (re-search-forward
+	       (search-forward-regexp
 		(rx
 		 (literal
 		  (file-relative-name
 		   tmp-name3 ert-remote-temporary-file-directory)))))
 	      (goto-char (point-min))
 	      (should
-	       (re-search-forward
+	       (search-forward-regexp
 		(rx
 		 (literal
 		  (file-relative-name
@@ -3554,14 +3553,14 @@ This tests also `file-directory-p' and `file-accessible-directory-p'."
 			"tramp-test*/*" ert-remote-temporary-file-directory)))
 	      (goto-char (point-min))
 	      (should
-	       (re-search-forward
+	       (search-forward-regexp
 		(rx
 		 (literal
 		  (file-relative-name
 		   tmp-name3 ert-remote-temporary-file-directory)))))
 	      (goto-char (point-min))
 	      (should
-	       (re-search-forward
+	       (search-forward-regexp
 		(rx
 		 (literal
 		  (file-relative-name
@@ -4980,10 +4979,10 @@ This tests also `make-symbolic-link', `file-truename' and `add-name-to-file'."
 		      ;; We must remove leading `default-directory'.
 		      (goto-char (point-min))
 		      (let ((inhibit-read-only t))
-			(while (re-search-forward "//" nil 'noerror)
+			(while (search-forward-regexp "//" nil 'noerror)
 			  (delete-region (line-beginning-position) (point))))
 		      (goto-char (point-min))
-		      (re-search-forward
+		      (search-forward-regexp
 		       (rx bol (0+ nonl)
 			   (any "Pp") "ossible completions"
 			   (0+ nonl) eol))
@@ -5095,7 +5094,8 @@ This tests also `make-symbolic-link', `file-truename' and `add-name-to-file'."
 		    (if (bufferp destination) destination (current-buffer))
 		  ;; "ls" could produce colorized output.
 		  (goto-char (point-min))
-		  (while (re-search-forward ansi-color-control-seq-regexp nil t)
+		  (while (search-forward-regexp
+			  ansi-color-control-seq-regexp nil t)
 		    (replace-match "" nil nil))
 		  (should
 		   (string-equal (if destination (format "%s\n" fnnd) "")
@@ -5109,7 +5109,8 @@ This tests also `make-symbolic-link', `file-truename' and `add-name-to-file'."
 		    (if (bufferp destination) destination (current-buffer))
 		  ;; "ls" could produce colorized output.
 		  (goto-char (point-min))
-		  (while (re-search-forward ansi-color-control-seq-regexp nil t)
+		  (while (search-forward-regexp
+			  ansi-color-control-seq-regexp nil t)
 		    (replace-match "" nil nil))
 		  (should
 		   (string-equal
@@ -5823,7 +5824,7 @@ INPUT, if non-nil, is a string sent to the process."
 	       (current-buffer))
 	      ;; "ls" could produce colorized output.
 	      (goto-char (point-min))
-	      (while (re-search-forward ansi-color-control-seq-regexp nil t)
+	      (while (search-forward-regexp ansi-color-control-seq-regexp nil t)
 		(replace-match "" nil nil))
 	      (should
 	       (string-equal
@@ -7082,6 +7083,12 @@ This does not support external Emacs calls."
   (string-equal
    "mock" (file-remote-p ert-remote-temporary-file-directory 'method)))
 
+(defun tramp--test-openbsd-p ()
+  "Check, whether the remote host runs OpenBSD."
+  ;; We must refill the cache.  `file-truename' does it.
+  (file-truename ert-remote-temporary-file-directory)
+  (ignore-errors (tramp-check-remote-uname tramp-test-vec "OpenBSD")))
+
 (defun tramp--test-out-of-band-p ()
   "Check, whether an out-of-band method is used."
   (tramp-method-out-of-band-p tramp-test-vec 1))
@@ -7374,7 +7381,7 @@ This requires restrictions of file name syntax."
 		    (should (zerop (process-file "printenv" nil t nil)))
 		    (goto-char (point-min))
 		    (should
-		     (re-search-forward
+		     (search-forward-regexp
 		      (rx
 		       bol (literal envvar)
 		       "=" (literal (getenv envvar)) eol))))))))
@@ -7402,6 +7409,7 @@ This requires restrictions of file name syntax."
 	  (cond ((or (tramp--test-ange-ftp-p)
 		     (tramp--test-container-p)
 		     (tramp--test-gvfs-p)
+		     (tramp--test-openbsd-p)
 		     (tramp--test-rclone-p)
 		     (tramp--test-sudoedit-p)
 		     (tramp--test-windows-nt-or-smb-p))
@@ -7484,7 +7492,8 @@ This requires restrictions of file name syntax."
        "Автостопом по гала́ктике"
        ;; Use codepoints without a name.  See Bug#31272.
        ;; Works on some Android systems only.
-       (unless (tramp--test-adb-p) "bung")
+       (unless (or (tramp--test-adb-p) (tramp--test-openbsd-p))
+	 "bung")
        ;; Use codepoints from Supplementary Multilingual Plane (U+10000
        ;; to U+1FFFF).
        "🌈🍒👋")
@@ -7847,7 +7856,7 @@ process sentinels.  They shall not disturb each other."
 
 (ert-deftest tramp-test47-read-password ()
   "Check Tramp password handling."
-  :tags '(:expensive-test)
+  :tags '(:expensive-test :unstable)
   (skip-unless (tramp--test-enabled))
   (skip-unless (tramp--test-mock-p))
   ;; Not all read commands understand argument "-s" or "-p".
@@ -8009,7 +8018,22 @@ process sentinels.  They shall not disturb each other."
 	(mapconcat #'shell-quote-argument load-path " -L ")
 	(shell-quote-argument code)))))))
 
-(ert-deftest tramp-test49-unload ()
+(ert-deftest tramp-test49-without-remote-files ()
+  "Check that Tramp can be suppressed."
+  (skip-unless (tramp--test-enabled))
+
+  (should (file-remote-p ert-remote-temporary-file-directory))
+  (should-not
+   (without-remote-files (file-remote-p ert-remote-temporary-file-directory)))
+  (should (file-remote-p ert-remote-temporary-file-directory))
+
+  (inhibit-remote-files)
+  (should-not (file-remote-p ert-remote-temporary-file-directory))
+  (tramp-register-file-name-handlers)
+  (setq tramp-mode t)
+  (should (file-remote-p ert-remote-temporary-file-directory)))
+
+(ert-deftest tramp-test50-unload ()
   "Check that Tramp and its subpackages unload completely.
 Since it unloads Tramp, it shall be the last test to run."
   :tags '(:expensive-test)
