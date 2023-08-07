@@ -10,7 +10,7 @@ Build-Depends: bsd-mailx | mailx, libncurses5-dev, texinfo, liblockfile-dev, lib
  autoconf, automake, autotools-dev, dpkg-dev (>> 1.10.0), quilt (>= 0.42),
  debhelper (>= 9), libxaw7-dev, sharutils, imagemagick, libgtk-3-dev,
  libgnutls28-dev, libxml2-dev, libselinux1-dev [linux-any], libmagick++-dev,
- libgconf2-dev, libasound2-dev [!hurd-i386 !kfreebsd-i386 !kfreebsd-amd64],
+ libasound2-dev [!hurd-i386 !kfreebsd-i386 !kfreebsd-amd64],
  libacl1-dev,
  libtree-sitter-dev,
  libgccjit-12-dev | libgccjit-11-dev | libgccjit-10-dev,
