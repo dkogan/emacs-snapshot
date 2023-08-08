@@ -22,15 +22,15 @@ Added-by: Rob Browning <rlb@defaultvalue.org>
 Status: new
 ---
  Makefile.in          | 44 +++++++++++++++++---------------------------
- configure.ac         | 11 +----------
+ configure.ac         | 14 ++------------
  doc/misc/Makefile.in |  6 ++++++
  lisp/help.el         |  8 ++++++++
- 4 files changed, 32 insertions(+), 37 deletions(-)
+ 4 files changed, 33 insertions(+), 39 deletions(-)
 
-Index: emacs-snapshot/Makefile.in
-===================================================================
---- emacs-snapshot.orig/Makefile.in
-+++ emacs-snapshot/Makefile.in
+diff --git a/Makefile.in b/Makefile.in
+index b47e88f..be6f7bc 100644
+--- a/Makefile.in
++++ b/Makefile.in
 @@ -174,7 +174,9 @@ man1dir=$(mandir)/man1
  # Where to install and expect the info files describing Emacs.
  infodir=@infodir@
@@ -117,11 +117,11 @@ Index: emacs-snapshot/Makefile.in
  UNINSTALL_DOC = $(UNINSTALL_DVI) $(UNINSTALL_HTML) $(UNINSTALL_PDF) $(UNINSTALL_PS)
  
  $(UNINSTALL_DOC):
-Index: emacs-snapshot/configure.ac
-===================================================================
---- emacs-snapshot.orig/configure.ac
-+++ emacs-snapshot/configure.ac
-@@ -7725,11 +7725,10 @@ ARCH_INDEPENDENT_CONFIG_FILES([$srcdir/d
+diff --git a/configure.ac b/configure.ac
+index 41df461..5f8f16e 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -7725,11 +7725,10 @@ ARCH_INDEPENDENT_CONFIG_FILES([$srcdir/doc/man/emacs.1])
  
  AC_CONFIG_FILES([lib/Makefile lib-src/Makefile oldXMenu/Makefile src/Makefile
                   lwlib/Makefile nextstep/Makefile nt/Makefile])
@@ -151,11 +151,11 @@ Index: emacs-snapshot/configure.ac
    dnl If we give this the more natural name, etc/refcards/emacsver.texi,
    dnl then a directory etc/refcards is created in the build directory,
    dnl which is probably harmless, but confusing (in out-of-tree builds).
-Index: emacs-snapshot/doc/misc/Makefile.in
-===================================================================
---- emacs-snapshot.orig/doc/misc/Makefile.in
-+++ emacs-snapshot/doc/misc/Makefile.in
-@@ -84,6 +84,12 @@ INFO_INSTALL = $(INFO_COMMON) $(DOCMISC_
+diff --git a/doc/misc/Makefile.in b/doc/misc/Makefile.in
+index 1831bbb..b4ffb77 100644
+--- a/doc/misc/Makefile.in
++++ b/doc/misc/Makefile.in
+@@ -84,6 +84,12 @@ INFO_INSTALL = $(INFO_COMMON) $(DOCMISC_W32)
  ## because the info files are pre-built in release tarfiles.
  INFO_TARGETS = $(INFO_COMMON) efaq-w32
  
@@ -168,11 +168,11 @@ Index: emacs-snapshot/doc/misc/Makefile.in
  ## Some manuals have their source in .org format.
  ## This is discouraged because the .texi files it generates
  ## are not as well formatted as handwritten ones.
-Index: emacs-snapshot/lisp/help.el
-===================================================================
---- emacs-snapshot.orig/lisp/help.el
-+++ emacs-snapshot/lisp/help.el
-@@ -496,6 +496,14 @@ If that doesn't give a function, return
+diff --git a/lisp/help.el b/lisp/help.el
+index 6f55136..898ce8b 100644
+--- a/lisp/help.el
++++ b/lisp/help.el
+@@ -496,6 +496,14 @@ If that doesn't give a function, return nil."
    (goto-address-mode 1)
    (goto-char (point-min)))
  
