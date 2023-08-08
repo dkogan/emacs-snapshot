@@ -27,10 +27,10 @@ Status: new
  lisp/help.el         |  8 ++++++++
  4 files changed, 32 insertions(+), 37 deletions(-)
 
-diff --git a/Makefile.in b/Makefile.in
-index 729cd41..bc1a11b 100644
---- a/Makefile.in
-+++ b/Makefile.in
+Index: emacs-snapshot/Makefile.in
+===================================================================
+--- emacs-snapshot.orig/Makefile.in
++++ emacs-snapshot/Makefile.in
 @@ -174,7 +174,9 @@ man1dir=$(mandir)/man1
  # Where to install and expect the info files describing Emacs.
  infodir=@infodir@
@@ -42,7 +42,7 @@ index 729cd41..bc1a11b 100644
  
  # Directory for local state files for all programs.
  localstatedir=@localstatedir@
-@@ -984,8 +986,7 @@ endef
+@@ -997,8 +999,7 @@ endef
  ###      normally don't want to recompile.  For example, the 'mostlyclean'
  ###      target for GCC does not delete 'libgcc.a', because recompiling it
  ###      is rarely necessary and takes a lot of time.
@@ -50,9 +50,9 @@ index 729cd41..bc1a11b 100644
 -  doc/lispref doc/lispintro test
 +mostlyclean_dirs = src oldXMenu lwlib lib lib-src nt doc/misc test
  
- $(foreach dir,$(mostlyclean_dirs),$(eval $(call submake_template,$(dir),mostlyclean)))
- 
-@@ -1106,11 +1107,11 @@ test/%:
+ ### Add the libexec directory to mostlyclean_dirs if its Makefile has
+ ### been created.
+@@ -1128,11 +1129,11 @@ test/%:
  dist:
  	cd ${srcdir}; ./make-dist
  
@@ -69,7 +69,7 @@ index 729cd41..bc1a11b 100644
  
  DOCS = $(DVIS) $(HTMLS) $(INFOS) $(PDFS) $(PSS)
  $(DOCS):
-@@ -1141,9 +1142,6 @@ info-dir: ${srcdir}/info/dir
+@@ -1163,9 +1164,6 @@ info-dir: ${srcdir}/info/dir
  texi_misc = $(shell MAKEFLAGS= ${MAKE} --no-print-directory -s -C doc/misc echo-sources)
  
  srcdir_doc_info_dir_inputs = \
@@ -79,7 +79,7 @@ index 729cd41..bc1a11b 100644
    $(addprefix ${srcdir}/doc/misc/,${texi_misc})
  info_dir_inputs = \
    ../build-aux/dir_top \
-@@ -1165,14 +1163,10 @@ ${srcdir}/info/dir: ${info_dir_deps}
+@@ -1187,14 +1185,10 @@ ${srcdir}/info/dir: ${info_dir_deps}
  	 AWK='${AWK}' ../build-aux/make-info-dir ${info_dir_inputs} \
  	) >$@.tmp && mv $@.tmp $@
  
@@ -98,7 +98,7 @@ index 729cd41..bc1a11b 100644
  INSTALL_DOC = $(INSTALL_DVI) $(INSTALL_HTML) $(INSTALL_PDF) $(INSTALL_PS)
  
  ## Install non .info forms of the documentation.
-@@ -1190,14 +1184,10 @@ install-pdf: $(INSTALL_PDF)
+@@ -1212,14 +1206,10 @@ install-pdf: $(INSTALL_PDF)
  install-ps: $(INSTALL_PS)
  
  
@@ -117,40 +117,45 @@ index 729cd41..bc1a11b 100644
  UNINSTALL_DOC = $(UNINSTALL_DVI) $(UNINSTALL_HTML) $(UNINSTALL_PDF) $(UNINSTALL_PS)
  
  $(UNINSTALL_DOC):
-diff --git a/configure.ac b/configure.ac
-index a51aa44..21b9af9 100644
---- a/configure.ac
-+++ b/configure.ac
-@@ -6758,7 +6758,7 @@ dnl config.status treats $srcdir specially, so I think this is ok...
- AC_CONFIG_FILES([$srcdir/doc/man/emacs.1])
+Index: emacs-snapshot/configure.ac
+===================================================================
+--- emacs-snapshot.orig/configure.ac
++++ emacs-snapshot/configure.ac
+@@ -7725,11 +7725,10 @@ ARCH_INDEPENDENT_CONFIG_FILES([$srcdir/d
  
- m4_define([subdir_makefiles],
--  [lib/Makefile lib-src/Makefile oldXMenu/Makefile doc/emacs/Makefile doc/misc/Makefile doc/lispintro/Makefile doc/lispref/Makefile src/Makefile lwlib/Makefile lisp/Makefile leim/Makefile nextstep/Makefile nt/Makefile])
-+  [lib/Makefile lib-src/Makefile oldXMenu/Makefile doc/misc/Makefile src/Makefile lwlib/Makefile lisp/Makefile leim/Makefile])
- SUBDIR_MAKEFILES="subdir_makefiles"
- AC_CONFIG_FILES(subdir_makefiles)
+ AC_CONFIG_FILES([lib/Makefile lib-src/Makefile oldXMenu/Makefile src/Makefile
+                  lwlib/Makefile nextstep/Makefile nt/Makefile])
+-ARCH_INDEPENDENT_CONFIG_FILES([doc/emacs/Makefile doc/misc/Makefile
+-                               doc/lispintro/Makefile doc/lispref/Makefile
++ARCH_INDEPENDENT_CONFIG_FILES([doc/misc/Makefile
+ 			       lisp/Makefile leim/Makefile])
  
-@@ -6824,15 +6824,6 @@ if test ! -f src/.gdbinit && test -f "$srcdir/src/.gdbinit"; then
- fi
- ])
+-SUBDIR_MAKEFILES="lib/Makefile lib-src/Makefile oldXMenu/Makefile src/Makefile lwlib/Makefile nextstep/Makefile nt/Makefile doc/emacs/Makefile doc/misc/Makefile doc/lispintro/Makefile doc/lispref/Makefile lisp/Makefile leim/Makefile"
++SUBDIR_MAKEFILES="lib/Makefile lib-src/Makefile oldXMenu/Makefile src/Makefile lwlib/Makefile nextstep/Makefile nt/Makefile doc/misc/Makefile lisp/Makefile leim/Makefile"
  
--dnl Perhaps this would be better named doc-emacs-emacsver.texi?
--dnl See comments for etc-refcards-emacsver.tex.
--dnl Since we get a doc/emacs directory generated anyway, for the Makefile,
--dnl it is not quite the same.  But we are generating in $srcdir.
--AC_CONFIG_COMMANDS([doc/emacs/emacsver.texi], [
--${MAKE-make} -s --no-print-directory -C doc/emacs doc-emacsver || \
--AC_MSG_ERROR(['doc/emacs/emacsver.texi' could not be made.])
--])
+ dnl The test/ directory is missing if './make-dist --no-tests' was used.
+ opt_makefile=test/Makefile
+@@ -7801,15 +7800,6 @@ if test "$XCONFIGURE" != "android"; then
+   fi
+   ])
+ 
+-  dnl Perhaps this would be better named doc-emacs-emacsver.texi?
+-  dnl See comments for etc-refcards-emacsver.tex.
+-  dnl Since we get a doc/emacs directory generated anyway, for the Makefile,
+-  dnl it is not quite the same.  But we are generating in $srcdir.
+-  AC_CONFIG_COMMANDS([doc/emacs/emacsver.texi], [
+-  ${MAKE-make} -s --no-print-directory -C doc/emacs doc-emacsver || \
+-  AC_MSG_ERROR(['doc/emacs/emacsver.texi' could not be made.])
+-  ])
 -
- dnl If we give this the more natural name, etc/refcards/emacsver.texi,
- dnl then a directory etc/refcards is created in the build directory,
- dnl which is probably harmless, but confusing (in out-of-tree builds).
-diff --git a/doc/misc/Makefile.in b/doc/misc/Makefile.in
-index 1831bbb..b4ffb77 100644
---- a/doc/misc/Makefile.in
-+++ b/doc/misc/Makefile.in
-@@ -84,6 +84,12 @@ INFO_INSTALL = $(INFO_COMMON) $(DOCMISC_W32)
+   dnl If we give this the more natural name, etc/refcards/emacsver.texi,
+   dnl then a directory etc/refcards is created in the build directory,
+   dnl which is probably harmless, but confusing (in out-of-tree builds).
+Index: emacs-snapshot/doc/misc/Makefile.in
+===================================================================
+--- emacs-snapshot.orig/doc/misc/Makefile.in
++++ emacs-snapshot/doc/misc/Makefile.in
+@@ -84,6 +84,12 @@ INFO_INSTALL = $(INFO_COMMON) $(DOCMISC_
  ## because the info files are pre-built in release tarfiles.
  INFO_TARGETS = $(INFO_COMMON) efaq-w32
  
@@ -163,11 +168,11 @@ index 1831bbb..b4ffb77 100644
  ## Some manuals have their source in .org format.
  ## This is discouraged because the .texi files it generates
  ## are not as well formatted as handwritten ones.
-diff --git a/lisp/help.el b/lisp/help.el
-index 6f55136..898ce8b 100644
---- a/lisp/help.el
-+++ b/lisp/help.el
-@@ -496,6 +496,14 @@ If that doesn't give a function, return nil."
+Index: emacs-snapshot/lisp/help.el
+===================================================================
+--- emacs-snapshot.orig/lisp/help.el
++++ emacs-snapshot/lisp/help.el
+@@ -496,6 +496,14 @@ If that doesn't give a function, return
    (goto-address-mode 1)
    (goto-char (point-min)))
  
