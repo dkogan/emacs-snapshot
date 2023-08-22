@@ -2644,15 +2644,13 @@ emacs_fdopen (int fd, const char *mode)
    clear information associated with the FILE's file descriptor if
    necessary.  */
 
+#if defined HAVE_ANDROID && !defined ANDROID_STUBIFY
 int
 emacs_fclose (FILE *stream)
 {
-#if !(defined HAVE_ANDROID && !defined ANDROID_STUBIFY)
-  return fclose (stream);
-#else
   return android_fclose (stream);
-#endif
 }
+#endif
 
 /* Wrappers around unlink, symlink, rename, renameat_noreplace, and
    rmdir.  These operations handle asset and content directories on
@@ -2974,14 +2972,16 @@ void
 close_output_streams (void)
 {
   /* Android comes with some kind of ``file descriptor sanitizer''
-     that aborts when stdout or stderr is closed.  */
+     that aborts when stdout or stderr is closed.  (bug#65340)
 
-#if defined HAVE_ANDROID && !defined ANDROID_STUBIFY
+     Perform this unconditionally as long as __ANDROID__ is defined,
+     since the file descriptor sanitizer also applies to regular TTY
+     builds under Android.  */
+
+#ifdef __ANDROID__
   fflush (stderr);
   fflush (stdout);
-  return;
-#endif
-
+#else /* !__ANDROID__ */
   if (close_stream (stdout) != 0)
     {
       emacs_perror ("Write error to standard output");
@@ -2995,6 +2995,7 @@ close_output_streams (void)
 	     ? fflush (stderr) != 0 || ferror (stderr)
 	     : close_stream (stderr) != 0))
     _exit (EXIT_FAILURE);
+#endif /* __ANDROID__ */
 }
 
 #ifndef DOS_NT
@@ -3492,7 +3493,7 @@ get_up_time (void)
 	  Lisp_Object subsec = Fcons (make_fixnum (upfrac), make_fixnum (hz));
 	  up = Ftime_add (sec, subsec);
 	}
-      fclose (fup);
+      emacs_fclose (fup);
     }
   unblock_input ();
 
@@ -3540,7 +3541,7 @@ procfs_ttyname (int rdev)
 		}
 	    }
 	}
-      fclose (fdev);
+      emacs_fclose (fdev);
     }
   unblock_input ();
   return build_string (name);
@@ -3582,7 +3583,7 @@ procfs_get_total_memory (void)
 	  }
       while (!done);
 
-      fclose (fmem);
+      emacs_fclose (fmem);
     }
   unblock_input ();
   return retval;
