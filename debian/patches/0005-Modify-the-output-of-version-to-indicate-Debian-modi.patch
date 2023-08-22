@@ -11,10 +11,10 @@ Added-by: Rob Browning <rlb@defaultvalue.org>
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/lisp/version.el b/lisp/version.el
-index ca61f8c..bda5719 100644
+index 0eb4ea7..a739fd3 100644
 --- a/lisp/version.el
 +++ b/lisp/version.el
-@@ -97,7 +97,7 @@ Don't use this function in programs to choose actions according
+@@ -103,7 +103,7 @@ Don't use this function in programs to choose actions according
  to the system configuration; look at `system-configuration' instead."
    (interactive "P")
    (let ((version-string
