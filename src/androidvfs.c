@@ -26,6 +26,7 @@ along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.  */
 #include <errno.h>
 #include <minmax.h>
 #include <string.h>
+#include <systime.h>
 #include <semaphore.h>
 
 #include <sys/stat.h>
@@ -2058,7 +2059,7 @@ android_afs_stat (struct android_vnode *vnode, struct stat *statb)
       /* Concoct a nonexistent device and an inode number.  */
       statb->st_dev = -1;
       statb->st_ino = 0;
-      return 0;
+      goto set_file_times;
     }
 
   /* AASSET_MODE_STREAMING is fastest here.  */
@@ -2083,6 +2084,24 @@ android_afs_stat (struct android_vnode *vnode, struct stat *statb)
 
   /* Close the asset.  */
   AAsset_close (asset_desc);
+
+ set_file_times:
+
+  /* If the installation date can be ascertained, return that as the
+     file's modification time.  */
+
+  if (timespec_valid_p (emacs_installation_time))
+    {
+#ifdef STAT_TIMESPEC
+      STAT_TIMESPEC (statb, st_mtim) = emacs_installation_time;
+#else /* !STAT_TIMESPEC */
+      /* Headers supplied by the NDK r10b contain a `struct stat'
+	 without POSIX fields for nano-second timestamps.  */
+      statb->st_mtime = emacs_installation_time.tv_sec;
+      statb->st_mtime_nsec = emacs_installation_time.tv_nsec;
+#endif /* STAT_TIMESPEC */
+    }
+
   return 0;
 }
 
@@ -4391,11 +4410,13 @@ android_saf_move_document (const char *uri, char **doc_id,
 
   /* Do the rename.  */
   method = service_class.move_document;
-  result = (*android_java_env)->CallObjectMethod (android_java_env,
-						  emacs_service,
-						  method, uri1,
-						  doc_id1, dir_name1,
-						  dst_id1, src_id1);
+  result
+    = (*android_java_env)->CallNonvirtualObjectMethod (android_java_env,
+						       emacs_service,
+						       service_class.class,
+						       method, uri1,
+						       doc_id1, dir_name1,
+						       dst_id1, src_id1);
   if (android_saf_exception_check (5, src_id1, dst_id1, dir_name1,
 				   doc_id1, uri1))
     {

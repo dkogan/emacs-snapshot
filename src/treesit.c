@@ -80,6 +80,7 @@ along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.  */
 #undef ts_tree_cursor_current_node
 #undef ts_tree_cursor_delete
 #undef ts_tree_cursor_goto_first_child
+#undef ts_tree_cursor_goto_first_child_for_byte
 #undef ts_tree_cursor_goto_next_sibling
 #undef ts_tree_cursor_goto_parent
 #undef ts_tree_cursor_new
@@ -147,6 +148,7 @@ DEF_DLL_FN (TSTreeCursor, ts_tree_cursor_copy, (const TSTreeCursor *));
 DEF_DLL_FN (TSNode, ts_tree_cursor_current_node, (const TSTreeCursor *));
 DEF_DLL_FN (void, ts_tree_cursor_delete, (const TSTreeCursor *));
 DEF_DLL_FN (bool, ts_tree_cursor_goto_first_child, (TSTreeCursor *));
+DEF_DLL_FN (int64_t, ts_tree_cursor_goto_first_child_for_byte, (TSTreeCursor *, uint32_t));
 DEF_DLL_FN (bool, ts_tree_cursor_goto_next_sibling, (TSTreeCursor *));
 DEF_DLL_FN (bool, ts_tree_cursor_goto_parent, (TSTreeCursor *));
 DEF_DLL_FN (TSTreeCursor, ts_tree_cursor_new, (TSNode));
@@ -210,6 +212,7 @@ init_treesit_functions (void)
   LOAD_DLL_FN (library, ts_tree_cursor_current_node);
   LOAD_DLL_FN (library, ts_tree_cursor_delete);
   LOAD_DLL_FN (library, ts_tree_cursor_goto_first_child);
+  LOAD_DLL_FN (library, ts_tree_cursor_goto_first_child_for_byte);
   LOAD_DLL_FN (library, ts_tree_cursor_goto_next_sibling);
   LOAD_DLL_FN (library, ts_tree_cursor_goto_parent);
   LOAD_DLL_FN (library, ts_tree_cursor_new);
@@ -267,6 +270,7 @@ init_treesit_functions (void)
 #define ts_tree_cursor_current_node fn_ts_tree_cursor_current_node
 #define ts_tree_cursor_delete fn_ts_tree_cursor_delete
 #define ts_tree_cursor_goto_first_child fn_ts_tree_cursor_goto_first_child
+#define ts_tree_cursor_goto_first_child_for_byte fn_ts_tree_cursor_goto_first_child_for_byte
 #define ts_tree_cursor_goto_next_sibling fn_ts_tree_cursor_goto_next_sibling
 #define ts_tree_cursor_goto_parent fn_ts_tree_cursor_goto_parent
 #define ts_tree_cursor_new fn_ts_tree_cursor_new
@@ -1149,7 +1153,8 @@ treesit_read_buffer (void *parser, uint32_t byte_index,
    machine.  */
 Lisp_Object
 make_treesit_parser (Lisp_Object buffer, TSParser *parser,
-		     TSTree *tree, Lisp_Object language_symbol)
+		     TSTree *tree, Lisp_Object language_symbol,
+		     Lisp_Object tag)
 {
   struct Lisp_TS_Parser *lisp_parser;
 
@@ -1158,6 +1163,7 @@ make_treesit_parser (Lisp_Object buffer, TSParser *parser,
 
   lisp_parser->language_symbol = language_symbol;
   lisp_parser->after_change_functions = Qnil;
+  lisp_parser->tag = tag;
   lisp_parser->buffer = buffer;
   lisp_parser->parser = parser;
   lisp_parser->tree = tree;
@@ -1375,24 +1381,29 @@ DEFUN ("treesit-node-parser",
 
 DEFUN ("treesit-parser-create",
        Ftreesit_parser_create, Streesit_parser_create,
-       1, 3, 0,
-       doc: /* Create and return a parser in BUFFER for LANGUAGE.
+       1, 4, 0,
+       doc: /* Create and return a parser in BUFFER for LANGUAGE with TAG.
 
 The parser is automatically added to BUFFER's parser list, as returned
 by `treesit-parser-list'.  LANGUAGE is a language symbol.  If BUFFER
 is nil or omitted, it defaults to the current buffer.  If BUFFER
-already has a parser for LANGUAGE, return that parser, but if NO-REUSE
-is non-nil, always create a new parser.
+already has a parser for LANGUAGE with TAG, return that parser, but if
+NO-REUSE is non-nil, always create a new parser.
+
+TAG can be any symbol except t, and defaults to nil.  Different
+parsers can have the same tag.
 
 If that buffer is an indirect buffer, its base buffer is used instead.
 That is, indirect buffers use their base buffer's parsers.  Lisp
 programs should widen as necessary should they want to use a parser in
 an indirect buffer.  */)
-  (Lisp_Object language, Lisp_Object buffer, Lisp_Object no_reuse)
+  (Lisp_Object language, Lisp_Object buffer, Lisp_Object no_reuse,
+   Lisp_Object tag)
 {
   treesit_initialize ();
 
   CHECK_SYMBOL (language);
+  CHECK_SYMBOL (tag);
   struct buffer *buf;
   if (NILP (buffer))
     buf = current_buffer;
@@ -1404,6 +1415,9 @@ an indirect buffer.  */)
   if (buf->base_buffer)
     buf = buf->base_buffer;
 
+  if (EQ (tag, Qt))
+    xsignal2(Qwrong_type_argument, list2(Qnot, Qt), Qt);
+
   treesit_check_buffer_size (buf);
 
   /* See if we can reuse a parser.  */
@@ -1413,7 +1427,8 @@ an indirect buffer.  */)
       FOR_EACH_TAIL (tail)
       {
 	struct Lisp_TS_Parser *parser = XTS_PARSER (XCAR (tail));
-	if (EQ (parser->language_symbol, language))
+	if (EQ (parser->tag, tag)
+	    && EQ (parser->language_symbol, language))
 	  return XCAR (tail);
       }
     }
@@ -1433,7 +1448,7 @@ an indirect buffer.  */)
   /* Create parser.  */
   Lisp_Object lisp_parser = make_treesit_parser (Fcurrent_buffer (),
 						 parser, NULL,
-						 language);
+						 language, tag);
 
   /* Update parser-list.  */
   BVAR (buf, ts_parser_list) = Fcons (lisp_parser, BVAR (buf, ts_parser_list));
@@ -1462,13 +1477,19 @@ See `treesit-parser-list' for the buffer's parser list.  */)
 
 DEFUN ("treesit-parser-list",
        Ftreesit_parser_list, Streesit_parser_list,
-       0, 1, 0,
-       doc: /* Return BUFFER's parser list.
+       0, 3, 0,
+       doc: /* Return BUFFER's parser list, filtered by LANGUAGE and TAG.
 
 BUFFER defaults to the current buffer.  If that buffer is an indirect
 buffer, its base buffer is used instead.  That is, indirect buffers
-use their base buffer's parsers.  */)
-  (Lisp_Object buffer)
+use their base buffer's parsers.
+
+If LANGUAGE is non-nil, only return parsers for that language.
+
+The returned list only contain parsers with TAG.  TAG defaults to nil.
+If TAG is t, include parsers in the returned list regardless of their
+tag.  */)
+  (Lisp_Object buffer, Lisp_Object language, Lisp_Object tag)
 {
   struct buffer *buf;
   if (NILP (buffer))
@@ -1489,7 +1510,12 @@ use their base buffer's parsers.  */)
   tail = BVAR (buf, ts_parser_list);
 
   FOR_EACH_TAIL (tail)
-    return_list = Fcons (XCAR (tail), return_list);
+    {
+      struct Lisp_TS_Parser *parser = XTS_PARSER (XCAR (tail));
+      if ((NILP (language) || EQ (language, parser->language_symbol))
+	  && (EQ (tag, Qt) || EQ (tag, parser->tag)))
+	return_list = Fcons (XCAR (tail), return_list);
+    }
 
   return Freverse (return_list);
 }
@@ -2771,7 +2797,7 @@ static Lisp_Object treesit_resolve_node (Lisp_Object obj)
   else if (SYMBOLP (obj))
     {
       Lisp_Object parser
-	= Ftreesit_parser_create (obj, Fcurrent_buffer (), Qnil);
+	= Ftreesit_parser_create (obj, Fcurrent_buffer (), Qnil, Qnil);
       return Ftreesit_parser_root_node (parser);
     }
   else
@@ -3027,7 +3053,8 @@ treesit_assume_true (bool val)
    limit.  */
 static bool
 treesit_cursor_helper_1 (TSTreeCursor *cursor, TSNode *target,
-			 uint32_t end_pos, ptrdiff_t limit)
+			 uint32_t start_pos, uint32_t end_pos,
+			 ptrdiff_t limit)
 {
   if (limit <= 0)
     return false;
@@ -3036,23 +3063,17 @@ treesit_cursor_helper_1 (TSTreeCursor *cursor, TSNode *target,
   if (ts_node_eq (cursor_node, *target))
     return true;
 
-  if (!ts_tree_cursor_goto_first_child (cursor))
+  if (ts_tree_cursor_goto_first_child_for_byte (cursor, start_pos) == -1)
     return false;
-
-  /* Skip nodes that definitely don't contain TARGET.  */
-  while (ts_node_end_byte (cursor_node) < end_pos)
-    {
-      if (!ts_tree_cursor_goto_next_sibling (cursor))
-	break;
-      cursor_node = ts_tree_cursor_current_node (cursor);
-    }
 
   /* Go through each sibling that could contain TARGET.  Because of
      missing nodes (their width is 0), there could be multiple
      siblings that could contain TARGET.  */
   while (ts_node_start_byte (cursor_node) <= end_pos)
     {
-      if (treesit_cursor_helper_1 (cursor, target, end_pos, limit - 1))
+      if (ts_node_end_byte (cursor_node) >= end_pos
+	  && treesit_cursor_helper_1 (cursor, target, start_pos, end_pos,
+				      limit - 1))
 	return true;
 
       if (!ts_tree_cursor_goto_next_sibling (cursor))
@@ -3084,11 +3105,12 @@ treesit_cursor_helper_1 (TSTreeCursor *cursor, TSNode *target,
 static bool
 treesit_cursor_helper (TSTreeCursor *cursor, TSNode node, Lisp_Object parser)
 {
+  uint32_t start_pos = ts_node_start_byte (node);
   uint32_t end_pos = ts_node_end_byte (node);
   TSNode root = ts_tree_root_node (XTS_PARSER (parser)->tree);
   *cursor = ts_tree_cursor_new (root);
-  bool success = treesit_cursor_helper_1 (cursor, &node, end_pos,
-					  TREESIT_RECURSION_LIMIT);
+  bool success = treesit_cursor_helper_1 (cursor, &node, start_pos,
+					  end_pos, TREESIT_RECURSION_LIMIT);
   if (!success)
     ts_tree_cursor_delete (cursor);
   return success;
@@ -3220,7 +3242,7 @@ treesit_traverse_child_helper (TSTreeCursor *cursor,
 }
 
 /* Given a symbol THING, and a language symbol LANGUAGE, find the
-   corresponding predicate definition in treesit-things-settings.
+   corresponding predicate definition in treesit-thing-settings.
    Don't check for the type of THING and LANGUAGE.
 
    If there isn't one, return Qnil.  */
@@ -3246,13 +3268,15 @@ treesit_traverse_get_predicate (Lisp_Object thing, Lisp_Object language)
    return false, otherwise return true.  This function also check for
    recusion levels: we place a arbitrary 100 level limit on recursive
    predicates.  RECURSION_LEVEL is the current recursion level (that
-   starts at 0), if it goes over 99, return false and set
-   SIGNAL_DATA.  LANGUAGE is a LANGUAGE symbol.  */
+   starts at 0), if it goes over 99, return false and set SIGNAL_DATA.
+   LANGUAGE is a LANGUAGE symbol.  IGNORE_MISSING is as in
+   `treesit-node-match-p' below.  */
 static bool
 treesit_traverse_validate_predicate (Lisp_Object pred,
 				     Lisp_Object language,
 				     Lisp_Object *signal_data,
-				     ptrdiff_t recursion_level)
+				     ptrdiff_t recursion_level,
+				     bool ignore_missing)
 {
   if (recursion_level > 99)
     {
@@ -3271,6 +3295,8 @@ treesit_traverse_validate_predicate (Lisp_Object pred,
 							       language);
       if (NILP (definition))
 	{
+	  if (ignore_missing)
+	    return false;
 	  *signal_data = list2 (build_string ("Cannot find the definition "
 					      "of the predicate in "
 					      "`treesit-thing-settings'"),
@@ -3280,7 +3306,8 @@ treesit_traverse_validate_predicate (Lisp_Object pred,
       return treesit_traverse_validate_predicate (definition,
 						  language,
 						  signal_data,
-						  recursion_level + 1);
+						  recursion_level + 1,
+						  ignore_missing);
     }
   else if (CONSP (pred))
     {
@@ -3306,7 +3333,8 @@ treesit_traverse_validate_predicate (Lisp_Object pred,
 	  return treesit_traverse_validate_predicate (XCAR (cdr),
 						      language,
 						      signal_data,
-						      recursion_level + 1);
+						      recursion_level + 1,
+						      ignore_missing);
 	}
       else if (BASE_EQ (car, Qor))
 	{
@@ -3323,7 +3351,8 @@ treesit_traverse_validate_predicate (Lisp_Object pred,
 	      if (!treesit_traverse_validate_predicate (XCAR (cdr),
 							language,
 							signal_data,
-							recursion_level + 1))
+							recursion_level + 1,
+							ignore_missing))
 		return false;
 	    }
 	  return true;
@@ -3512,8 +3541,10 @@ DEFUN ("treesit-search-subtree",
        doc: /* Traverse the parse tree of NODE depth-first using PREDICATE.
 
 Traverse the subtree of NODE, and match PREDICATE with each node along
-the way.  PREDICATE is a regexp string that matches against each
-node's type, or a function that takes a node and returns nil/non-nil.
+the way.  PREDICATE can be a regexp string that matches against each
+node's type, a predicate function, and more.  See
+`treesit-thing-settings' for the possible predicates.  PREDICATE can
+also be a thing defined in `treesit-thing-settings'.
 
 By default, only traverse named nodes, but if ALL is non-nil, traverse
 all nodes.  If BACKWARD is non-nil, traverse backwards.  If DEPTH is
@@ -3544,7 +3575,7 @@ Return the first matched node, or nil if none matches.  */)
 
   Lisp_Object signal_data = Qnil;
   if (!treesit_traverse_validate_predicate (predicate, language,
-					    &signal_data, 0))
+					    &signal_data, 0, false))
     xsignal1 (Qtreesit_invalid_predicate, signal_data);
 
   Lisp_Object return_value = Qnil;
@@ -3571,9 +3602,11 @@ DEFUN ("treesit-search-forward",
        doc: /* Search for node matching PREDICATE in the parse tree of START.
 
 Start traversing the tree from node START, and match PREDICATE with
-each node (except START itself) along the way.  PREDICATE is a regexp
-string that matches against each node's type, or a function that takes
-a node and returns non-nil if it matches.
+each node (except START itself) along the way.  PREDICATE can be a
+regexp string that matches against each node's type, a predicate
+function, and more.  See `treesit-thing-settings' for the possible
+predicates.  PREDICATE can also be a thing defined in
+`treesit-thing-settings'.
 
 By default, only search for named nodes, but if ALL is non-nil, search
 for all nodes.  If BACKWARD is non-nil, search backwards.
@@ -3609,7 +3642,7 @@ always traverse leaf nodes first, then upwards.  */)
 
   Lisp_Object signal_data = Qnil;
   if (!treesit_traverse_validate_predicate (predicate, language,
-					    &signal_data, 0))
+					    &signal_data, 0, false))
     xsignal1 (Qtreesit_invalid_predicate, signal_data);
 
   Lisp_Object return_value = Qnil;
@@ -3683,9 +3716,12 @@ DEFUN ("treesit-induce-sparse-tree",
        Streesit_induce_sparse_tree, 2, 4, 0,
        doc: /* Create a sparse tree of ROOT's subtree.
 
-This takes the subtree under ROOT, and combs it so only the nodes
-that match PREDICATE are left, like picking out grapes on the vine.
-PREDICATE is a regexp string that matches against each node's type.
+This takes the subtree under ROOT, and combs it so only the nodes that
+match PREDICATE are left, like picking out grapes on the vine.
+PREDICATE can be a regexp string that matches against each node's
+type, a predicate function, and more.  See `treesit-thing-settings'
+for the possible predicates.  PREDICATE can also be a thing defined in
+`treesit-thing-settings'.
 
 For a subtree on the left that consist of both numbers and letters, if
 PREDICATE is "is letter", the returned tree is the one on the right.
@@ -3741,7 +3777,7 @@ a regexp.  */)
 
   Lisp_Object signal_data = Qnil;
   if (!treesit_traverse_validate_predicate (predicate, language,
-					    &signal_data, 0))
+					    &signal_data, 0, false))
     xsignal1 (Qtreesit_invalid_predicate, signal_data);
 
   Lisp_Object parent = Fcons (Qnil, Qnil);
@@ -3767,13 +3803,20 @@ a regexp.  */)
 
 DEFUN ("treesit-node-match-p",
        Ftreesit_node_match_p,
-       Streesit_node_match_p, 2, 2, 0,
+       Streesit_node_match_p, 2, 3, 0,
        doc: /* Check whether NODE matches PREDICATE.
 
-PREDICATE can be a regexp matching node type, a predicate function,
-and more, see `treesit-thing-settings' for detail.  Return non-nil
-if NODE matches PRED, nil otherwise.  */)
-  (Lisp_Object node, Lisp_Object predicate)
+PREDICATE can be a symbol representing a thing in
+`treesit-thing-settings', or a predicate, like regexp matching node
+type, etc.  See `treesit-thing-settings' for more details.
+
+Return non-nil if NODE matches PREDICATE, nil otherwise.
+
+Signals `treesit-invalid-predicate' if there's no definition of THING
+in `treesit-thing-settings', or if PREDICATE is malformed.  If
+IGNORE-MISSING is non-nil, don't signal an error for missing THING
+definition, but still signal for malformed PREDICATE.  */)
+  (Lisp_Object node, Lisp_Object predicate, Lisp_Object ignore_missing)
 {
   CHECK_TS_NODE (node);
 
@@ -3782,7 +3825,8 @@ if NODE matches PRED, nil otherwise.  */)
 
   Lisp_Object signal_data = Qnil;
   if (!treesit_traverse_validate_predicate (predicate, language,
-					    &signal_data, 0))
+					    &signal_data, 0,
+					    !NILP (ignore_missing)))
     xsignal1 (Qtreesit_invalid_predicate, signal_data);
 
   TSTreeCursor cursor = ts_tree_cursor_new (XTS_NODE (node)->node);
@@ -3994,20 +4038,20 @@ LANGUAGE is a language symbol, and DEFINITIONS is a list of
     (THING PRED)
 
 THING is a symbol representing the thing, like `defun', `sexp', or
-`block'; PRED defines what kind of node can be qualified as THING.
+`sentence'; PRED defines what kind of node can be qualified as THING.
 
 PRED can be a regexp string that matches the type of the node; it can
 be a predicate function that takes the node as the sole argument and
-returns t if the node is the thing; it can be a cons (REGEXP . FN),
-which is a combination of a regexp and a predicate function, and the
-node has to match both to qualify as the thing.
+returns t if the node is the thing, and nil otherwise; it can be a
+cons (REGEXP . FN), which is a combination of a regexp and a predicate
+function, and the node has to match both to qualify as the thing.
 
 PRED can also be recursively defined.  It can be (or PRED...), meaning
 satisfying anyone of the inner PREDs qualifies the node; or (not
 PRED), meaning not satisfying the inner PRED qualifies the node.
 
 Finally, PRED can refer to other THINGs defined in this list by using
-the symbol of that THING.  For example, (or block sexp).  */);
+the symbol of that THING.  For example, (or sexp sentence).  */);
   Vtreesit_thing_settings = Qnil;
 
   staticpro (&Vtreesit_str_libtree_sitter);

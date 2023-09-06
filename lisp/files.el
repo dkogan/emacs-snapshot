@@ -1283,10 +1283,8 @@ Tip: You can use this expansion of remote identifier components
      returns a remote file name for file \"/bin/sh\" that has the
      same remote identifier as FILE but expanded; a name such as
      \"/sudo:root@myhost:/bin/sh\"."
-  (let ((handler (find-file-name-handler file 'file-remote-p)))
-    (if handler
-	(funcall handler 'file-remote-p file identification connected)
-      nil)))
+  (when-let ((handler (find-file-name-handler file 'file-remote-p)))
+    (funcall handler 'file-remote-p file identification connected)))
 
 ;; Probably this entire variable should be obsolete now, in favor of
 ;; something Tramp-related (?).  It is not used in many places.
@@ -6624,7 +6622,15 @@ into NEWNAME instead."
 				     (file-attributes directory))))
 	      (follow-flag (unless follow 'nofollow)))
 	  (if modes (set-file-modes newname modes follow-flag))
-	  (if times (set-file-times newname times follow-flag)))))))
+	  (when times
+            ;; When built for an Android GUI build, don't attempt to
+            ;; set file times for a file within /content, as the
+            ;; Android VFS layer does not provide means to change file
+            ;; timestamps.
+            (when (or (not (and (eq system-type 'android)
+                                (featurep 'android)))
+                      (not (string-prefix-p "/content/" newname)))
+                (set-file-times newname times follow-flag))))))))
 
 
 ;; At time of writing, only info uses this.

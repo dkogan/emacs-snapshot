@@ -129,8 +129,7 @@ buffer.
   Since there is no other way to start the @command{emacsclient}
 program (@pxref{Emacs Server}) from another Android program, Emacs
 provides a wrapper around the @command{emacsclient} program, which is
-registered with the system as an application that can open all text
-files.
+registered with the system as an application that can open any file.
 
   When that wrapper is selected as the program with which to open a
 file, it invokes @command{emacsclient} with the options
@@ -153,6 +152,11 @@ directory, or try to open files in it yourself.
   This feature is not provided on Android 4.3 and earlier, in which
 case such files are copied to a temporary directory before being
 opened.
+
+@cindex ``org-protocol'' links, android
+  In addition to opening ordinary text files, Emacs also registers its
+@command{emacsclient} wrapper as a program capable of opening
+``org-protocol'' links (@pxref{Protocols,,,org, The Org Manual}).
 
 @node Android File System
 @section What Files Emacs Can Access on Android
@@ -293,7 +297,7 @@ provide, placing their files within the directory
 @file{/content/storage}.
 
 @findex android-request-directory-access
-  Before Emacs is granted access to any of these directories, it must
+  Before Emacs is granted access to one of these directories, it must
 first request the right to access it.  This is done by running the
 command (@pxref{M-x}) @code{android-request-directory-access}, which
 displays a file selection dialog.
@@ -335,17 +339,17 @@ applications.}
   Each application is also prohibited from accessing many system
 directories and the app data directories of other applications.
 
-  Emacs comes with several binaries.  While being executable files,
-they are packaged as libraries in the library directory, because
-otherwise the system will not unpack them while Emacs is being
-installed.  This means, instead of specifying @code{ctags} or
-@code{emacsclient} in a subprocess, Lisp code must specify
-@code{libctags.so} or @code{libemacsclient.so} on the command line
-instead when starting either of those programs in a subprocess; to
-determine which names to use, consult the values of the variables
-@code{ctags-program-name}, @code{etags-program-name},
-@code{hexl-program-name}, @code{emacsclient-program-name},
-@code{movemail-program-name}, and @code{ebrowse-program-name}.
+  The Emacs distribution also incorporates several binaries.  While
+being executable files, they are packaged as libraries in the library
+directory, because otherwise the system will not unpack them while
+Emacs is being installed.  This means that instead of @code{ctags} or
+@code{emacsclient}, Lisp code must specify @code{libctags.so} or
+@code{libemacsclient.so} on the command line when starting either of
+those programs in a subprocess; to determine which names to use,
+consult the values of the variables @code{ctags-program-name},
+@code{etags-program-name}, @code{hexl-program-name},
+@code{emacsclient-program-name}, @code{movemail-program-name},
+@code{ebrowse-program-name}, and @code{rcs2log-program-name}.
 @xref{Subprocess Creation,,, elisp, the Emacs Lisp Reference Manual}.
 
   The @file{/assets} directory containing Emacs start-up files is
@@ -663,6 +667,19 @@ in Emacs.
 modifier: it is referred to as @key{SYM} on Android keyboards and
 within the Settings keymap menu.
 
+@vindex android-intercept-control-space
+@cindex @kbd{C-SPC} interception, android
+  Android input methods have a penchant for irritating users by
+silently discarding key sequences containing @kbd{C-SPC} during the
+event filtering process, that they normally have no real application
+for such key sequences notwithstanding.  By default, Emacs intercepts
+these key sequences before they can be filtered by the input method.
+
+  If this proves unwanted (for instance, if the input method treats
+@kbd{C-SPC} as a shortcut key for switching languages), it can be
+disabled by setting the variable
+@code{android-intercept-control-space} to @code{nil}.
+
 @node Android Fonts
 @section Font Backends and Selection under Android
 @cindex fonts, android
@@ -780,7 +797,7 @@ normally installed from within a purpose-built terminal emulator
 application, but Emacs can access them if it is built with the same
 application signing key as the Termux terminal emulator, and with its
 ``shared user ID'' set to the package name of the terminal emulator
-program.  The @file{java/INSTALL} within the Emacs distribution
+program.  The file @file{java/INSTALL} within the Emacs distribution
 explains how to build Emacs in this fashion.
 
   @uref{https://github.com/termux/termux-packages, termux-packages}

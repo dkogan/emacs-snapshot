@@ -369,7 +369,8 @@ if the variable `help-downcase-arguments' is non-nil."
       (setq doc (replace-regexp-in-string
                  ;; This is heuristic, but covers all common cases
                  ;; except ARG1-ARG2
-                 (concat "\\<"                   ; beginning of word
+                 (concat "([^ ]+ .*"             ; skip function name
+                         "\\<"                   ; beginning of word
                          "\\(?:[a-z-]*-\\)?"     ; for xxx-ARG
                          "\\("
                          (regexp-quote arg)
@@ -1749,8 +1750,7 @@ If FRAME is omitted or nil, use the selected frame."
 		     (called-interactively-p 'interactive))
     (unless face
       (setq face 'default))
-    (if (not (listp face))
-        (setq face (list face)))
+    (setq face (ensure-list face))
     (with-help-window (help-buffer)
       (with-current-buffer standard-output
         (dolist (f face (buffer-string))

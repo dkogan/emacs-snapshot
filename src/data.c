@@ -1607,8 +1607,6 @@ set_internal (Lisp_Object symbol, Lisp_Object newval, Lisp_Object where,
   bool voide = BASE_EQ (newval, Qunbound);
 
   /* If restoring in a dead buffer, do nothing.  */
-  /* if (BUFFERP (where) && NILP (XBUFFER (where)->name))
-      return; */
 
   CHECK_SYMBOL (symbol);
   struct Lisp_Symbol *sym = XSYMBOL (symbol);
@@ -4368,8 +4366,6 @@ syms_of_data (void)
   defsubr (&Sbool_vector_subsetp);
   defsubr (&Sbool_vector_count_consecutive);
   defsubr (&Sbool_vector_count_population);
-
-  set_symbol_function (Qwholenump, XSYMBOL (Qnatnump)->u.s.function);
 
   DEFVAR_LISP ("most-positive-fixnum", Vmost_positive_fixnum,
 	       doc: /* The greatest integer that is represented efficiently.

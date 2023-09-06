@@ -282,16 +282,20 @@ The user is asked to choose between each NAME from ITEMS.
 If ITEMS has simple item definitions, then this function returns the VALUE of
 the chosen element.  If ITEMS is a keymap, then the return value is the symbol
 in the key vector, as in the argument of `define-key'."
-  ;; Apply quote substitution to customize choice menu item text,
-  ;; whether it occurs in a widget buffer or in a popup menu.
+  ;; Apply substitution to choice menu title and item text, whether it
+  ;; occurs in a widget buffer or in a popup menu.
   (let ((items (mapc (lambda (x)
-                       (when (consp x)
-                         (dotimes (i (1- (length x)))
-                           (when (stringp (nth i x))
-                             (setcar (nthcdr i x)
-                                     (substitute-command-keys
-                                      (car (nthcdr i x))))))))
-		     items)))
+                       (if (proper-list-p x)
+                           (dotimes (i (1- (length x)))
+                             (when (stringp (nth i x))
+                               (setcar (nthcdr i x)
+                                       (substitute-command-keys
+                                        (car (nthcdr i x))))))
+                         ;; ITEMS has simple item definitions.
+                         (when (and (consp x) (stringp (car x)))
+                           (setcar x (substitute-command-keys (car x))))))
+		     items))
+        (title (substitute-command-keys title)))
     (cond ((and (< (length items) widget-menu-max-size)
 	        event (display-popup-menus-p))
 	   ;; Mouse click.
@@ -644,8 +648,7 @@ Return a list whose car contains all members of VALS that matched WIDGET."
 (defun widget-prompt-value (widget prompt &optional value unbound)
   "Prompt for a value matching WIDGET, using PROMPT.
 The current value is assumed to be VALUE, unless UNBOUND is non-nil."
-  (unless (listp widget)
-    (setq widget (list widget)))
+  (setq widget (ensure-list widget))
   (setq prompt (format "[%s] %s" (widget-type widget) prompt))
   (setq widget (widget-convert widget))
   (let ((answer (widget-apply widget :prompt-value prompt value unbound)))

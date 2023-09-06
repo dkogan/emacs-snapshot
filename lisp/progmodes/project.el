@@ -410,7 +410,8 @@ the buffer's value of `default-directory'."
 (defcustom project-vc-ignores nil
   "List of patterns to add to `project-ignores'."
   :type '(repeat string))
-;;;###autoload(put 'project-vc-ignores 'safe-local-variable #'listp)
+;; Change to `list-of-strings-p' when support for Emacs 28 is dropped.
+;;;###autoload(put 'project-vc-ignores 'safe-local-variable (lambda (val) (and (listp val) (not (memq nil (mapcar #'stringp val))))))
 
 (defcustom project-vc-merge-submodules t
   "Non-nil to consider submodules part of the parent project.
@@ -465,6 +466,7 @@ variables, such as `project-vc-ignores' or `project-vc-name'."
   :type '(repeat string)
   :version "29.1"
   :package-version '(project . "0.9.0"))
+;; Change to `list-of-strings-p' when support for Emacs 28 is dropped.
 ;;;###autoload(put 'project-vc-extra-root-markers 'safe-local-variable (lambda (val) (and (listp val) (not (memq nil (mapcar #'stringp val))))))
 
 ;; FIXME: Using the current approach, major modes are supposed to set
@@ -731,11 +733,10 @@ See `project-vc-extra-root-markers' for the marker value format.")
 
 (cl-defmethod project-ignores ((project (head vc)) dir)
   (let* ((root (nth 2 project))
-         backend)
+         (backend (cadr project)))
     (append
      (when (and backend
                 (file-equal-p dir root))
-       (setq backend (cadr project))
        (delq
         nil
         (mapcar
@@ -989,6 +990,23 @@ pattern to search for."
     (read-regexp "Find regexp" (and sym (regexp-quote sym))
                  project-regexp-history-variable)))
 
+(defun project--find-default-from (filename project)
+  "Ensure FILENAME is in PROJECT.
+
+Usually, just return FILENAME.  But if
+`project-current-directory-override' is set, adjust it to be
+relative to PROJECT instead.
+
+This supports using a relative file name from the current buffer
+when switching projects with `project-switch-project' and then
+using a command like `project-find-file'."
+  (if-let (filename-proj (and project-current-directory-override
+                            (project-current nil default-directory)))
+      ;; file-name-concat requires Emacs 28+
+      (concat (file-name-as-directory (project-root project))
+              (file-relative-name filename (project-root filename-proj)))
+    filename))
+
 ;;;###autoload
 (defun project-find-file (&optional include-all)
   "Visit a file (with completion) in the current project.
@@ -1006,16 +1024,7 @@ for VCS directories listed in `vc-directory-exclusion-list'."
          (dirs (list root)))
     (project-find-file-in
      (or (thing-at-point 'filename)
-         (and buffer-file-name
-              (if-let (buffer-proj (and project-current-directory-override
-                                        (project-current nil default-directory)))
-                  ;; Allow using the relative file name of the current
-                  ;; buffer in "other project" as well.
-                  (let ((buffer-root (project-root buffer-proj)))
-                    ;; file-name-concat requires Emacs 28+
-                    (concat (file-name-as-directory root)
-                            (file-relative-name buffer-file-name buffer-root)))
-                buffer-file-name)))
+         (and buffer-file-name (project--find-default-from buffer-file-name pr)))
      dirs pr include-all)))
 
 ;;;###autoload
@@ -1023,17 +1032,23 @@ for VCS directories listed in `vc-directory-exclusion-list'."
   "Visit a file (with completion) in the current project or external roots.
 
 The filename at point (determined by `thing-at-point'), if any,
-is available as part of \"future history\".
+is available as part of \"future history\".  If none, the current
+buffer's file name is used.
 
 If INCLUDE-ALL is non-nil, or with prefix argument when called
 interactively, include all files under the project root, except
 for VCS directories listed in `vc-directory-exclusion-list'."
   (interactive "P")
+  (defvar project-file-history-behavior)
   (let* ((pr (project-current t))
          (dirs (cons
                 (project-root pr)
-                (project-external-roots pr))))
-    (project-find-file-in (thing-at-point 'filename) dirs pr include-all)))
+                (project-external-roots pr)))
+         (project-file-history-behavior t))
+    (project-find-file-in
+     (or (thing-at-point 'filename)
+         (and buffer-file-name (project--find-default-from buffer-file-name pr)))
+     dirs pr include-all)))
 
 (defcustom project-read-file-name-function #'project--read-file-cpd-relative
   "Function to call to read a file name from a list.
@@ -1045,6 +1060,28 @@ For the arguments list, see `project--read-file-cpd-relative'."
                  (function :tag "Custom function" nil))
   :group 'project
   :version "27.1")
+
+(defcustom project-file-history-behavior t
+  "If `relativize', entries in `file-name-history' are adjusted.
+
+History entries shown in `project-find-file', `project-find-dir',
+(from `file-name-history') are adjusted to be relative to the
+current project root, instead of the project which added those
+paths.  This only affects history entries added by earlier calls
+to `project-find-file' or `project-find-dir'.
+
+This has the effect of sharing more history between projects."
+  :type '(choice (const :tag "Default behavior" t)
+                 (const :tag "Adjust to be relative to current" relativize))
+  :group 'project
+  :version "30.1")
+
+(defun project--transplant-file-name (filename project)
+  (when-let ((old-root (get-text-property 0 'project filename)))
+    (abbreviate-file-name
+     (expand-file-name
+      (file-relative-name filename old-root)
+      (project-root project)))))
 
 (defun project--read-file-cpd-relative (prompt
                                         all-files &optional predicate
@@ -1079,8 +1116,7 @@ by the user at will."
          (new-collection (project--file-completion-table substrings))
          (abbr-cpd (abbreviate-file-name common-parent-directory))
          (abbr-cpd-length (length abbr-cpd))
-         (relname (cl-letf ((history-add-new-input nil)
-                            ((symbol-value hist)
+         (relname (cl-letf (((symbol-value hist)
                              (mapcan
                               (lambda (s)
                                 (and (string-prefix-p abbr-cpd s)
@@ -1092,8 +1128,6 @@ by the user at will."
                                                      predicate
                                                      hist mb-default)))
          (absname (expand-file-name relname common-parent-directory)))
-    (when (and hist history-add-new-input)
-      (add-to-history hist (abbreviate-file-name absname)))
     absname))
 
 (defun project--read-file-absolute (prompt
@@ -1103,6 +1137,29 @@ by the user at will."
                                    (project--file-completion-table all-files)
                                    predicate
                                    hist mb-default))
+
+(defun project--read-file-name ( project prompt
+                                 all-files &optional predicate
+                                 hist mb-default)
+  "Call `project-read-file-name-function' with appropriate history.
+
+Depending on `project-file-history-behavior', entries are made
+project-relative where possible."
+  (let ((file
+         (cl-letf ((history-add-new-input nil)
+                   ((symbol-value hist)
+                    (if (eq project-file-history-behavior 'relativize)
+                        (mapcar
+                         (lambda (f)
+                           (or (project--transplant-file-name f project) f))
+                         (symbol-value hist))
+                      (symbol-value hist))))
+           (funcall project-read-file-name-function
+                    prompt all-files predicate hist mb-default))))
+    (when (and hist history-add-new-input)
+      (add-to-history hist
+                      (propertize file 'project (project-root project))))
+    file))
 
 (defun project-find-file-in (suggested-filename dirs project &optional include-all)
   "Complete a file name in DIRS in PROJECT and visit the result.
@@ -1124,9 +1181,10 @@ directories listed in `vc-directory-exclusion-list'."
                dirs)
             (project-files project dirs)))
          (completion-ignore-case read-file-name-completion-ignore-case)
-         (file (funcall project-read-file-name-function
-                        "Find file" all-files nil 'file-name-history
-                        suggested-filename)))
+         (file (project--read-file-name
+                project "Find file"
+                all-files nil 'file-name-history
+                suggested-filename)))
     (if (string= file "")
         (user-error "You didn't specify the file")
       (find-file file))))
@@ -1147,7 +1205,10 @@ directories listed in `vc-directory-exclusion-list'."
 
 ;;;###autoload
 (defun project-find-dir ()
-  "Start Dired in a directory inside the current project."
+  "Start Dired in a directory inside the current project.
+
+The current buffer's `default-directory' is available as part of
+\"future history\"."
   (interactive)
   (let* ((project (project-current t))
          (all-files (project-files project))
@@ -1158,11 +1219,13 @@ directories listed in `vc-directory-exclusion-list'."
          ;; https://stackoverflow.com/a/50685235/615245 for possible
          ;; implementation.
          (all-dirs (mapcar #'file-name-directory all-files))
-         (dir (funcall project-read-file-name-function
-                       "Dired"
-                       ;; Some completion UIs show duplicates.
-                       (delete-dups all-dirs)
-                       nil 'file-name-history)))
+         (dir (project--read-file-name
+               project "Dired"
+               ;; Some completion UIs show duplicates.
+               (delete-dups all-dirs)
+               nil 'file-name-history
+               (and default-directory
+                    (project--find-default-from default-directory project)))))
     (dired dir)))
 
 ;;;###autoload
@@ -1597,7 +1660,12 @@ With some possible metadata (to be decided).")
           (when (file-exists-p filename)
             (with-temp-buffer
               (insert-file-contents filename)
-              (read (current-buffer)))))
+              (mapcar
+               (lambda (elem)
+                 (let ((name (car elem)))
+                   (list (if (file-remote-p name) name
+                           (abbreviate-file-name name)))))
+               (read (current-buffer))))))
     (unless (seq-every-p
              (lambda (elt) (stringp (car-safe elt)))
              project--list)
@@ -1617,7 +1685,12 @@ With some possible metadata (to be decided).")
       (insert ";;; -*- lisp-data -*-\n")
       (let ((print-length nil)
             (print-level nil))
-        (pp project--list (current-buffer)))
+        (pp (mapcar (lambda (elem)
+                      (let ((name (car elem)))
+                        (list (if (file-remote-p name) name
+                                (expand-file-name name)))))
+                    project--list)
+            (current-buffer)))
       (write-region nil nil filename nil 'silent))))
 
 ;;;###autoload
@@ -1626,7 +1699,7 @@ With some possible metadata (to be decided).")
 Save the result in `project-list-file' if the list of projects
 has changed, and NO-WRITE is nil."
   (project--ensure-read-project-list)
-  (let ((dir (project-root pr)))
+  (let ((dir (abbreviate-file-name (project-root pr))))
     (unless (equal (caar project--list) dir)
       (dolist (ent project--list)
         (when (equal dir (car ent))
@@ -1642,7 +1715,7 @@ result in `project-list-file'.  Announce the project's removal
 from the list using REPORT-MESSAGE, which is a format string
 passed to `message' as its first argument."
   (project--ensure-read-project-list)
-  (when-let ((ent (assoc project-root project--list)))
+  (when-let ((ent (assoc (abbreviate-file-name project-root) project--list)))
     (setq project--list (delq ent project--list))
     (message report-message project-root)
     (project--write-project-list)))
@@ -1832,6 +1905,18 @@ listed in the dispatch menu produced from `project-switch-commands'."
   :group 'project
   :version "28.1")
 
+(defcustom project-key-prompt-style (if (facep 'help-key-binding)
+                                        t
+                                      'brackets)
+  "Which presentation to use when asking to choose a command by key.
+
+When `brackets', use text brackets and `bold' for the character.
+Otherwise, use the face `help-key-binding' in the prompt."
+  :type '(choice (const :tag "Using help-key-binding face" t)
+                 (const :tag "Using bold face and brackets" brackets))
+  :group 'project
+  :version "30.1")
+
 (defun project--keymap-prompt ()
   "Return a prompt for the project switching dispatch menu."
   (mapconcat
@@ -1844,7 +1929,7 @@ listed in the dispatch menu produced from `project-switch-commands'."
      (let ((key (if key
                     (vector key)
                   (where-is-internal cmd (list project-prefix-map) t))))
-       (if (facep 'help-key-binding)
+       (if (not (eq project-key-prompt-style 'brackets))
            (format "%s %s"
                    (propertize (key-description key) 'face 'help-key-binding)
                    label)
