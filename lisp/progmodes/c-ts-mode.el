@@ -71,6 +71,8 @@
 (eval-when-compile (require 'rx))
 
 (declare-function treesit-parser-create "treesit.c")
+(declare-function treesit-parser-root-node "treesit.c")
+(declare-function treesit-parser-set-included-ranges "treesit.c")
 (declare-function treesit-node-parent "treesit.c")
 (declare-function treesit-node-start "treesit.c")
 (declare-function treesit-node-end "treesit.c")
@@ -80,7 +82,6 @@
 (declare-function treesit-node-prev-sibling "treesit.c")
 (declare-function treesit-node-first-child-for-pos "treesit.c")
 (declare-function treesit-node-next-sibling "treesit.c")
-(declare-function treesit-parser-set-included-ranges "treesit.c")
 (declare-function treesit-query-compile "treesit.c")
 
 ;;; Custom variables
@@ -495,6 +496,13 @@ NODE should be a labeled_statement.  PARENT is its parent."
               (treesit-node-type (treesit-node-parent parent)))))
 
 ;;; Font-lock
+
+(defvar c-ts-mode--feature-list
+  '(( comment definition)
+    ( keyword preprocessor string type)
+    ( assignment constant escape-sequence label literal)
+    ( bracket delimiter error function operator property variable))
+  "`treesit-font-lock-feature-list' for `c-ts-mode'.")
 
 (defvar c-ts-mode--preproc-keywords
   '("#define" "#if" "#ifdef" "#ifndef"
@@ -1014,6 +1022,36 @@ if `c-ts-mode-emacs-sources-support' is non-nil."
   (or (treesit-add-log-current-defun)
       (c-ts-mode--defun-name (c-ts-mode--emacs-defun-at-point))))
 
+;;; Things
+
+(defvar c-ts-mode--thing-settings
+  `(;; It's more useful to include semicolons as sexp so
+    ;; that users can move to the end of a statement.
+    (sexp (not ,(rx (or "{" "}" "[" "]" "(" ")" ","))))
+    ;; compound_statement makes us jump over too big units
+    ;; of code, so skip that one, and include the other
+    ;; statements.
+    (sentence
+     ,(regexp-opt '("preproc"
+                    "declaration"
+                    "specifier"
+                    "attributed_statement"
+                    "labeled_statement"
+                    "expression_statement"
+                    "if_statement"
+                    "switch_statement"
+                    "do_statement"
+                    "while_statement"
+                    "for_statement"
+                    "return_statement"
+                    "break_statement"
+                    "continue_statement"
+                    "goto_statement"
+                    "case_statement")))
+    (text ,(regexp-opt '("comment"
+                         "raw_string_literal"))))
+  "`treesit-thing-settings' for both C and C++.")
+
 ;;; Support for FOR_EACH_* macros
 ;;
 ;; FOR_EACH_TAIL, FOR_EACH_TAIL_SAFE, FOR_EACH_FRAME etc., followed by
@@ -1133,32 +1171,8 @@ BEG and END are described in `treesit-range-rules'."
   ;; spirit, especially when used for movement, is like "expression"
   ;; or "syntax unit". --yuan
   (setq-local treesit-thing-settings
-              `((c
-                 ;; It's more useful to include semicolons as sexp so
-                 ;; that users can move to the end of a statement.
-                 (sexp (not ,(rx (or "{" "}" "[" "]" "(" ")" ","))))
-                 ;; compound_statement makes us jump over too big units
-                 ;; of code, so skip that one, and include the other
-                 ;; statements.
-                 (sentence
-                  ,(regexp-opt '("preproc"
-                                 "declaration"
-                                 "specifier"
-                                 "attributed_statement"
-                                 "labeled_statement"
-                                 "expression_statement"
-                                 "if_statement"
-                                 "switch_statement"
-                                 "do_statement"
-                                 "while_statement"
-                                 "for_statement"
-                                 "return_statement"
-                                 "break_statement"
-                                 "continue_statement"
-                                 "goto_statement"
-                                 "case_statement")))
-                 (text ,(regexp-opt '("comment"
-                                      "raw_string_literal"))))))
+              `((c ,@c-ts-mode--thing-settings)
+                (cpp ,@c-ts-mode--thing-settings)))
 
   ;; Nodes like struct/enum/union_specifier can appear in
   ;; function_definitions, so we need to find the top-level node.
@@ -1208,10 +1222,7 @@ BEG and END are described in `treesit-range-rules'."
                    c-ts-mode--defun-for-class-in-imenu-p nil))))
 
   (setq-local treesit-font-lock-feature-list
-              '(( comment definition)
-                ( keyword preprocessor string type)
-                ( assignment constant escape-sequence label literal)
-                ( bracket delimiter error function operator property variable))))
+              c-ts-mode--feature-list))
 
 (defvar treesit-load-name-override-list)
 

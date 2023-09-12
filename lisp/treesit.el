@@ -56,6 +56,7 @@
 (declare-function treesit-parser-list "treesit.c")
 (declare-function treesit-parser-buffer "treesit.c")
 (declare-function treesit-parser-language "treesit.c")
+(declare-function treesit-parser-tag "treesit.c")
 
 (declare-function treesit-parser-root-node "treesit.c")
 
@@ -188,16 +189,18 @@ is a language, find the first parser for that language in the
 current buffer, or create one if none exists; If PARSER-OR-LANG
 is nil, try to guess the language at POS using `treesit-language-at'.
 
-If there's a local parser at POS, try to use that parser first."
-  (let* ((lang-at-point (treesit-language-at pos))
-         (root (if (treesit-parser-p parser-or-lang)
+If there's a local parser at POS, the local parser takes priority
+unless PARSER-OR-LANG is a parser, or PARSER-OR-LANG is a
+language and doesn't match the language of the local parser."
+  (let* ((root (if (treesit-parser-p parser-or-lang)
                    (treesit-parser-root-node parser-or-lang)
-                 (or (when-let ((parser (car (treesit-local-parsers-at
-                                              pos (or parser-or-lang
-                                                      lang-at-point)))))
+                 (or (when-let ((parser
+                                 (car (treesit-local-parsers-at
+                                       pos parser-or-lang))))
                        (treesit-parser-root-node parser))
                      (treesit-buffer-root-node
-                      (or parser-or-lang lang-at-point)))))
+                      (or parser-or-lang
+                          (treesit-language-at pos))))))
          (node root)
          (node-before root)
          (pos-1 (max (1- pos) (point-min)))
@@ -250,7 +253,7 @@ parser first."
          (root (if (treesit-parser-p parser-or-lang)
                    (treesit-parser-root-node parser-or-lang)
                  (or (when-let ((parser
-                                 (car (treesit-local-parsers-in
+                                 (car (treesit-local-parsers-on
                                        beg end (or parser-or-lang
                                                    lang-at-point)))))
                        (treesit-parser-root-node parser))
@@ -589,11 +592,10 @@ those inside are kept."
 (defun treesit-local-parsers-at (&optional pos language)
   "Return all the local parsers at POS.
 
-Local parsers are those who only parses a limited region marked
-by an overlay.  If LANGUAGE is non-nil, only return parsers for
-that language.
-
-POS defaults to point."
+POS defaults to point.
+Local parsers are those which only parse a limited region marked
+by an overlay with non-nil `treesit-parser' property.
+If LANGUAGE is non-nil, only return parsers for LANGUAGE."
   (let ((res nil))
     (dolist (ov (overlays-at (or pos (point))))
       (when-let ((parser (overlay-get ov 'treesit-parser)))
@@ -603,14 +605,14 @@ POS defaults to point."
           (push parser res))))
     (nreverse res)))
 
-(defun treesit-local-parsers-in (&optional beg end language)
+(defun treesit-local-parsers-on (&optional beg end language)
   "Return all the local parsers between BEG END.
 
-Local parsers are those who has an `embedded' tag, and only
-parses a limited region marked by an overlay.  If LANGUAGE is
-non-nil, only return parsers for that language.
-
-BEG and END default to cover the whole buffer."
+BEG and END default to the beginning and end of the buffer's
+accessible portion.
+Local parsers are those which have an `embedded' tag, and only parse
+a limited region marked by an overlay with a non-nil `treesit-parser'
+property.  If LANGUAGE is non-nil, only return parsers for LANGUAGE."
   (let ((res nil))
     (dolist (ov (overlays-in (or beg (point-min)) (or end (point-max))))
       (when-let ((parser (overlay-get ov 'treesit-parser)))
@@ -681,7 +683,7 @@ region."
                             (treesit--merge-ranges
                              old-ranges new-ranges beg end)
                             (point-min) (point-max))))
-          (dolist (parser (treesit-parser-list language))
+          (dolist (parser (treesit-parser-list nil language))
             (treesit-parser-set-included-ranges
              parser set-ranges))))))))
 
@@ -1135,7 +1137,7 @@ If LOUDLY is non-nil, display some debugging information."
     (message "Fontifying region: %s-%s" start end))
   (treesit-update-ranges start end)
   (font-lock-unfontify-region start end)
-  (let* ((local-parsers (treesit-local-parsers-in start end))
+  (let* ((local-parsers (treesit-local-parsers-on start end))
          (global-parsers (treesit-parser-list))
          (root-nodes
           (mapcar (lambda (parser)
@@ -1625,8 +1627,9 @@ Return (ANCHOR . OFFSET).  This function is used by
          (local-parsers (treesit-local-parsers-at bol))
          (smallest-node
           (cond ((null (treesit-parser-list)) nil)
-                (local-parsers (car local-parsers))
-                ((eq 1 (length (treesit-parser-list)))
+                (local-parsers (treesit-node-at
+                                bol (car local-parsers)))
+                ((eq 1 (length (treesit-parser-list nil nil t)))
                  (treesit-node-at bol))
                 ((treesit-language-at (point))
                  (treesit-node-at bol (treesit-language-at (point))))
@@ -2064,7 +2067,9 @@ If LANGUAGE is nil, return the first definition for THING in
   (if language
       (car (alist-get thing (alist-get language
                                        treesit-thing-settings)))
-    (car (alist-get thing (mapcan #'cdr treesit-thing-settings)))))
+    (car (alist-get thing (mapcan (lambda (entry)
+                                    (copy-tree (cdr entry)))
+                                  treesit-thing-settings)))))
 
 (defalias 'treesit-thing-defined-p 'treesit-thing-definition
   "Return non-nil if THING is defined.")
@@ -3104,10 +3109,12 @@ the text in the active region is highlighted in the explorer
 window."
   :lighter " TSexplore"
   (if treesit-explore-mode
-      (let ((language (intern (completing-read
-                               "Language: "
-                               (mapcar #'treesit-parser-language
-                                       (treesit-parser-list))))))
+      (let ((language
+             (intern (completing-read
+                      "Language: "
+                      (cl-remove-duplicates
+                       (mapcar #'treesit-parser-language
+                               (treesit-parser-list nil nil t)))))))
         (if (not (treesit-language-available-p language))
             (user-error "Cannot find tree-sitter grammar for %s: %s"
                         language (cdr (treesit-language-available-p

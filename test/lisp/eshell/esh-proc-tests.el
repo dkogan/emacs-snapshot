@@ -86,7 +86,7 @@
       "\\`\\'"))
     (should (equal (buffer-string) "stdout\nstderr\n"))))
 
-(ert-deftest esh-var-test/output/remote-redirect ()
+(ert-deftest esh-proc-test/output/remote-redirect ()
   "Check that redirecting stdout for a remote process works."
   (skip-unless (and (eshell-tests-remote-accessible-p)
                     (executable-find "echo")))
@@ -137,18 +137,19 @@
   (skip-unless (and (executable-find "sh")
                     (executable-find "echo")
                     (executable-find "sleep")))
-  (with-temp-eshell
-   (eshell-match-command-output
-    ;; The first command is like `yes' but slower.  This is to prevent
-    ;; it from taxing Emacs's process filter too much and causing a
-    ;; hang.  Note that we use "|&" to connect the processes so that
-    ;; Emacs doesn't create an extra pipe process for the first "sh"
-    ;; invocation.
-    (concat "sh -c 'while true; do echo y; sleep 1; done' |& "
-            "sh -c 'read NAME; echo ${NAME}'")
-    "y\n")
-   (eshell-wait-for-subprocess t)
-   (should (eq (process-list) nil))))
+  (let ((starting-process-list (process-list)))
+    (with-temp-eshell
+     (eshell-match-command-output
+      ;; The first command is like `yes' but slower.  This is to prevent
+      ;; it from taxing Emacs's process filter too much and causing a
+      ;; hang.  Note that we use "|&" to connect the processes so that
+      ;; Emacs doesn't create an extra pipe process for the first "sh"
+      ;; invocation.
+      (concat "sh -c 'while true; do echo y; sleep 1; done' |& "
+              "sh -c 'read NAME; echo ${NAME}'")
+      "y\n")
+     (eshell-wait-for-subprocess t)
+     (should (equal (process-list) starting-process-list)))))
 
 (ert-deftest esh-proc-test/pipeline-connection-type/no-pipeline ()
   "Test that all streams are PTYs when a command is not in a pipeline."
@@ -311,5 +312,20 @@ write the exit status to the pipe.  See bug#54136."
      (should (equal (buffer-substring-no-properties
                      output-start (eshell-end-of-output))
                     "")))))
+
+
+;; Remote processes
+
+(ert-deftest esh-var-test/remote/remote-path ()
+  "Ensure that setting the remote PATH in Eshell doesn't interfere with Tramp.
+See bug#65551."
+  (skip-unless (and (eshell-tests-remote-accessible-p)
+                    (executable-find "echo")))
+  (let ((default-directory ert-remote-temporary-file-directory))
+    (with-temp-eshell
+     (eshell-insert-command "set PATH ''")
+     (eshell-match-command-output
+      (format "%s hello" (executable-find "echo" t))
+      "\\`hello\n"))))
 
 ;;; esh-proc-tests.el ends here
