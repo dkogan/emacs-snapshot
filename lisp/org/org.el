@@ -9,7 +9,7 @@
 ;; URL: https://orgmode.org
 ;; Package-Requires: ((emacs "26.1"))
 
-;; Version: 9.6.8
+;; Version: 9.6.9
 
 ;; This file is part of GNU Emacs.
 ;;
@@ -13228,7 +13228,7 @@ Optional argument DEFAULT provides a default value for PROPERTY."
      nil nil nil nil default-prop)))
 
 (defun org-set-property-and-value (use-last)
-  "Allow to set [PROPERTY]: [value] direction from prompt.
+  "Allow setting [PROPERTY]: [value] direction from prompt.
 When use-default, don't even ask, just use the last
 \"[PROPERTY]: [value]\" string from the history."
   (interactive "P")
@@ -17655,8 +17655,8 @@ region."
 (defun org-open-line (n)
   "Insert a new row in tables, call `open-line' elsewhere.
 If `org-special-ctrl-o' is nil, just call `open-line' everywhere.
-As a special case, when a document starts with a table, allow to
-call `open-line' on the very first character."
+As a special case, when a document starts with a table, allow
+calling `open-line' on the very first character."
   (interactive "*p")
   (if (and org-special-ctrl-o (/= (point) 1) (org-at-table-p))
       (org-table-insert-row)
@@ -18872,9 +18872,7 @@ ELEMENT."
 	     (goto-char start)
 	     (current-indentation)))
 	  ;; In any other case, indent like the current line.
-	  (t (current-indentation)))))
-      ;; Finally, no indentation is needed, fall back to 0.
-      (t (current-indentation))))))
+	  (t (current-indentation)))))))))
 
 (defun org--align-node-property ()
   "Align node property at point.

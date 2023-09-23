@@ -468,6 +468,12 @@ sfnt_parse_style (Lisp_Object style_name, struct sfnt_font_desc *desc)
     {
       style = NULL;
 
+      if (!strcmp (single, "regular"))
+	/* ``Regular'' within a font family can represent either the
+	   weight, slant or width of the font.  Leave each value as
+	   its default, but never append it to the adstyle.  */
+	goto next;
+
       if (desc->weight == 80)
 	{
 	  /* Weight hasn't been found yet.  Scan through the weight
@@ -1138,7 +1144,9 @@ sfnt_enum_font_1 (int fd, const char *file,
 int
 sfnt_enum_font (const char *file)
 {
-  int fd, rc;
+  int fd;
+  int rc;
+  off_t seek;
   struct sfnt_offset_subtable *subtables;
   struct sfnt_ttc_header *ttc;
   size_t i;
@@ -1169,8 +1177,9 @@ sfnt_enum_font (const char *file)
 
       for (i = 0; i < ttc->num_fonts; ++i)
 	{
-	  if (lseek (fd, ttc->offset_table[i], SEEK_SET)
-	      != ttc->offset_table[i])
+	  seek = lseek (fd, ttc->offset_table[i], SEEK_SET);
+
+	  if (seek == -1 || seek != ttc->offset_table[i])
 	    continue;
 
 	  subtables = sfnt_read_table_directory (fd);
@@ -3640,7 +3649,7 @@ sfntfont_draw (struct glyph_string *s, int from, int to,
 Lisp_Object
 sfntfont_list_family (struct frame *f)
 {
-  Lisp_Object families;
+  Lisp_Object families, tem, next;
   struct sfnt_font_desc *desc;
 
   families = Qnil;
@@ -3649,8 +3658,30 @@ sfntfont_list_family (struct frame *f)
     /* Add desc->family to the list.  */
     families = Fcons (desc->family, families);
 
-  /* Not sure if deleting duplicates is worth it.  Is this ever
-     called? */
+  /* Sort families in preparation for removing duplicates.  */
+  families = Fsort (families, Qstring_lessp);
+
+  /* Remove each duplicate within families.  */
+
+  tem = families;
+  while (!NILP (tem) && !NILP ((next = XCDR (tem))))
+    {
+      /* If the two strings are equal.  */
+      if (!NILP (Fstring_equal (XCAR (tem), XCAR (next))))
+	/* Set tem's cdr to the cons after the next item.  */
+	XSETCDR (tem, XCDR (next));
+      else
+	/* Otherwise, start considering the next item.  */
+	tem = next;
+    }
+
+  /* Intern each font family.  */
+
+  tem = families;
+
+  FOR_EACH_TAIL (tem)
+    XSETCAR (tem, Fintern (XCAR (tem), Qnil));
+
   return families;
 }
 
@@ -3955,6 +3986,9 @@ syms_of_sfntfont (void)
 
   /* Default foundry name.  */
   DEFSYM (Qmisc, "misc");
+
+  /* Predicated employed for sorting font family lists.  */
+  DEFSYM (Qstring_lessp, "string-lessp");
 
   /* Set up staticpros.  */
   sfnt_vendor_name = Qnil;

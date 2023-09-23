@@ -937,14 +937,17 @@ byte-compiled.  Run with dynamic binding."
            (should (re-search-forward
                     (string-replace " " "[ \n]+" re-warning)))))))
 
+(defun bytecomp--without-warning-test (form)
+  (bytecomp--with-warning-test "\\`\\'" form))
+
 (ert-deftest bytecomp-warn--ignore ()
   (bytecomp--with-warning-test "unused"
     '(lambda (y) 6))
-  (bytecomp--with-warning-test "\\`\\'" ;No warning!
+  (bytecomp--without-warning-test
     '(lambda (y) (ignore y) 6))
   (bytecomp--with-warning-test "assq"
     '(lambda (x y) (progn (assq x y) 5)))
-  (bytecomp--with-warning-test "\\`\\'" ;No warning!
+  (bytecomp--without-warning-test
     '(lambda (x y) (progn (ignore (assq x y)) 5))))
 
 (ert-deftest bytecomp-warn-wrong-args ()
@@ -968,6 +971,34 @@ byte-compiled.  Run with dynamic binding."
 (ert-deftest bytecomp-warn-wide-docstring/defvar ()
   (bytecomp--with-warning-test "defvar.*foo.*wider than.*characters"
     `(defvar foo t ,bytecomp-tests--docstring)))
+
+(ert-deftest bytecomp-warn-wide-docstring/cl-defsubst ()
+  (bytecomp--without-warning-test
+   `(cl-defsubst short-name ()
+      "Do something."))
+  (bytecomp--without-warning-test
+   `(cl-defsubst long-name-with-less-80-characters-but-still-quite-a-bit ()
+      "Do something."))
+  (bytecomp--with-warning-test "wider than.*characters"
+   `(cl-defsubst long-name-with-more-than-80-characters-yes-this-is-a-very-long-name-but-why-not!! ()
+      "Do something.")))
+
+(ert-deftest bytecomp-warn-wide-docstring/cl-defstruct ()
+  (bytecomp--without-warning-test
+   `(cl-defstruct short-name
+      field))
+  (bytecomp--without-warning-test
+   `(cl-defstruct short-name
+      long-name-with-less-80-characters-but-still-quite-a-bit))
+  (bytecomp--without-warning-test
+   `(cl-defstruct long-name-with-less-80-characters-but-still-quite-a-bit
+      field))
+  (bytecomp--with-warning-test "wider than.*characters"
+    `(cl-defstruct short-name
+       long-name-with-more-than-80-characters-yes-this-is-a-very-long-name-but-why-not!!))
+  (bytecomp--with-warning-test "wider than.*characters"
+    `(cl-defstruct long-name-with-more-than-80-characters-yes-this-is-a-very-long-name-but-why-not!!
+       field)))
 
 (ert-deftest bytecomp-warn-quoted-condition ()
   (bytecomp--with-warning-test
@@ -1069,7 +1100,7 @@ byte-compiled.  Run with dynamic binding."
                             "fails to specify containing group")
 
 (bytecomp--define-warning-file-test "warn-defcustom-notype.el"
-                            "fails to specify type")
+                            "missing :type keyword parameter")
 
 (bytecomp--define-warning-file-test "warn-defvar-lacks-prefix.el"
                             "var.*foo.*lacks a prefix")
@@ -1843,12 +1874,53 @@ EXPECTED-POINT BINDINGS (MODES \\='\\='(ruby-mode js-mode python-mode)) \
 (TEST-IN-COMMENTS t) (TEST-IN-STRINGS t) (TEST-IN-CODE t) \
 (FIXTURE-FN \\='#\\='electric-pair-mode))" fill-column)))
 
-(ert-deftest bytecomp-test-defcustom-type-quoted ()
-  (should-not (byte-compile--defcustom-type-quoted 'integer))
-  (should-not (byte-compile--defcustom-type-quoted
-               '(choice (const :tag "foo" bar))))
-  (should (byte-compile--defcustom-type-quoted
-           '(choice (const :tag "foo" 'bar)))))
+(ert-deftest bytecomp-test-defcustom-type ()
+  (cl-flet ((dc (type) `(defcustom mytest nil "doc" :type ',type :group 'test)))
+    (bytecomp--with-warning-test
+     (rx "type should not be quoted") (dc ''integer))
+    (bytecomp--with-warning-test
+     (rx "type should not be quoted") (dc '(choice '(repeat boolean))))
+    (bytecomp--with-warning-test
+     (rx "misplaced :tag keyword") (dc '(choice (const b :tag "a"))))
+    (bytecomp--with-warning-test
+     (rx "`choice' without any types inside") (dc '(choice :tag "a")))
+    (bytecomp--with-warning-test
+     (rx "`other' not last in `choice'")
+     (dc '(choice (const a) (other b) (const c))))
+    (bytecomp--with-warning-test
+     (rx "duplicated value in `choice': `a'")
+     (dc '(choice (const a) (const b) (const a))))
+    (bytecomp--with-warning-test
+     (rx "duplicated :tag string in `choice': \"X\"")
+     (dc '(choice (const :tag "X" a) (const :tag "Y" b) (other :tag "X" c))))
+    (bytecomp--with-warning-test
+     (rx "`cons' requires 2 type specs, found 1")
+     (dc '(cons :tag "a" integer)))
+    (bytecomp--with-warning-test
+     (rx "`repeat' without type specs")
+     (dc '(repeat :tag "a")))
+    (bytecomp--with-warning-test
+     (rx "`const' with too many values")
+     (dc '(const :tag "a" x y)))
+    (bytecomp--with-warning-test
+     (rx "`const' with quoted value")
+     (dc '(const :tag "a" 'x)))
+    (bytecomp--with-warning-test
+     (rx "`bool' is not a valid type")
+     (dc '(bool :tag "a")))
+    (bytecomp--with-warning-test
+     (rx "irregular type `:tag'")
+     (dc '(:tag "a")))
+    (bytecomp--with-warning-test
+     (rx "irregular type `\"string\"'")
+     (dc '(list "string")))
+    (bytecomp--with-warning-test
+     (rx "`list' without arguments")
+     (dc 'list))
+    (bytecomp--with-warning-test
+     (rx "`integerp' is not a valid type")
+     (dc 'integerp))
+    ))
 
 (ert-deftest bytecomp-function-attributes ()
   ;; Check that `byte-compile' keeps the declarations, interactive spec and

@@ -1164,6 +1164,7 @@ make_treesit_parser (Lisp_Object buffer, TSParser *parser,
   lisp_parser->language_symbol = language_symbol;
   lisp_parser->after_change_functions = Qnil;
   lisp_parser->tag = tag;
+  lisp_parser->last_set_ranges = Qnil;
   lisp_parser->buffer = buffer;
   lisp_parser->parser = parser;
   lisp_parser->tree = tree;
@@ -1174,7 +1175,6 @@ make_treesit_parser (Lisp_Object buffer, TSParser *parser,
   lisp_parser->visible_end = BUF_ZV_BYTE (XBUFFER (buffer));
   lisp_parser->timestamp = 0;
   lisp_parser->deleted = false;
-  lisp_parser->has_range = false;
   eassert (lisp_parser->visible_beg <= lisp_parser->visible_end);
   return make_lisp_ptr (lisp_parser, Lisp_Vectorlike);
 }
@@ -1656,6 +1656,10 @@ buffer.  */)
   treesit_check_parser (parser);
   if (!NILP (ranges))
     CHECK_CONS (ranges);
+
+  if (!NILP (Fequal (XTS_PARSER (parser)->last_set_ranges, ranges)))
+    return Qnil;
+
   treesit_check_range_argument (ranges);
 
   treesit_initialize ();
@@ -1663,10 +1667,10 @@ buffer.  */)
   treesit_check_buffer_size (XBUFFER (XTS_PARSER (parser)->buffer));
   treesit_sync_visible_region (parser);
 
+  XTS_PARSER (parser)->last_set_ranges = ranges;
   bool success;
   if (NILP (ranges))
     {
-      XTS_PARSER (parser)->has_range = false;
       /* If RANGES is nil, make parser to parse the whole document.
 	 To do that we give tree-sitter a 0 length, the range is a
 	 dummy.  */
@@ -1677,8 +1681,6 @@ buffer.  */)
   else
     {
       /* Set ranges for PARSER.  */
-      XTS_PARSER (parser)->has_range = true;
-
       if (list_length (ranges) > UINT32_MAX)
 	xsignal (Qargs_out_of_range, list2 (ranges, Flength (ranges)));
       uint32_t len = (uint32_t) list_length (ranges);
@@ -1734,10 +1736,10 @@ See also `treesit-parser-set-included-ranges'.  */)
 
   /* When the parser doesn't have a range set and we call
      ts_parser_included_ranges on it, it doesn't return an empty list,
-     but rather return some garbled data. (A single range where
-     start_byte = 0, end_byte = UINT32_MAX).  So we need to track
-     whether the parser is ranged ourselves.  */
-  if (!XTS_PARSER (parser)->has_range)
+     but rather return DEFAULT_RANGE. (A single range where start_byte
+     = 0, end_byte = UINT32_MAX).  So we need to track whether the
+     parser is ranged ourselves.  */
+  if (NILP (XTS_PARSER (parser)->last_set_ranges))
     return Qnil;
 
   uint32_t len;
@@ -2206,7 +2208,10 @@ return nil.  */)
 static bool treesit_cursor_first_child_for_byte
 (TSTreeCursor *cursor, ptrdiff_t pos, bool named)
 {
-  if (!ts_tree_cursor_goto_first_child (cursor))
+  /* ts_tree_cursor_goto_first_child_for_byte is significantly faster,
+     so despite it having problems, we try it first.  */
+  if (ts_tree_cursor_goto_first_child_for_byte (cursor, pos) == -1
+      && !ts_tree_cursor_goto_first_child (cursor))
     return false;
 
   TSNode node = ts_tree_cursor_current_node (cursor);
@@ -3073,7 +3078,11 @@ treesit_cursor_helper_1 (TSTreeCursor *cursor, TSNode *target,
   if (ts_node_eq (cursor_node, *target))
     return true;
 
-  if (ts_tree_cursor_goto_first_child_for_byte (cursor, start_pos) == -1)
+  /* ts_tree_cursor_goto_first_child_for_byte is significantly faster,
+     so despite it having problems (see bug#60127), we try it
+     first.  */
+  if (ts_tree_cursor_goto_first_child_for_byte (cursor, start_pos) == -1
+      && !ts_tree_cursor_goto_first_child (cursor))
     return false;
 
   /* Go through each sibling that could contain TARGET.  Because of
@@ -3274,23 +3283,23 @@ treesit_traverse_get_predicate (Lisp_Object thing, Lisp_Object language)
 }
 
 /* Validate the PRED passed to treesit_traverse_match_predicate.  If
-   there's an error, set SIGNAL_DATA to something signal accepts, and
-   return false, otherwise return true.  This function also check for
+   there's an error, set SIGNAL_DATA to (ERR . DATA), where ERR is an
+   error symbol, and DATA is something signal accepts, and return
+   false, otherwise return true.  This function also check for
    recusion levels: we place a arbitrary 100 level limit on recursive
    predicates.  RECURSION_LEVEL is the current recursion level (that
    starts at 0), if it goes over 99, return false and set SIGNAL_DATA.
-   LANGUAGE is a LANGUAGE symbol.  IGNORE_MISSING is as in
-   `treesit-node-match-p' below.  */
+   LANGUAGE is a LANGUAGE symbol.  */
 static bool
 treesit_traverse_validate_predicate (Lisp_Object pred,
 				     Lisp_Object language,
 				     Lisp_Object *signal_data,
-				     ptrdiff_t recursion_level,
-				     bool ignore_missing)
+				     ptrdiff_t recursion_level)
 {
   if (recursion_level > 99)
     {
-      *signal_data = list1 (build_string ("Predicate recursion level "
+      *signal_data = list2 (Qtreesit_invalid_predicate,
+			    build_string ("Predicate recursion level "
 					  "exceeded: it must not exceed "
 					  "100 levels"));
       return false;
@@ -3305,9 +3314,8 @@ treesit_traverse_validate_predicate (Lisp_Object pred,
 							       language);
       if (NILP (definition))
 	{
-	  if (ignore_missing)
-	    return false;
-	  *signal_data = list2 (build_string ("Cannot find the definition "
+	  *signal_data = list3 (Qtreesit_predicate_not_found,
+				build_string ("Cannot find the definition "
 					      "of the predicate in "
 					      "`treesit-thing-settings'"),
 				pred);
@@ -3316,8 +3324,7 @@ treesit_traverse_validate_predicate (Lisp_Object pred,
       return treesit_traverse_validate_predicate (definition,
 						  language,
 						  signal_data,
-						  recursion_level + 1,
-						  ignore_missing);
+						  recursion_level + 1);
     }
   else if (CONSP (pred))
     {
@@ -3327,7 +3334,8 @@ treesit_traverse_validate_predicate (Lisp_Object pred,
 	{
 	  if (!CONSP (cdr))
 	    {
-	      *signal_data = list2 (build_string ("Invalide `not' "
+	      *signal_data = list3 (Qtreesit_invalid_predicate,
+				    build_string ("Invalide `not' "
 						  "predicate"),
 				    pred);
 	      return false;
@@ -3335,7 +3343,8 @@ treesit_traverse_validate_predicate (Lisp_Object pred,
 	  /* At this point CDR must be a cons.  */
 	  if (XFIXNUM (Flength (cdr)) != 1)
 	    {
-	      *signal_data = list2 (build_string ("`not' can only "
+	      *signal_data = list3 (Qtreesit_invalid_predicate,
+				    build_string ("`not' can only "
 						  "have one argument"),
 				    pred);
 	      return false;
@@ -3343,14 +3352,14 @@ treesit_traverse_validate_predicate (Lisp_Object pred,
 	  return treesit_traverse_validate_predicate (XCAR (cdr),
 						      language,
 						      signal_data,
-						      recursion_level + 1,
-						      ignore_missing);
+						      recursion_level + 1);
 	}
       else if (BASE_EQ (car, Qor))
 	{
 	  if (!CONSP (cdr) || NILP (cdr))
 	    {
-	      *signal_data = list2 (build_string ("`or' must have a list "
+	      *signal_data = list3 (Qtreesit_invalid_predicate,
+				    build_string ("`or' must have a list "
 						  "of patterns as "
 						  "arguments "),
 				    pred);
@@ -3361,8 +3370,7 @@ treesit_traverse_validate_predicate (Lisp_Object pred,
 	      if (!treesit_traverse_validate_predicate (XCAR (cdr),
 							language,
 							signal_data,
-							recursion_level + 1,
-							ignore_missing))
+							recursion_level + 1))
 		return false;
 	    }
 	  return true;
@@ -3370,7 +3378,8 @@ treesit_traverse_validate_predicate (Lisp_Object pred,
       else if (STRINGP (car) && FUNCTIONP (cdr))
 	return true;
     }
-  *signal_data = list2 (build_string ("Invalid predicate, see `treesit-thing-settings' for valid forms of predicate"),
+  *signal_data = list3 (Qtreesit_invalid_predicate,
+			build_string ("Invalid predicate, see `treesit-thing-settings' for valid forms of predicate"),
 			pred);
   return false;
 }
@@ -3551,10 +3560,13 @@ DEFUN ("treesit-search-subtree",
        doc: /* Traverse the parse tree of NODE depth-first using PREDICATE.
 
 Traverse the subtree of NODE, and match PREDICATE with each node along
-the way.  PREDICATE can be a regexp string that matches against each
-node's type, a predicate function, and more.  See
-`treesit-thing-settings' for the possible predicates.  PREDICATE can
-also be a thing defined in `treesit-thing-settings'.
+the way.
+
+PREDICATE can be a regexp string that matches against each node's
+type, a predicate function, and more.  See `treesit-thing-settings'
+for the possible predicates.  PREDICATE can also be a thing defined in
+`treesit-thing-settings'.  Using an undefined thing doesn't raise an
+error.
 
 By default, only traverse named nodes, but if ALL is non-nil, traverse
 all nodes.  If BACKWARD is non-nil, traverse backwards.  If DEPTH is
@@ -3585,8 +3597,14 @@ Return the first matched node, or nil if none matches.  */)
 
   Lisp_Object signal_data = Qnil;
   if (!treesit_traverse_validate_predicate (predicate, language,
-					    &signal_data, 0, false))
-    xsignal1 (Qtreesit_invalid_predicate, signal_data);
+					    &signal_data, 0))
+    {
+      Lisp_Object err_symbol = XCAR (signal_data);
+      Lisp_Object data = XCDR (signal_data);
+      if (EQ (err_symbol, Qtreesit_predicate_not_found))
+	return Qnil;
+      xsignal1 (err_symbol, data);
+    }
 
   Lisp_Object return_value = Qnil;
   TSTreeCursor cursor;
@@ -3612,11 +3630,13 @@ DEFUN ("treesit-search-forward",
        doc: /* Search for node matching PREDICATE in the parse tree of START.
 
 Start traversing the tree from node START, and match PREDICATE with
-each node (except START itself) along the way.  PREDICATE can be a
-regexp string that matches against each node's type, a predicate
-function, and more.  See `treesit-thing-settings' for the possible
-predicates.  PREDICATE can also be a thing defined in
-`treesit-thing-settings'.
+each node (except START itself) along the way.
+
+PREDICATE can be a regexp string that matches against each node's
+type, a predicate function, and more.  See `treesit-thing-settings'
+for the possible predicates.  PREDICATE can also be a thing defined in
+`treesit-thing-settings'.  Using an undefined thing doesn't raise an
+error.
 
 By default, only search for named nodes, but if ALL is non-nil, search
 for all nodes.  If BACKWARD is non-nil, search backwards.
@@ -3652,8 +3672,14 @@ always traverse leaf nodes first, then upwards.  */)
 
   Lisp_Object signal_data = Qnil;
   if (!treesit_traverse_validate_predicate (predicate, language,
-					    &signal_data, 0, false))
-    xsignal1 (Qtreesit_invalid_predicate, signal_data);
+					    &signal_data, 0))
+    {
+      Lisp_Object err_symbol = XCAR (signal_data);
+      Lisp_Object data = XCDR (signal_data);
+      if (EQ (err_symbol, Qtreesit_predicate_not_found))
+	return Qnil;
+      xsignal1 (err_symbol, data);
+    }
 
   Lisp_Object return_value = Qnil;
   TSTreeCursor cursor;
@@ -3728,10 +3754,12 @@ DEFUN ("treesit-induce-sparse-tree",
 
 This takes the subtree under ROOT, and combs it so only the nodes that
 match PREDICATE are left, like picking out grapes on the vine.
+
 PREDICATE can be a regexp string that matches against each node's
 type, a predicate function, and more.  See `treesit-thing-settings'
 for the possible predicates.  PREDICATE can also be a thing defined in
-`treesit-thing-settings'.
+`treesit-thing-settings'.  Using an undefined thing doesn't raise an
+error.
 
 For a subtree on the left that consist of both numbers and letters, if
 PREDICATE is "is letter", the returned tree is the one on the right.
@@ -3758,11 +3786,7 @@ ROOT.  If DEPTH is nil or omitted, it defaults to 1000.
 Each node in the returned tree looks like (NODE . (CHILD ...)).  The
 root of this tree might be nil, if ROOT doesn't match PREDICATE.
 
-If no node matches PREDICATE, return nil.
-
-PREDICATE can also be a function that takes a node and returns
-nil/non-nil, but it is slower and more memory consuming than using
-a regexp.  */)
+If no node matches PREDICATE, return nil.  */)
   (Lisp_Object root, Lisp_Object predicate, Lisp_Object process_fn,
    Lisp_Object depth)
 {
@@ -3787,8 +3811,14 @@ a regexp.  */)
 
   Lisp_Object signal_data = Qnil;
   if (!treesit_traverse_validate_predicate (predicate, language,
-					    &signal_data, 0, false))
-    xsignal1 (Qtreesit_invalid_predicate, signal_data);
+					    &signal_data, 0))
+    {
+      Lisp_Object err_symbol = XCAR (signal_data);
+      Lisp_Object data = XCDR (signal_data);
+      if (EQ (err_symbol, Qtreesit_predicate_not_found))
+	return Qnil;
+      xsignal1 (err_symbol, data);
+    }
 
   Lisp_Object parent = Fcons (Qnil, Qnil);
   /* In this function we never traverse above NODE, so we don't need
@@ -3835,9 +3865,17 @@ definition, but still signal for malformed PREDICATE.  */)
 
   Lisp_Object signal_data = Qnil;
   if (!treesit_traverse_validate_predicate (predicate, language,
-					    &signal_data, 0,
-					    !NILP (ignore_missing)))
-    xsignal1 (Qtreesit_invalid_predicate, signal_data);
+					    &signal_data, 0))
+    {
+      Lisp_Object err_symbol = XCAR (signal_data);
+      Lisp_Object data = XCDR (signal_data);
+
+      if (!NILP (ignore_missing)
+	  && EQ (err_symbol, Qtreesit_predicate_not_found))
+	return Qnil;
+
+      xsignal1 (err_symbol, data);
+    }
 
   TSTreeCursor cursor = ts_tree_cursor_new (XTS_NODE (node)->node);
 
@@ -3976,6 +4014,7 @@ syms_of_treesit (void)
   DEFSYM (Qtreesit_parser_deleted, "treesit-parser-deleted");
   DEFSYM (Qtreesit_pattern_expand, "treesit-pattern-expand");
   DEFSYM (Qtreesit_invalid_predicate, "treesit-invalid-predicate");
+  DEFSYM (Qtreesit_predicate_not_found, "treesit-predicate-not-found");
 
   DEFSYM (Qor, "or");
 

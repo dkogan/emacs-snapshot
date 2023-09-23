@@ -11448,7 +11448,6 @@ window_text_pixel_size (Lisp_Object window, Lisp_Object from, Lisp_Object to,
 	      else
 		move_it_in_display_line (&it, start, it1_x + 1,
 					 MOVE_TO_POS | MOVE_TO_X);
-	      move_it_to (&it, start - 1, -1, -1, -1, MOVE_TO_POS);
 	      start_x = it.current_x;
 	      /* If we didn't change our buffer position, the pixel
 		 width of what's here was not yet accounted for; do it
@@ -11809,7 +11808,7 @@ vadd_to_log (char const *format, va_list ap)
   eassert (nargs <= ARRAYELTS (args));
   AUTO_STRING (args0, format);
   args[0] = args0;
-  for (ptrdiff_t i = 1; i <= nargs; i++)
+  for (ptrdiff_t i = 1; i < nargs; i++)
     args[i] = va_arg (ap, Lisp_Object);
   Lisp_Object msg = Qnil;
   msg = Fformat_message (nargs, args);
@@ -19171,7 +19170,7 @@ try_cursor_movement (Lisp_Object window, struct text_pos startp,
       && !f->cursor_type_changed
       && NILP (Vshow_trailing_whitespace)
       /* When display-line-numbers is in relative mode, moving point
-	 requires to redraw the entire window.  */
+	 requires redrawing the entire window.  */
       && !EQ (Vdisplay_line_numbers, Qrelative)
       && !EQ (Vdisplay_line_numbers, Qvisual)
       /* When the current line number should be displayed in a
