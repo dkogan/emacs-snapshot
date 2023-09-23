@@ -28,7 +28,7 @@ Status: new
  4 files changed, 33 insertions(+), 39 deletions(-)
 
 diff --git a/Makefile.in b/Makefile.in
-index fdd9353e..5dc06cc 100644
+index 51a27cc..b0b5261 100644
 --- a/Makefile.in
 +++ b/Makefile.in
 @@ -174,7 +174,9 @@ man1dir=$(mandir)/man1
@@ -42,7 +42,7 @@ index fdd9353e..5dc06cc 100644
  
  # Directory for local state files for all programs.
  localstatedir=@localstatedir@
-@@ -997,8 +999,7 @@ endef
+@@ -1003,8 +1005,7 @@ endef
  ###      normally don't want to recompile.  For example, the 'mostlyclean'
  ###      target for GCC does not delete 'libgcc.a', because recompiling it
  ###      is rarely necessary and takes a lot of time.
@@ -52,7 +52,7 @@ index fdd9353e..5dc06cc 100644
  
  ### Add the libexec directory to mostlyclean_dirs if its Makefile has
  ### been created.
-@@ -1128,11 +1129,11 @@ test/%:
+@@ -1134,11 +1135,11 @@ test/%:
  dist:
  	cd ${srcdir}; ./make-dist
  
@@ -69,7 +69,7 @@ index fdd9353e..5dc06cc 100644
  
  DOCS = $(DVIS) $(HTMLS) $(INFOS) $(PDFS) $(PSS)
  $(DOCS):
-@@ -1163,9 +1164,6 @@ info-dir: ${srcdir}/info/dir
+@@ -1169,9 +1170,6 @@ info-dir: ${srcdir}/info/dir
  texi_misc = $(shell MAKEFLAGS= ${MAKE} --no-print-directory -s -C doc/misc echo-sources)
  
  srcdir_doc_info_dir_inputs = \
@@ -79,7 +79,7 @@ index fdd9353e..5dc06cc 100644
    $(addprefix ${srcdir}/doc/misc/,${texi_misc})
  info_dir_inputs = \
    ../build-aux/dir_top \
-@@ -1187,14 +1185,10 @@ ${srcdir}/info/dir: ${info_dir_deps}
+@@ -1193,14 +1191,10 @@ ${srcdir}/info/dir: ${info_dir_deps}
  	 AWK='${AWK}' ../build-aux/make-info-dir ${info_dir_inputs} \
  	) >$@.tmp && mv $@.tmp $@
  
@@ -98,7 +98,7 @@ index fdd9353e..5dc06cc 100644
  INSTALL_DOC = $(INSTALL_DVI) $(INSTALL_HTML) $(INSTALL_PDF) $(INSTALL_PS)
  
  ## Install non .info forms of the documentation.
-@@ -1212,14 +1206,10 @@ install-pdf: $(INSTALL_PDF)
+@@ -1218,14 +1212,10 @@ install-pdf: $(INSTALL_PDF)
  install-ps: $(INSTALL_PS)
  
  
@@ -118,10 +118,10 @@ index fdd9353e..5dc06cc 100644
  
  $(UNINSTALL_DOC):
 diff --git a/configure.ac b/configure.ac
-index 7ca75be..d48a322 100644
+index 855c4ec..761b587 100644
 --- a/configure.ac
 +++ b/configure.ac
-@@ -7746,11 +7746,10 @@ ARCH_INDEPENDENT_CONFIG_FILES([$srcdir/doc/man/emacs.1])
+@@ -7745,11 +7745,10 @@ ARCH_INDEPENDENT_CONFIG_FILES([$srcdir/doc/man/emacs.1])
  
  AC_CONFIG_FILES([lib/Makefile lib-src/Makefile oldXMenu/Makefile src/Makefile
                   lwlib/Makefile nextstep/Makefile nt/Makefile])
@@ -135,7 +135,7 @@ index 7ca75be..d48a322 100644
  
  dnl The test/ directory is missing if './make-dist --no-tests' was used.
  opt_makefile=test/Makefile
-@@ -7822,15 +7821,6 @@ if test "$XCONFIGURE" != "android"; then
+@@ -7821,15 +7820,6 @@ if test "$XCONFIGURE" != "android"; then
    fi
    ])
  
@@ -169,7 +169,7 @@ index 1831bbb..b4ffb77 100644
  ## This is discouraged because the .texi files it generates
  ## are not as well formatted as handwritten ones.
 diff --git a/lisp/help.el b/lisp/help.el
-index a012086..be15fef 100644
+index 3a641cc..1d21833 100644
 --- a/lisp/help.el
 +++ b/lisp/help.el
 @@ -496,6 +496,14 @@ If that doesn't give a function, return nil."
