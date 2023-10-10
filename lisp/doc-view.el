@@ -661,7 +661,9 @@ Typically \"page-%s.png\".")
   '("DocView (edit)"
     ("Toggle edit/display"
      ["Edit document"           (lambda ()) ; ignore but show no keybinding
-      :style radio :selected    (eq major-mode 'doc-view--text-view-mode)]
+      ;; This is always selected since its menu is singular to the
+      ;; display minor mode.
+      :style radio :selected    t]
      ["Display document"        doc-view-toggle-display
       :style radio :selected    (eq major-mode 'doc-view-mode)])
     ["Exit DocView Mode" doc-view-minor-mode]))
@@ -1280,7 +1282,8 @@ The test is performed using `doc-view-pdfdraw-program'."
                                     (expand-file-name
                                      doc-view-epub-user-stylesheet)))))))
     (doc-view-start-process
-     "pdf->png" doc-view-pdfdraw-program
+     (concat "pdf->" (symbol-name doc-view--image-type))
+     doc-view-pdfdraw-program
      `(,@(doc-view-pdfdraw-program-subcommand)
        ,@options
        ,pdf

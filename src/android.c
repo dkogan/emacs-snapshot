@@ -104,6 +104,7 @@ struct android_emacs_window
   jmethodID make_input_focus;
   jmethodID raise;
   jmethodID lower;
+  jmethodID reconfigure;
   jmethodID get_window_geometry;
   jmethodID translate_coordinates;
   jmethodID set_dont_accept_focus;
@@ -1755,6 +1756,7 @@ android_init_emacs_window (void)
   FIND_METHOD (make_input_focus, "makeInputFocus", "(J)V");
   FIND_METHOD (raise, "raise", "()V");
   FIND_METHOD (lower, "lower", "()V");
+  FIND_METHOD (reconfigure, "reconfigure", "(Lorg/gnu/emacs/EmacsWindow;I)V");
   FIND_METHOD (get_window_geometry, "getWindowGeometry",
 	       "()[I");
   FIND_METHOD (translate_coordinates, "translateCoordinates",
@@ -4963,6 +4965,37 @@ android_lower_window (android_window handle)
   android_exception_check ();
 }
 
+void
+android_reconfigure_wm_window (android_window handle,
+			       enum android_wc_value_mask value_mask,
+			       struct android_window_changes *values)
+{
+  jobject sibling, window;
+
+  window = android_resolve_handle (handle, ANDROID_HANDLE_WINDOW);
+
+  if (!(value_mask & ANDROID_CW_STACK_MODE))
+    return;
+
+  /* If value_mask & ANDROID_CW_SIBLING, place HANDLE above or below
+     values->sibling pursuant to values->stack_mode; else, reposition
+     it at the top or the bottom of its parent.  */
+
+  sibling = NULL;
+
+  if (value_mask & ANDROID_CW_SIBLING)
+    sibling = android_resolve_handle (values->sibling,
+				      ANDROID_HANDLE_WINDOW);
+
+  (*android_java_env)->CallNonvirtualVoidMethod (android_java_env,
+						 window,
+						 window_class.class,
+						 window_class.reconfigure,
+						 sibling,
+						 (jint) values->stack_mode);
+  android_exception_check ();
+}
+
 int
 android_query_tree (android_window handle, android_window *root_return,
 		    android_window *parent_return,
@@ -5593,15 +5626,20 @@ android_verify_jni_string (const char *name)
 }
 
 /* Given a Lisp string TEXT, return a local reference to an equivalent
-   Java string.  */
+   Java string.  Each argument following TEXT should be NULL or a
+   local reference that will be freed if creating the string fails,
+   whereupon memory_full will also be signaled.  */
 
 jstring
-android_build_string (Lisp_Object text)
+android_build_string (Lisp_Object text, ...)
 {
   Lisp_Object encoded;
   jstring string;
   size_t nchars;
   jchar *characters;
+  va_list ap;
+  jobject object;
+
   USE_SAFE_ALLOCA;
 
   /* Directly encode TEXT if it contains no non-ASCII characters, or
@@ -5619,9 +5657,11 @@ android_build_string (Lisp_Object text)
     {
       string = (*android_java_env)->NewStringUTF (android_java_env,
 						  SSDATA (text));
-      android_exception_check ();
-      SAFE_FREE ();
 
+      if ((*android_java_env)->ExceptionCheck (android_java_env))
+	goto error;
+
+      SAFE_FREE ();
       return string;
     }
 
@@ -5640,10 +5680,36 @@ android_build_string (Lisp_Object text)
   string
     = (*android_java_env)->NewString (android_java_env,
 				      characters, nchars);
-  android_exception_check ();
+
+  if ((*android_java_env)->ExceptionCheck (android_java_env))
+    goto error;
 
   SAFE_FREE ();
   return string;
+
+ error:
+  /* An exception arose while creating the string.  When this
+     transpires, an assumption is made that the error was induced by
+     running out of memory.  Delete each of the local references
+     within AP.  */
+
+  va_start (ap, text);
+
+  __android_log_print (ANDROID_LOG_WARN, __func__,
+		       "Possible out of memory error. "
+		       " The Java exception follows:  ");
+  /* Describe exactly what went wrong.  */
+  (*android_java_env)->ExceptionDescribe (android_java_env);
+  (*android_java_env)->ExceptionClear (android_java_env);
+
+  /* Now remove each and every local reference provided after
+     OBJECT.  */
+
+  while ((object = va_arg (ap, jobject)))
+    ANDROID_DELETE_LOCAL_REF (object);
+
+  va_end (ap);
+  memory_full (0);
 }
 
 /* Do the same, except TEXT is constant string data in ASCII or
@@ -6154,7 +6220,7 @@ android_browse_url (Lisp_Object url, Lisp_Object send)
   Lisp_Object tem;
   const char *buffer;
 
-  string = android_build_string (url);
+  string = android_build_string (url, NULL);
   value
     = (*android_java_env)->CallNonvirtualObjectMethod (android_java_env,
 						       emacs_service,
@@ -6205,7 +6271,7 @@ android_restart_emacs (void)
   exit (0);
 }
 
-/* Return a number from 1 to 33 describing the version of Android
+/* Return a number from 1 to 34 describing the version of Android
    Emacs is running on.
 
    This is different from __ANDROID_API__, as that describes the

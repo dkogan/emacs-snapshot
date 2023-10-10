@@ -463,6 +463,7 @@ enum android_ime_operation
     ANDROID_IME_END_BATCH_EDIT,
     ANDROID_IME_REQUEST_SELECTION_UPDATE,
     ANDROID_IME_REQUEST_CURSOR_UPDATES,
+    ANDROID_IME_REPLACE_TEXT,
   };
 
 enum
@@ -563,6 +564,24 @@ enum android_ic_mode
     ANDROID_IC_MODE_TEXT   = 2,
   };
 
+enum android_stack_mode
+  {
+    ANDROID_ABOVE = 0,
+    ANDROID_BELOW = 1,
+  };
+
+enum android_wc_value_mask
+  {
+    ANDROID_CW_SIBLING	  = 0,
+    ANDROID_CW_STACK_MODE = 1,
+  };
+
+struct android_window_changes
+{
+  android_window sibling;
+  enum android_stack_mode stack_mode;
+};
+
 extern int android_pending (void);
 extern void android_next_event (union android_event *);
 extern bool android_check_if_event (union android_event *,
@@ -642,6 +661,9 @@ extern void android_bell (void);
 extern void android_set_input_focus (android_window, unsigned long);
 extern void android_raise_window (android_window);
 extern void android_lower_window (android_window);
+extern void android_reconfigure_wm_window (android_window,
+					   enum android_wc_value_mask,
+					   struct android_window_changes *);
 extern int android_query_tree (android_window, android_window *,
 			       android_window *, android_window **,
 			       unsigned int *);

@@ -20297,20 +20297,23 @@ handle_one_xevent (struct x_display_info *dpyinfo,
 
 	  /* See if keysym should make Emacs quit.  */
 
-	  if (keysym == dpyinfo->quit_keysym
-	      && (xkey.time - dpyinfo->quit_keysym_time
-		  <= 350))
+	  if (dpyinfo->quit_keysym)
 	    {
-	      Vquit_flag = Qt;
-	      goto done_keysym;
-	    }
+	      if (keysym == dpyinfo->quit_keysym
+		  && (xkey.time - dpyinfo->quit_keysym_time
+		      <= 350))
+		{
+		  Vquit_flag = Qt;
+		  goto done_keysym;
+		}
 
-	  if (keysym == dpyinfo->quit_keysym)
-	    {
-	      /* Otherwise, set the last time that keysym was
-		 pressed.  */
-	      dpyinfo->quit_keysym_time = xkey.time;
-	      goto done_keysym;
+	      if (keysym == dpyinfo->quit_keysym)
+		{
+		  /* Otherwise, set the last time that keysym was
+		     pressed.  */
+		  dpyinfo->quit_keysym_time = xkey.time;
+		  goto done_keysym;
+		}
 	    }
 
           /* If not using XIM/XIC, and a compose sequence is in progress,
@@ -24227,20 +24230,23 @@ handle_one_xevent (struct x_display_info *dpyinfo,
 
 		  /* See if keysym should make Emacs quit.  */
 
-		  if (keysym == dpyinfo->quit_keysym
-		      && (xev->time - dpyinfo->quit_keysym_time
-			  <= 350))
+		  if (dpyinfo->quit_keysym)
 		    {
-		      Vquit_flag = Qt;
-		      goto xi_done_keysym;
-		    }
+		      if (keysym == dpyinfo->quit_keysym
+			  && (xev->time - dpyinfo->quit_keysym_time
+			      <= 350))
+			{
+			  Vquit_flag = Qt;
+			  goto xi_done_keysym;
+			}
 
-		  if (keysym == dpyinfo->quit_keysym)
-		    {
-		      /* Otherwise, set the last time that keysym was
-			 pressed.  */
-		      dpyinfo->quit_keysym_time = xev->time;
-		      goto xi_done_keysym;
+		      if (keysym == dpyinfo->quit_keysym)
+			{
+			  /* Otherwise, set the last time that keysym
+			     was pressed.  */
+			  dpyinfo->quit_keysym_time = xev->time;
+			  goto xi_done_keysym;
+			}
 		    }
 
 		  /* First deal with keysyms which have defined
@@ -32812,17 +32818,12 @@ frame placement via frame parameters, `set-frame-position', and
 
 This is used to support quitting on devices that do not have any kind
 of physical keyboard, or where the physical keyboard is incapable of
-entering `C-g'.  It defaults to `XF86XK_AudioLowerVolume' on XFree86
-and X.Org servers, and is unset.
+entering `C-g'.
 
 The value is an alist associating between strings, describing X server
 vendor names, and a single number describing the keysym to use.  The
 keysym to use for each display connection is determined upon
 connection setup, and does not reflect further changes to this
 variable.  */);
-  Vx_quit_keysym
-    = list2 (Fcons (build_string ("The X.Org Foundation"),
-		    make_int (269025041)),
-	     Fcons (build_string ("The XFree86 Project, Inc."),
-		    make_int (269025041)));
+  Vx_quit_keysym = Qnil;
 }
