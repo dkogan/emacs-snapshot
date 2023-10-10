@@ -118,10 +118,10 @@ index 51a27cc..b0b5261 100644
  
  $(UNINSTALL_DOC):
 diff --git a/configure.ac b/configure.ac
-index 9ae0dec..b953e86 100644
+index 4456cd8..57f9c29 100644
 --- a/configure.ac
 +++ b/configure.ac
-@@ -7745,11 +7745,10 @@ ARCH_INDEPENDENT_CONFIG_FILES([$srcdir/doc/man/emacs.1])
+@@ -7747,11 +7747,10 @@ ARCH_INDEPENDENT_CONFIG_FILES([$srcdir/doc/man/emacs.1])
  
  AC_CONFIG_FILES([lib/Makefile lib-src/Makefile oldXMenu/Makefile src/Makefile
                   lwlib/Makefile nextstep/Makefile nt/Makefile])
@@ -135,7 +135,7 @@ index 9ae0dec..b953e86 100644
  
  dnl The test/ directory is missing if './make-dist --no-tests' was used.
  opt_makefile=test/Makefile
-@@ -7821,15 +7820,6 @@ if test "$XCONFIGURE" != "android"; then
+@@ -7823,15 +7822,6 @@ if test "$XCONFIGURE" != "android"; then
    fi
    ])
  
@@ -169,10 +169,10 @@ index 1831bbb..b4ffb77 100644
  ## This is discouraged because the .texi files it generates
  ## are not as well formatted as handwritten ones.
 diff --git a/lisp/help.el b/lisp/help.el
-index 3a641cc..1d21833 100644
+index 41c43c3..cb6958e 100644
 --- a/lisp/help.el
 +++ b/lisp/help.el
-@@ -496,6 +496,14 @@ If that doesn't give a function, return nil."
+@@ -498,6 +498,14 @@ If that doesn't give a function, return nil."
    (goto-address-mode 1)
    (goto-char (point-min)))
  
