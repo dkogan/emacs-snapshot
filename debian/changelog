@@ -1,3 +1,9 @@
+emacs-snapshot (2:20231026+emacs-29.1.90-168494-g4a4677aa32f-1) unstable; urgency=medium
+
+  * New snapshot
+
+ -- Dima Kogan <dima@secretsauce.net>  Thu, 26 Oct 2023 19:12:33 -0700
+
 emacs-snapshot (2:20231010+emacs-29.1-168547-g294567d171c-1) unstable; urgency=medium
 
   * New snapshot
