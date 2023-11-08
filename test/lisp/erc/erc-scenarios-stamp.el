@@ -50,7 +50,6 @@
        (erc-stamp--current-time 704591940)
        (erc-stamp--tz t)
        (erc-server-flood-penalty 0.1)
-       (erc-timestamp-only-if-changed-flag nil)
        (erc-insert-timestamp-function #'erc-insert-timestamp-left)
        (erc-modules (cons 'fill-wrap erc-modules))
        (erc-timestamp-only-if-changed-flag nil)
@@ -86,5 +85,97 @@
             (goto-char erc-scenarios-stamp--user-marker)
             (should (looking-back "CEIMRUabefhiklmnoqstuv\n"))
             (should (looking-at (rx "[")))))))))
+
+(ert-deftest erc-scenarios-stamp--legacy-date-stamps ()
+  (with-suppressed-warnings ((obsolete erc-stamp-prepend-date-stamps-p))
+    (erc-scenarios-common-with-cleanup
+        ((erc-scenarios-common-dialog "base/reconnect")
+         (erc-stamp-prepend-date-stamps-p t)
+         (dumb-server (erc-d-run "localhost" t 'unexpected-disconnect))
+         (port (process-contact dumb-server :service))
+         (erc-server-flood-penalty 0.1)
+         (expect (erc-d-t-make-expecter)))
+
+      (ert-info ("Connect")
+        (with-current-buffer (erc :server "127.0.0.1"
+                                  :port port
+                                  :full-name "tester"
+                                  :nick "tester")
+          (funcall expect 5 "Opening connection")
+          (goto-char (1- (match-beginning 0)))
+          (should (eq 'erc-timestamp (field-at-pos (point))))
+          (should (eq 'unknown (erc--get-inserted-msg-prop 'erc-msg)))
+          ;; Force redraw of date stamp.
+          (setq erc-timestamp-last-inserted-left nil)
+
+          (funcall expect 5 "This server is in debug mode")
+          (while (and (zerop (forward-line -1))
+                      (not (eq 'erc-timestamp (field-at-pos (point))))))
+          (should (erc--get-inserted-msg-prop 'erc-cmd)))))))
+
+;; This user-owned hook member places a marker on the first message in
+;; a buffer.  Inserting a date stamp in front of it shouldn't move the
+;; marker.
+(defun erc-scenarios-stamp--on-insert-modify ()
+  (unless (marker-position erc-scenarios-stamp--user-marker)
+    (set-marker erc-scenarios-stamp--user-marker (point-min))
+    (save-excursion
+      (goto-char erc-scenarios-stamp--user-marker)
+      (should (looking-at "Opening"))))
+
+  ;; Sometime after the first message ("Opening connection.."), assert
+  ;; that the marker we just placed hasn't moved.
+  (when (erc--check-msg-prop 'erc-cmd 2)
+    (save-restriction
+      (widen)
+      (ert-info ("Date stamp preserves opening user marker")
+        (goto-char erc-scenarios-stamp--user-marker)
+        (should-not (eq 'erc-timestamp (field-at-pos (point))))
+        (should (looking-at "Opening"))
+        (should (eq 'unknown (get-text-property (point) 'erc-msg))))))
+
+  ;; On 003 ("*** This server was created on"), clear state to force a
+  ;; new date stamp on the next message.
+  (when (erc--check-msg-prop 'erc-cmd 3)
+    (setq erc-timestamp-last-inserted-left nil)
+    (set-marker erc-scenarios-stamp--user-marker erc-insert-marker)))
+
+(ert-deftest erc-scenarios-stamp--date-mode/left-and-right ()
+
+  (should (eq erc-insert-timestamp-function
+              #'erc-insert-timestamp-left-and-right))
+
+  (erc-scenarios-common-with-cleanup
+      ((erc-scenarios-common-dialog "base/reconnect")
+       (dumb-server (erc-d-run "localhost" t 'unexpected-disconnect))
+       (port (process-contact dumb-server :service))
+       (erc-scenarios-stamp--user-marker (make-marker))
+       (erc-server-flood-penalty 0.1)
+       (erc-modules (if (zerop (random 2))
+                        (cons 'fill-wrap erc-modules)
+                      erc-modules))
+       (expect (erc-d-t-make-expecter))
+       (erc-mode-hook
+        (cons (lambda ()
+                (add-hook 'erc-insert-modify-hook
+                          #'erc-scenarios-stamp--on-insert-modify -99 t))
+              erc-mode-hook)))
+
+    (ert-info ("Connect")
+      (with-current-buffer (erc :server "127.0.0.1"
+                                :port port
+                                :full-name "tester"
+                                :nick "tester")
+
+        (funcall expect 5 "Welcome to the foonet")
+        (funcall expect 5 "*** AWAYLEN=390")
+
+        (ert-info ("Date stamp preserves other user marker")
+          (goto-char erc-scenarios-stamp--user-marker)
+          (should-not (eq 'erc-timestamp (field-at-pos (point))))
+          (should (looking-at (rx "*** irc.foonet.org oragono")))
+          (should (eq 's004 (get-text-property (point) 'erc-msg))))
+
+        (funcall expect 5 "This server is in debug mode")))))
 
 ;;; erc-scenarios-stamp.el ends here

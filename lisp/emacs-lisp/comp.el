@@ -29,10 +29,7 @@
 ;;; Code:
 
 (require 'bytecomp)
-(require 'cl-extra)
 (require 'cl-lib)
-(require 'cl-macs)
-(require 'cl-seq)
 (require 'gv)
 (require 'rx)
 (require 'subr-x)
@@ -4180,7 +4177,7 @@ the deferred compilation mechanism."
         (comp-log "\n\n" 1)
         (unwind-protect
             (progn
-              (condition-case err
+              (condition-case-unless-debug err
                   (cl-loop
                    with report = nil
                    for t0 = (current-time)
@@ -4199,7 +4196,8 @@ the deferred compilation mechanism."
                      (comp-log (format "Done compiling %s" data) 0)
                      (cl-loop for (pass . time) in (reverse report)
                               do (comp-log (format "Pass %s took: %fs."
-                                                   pass time) 0))))
+                                                   pass time)
+                                           0))))
                 (native-compiler-skip)
                 (t
                  (let ((err-val (cdr err)))

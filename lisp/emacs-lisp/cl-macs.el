@@ -101,6 +101,7 @@
     (and (> size 0) (1- size))))
 
 (defun cl--simple-exprs-p (xs)
+  "Map `cl--simple-expr-p' to each element of list XS."
   (while (and xs (cl--simple-expr-p (car xs)))
     (setq xs (cdr xs)))
   (not xs))
@@ -116,8 +117,10 @@
 	     (while (and (setq x (cdr x)) (cl--safe-expr-p (car x))))
 	     (null x)))))
 
-;;; Check if constant (i.e., no side effects or dependencies).
 (defun cl--const-expr-p (x)
+  "Check if X is constant (i.e., no side effects or dependencies).
+
+See `macroexp-const-p' for similar functionality without cl-lib dependency."
   (cond ((consp x)
 	 (or (eq (car x) 'quote)
 	     (and (memq (car x) '(function cl-function))
@@ -3092,7 +3095,11 @@ To see the documentation for a defined struct type, use
 				  descs)))
 	      (t
 	       (error "Structure option %s unrecognized" opt)))))
-    (unless (or include-name type)
+    (unless (or include-name type
+                ;; Don't create a bogus parent to `cl-structure-object'
+                ;; while compiling the (cl-defstruct cl-structure-object ..)
+                ;; in `cl-preloaded.el'.
+                (eq name cl--struct-default-parent))
       (setq include-name cl--struct-default-parent))
     (when include-name (setq include (cl--struct-get-class include-name)))
     (if print-func
@@ -3331,7 +3338,7 @@ To see the documentation for a defined struct type, use
 ;;; Add cl-struct support to pcase
 
 ;;In use by comp.el
-(defun cl--struct-all-parents (class)
+(defun cl--struct-all-parents (class) ;FIXME: Merge with `cl--class-allparents'
   (when (cl--struct-class-p class)
     (let ((res ())
           (classes (list class)))
@@ -3728,7 +3735,7 @@ macro that returns its `&whole' argument."
 
 ;;; Things that are inline.
 (cl-proclaim '(inline cl-acons cl-map cl-notany cl-notevery cl-revappend
-                      cl-nreconc gethash))
+               cl-nreconc))
 
 ;;; Things that are side-effect-free.
 (mapc (lambda (x) (function-put x 'side-effect-free t))

@@ -2984,7 +2984,7 @@ connection cleanup or on Emacs exiting.
 @cindex rclone setup
 
 The default arguments of the @command{rclone} operations
-@command{mount}, @command{coopyto}, @command{moveto} and
+@command{mount}, @command{copyto}, @command{moveto} and
 @command{about} are declared in the variable @code{tramp-methods} as
 method specific parameters.  Usually, they don't need to be overwritten.
 
@@ -6096,7 +6096,7 @@ The verbosity levels are
 @item @w{ 0}  Silent (no @value{tramp} messages at all)
 @item @w{ 1}  Errors
 @item @w{ 2}  Warnings
-@item @w{ 3}  Connectioncccc to remote hosts (default verbosity)
+@item @w{ 3}  Connection to remote hosts (default verbosity)
 @item @w{ 4}  Activities
 @item @w{ 5}  Internal
 @item @w{ 6}  Sent and received strings
