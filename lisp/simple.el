@@ -2989,11 +2989,17 @@ this by calling a function defined by `minibuffer-default-add-function'.")
 (defun minibuffer-default-add-completions ()
   "Return a list of all completions without the default value.
 This function is used to add all elements of the completion table to
-the end of the list of defaults just after the default value."
+the end of the list of defaults just after the default value.
+If you don't want to add initial completions to the default value,
+use either `minibuffer-setup-hook' or `minibuffer-with-setup-hook'
+to set the value of `minibuffer-default-add-function' to nil."
   (let ((def minibuffer-default)
-	(all (all-completions ""
-			      minibuffer-completion-table
-			      minibuffer-completion-predicate)))
+        ;; Avoid some popular completions with undefined order
+        (all (unless (memq minibuffer-completion-table
+                           `(help--symbol-completion-table ,obarray))
+               (all-completions ""
+                                minibuffer-completion-table
+                                minibuffer-completion-predicate))))
     (if (listp def)
 	(append def all)
       (cons def (delete def all)))))
@@ -10051,18 +10057,20 @@ Also see the `completion-auto-wrap' variable."
                   (eq (move-to-column column) column))
         (when (get-text-property (point) 'mouse-face)
           (setq found t)))
-      (when (and (not found) completion-auto-wrap)
-        (save-excursion
-          (goto-char (point-min))
-          (when (and (eq (move-to-column column) column)
-                     (get-text-property (point) 'mouse-face))
-            (setq pos (point)))
-          (while (and (not pos) (> line (line-number-at-pos)))
-            (forward-line 1)
+      (when (not found)
+        (if (not completion-auto-wrap)
+            (last-completion)
+          (save-excursion
+            (goto-char (point-min))
             (when (and (eq (move-to-column column) column)
                        (get-text-property (point) 'mouse-face))
-              (setq pos (point)))))
-        (if pos (goto-char pos)))
+              (setq pos (point)))
+            (while (and (not pos) (> line (line-number-at-pos)))
+              (forward-line 1)
+              (when (and (eq (move-to-column column) column)
+                         (get-text-property (point) 'mouse-face))
+                (setq pos (point)))))
+          (if pos (goto-char pos))))
       (setq n (1- n)))
 
     (while (< n 0)
@@ -10072,18 +10080,20 @@ Also see the `completion-auto-wrap' variable."
                   (eq (move-to-column column) column))
         (when (get-text-property (point) 'mouse-face)
           (setq found t)))
-      (when (and (not found) completion-auto-wrap)
-        (save-excursion
-          (goto-char (point-max))
-          (when (and (eq (move-to-column column) column)
-                     (get-text-property (point) 'mouse-face))
-            (setq pos (point)))
-          (while (and (not pos) (< line (line-number-at-pos)))
-            (forward-line -1)
+      (when (not found)
+        (if (not completion-auto-wrap)
+            (first-completion)
+          (save-excursion
+            (goto-char (point-max))
             (when (and (eq (move-to-column column) column)
                        (get-text-property (point) 'mouse-face))
-              (setq pos (point)))))
-        (if pos (goto-char pos)))
+              (setq pos (point)))
+            (while (and (not pos) (< line (line-number-at-pos)))
+              (forward-line -1)
+              (when (and (eq (move-to-column column) column)
+                         (get-text-property (point) 'mouse-face))
+                (setq pos (point)))))
+          (if pos (goto-char pos))))
       (setq n (1+ n)))))
 
 (defun choose-completion (&optional event no-exit no-quit)

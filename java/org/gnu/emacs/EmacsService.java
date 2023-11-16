@@ -53,8 +53,6 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.UriPermission;
 
-import android.content.pm.ApplicationInfo;
-import android.content.pm.PackageManager.ApplicationInfoFlags;
 import android.content.pm.PackageManager;
 
 import android.content.res.AssetManager;
@@ -193,36 +191,6 @@ public final class EmacsService extends Service
     return null;
   }
 
-  @SuppressWarnings ("deprecation")
-  private String
-  getApkFile ()
-  {
-    PackageManager manager;
-    ApplicationInfo info;
-
-    manager = getPackageManager ();
-
-    try
-      {
-	if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU)
-	  info = manager.getApplicationInfo ("org.gnu.emacs", 0);
-	else
-	  info = manager.getApplicationInfo ("org.gnu.emacs",
-					     ApplicationInfoFlags.of (0));
-
-	/* Return an empty string upon failure.  */
-
-	if (info.sourceDir != null)
-	  return info.sourceDir;
-
-	return "";
-      }
-    catch (Exception e)
-      {
-	return "";
-      }
-  }
-
   /* Return the display density, adjusted in accord with the user's
      text scaling preferences.  */
 
@@ -288,7 +256,7 @@ public final class EmacsService extends Service
 	/* Now provide this application's apk file, so a recursive
 	   invocation of app_process (through android-emacs) can
 	   find EmacsNoninteractive.  */
-	classPath = getApkFile ();
+	classPath = EmacsApplication.apkFileName;
 
 	Log.d (TAG, "Initializing Emacs, where filesDir = " + filesDir
 	       + ", libDir = " + libDir + ", and classPath = " + classPath
@@ -319,6 +287,30 @@ public final class EmacsService extends Service
 	EmacsNative.emacsAbort ();
 	return;
       }
+  }
+
+  /* The native functions the subsequent two functions call do nothing
+     in the infrequent case the Emacs thread is awaiting a response
+     for the main thread.  Caveat emptor! */
+
+  @Override
+  public void
+  onDestroy ()
+  {
+    /* This function is called immediately before the system kills
+       Emacs.  In this respect, it is rather akin to a SIGDANGER
+       signal, so force an auto-save accordingly.  */
+
+    EmacsNative.shutDownEmacs ();
+    super.onDestroy ();
+  }
+
+  @Override
+  public void
+  onLowMemory ()
+  {
+    EmacsNative.onLowMemory ();
+    super.onLowMemory ();
   }
 
 

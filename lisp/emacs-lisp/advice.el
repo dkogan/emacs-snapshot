@@ -2042,7 +2042,7 @@ in that CLASS."
 		 function class name)))
     (error "ad-remove-advice: `%s' is not advised" function)))
 
-(declare-function comp-subr-trampoline-install "comp")
+(declare-function comp-subr-trampoline-install "comp-run")
 
 ;;;###autoload
 (defun ad-add-advice (function advice class position)
@@ -2067,9 +2067,6 @@ mapped to the closest extremal position).
 If FUNCTION was not advised already, its advice info will be
 initialized.  Redefining a piece of advice whose name is part of
 the cache-id will clear the cache."
-  (when (and (featurep 'native-compile)
-             (subr-primitive-p (symbol-function function)))
-    (comp-subr-trampoline-install function))
   (cond ((not (ad-is-advised function))
          (ad-initialize-advice-info function)
 	 (ad-set-advice-info-field

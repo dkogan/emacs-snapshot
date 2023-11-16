@@ -1561,11 +1561,12 @@ scroll the window of possible completions."
    (t (prog1 (pcase (completion--do-completion beg end)
                (#b000 nil)
                (_     t))
-        (when (and (eq completion-auto-select t)
-                   (window-live-p minibuffer-scroll-window)
-                   (eq t (frame-visible-p (window-frame minibuffer-scroll-window))))
-          ;; When the completion list window was displayed, select it.
-          (switch-to-completions))))))
+        (if (window-live-p minibuffer-scroll-window)
+            (and (eq completion-auto-select t)
+                 (eq t (frame-visible-p (window-frame minibuffer-scroll-window)))
+                 ;; When the completion list window was displayed, select it.
+                 (switch-to-completions))
+          (completion-in-region-mode -1))))))
 
 (defun completion--cache-all-sorted-completions (beg end comps)
   (add-hook 'after-change-functions
@@ -2404,9 +2405,14 @@ These include:
              (base-prefix (buffer-substring (minibuffer--completion-prompt-end)
                                             (+ start base-size)))
              (base-suffix
-              (if (eq (alist-get 'category (cdr md)) 'file)
-                  (buffer-substring (save-excursion (or (search-forward "/" nil t) (point-max)))
-                                    (point-max))
+              (if (or (eq (alist-get 'category (cdr md)) 'file)
+                      completion-in-region-mode-predicate)
+                  (buffer-substring
+                   (save-excursion
+                     (if completion-in-region-mode-predicate
+                         (point)
+                       (or (search-forward "/" nil t) (point-max))))
+                   (point-max))
                 ""))
              (all-md (completion--metadata (buffer-substring-no-properties
                                             start (point))
@@ -3837,17 +3843,26 @@ details."
       (funcall completion-lazy-hilit-fn (copy-sequence str))
     str))
 
-(defun completion--hilit-from-re (string regexp)
-  "Fontify STRING with `completions-common-part' using REGEXP."
-  (let* ((md (and regexp (string-match regexp string) (cddr (match-data t))))
-         (me (and md (match-end 0)))
-         (from 0))
-    (while md
-      (add-face-text-property from (pop md) 'completions-common-part nil string)
-      (setq from (pop md)))
-    (unless (or (not me) (= from me))
-      (add-face-text-property from me 'completions-common-part nil string))
-    string))
+(defun completion--hilit-from-re (string regexp &optional point-idx)
+  "Fontify STRING using REGEXP POINT-IDX.
+`completions-common-part' and `completions-first-difference' are
+used.  POINT-IDX is the position of point in the presumed \"PCM\"
+pattern that was used to generate derive REGEXP from."
+(let* ((md (and regexp (string-match regexp string) (cddr (match-data t))))
+       (pos (if point-idx (match-beginning point-idx) (match-end 0)))
+       (me (and md (match-end 0)))
+       (from 0))
+  (while md
+    (add-face-text-property from (pop md) 'completions-common-part nil string)
+    (setq from (pop md)))
+  (if (> (length string) pos)
+      (add-face-text-property
+       pos (1+ pos)
+       'completions-first-difference
+       nil string))
+  (unless (or (not me) (= from me))
+    (add-face-text-property from me 'completions-common-part nil string))
+  string))
 
 (defun completion--flex-score-1 (md-groups match-end len)
   "Compute matching score of completion.
@@ -3972,16 +3987,17 @@ see) for later lazy highlighting."
         completion-lazy-hilit-fn nil)
   (cond
    ((and completions (cl-loop for e in pattern thereis (stringp e)))
-    (let* ((re (completion-pcm--pattern->regex pattern 'group)))
+    (let* ((re (completion-pcm--pattern->regex pattern 'group))
+           (point-idx (completion-pcm--pattern-point-idx pattern)))
       (setq completion-pcm--regexp re)
       (cond (completion-lazy-hilit
              (setq completion-lazy-hilit-fn
-                   (lambda (str) (completion--hilit-from-re str re)))
+                   (lambda (str) (completion--hilit-from-re str re point-idx)))
              completions)
             (t
              (mapcar
               (lambda (str)
-                (completion--hilit-from-re (copy-sequence str) re))
+                (completion--hilit-from-re (copy-sequence str) re point-idx))
               completions)))))
    (t completions)))
 
@@ -4694,7 +4710,7 @@ contents."
   (interactive "P")
   (condition-case nil
       (minibuffer-choose-completion no-exit no-quit)
-    (error (exit-minibuffer))))
+    (error (minibuffer-complete-and-exit))))
 
 (defun minibuffer-complete-history ()
   "Complete the minibuffer history as far as possible.
@@ -4711,13 +4727,15 @@ instead of the default completion table."
                       history)
             (user-error "No history available"))))
     ;; FIXME: Can we make it work for CRM?
-    (completion-in-region
-     (minibuffer--completion-prompt-end) (point-max)
-     (lambda (string pred action)
-       (if (eq action 'metadata)
-           '(metadata (display-sort-function . identity)
-                      (cycle-sort-function . identity))
-         (complete-with-action action completions string pred))))))
+    (let ((completion-in-region-mode-predicate
+           (lambda () (get-buffer-window "*Completions*" 0))))
+      (completion-in-region
+       (minibuffer--completion-prompt-end) (point-max)
+       (lambda (string pred action)
+         (if (eq action 'metadata)
+             '(metadata (display-sort-function . identity)
+                        (cycle-sort-function . identity))
+           (complete-with-action action completions string pred)))))))
 
 (defun minibuffer-complete-defaults ()
   "Complete minibuffer defaults as far as possible.
@@ -4728,7 +4746,9 @@ instead of the completion table."
              (functionp minibuffer-default-add-function))
     (setq minibuffer-default-add-done t
           minibuffer-default (funcall minibuffer-default-add-function)))
-  (let ((completions (ensure-list minibuffer-default)))
+  (let ((completions (ensure-list minibuffer-default))
+        (completion-in-region-mode-predicate
+         (lambda () (get-buffer-window "*Completions*" 0))))
     (completion-in-region
      (minibuffer--completion-prompt-end) (point-max)
      (lambda (string pred action)
