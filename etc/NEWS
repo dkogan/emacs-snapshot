@@ -32,6 +32,14 @@ NDK, SDK, and a suitable Java compiler must also be installed.
 See the file 'java/INSTALL' for more details.
 
 ---
+** Native compilation is now enabled by default.
+'configure' will enable the Emacs Lisp native compiler, so long as
+libgccjit is present and functional on the system.  To disable native
+compilation, configure Emacs with the option:
+
+  $ ./configure --with-native-compilation=no
+
+---
 ** Emacs now defaults to ossaudio library for sound on NetBSD and OpenBSD.
 Previously configure used ALSA libraries if installed on the
 system when configured '--with-sound=yes' (which is the default), with
@@ -233,6 +241,12 @@ to enter the file you want to modify.
 It can be used to customize the look of the appointment notification
 displayed on the mode line when 'appt-display-mode-line' is non-nil.
 
+---
+*** Emacs now recognizes shebang lines that pass -S/--split-string to 'env'.
+When visiting a script that invokes 'env -S INTERPRETER ARGS...' in
+its shebang line, Emacs will now skip over 'env -S' and deduce the
+major mode based on the interpreter after 'env -S'.
+
 ** Emacs Server and Client
 
 ---
@@ -329,6 +343,15 @@ or narrow (if the variable is customized to the nil value).
 
 This setting affects the results of 'string-width' and similar
 functions in CJK locales.
+
+---
+*** New input methods for the Urdu, Pashto, and Sindhi languages.
+These languages are spoken in Pakistan and Afganistan.
+
+*** Additional 'C-x 8' key translations for æ and Æ.
+These characters can now be input with 'C-x 8 a e' and 'C-x 8 A E',
+respectively, in addition to the existing translations 'C-x 8 / e' and
+'C-x 8 / E'.
 
 
 * Changes in Specialized Modes and Packages in Emacs 30.1
@@ -467,10 +490,24 @@ that shows as diffs replacements in the marked files in Dired.
 
 ---
 *** New user option 'dired-movement-style'.
-When non-nil, make 'dired-next-line' and 'dired-previous-line' skip
-empty lines.  It also controls how to move point when encountering a
-boundary (e.g., if every line is visible, invoking 'dired-next-line'
-at the last line will move to the first line).  The default is nil.
+When non-nil, make 'dired-next-line', 'dired-previous-line',
+'dired-next-dirline', 'dired-prev-dirline' skip empty lines.
+It also controls how to move point when encountering a boundary
+(e.g., if every line is visible, invoking 'dired-next-line' at
+the last line will move to the first line).  The default is nil.
+
+*** New user option 'dired-filename-display-length'.
+It is an integer representing the maximum display length of filenames.
+The middle part of filename whose length exceeds the restriction is
+hidden and an ellipsis is displayed instead.  A value of 'window'
+means using the right edge of window as the display restriction.  The
+default is nil.
+
+*** New user option 'shell-command-guess-functions'.
+It defines how to populate a list of commands available
+for 'M-!', 'M-&', '!', '&' based on marked files in Dired.
+Possible backends are 'dired-guess-default', MIME types,
+XDG configuration.
 
 ** Ediff
 
@@ -1071,8 +1108,10 @@ A major mode based on the tree-sitter library for editing Elixir files.
 *** New major mode 'lua-ts-mode'.
 A major mode based on the tree-sitter library for editing Lua files.
 
+** Minibuffer and Completions
+
 +++
-** New global minor mode 'minibuffer-regexp-mode'.
+*** New global minor mode 'minibuffer-regexp-mode'.
 This is a minor mode for editing regular expressions in the minibuffer.
 It highlights parens via ‘show-paren-mode’ and ‘blink-matching-paren’ in
 a user-friendly way, avoids reporting alleged paren mismatches and makes
@@ -1098,6 +1137,18 @@ showcases all their customization options.
 
 
 * Incompatible Lisp Changes in Emacs 30.1
+
++++
+** 'M-TAB' now invokes 'completion-at-point' also in Text mode.
+Text mode no longer binds 'M-TAB' to 'ispell-complete-word', and
+instead this mode arranges for 'completion-at-point', globally bound
+to 'M-TAB', to perform word completion as well.  If you want 'M-TAB'
+to invoke 'ispell-complete-word', as it did in previous Emacs
+versions, customize the new option
+'text-mode-meta-tab-ispell-complete-word' to non-nil.
+
+** 'pp' and 'pp-to-string' now always include a terminating newline.
+In the past they included a terminating newline in most cases but not all.
 
 ** 'buffer-match-p' and 'match-buffers' take '&rest args'.
 They used to take a single '&optional arg' and were documented to use
@@ -1195,6 +1246,25 @@ values.
 
 
 * Lisp Changes in Emacs 30.1
+
+** New function 'merge-ordered-lists'.
+Mostly used internally to do a kind of topological sort of
+inheritance hierarchies.
+
+** New API for 'derived-mode-p' and control of the graph of major modes.
+
+*** 'derived-mode-p' now takes the list of modes as a single argument.
+The same holds for `provided-mode-derived-p`.
+The old calling convention where multiple modes are passed as
+separate arguments is deprecated.
+
+*** New functions to access the graph of major modes.
+While 'define-derived-mode' still only supports single inheritance,
+modes can declare additional parents (for tests like 'derived-mode-p')
+with `derived-mode-add-parents`.
+Accessing the 'derived-mode-parent' property directly is now
+deprecated in favor of the new functions 'derived-mode-set-parent'
+and 'derived-mode-all-parents'.
 
 +++
 ** Drag-and-drop functions can now be called once for compound drops.

@@ -1029,7 +1029,7 @@ that if you use overwrite mode as your normal editing mode, you can use
 this function to insert characters when necessary.
 
 In binary overwrite mode, this function does overwrite, and octal
-(or decimal or hex) digits are interpreted as a character code.  This
+\(or decimal or hex) digits are interpreted as a character code.  This
 is intended to be useful for editing binary files."
   (interactive "*p")
   (let* ((char
@@ -2427,9 +2427,7 @@ BUFFER."
   "Say whether MODES are in action in BUFFER.
 This is the case if either the major mode is derived from one of MODES,
 or (if one of MODES is a minor mode), if it is switched on in BUFFER."
-  (or (apply #'provided-mode-derived-p
-             (buffer-local-value 'major-mode buffer)
-             modes)
+  (or (provided-mode-derived-p (buffer-local-value 'major-mode buffer) modes)
       ;; It's a minor mode.
       (seq-intersection modes
                         (buffer-local-value 'local-minor-modes buffer)
@@ -4275,19 +4273,17 @@ This buffer is used when `shell-command' or `shell-command-on-region'
 is run interactively.  A value of nil means that output to stderr and
 stdout will be intermixed in the output stream.")
 
-(declare-function mailcap-file-default-commands "mailcap" (files))
 (declare-function dired-get-filename "dired" (&optional localp no-error-if-not-filep))
 
 (defun minibuffer-default-add-shell-commands ()
   "Return a list of all commands associated with the current file.
-This function is used to add all related commands retrieved by `mailcap'
-to the end of the list of defaults just after the default value."
-  (interactive)
+This function is used to add all related commands retrieved by
+`shell-command-guess' to the end of the list of defaults just
+after the default value."
   (let* ((filename (if (listp minibuffer-default)
 		       (car minibuffer-default)
 		     minibuffer-default))
-	 (commands (and filename (require 'mailcap nil t)
-			(mailcap-file-default-commands (list filename)))))
+	 (commands (and filename (shell-command-guess (list filename)))))
     (setq commands (mapcar (lambda (command)
 			     (concat command " " filename))
 			   commands))
@@ -11087,6 +11083,10 @@ If the buffer doesn't exist, create it first."
   (pop-to-buffer-same-window (get-scratch-buffer-create)))
 
 (defun kill-buffer--possibly-save (buffer)
+  "Ask the user to confirm killing of a modified BUFFER.
+
+If the user confirms, optionally save BUFFER that is about to be
+killed."
   (let ((response
          (cadr
           (read-multiple-choice

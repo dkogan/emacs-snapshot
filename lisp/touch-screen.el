@@ -908,16 +908,17 @@ text scale by the ratio therein."
   (require 'face-remap)
   (let* ((posn (cadr event))
          (window (posn-window posn))
-         (current-scale (if text-scale-mode
-                            text-scale-mode-amount
-                          0))
-         (start-scale (or (aref touch-screen-aux-tool 7)
-                          (aset touch-screen-aux-tool 7
-                                current-scale)))
          (scale (nth 2 event))
-         (ratio-diff (nth 5 event)))
+         (ratio-diff (nth 5 event))
+         current-scale start-scale)
     (when (windowp window)
       (with-selected-window window
+        (setq current-scale (if text-scale-mode
+                                text-scale-mode-amount
+                              0)
+              start-scale (or (aref touch-screen-aux-tool 7)
+                              (aset touch-screen-aux-tool 7
+                                    current-scale)))
         ;; Set the text scale.
         (text-scale-set (+ start-scale
                            (round (log scale text-scale-mode-step))))
@@ -925,7 +926,8 @@ text scale by the ratio therein."
         ;; position.
         (if (and (not (eq current-scale
                           text-scale-mode-amount))
-                 (posn-point posn))
+                 (posn-point posn)
+                 (cdr (posn-x-y posn)))
             (touch-screen-scroll-point-to-y (posn-point posn)
                                             (cdr (posn-x-y posn)))
           ;; Rather than scroll POSN's point to its old row, scroll the
@@ -1056,25 +1058,12 @@ then move point to the position of POINT."
     (cond ((or (null what)
                (eq what 'ancillary-tool))
            (let* ((last-posn (nth 2 touch-screen-current-tool))
-                  (original-posn (nth 4 touch-screen-current-tool))
-                  (col (and (not (posn-area original-posn))
-                            (car (posn-col-row original-posn
-                                               (posn-window posn)))))
-                  ;; Don't start horizontal scrolling if the touch
-                  ;; point originated within two columns of the window
-                  ;; edges, as systems like Android use those two
-                  ;; columns to implement gesture navigation.
-                  (diff-x-eligible
-                   (and col (> col 2)
-                        (< col (- (window-width window) 2))))
                   (diff-x (- (car last-posn) (car relative-xy)))
                   (diff-y (- (cdr last-posn) (cdr relative-xy))))
              (when (or (> diff-y 10)
-                       (and diff-x-eligible
-                            (> diff-x (frame-char-width)))
+                       (> diff-x (frame-char-width))
                        (< diff-y -10)
-                       (and diff-x-eligible
-                            (< diff-x (- (frame-char-width)))))
+                       (< diff-x (- (frame-char-width))))
                (setcar (nthcdr 3 touch-screen-current-tool)
                        'scroll)
                (setcar (nthcdr 2 touch-screen-current-tool)
@@ -1221,20 +1210,32 @@ last such event."
                        (/ (frame-char-width) 2)))
             (aset touch-screen-aux-tool 5 centrum)
             (aset touch-screen-aux-tool 6 ratio)
-            (throw 'input-event (list 'touchscreen-pinch
-                                      (if (or (<= (car centrum) 0)
-                                              (<= (cdr centrum) 0))
-                                          (list window centrum nil nil nil
-                                                nil nil nil)
-                                        (posn-at-x-y (car centrum)
-                                                     (cdr centrum)
-                                                     window))
-                                      ratio
-                                      (- (car centrum)
-                                         (car initial-centrum))
-                                      (- (cdr centrum)
-                                         (cdr initial-centrum))
-                                      ratio-diff))))))))
+            (throw 'input-event
+                   (list 'touchscreen-pinch
+                         (if (or (<= (car centrum) 0)
+                                 (<= (cdr centrum) 0))
+                             (list window nil centrum nil nil
+                                   nil nil nil nil nil)
+                           (let ((posn (posn-at-x-y (car centrum)
+                                                    (cdr centrum)
+                                                    window)))
+                             (if (eq (posn-window posn)
+                                     window)
+                                 posn
+                               ;; Return a placeholder
+                               ;; outside the window if
+                               ;; the centrum has moved
+                               ;; beyond the confines of
+                               ;; the window where the
+                               ;; gesture commenced.
+                               (list window nil centrum nil nil
+                                     nil nil nil nil nil))))
+                         ratio
+                         (- (car centrum)
+                            (car initial-centrum))
+                         (- (cdr centrum)
+                            (cdr initial-centrum))
+                         ratio-diff))))))))
 
 (defun touch-screen-window-selection-changed (frame)
   "Notice that FRAME's selected window has changed.
@@ -1345,15 +1346,13 @@ is not read-only."
                  (when command
                    (if (memq command touch-screen-set-point-commands)
                        (if touch-screen-translate-prompt
-                           ;; When a `mouse-set-point' command is
-                           ;; encountered and
-                           ;; `touch-screen-handle-touch' is being
-                           ;; called from the keyboard command loop,
-                           ;; call it immediately so that point is set
-                           ;; prior to the on screen keyboard being
-                           ;; displayed.
-                           (call-interactively command nil
-                                               (vector event))
+                           ;; Forgo displaying the virtual keyboard
+                           ;; should touch-screen-translate-prompt be
+                           ;; set, for then the key won't be delivered
+                           ;; to the command loop, but rather to a
+                           ;; caller of read-key-sequence such as
+                           ;; describe-key.
+                           (throw 'input-event event)
                          (if (and (or (not buffer-read-only)
                                       touch-screen-display-keyboard)
                                   ;; Detect the splash screen and
@@ -1457,8 +1456,15 @@ If INTERACTIVE, execute the command associated with any event
 generated instead of throwing `input-event'.  Otherwise, throw
 `input-event' with a single input event if that event should take
 the place of EVENT within the key sequence being translated, or
-`nil' if all tools have been released."
+`nil' if all tools have been released.
+
+Set `touch-screen-events-received' to `t' to indicate that touch
+screen events have been received, and thus by extension require
+functions undertaking event management themselves to call
+`read-key' rather than `read-event'."
   (interactive "e\ni\np")
+  (unless touch-screen-events-received
+    (setq touch-screen-events-received t))
   (if interactive
       ;; Called interactively (probably from wid-edit.el.)
       ;; Add any event generated to `unread-command-events'.
@@ -1485,7 +1491,19 @@ the place of EVENT within the key sequence being translated, or
           (cancel-timer touch-screen-current-timer)
           (setq touch-screen-current-timer nil))
         ;; If a tool already exists...
-        (if touch-screen-current-tool
+        (if (and touch-screen-current-tool
+                 ;; ..and the number of this tool is at variance with
+                 ;; that of the current tool: if a `touchscreen-end'
+                 ;; event is delivered that is somehow withheld from
+                 ;; this function and the system does not assign
+                 ;; monotonically increasing touch point identifiers,
+                 ;; then the ancillary tool will be set to a tool
+                 ;; bearing the same number as the current tool, and
+                 ;; consequently the mechanism for detecting
+                 ;; erroneously retained touch points upon the
+                 ;; registration of `touchscreen-update' events will
+                 ;; not be activated.
+                 (not (eq touchpoint (car touch-screen-current-tool))))
             ;; Then record this tool as the ``auxiliary tool''.
             ;; Updates to the auxiliary tool are considered in unison
             ;; with those to the current tool; the distance between
@@ -1493,7 +1511,12 @@ the place of EVENT within the key sequence being translated, or
             ;; auxiliary tool was first pressed, then interpreted as a
             ;; scale by which to adjust text within the current tool's
             ;; window.
-            (progn
+            (when (eq (if (framep window) window (window-frame window))
+                      ;; Verify that the new tool was placed on the
+                      ;; same frame the current tool has, so as not to
+                      ;; consider events distributed across distinct
+                      ;; frames components of a single gesture.
+                      (window-frame (nth 1 touch-screen-current-tool)))
               ;; Set touch-screen-aux-tool as is proper.  Mind that
               ;; the last field is always relative to the current
               ;; tool's window.
@@ -1620,13 +1643,28 @@ the place of EVENT within the key sequence being translated, or
       ;; The positions of tools currently pressed against the screen
       ;; have changed.  If there is a tool being tracked as part of a
       ;; gesture, look it up in the list of tools.
-      (let ((new-point (assq (car touch-screen-current-tool)
-                             (cadr event))))
-        (when new-point
+      (if-let ((new-point (assq (car touch-screen-current-tool)
+                                (cadr event))))
           (if touch-screen-aux-tool
               (touch-screen-handle-aux-point-update (cdr new-point)
                                                     (car new-point))
-            (touch-screen-handle-point-update new-point))))
+            (touch-screen-handle-point-update new-point))
+        ;; If the current tool exists no longer, a touchscreen-end
+        ;; event is certain to have been disregarded.  So that
+        ;; touchscreen gesture translation might continue as usual
+        ;; after this aberration to the normal flow of events, delete
+        ;; the current tool now.
+        (when touch-screen-current-timer
+          ;; Cancel the touch screen long-press timer, if it is still
+          ;; there by any chance.
+          (cancel-timer touch-screen-current-timer)
+          (setq touch-screen-current-timer nil))
+        ;; Don't call `touch-screen-handle-point-up' when terminating
+        ;; translation abnormally.
+        (setq touch-screen-current-tool nil
+              ;; Delete the ancillary tool while at it.
+              touch-screen-aux-tool nil)
+        (message "Current touch screen tool vanished!"))
       ;; Check for updates to any ancillary point being monitored.
       (when touch-screen-aux-tool
         (let ((new-point (assq (aref touch-screen-aux-tool 0)
@@ -1643,15 +1681,22 @@ the place of EVENT within the key sequence being translated, or
         (when touch-screen-current-timer
           (cancel-timer touch-screen-current-timer)
           (setq touch-screen-current-timer nil))
-        (unwind-protect
-            ;; Don't perform any actions associated with releasing the
-            ;; tool if the touch sequence was intercepted by another
-            ;; program.
-            (unless (caddr event)
-              (touch-screen-handle-point-up (cadr event) prefix))
-          ;; Make sure the tool list is cleared even if
-          ;; `touch-screen-handle-point-up' throws.
-          (setq touch-screen-current-tool nil)))
+        (let ((old-aux-tool touch-screen-aux-tool))
+          (unwind-protect
+              ;; Don't perform any actions associated with releasing the
+              ;; tool if the touch sequence was intercepted by another
+              ;; program.
+              (if (caddr event)
+                  (setq touch-screen-current-tool nil)
+                (touch-screen-handle-point-up (cadr event) prefix))
+            ;; If an ancillary tool is present the function call above
+            ;; will merely transfer information from it into the current
+            ;; tool list, thereby rendering it the new current tool,
+            ;; until such time as it too is released.
+            (when (not (and old-aux-tool (not touch-screen-aux-tool)))
+              ;; Make sure the tool list is cleared even if
+              ;; `touch-screen-handle-point-up' throws.
+              (setq touch-screen-current-tool nil)))))
       ;; If it is rather the ancillary tool, delete its vector.  No
       ;; further action is required, for the next update received will
       ;; resume regular gesture recognition.

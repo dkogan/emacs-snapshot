@@ -124,6 +124,11 @@ Argument LANGUAGE is either `typescript' or `tsx'."
      ((parent-is "arrow_function") parent-bol typescript-ts-mode-indent-offset)
      ((parent-is "parenthesized_expression") parent-bol typescript-ts-mode-indent-offset)
      ((parent-is "binary_expression") parent-bol typescript-ts-mode-indent-offset)
+     ((match "while" "do_statement") parent-bol 0)
+     ((match "else" "if_statement") parent-bol 0)
+     ((parent-is ,(rx (or (seq (or "if" "for" "for_in" "while" "do") "_statement")
+                          "else_clause")))
+      parent-bol typescript-ts-mode-indent-offset)
 
      ,@(when (eq language 'tsx)
 	 (append (tsx-ts-mode--indent-compatibility-b893426)
@@ -478,7 +483,7 @@ This mode is intended to be inherited by concrete major modes."
                 '((comment declaration)
                   (keyword string escape-sequence)
                   (constant expression identifier number pattern property)
-                  (function bracket delimiter)))
+                  (operator function bracket delimiter)))
     (setq-local syntax-propertize-function #'typescript-ts--syntax-propertize)
 
     (treesit-major-mode-setup)))
