@@ -387,22 +387,12 @@
     (load "tooltip"))
 (load "international/iso-transl") ; Binds Alt-[ and friends.
 
+;; Used by `kill-buffer', for instance.
+(load "emacs-lisp/rmc")
+
 ;; This file doesn't exist when building a development version of Emacs
 ;; from the repository.  It is generated just after temacs is built.
 (load "leim/leim-list.el" t)
-
-(unless (featurep 'ls-lisp)
-  ;; Actively disallow advised functions during preload since:
-  ;; - advices in Emacs's core are generally considered bad style;
-  ;; - `Snarf-documentation' looses docstrings of primitives advised
-  ;;   during preload (bug#66032#20).
-  ;;
-  ;; Don't verify this under MS-Windows and Android, both systems that
-  ;; load ls-lisp, which advises insert-directory.
-  (mapatoms
-   (lambda (f)
-     (and (advice--p (symbol-function f))
-          (error "Advice installed on preloaded function %s" f)))))
 
 ;; If you want additional libraries to be preloaded and their
 ;; doc strings kept in the DOC file rather than in core,
@@ -419,8 +409,17 @@
       (message "Warning: Change in load-path due to site-load will be \
 lost after dumping")))
 
-;; Used by `kill-buffer', for instance.
-(load "emacs-lisp/rmc")
+;; Actively check for advised functions during preload since:
+;; - advices in Emacs's core are generally considered bad style;
+;; - `Snarf-documentation' looses docstrings of primitives advised
+;;   during preload (bug#66032#20).
+(mapatoms
+ (lambda (f)
+   (and (advice--p (symbol-function f))
+        ;; Don't make it an error because it's not serious enough and
+        ;; it can be annoying during development.  Also there are still
+        ;; circumstances where we use advice on preloaded functions.
+        (message "Warning: Advice installed on preloaded function %S" f))))
 
 ;; Make sure default-directory is unibyte when dumping.  This is
 ;; because we cannot decode and encode it correctly (since the locale
@@ -520,9 +519,9 @@ This to have it working when installed or if Emacs source
 directory got moved.  This is set to be a pair in the form of:
 \(rel-filename-from-install-bin . rel-filename-from-local-bin)."
   (when (and load--bin-dest-dir load--eln-dest-dir)
-    (setq eln-dest-dir
+      (setq eln-dest-dir
           (concat load--eln-dest-dir "native-lisp/" comp-native-version-dir "/"))
-    (maphash (lambda (_ cu)
+      (maphash (lambda (_ cu)
                (when (stringp (native-comp-unit-file cu))
                  (let* ((file (native-comp-unit-file cu))
                         (preloaded (equal (substring (file-name-directory file)
@@ -548,7 +547,7 @@ directory got moved.  This is set to be a pair in the form of:
 (defvar comp-subr-arities-h)
 (when (featurep 'native-compile)
   ;; Save the arity for all primitives so the compiler can always
-  ;; retrive it even in case of redefinition.
+  ;; retrieve it even in case of redefinition.
   (mapatoms (lambda (f)
               (when (subr-primitive-p (symbol-function f))
                 (puthash f (func-arity f) comp-subr-arities-h))))

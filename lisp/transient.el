@@ -1514,7 +1514,7 @@ invoked from.
 Regular suffix commands, which are not prefixes, do not have to
 concern themselves with this distinction, so they can use this
 function instead.  In the context of a plain suffix, it always
-returns the value of the appropiate variable."
+returns the value of the appropriate variable."
   (or transient--prefix transient-current-prefix))
 
 (defun transient-suffix-object (&optional command)
@@ -3566,7 +3566,7 @@ have a history of their own.")
             (propertize "\n" 'face face 'line-height t))))
 
 (defmacro transient-with-shadowed-buffer (&rest body)
-  "While in the transient buffer, temporarly make the shadowed buffer current."
+  "While in the transient buffer, temporarily make the shadowed buffer current."
   (declare (indent 0) (debug t))
   `(with-current-buffer (or transient--shadowed-buffer (current-buffer))
      ,@body))
