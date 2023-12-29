@@ -792,14 +792,20 @@ DEFUN ("defvar", Fdefvar, Sdefvar, 1, UNEVALLED, 0,
 You are not required to define a variable in order to use it, but
 defining it lets you supply an initial value and documentation, which
 can be referred to by the Emacs help facilities and other programming
-tools.  The `defvar' form also declares the variable as \"special\",
-so that it is always dynamically bound even if `lexical-binding' is t.
+tools.
 
 If SYMBOL's value is void and the optional argument INITVALUE is
 provided, INITVALUE is evaluated and the result used to set SYMBOL's
 value.  If SYMBOL is buffer-local, its default value is what is set;
 buffer-local values are not affected.  If INITVALUE is missing,
 SYMBOL's value is not set.
+
+If INITVALUE is provided, the `defvar' form also declares the variable
+as \"special\", so that it is always dynamically bound even if
+`lexical-binding' is t.  If INITVALUE is missing, the form marks the
+variable \"special\" locally (i.e., within the current
+lexical scope, or the current file, if the form is at top-level),
+and does nothing if `lexical-binding' is nil.
 
 If SYMBOL is let-bound, then this form does not affect the local let
 binding but the toplevel default binding instead, like
@@ -1835,7 +1841,7 @@ signal_or_quit (Lisp_Object error_symbol, Lisp_Object data, bool keyboard_quit)
     {
       max_ensure_room (&max_lisp_eval_depth, lisp_eval_depth, 100);
       specpdl_ref count = SPECPDL_INDEX ();
-      AUTO_STRING (redisplay_trace, "*Redisplay_trace*");
+      AUTO_STRING (redisplay_trace, "*Redisplay-trace*");
       Lisp_Object redisplay_trace_buffer;
       AUTO_STRING (gap, "\n\n\n\n"); /* Separates things in *Redisplay-trace* */
       Lisp_Object delayed_warning;
@@ -1851,7 +1857,7 @@ signal_or_quit (Lisp_Object error_symbol, Lisp_Object data, bool keyboard_quit)
       call_debugger (list2 (Qerror, Fcons (error_symbol, data)));
       unbind_to (count, Qnil);
       delayed_warning = make_string
-	("Error in a redisplay Lisp hook.  See buffer *Redisplay_trace*", 61);
+	  ("Error in a redisplay Lisp hook.  See buffer *Redisplay-trace*", 61);
 
       Vdelayed_warnings_list = Fcons (list2 (Qerror, delayed_warning),
 				      Vdelayed_warnings_list);
@@ -3023,6 +3029,35 @@ usage: (funcall FUNCTION &rest ARGUMENTS)  */)
 }
 
 
+static Lisp_Object
+safe_eval_handler (Lisp_Object arg, ptrdiff_t nargs, Lisp_Object *args)
+{
+  add_to_log ("Error muted by safe_call: %S signaled %S",
+	      Flist (nargs, args), arg);
+  return Qnil;
+}
+
+Lisp_Object
+safe_funcall (ptrdiff_t nargs, Lisp_Object *args)
+{
+  specpdl_ref count = SPECPDL_INDEX ();
+  /* FIXME: This function started its life in 'xdisp.c' for use internally
+     by the redisplay.  So it was important to inhibit redisplay.
+     Not clear if we still need this 'specbind' now that 'xdisp.c' has its
+     own version of this code.  */
+  specbind (Qinhibit_redisplay, Qt);
+  /* Use Qt to ensure debugger does not run.  */
+  Lisp_Object val = internal_condition_case_n (Ffuncall, nargs, args, Qt,
+				               safe_eval_handler);
+  return unbind_to (count, val);
+}
+
+Lisp_Object
+safe_eval (Lisp_Object sexp)
+{
+  return safe_calln (Qeval, sexp, Qt);
+}
+
 /* Apply a C subroutine SUBR to the NUMARGS evaluated arguments in ARG_VECTOR
    and return the result of evaluation.  */
 
@@ -3033,21 +3068,21 @@ funcall_subr (struct Lisp_Subr *subr, ptrdiff_t numargs, Lisp_Object *args)
   if (numargs >= subr->min_args)
     {
       /* Conforming call to finite-arity subr.  */
-      if (numargs <= subr->max_args
-	  && subr->max_args <= 8)
+      ptrdiff_t maxargs = subr->max_args;
+      if (numargs <= maxargs && maxargs <= 8)
 	{
 	  Lisp_Object argbuf[8];
 	  Lisp_Object *a;
-	  if (numargs < subr->max_args)
+	  if (numargs < maxargs)
 	    {
-	      eassume (subr->max_args <= ARRAYELTS (argbuf));
+	      eassume (maxargs <= ARRAYELTS (argbuf));
 	      a = argbuf;
 	      memcpy (a, args, numargs * word_size);
-	      memclear (a + numargs, (subr->max_args - numargs) * word_size);
+	      memclear (a + numargs, (maxargs - numargs) * word_size);
 	    }
 	  else
 	    a = args;
-	  switch (subr->max_args)
+	  switch (maxargs)
 	    {
 	    case 0:
 	      return subr->function.a0 ();
@@ -3069,14 +3104,12 @@ funcall_subr (struct Lisp_Subr *subr, ptrdiff_t numargs, Lisp_Object *args)
 	    case 8:
 	      return subr->function.a8 (a[0], a[1], a[2], a[3], a[4], a[5],
 					a[6], a[7]);
-	    default:
-	      emacs_abort (); 	/* Can't happen. */
 	    }
+	  eassume (false);	/* In case the compiler is too stupid.  */
 	}
 
       /* Call to n-adic subr.  */
-      if (subr->max_args == MANY
-	  || subr->max_args > 8)
+      if (maxargs == MANY || maxargs > 8)
 	return subr->function.aMANY (numargs, args);
     }
 

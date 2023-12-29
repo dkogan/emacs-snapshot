@@ -2115,9 +2115,8 @@ sfntfont_get_metrics (sfnt_glyph glyph, struct sfnt_glyph_metrics *metrics,
   struct sfntfont_get_glyph_outline_dcontext *tables;
 
   tables = dcontext;
-  return sfnt_lookup_glyph_metrics (glyph, -1, metrics,
-				    tables->hmtx, tables->hhea,
-				    NULL, tables->maxp);
+  return sfnt_lookup_glyph_metrics (glyph, metrics, tables->hmtx,
+				    tables->hhea, tables->maxp);
 }
 
 /* Dereference the outline OUTLINE.  Free it once refcount reaches
@@ -2182,6 +2181,7 @@ sfntfont_get_glyph_outline (sfnt_glyph glyph_code,
   const char *error;
   struct sfnt_glyph_metrics temp;
   struct sfnt_metrics_distortion distortion;
+  sfnt_fixed advance;
 
   start = cache->next;
   distortion.advance = 0;
@@ -2252,12 +2252,8 @@ sfntfont_get_glyph_outline (sfnt_glyph glyph_code,
 
   /* Now load the glyph's unscaled metrics into TEMP.  */
 
-  if (sfnt_lookup_glyph_metrics (glyph_code, -1, &temp, hmtx, hhea,
-				 head, maxp))
+  if (sfnt_lookup_glyph_metrics (glyph_code, &temp, hmtx, hhea, maxp))
     goto fail;
-
-  /* Add the advance width distortion.  */
-  temp.advance += distortion.advance;
 
   if (interpreter)
     {
@@ -2284,23 +2280,49 @@ sfntfont_get_glyph_outline (sfnt_glyph glyph_code,
 
       if (!error)
 	{
-	  outline = sfnt_build_instructed_outline (value);
+	  /* Now record the advance with that measured from the
+	     phantom points within the instructed glyph outline, and
+	     subsequently replace it once metrics are scaled.  */
+
+	  outline = sfnt_build_instructed_outline (value,
+						   &advance);
 	  xfree (value);
+
+	  if (outline)
+	    {
+	      /* Save the new advance width.  This advance width is
+		 rounded again, as the instruction code executed might
+		 have moved both phantom points such that they no
+		 longer measure a fractional distance.  */
+	      temp.advance = SFNT_ROUND_FIXED (advance);
+
+	      /* Finally, adjust the left side bearing of the glyph
+		 metrics by the origin point of the outline, should a
+		 transformation have been applied by either
+		 instruction code or glyph variation.  The left side
+		 bearing is the distance from the origin point to the
+		 left most point on the X axis.  */
+	      temp.lbearing
+		= SFNT_FLOOR_FIXED (outline->xmin - outline->origin);
+	    }
 	}
     }
 
   if (!outline)
-    outline = sfnt_build_glyph_outline (glyph, scale,
-					&temp,
-					sfntfont_get_glyph,
-					sfntfont_free_glyph,
-					sfntfont_get_metrics,
-					&dcontext);
+    {
+      /* Build the outline.  This will apply GX offsets within *GLYPH
+	 to TEMP.  */
+      outline = sfnt_build_glyph_outline (glyph, scale,
+					  &temp,
+					  sfntfont_get_glyph,
+					  sfntfont_free_glyph,
+					  sfntfont_get_metrics,
+					  &dcontext);
 
-  /* At this point, the glyph metrics are unscaled.  Scale them up.
-     If INTERPRETER is set, use the scale placed within.  */
-
-  sfnt_scale_metrics (&temp, scale);
+      /* At this point, the glyph metrics are unscaled.  Scale them
+	 up.  If INTERPRETER is set, use the scale placed within.  */
+      sfnt_scale_metrics (&temp, scale);
+    }
 
  fail:
 
@@ -2308,13 +2330,6 @@ sfntfont_get_glyph_outline (sfnt_glyph glyph_code,
 
   if (!outline)
     return NULL;
-
-  if (index != -1)
-    /* Finally, adjust the left side bearing of the glyph metrics by
-       the origin point of the outline, should a distortion have been
-       applied.  The left side bearing is the distance from the origin
-       point to the left most point on the X axis.  */
-    temp.lbearing = outline->xmin - outline->origin;
 
   start = xmalloc (sizeof *start);
   start->glyph = glyph_code;
@@ -2625,16 +2640,23 @@ sfntfont_lookup_glyph (struct sfnt_font_info *font_info, int c)
   return glyph;
 }
 
+static int sfntfont_measure_pcm (struct sfnt_font_info *, sfnt_glyph,
+				 struct font_metrics *);
+
 /* Probe and set FONT_INFO->font.average_width,
    FONT_INFO->font.space_width, and FONT_INFO->font.min_width
-   according to the tables contained therein.  */
+   according to the tables contained therein.
+
+   As this function generates outlines for all glyphs, outlines for
+   all ASCII characters will be entered into the outline cache as
+   well.  */
 
 static void
 sfntfont_probe_widths (struct sfnt_font_info *font_info)
 {
   int i, num_characters, total_width;
   sfnt_glyph glyph;
-  struct sfnt_glyph_metrics metrics;
+  struct font_metrics pcm;
 
   num_characters = 0;
   total_width = 0;
@@ -2653,29 +2675,27 @@ sfntfont_probe_widths (struct sfnt_font_info *font_info)
       if (!glyph)
 	continue;
 
-      /* Now look up the metrics of this glyph.  */
-      if (sfnt_lookup_glyph_metrics (glyph, font_info->font.pixel_size,
-				     &metrics, font_info->hmtx,
-				     font_info->hhea, font_info->head,
-				     font_info->maxp))
+      /* Now look up the metrics of this glyph.  Data from the metrics
+	 table doesn't fit the bill, since variations and instruction
+	 code is not applied to it.  */
+      if (sfntfont_measure_pcm (font_info, glyph, &pcm))
 	continue;
 
       /* Increase the number of characters.  */
       num_characters++;
 
       /* Add the advance to total_width.  */
-      total_width += SFNT_CEIL_FIXED (metrics.advance) / 65536;
+      total_width += pcm.width;
 
       /* Update min_width if it hasn't been set yet or is wider.  */
       if (font_info->font.min_width == 1
-	  || font_info->font.min_width > metrics.advance / 65536)
-	font_info->font.min_width = metrics.advance / 65536;
+	  || font_info->font.min_width > pcm.width)
+	font_info->font.min_width = pcm.width;
 
       /* If i is the space character, set the space width.  Make sure
 	 to round this up.  */
       if (i == 32)
-	font_info->font.space_width
-	  = SFNT_CEIL_FIXED (metrics.advance) / 65536;
+	font_info->font.space_width = pcm.width;
     }
 
   /* Now, if characters were found, set average_width.  */
@@ -3263,9 +3283,6 @@ sfntfont_open (struct frame *f, Lisp_Object font_entity,
 
   ASET (font_object, FONT_ADSTYLE_INDEX, Qnil);
 
-  /* Find out the minimum, maximum and average widths.  */
-  sfntfont_probe_widths (font_info);
-
   /* Clear various offsets.  */
   font_info->font.baseline_offset = 0;
   font_info->font.relative_compose = 0;
@@ -3355,6 +3372,10 @@ sfntfont_open (struct frame *f, Lisp_Object font_entity,
     }
 
  cancel_blend:
+
+  /* Find out the minimum, maximum and average widths.  */
+  sfntfont_probe_widths (font_info);
+
   /* Calculate the xfld name.  */
   font->props[FONT_NAME_INDEX] = Ffont_xlfd_name (font_object, Qnil, Qt);
 
@@ -3468,12 +3489,12 @@ sfntfont_measure_pcm (struct sfnt_font_info *font, sfnt_glyph glyph,
   if (!outline)
     return 1;
 
-  /* Round the left side bearing downwards.  */
-  pcm->lbearing = SFNT_FLOOR_FIXED (metrics.lbearing) / 65536;
+  /* The left side bearing has already been floored.  */
+  pcm->lbearing = metrics.lbearing / 65536;
   pcm->rbearing = SFNT_CEIL_FIXED (outline->xmax) / 65536;
 
-  /* Round the advance, ascent and descent upwards.  */
-  pcm->width = SFNT_CEIL_FIXED (metrics.advance) / 65536;
+  /* The advance is already rounded; ceil the ascent and descent.  */
+  pcm->width = metrics.advance / 65536;
   pcm->ascent = SFNT_CEIL_FIXED (outline->ymax) / 65536;
   pcm->descent = SFNT_CEIL_FIXED (-outline->ymin) / 65536;
 
@@ -3677,7 +3698,7 @@ sfntfont_draw (struct glyph_string *s, int from, int to,
       if (s->padding_p)
 	current_x += 1;
       else
-	current_x += SFNT_CEIL_FIXED (metrics.advance) / 65536;
+	current_x += metrics.advance / 65536;
     }
 
   /* Call the window system function to put the glyphs to the

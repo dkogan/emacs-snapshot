@@ -2421,6 +2421,8 @@ sfnt_read_glyph (sfnt_glyph glyph_code,
       glyph.ymin = 0;
       glyph.xmax = 0;
       glyph.ymax = 0;
+      glyph.advance_distortion = 0;
+      glyph.origin_distortion = 0;
       glyph.simple = xmalloc (sizeof *glyph.simple);
       glyph.compound = NULL;
       memset (glyph.simple, 0, sizeof *glyph.simple);
@@ -2598,6 +2600,16 @@ struct sfnt_compound_glyph_context
 
   /* Number of elements in and the size of that array.  */
   size_t num_end_points, end_points_size;
+
+  /* The X positions of two phantom points marking this glyph's origin
+     and advance position, only used while interpreting the glyph.  */
+  sfnt_f26dot6 phantom_point_1_x, phantom_point_2_x;
+
+  /* Y positions.  */
+  sfnt_f26dot6 phantom_point_1_y, phantom_point_2_y;
+
+  /* Unrounded X positions.  */
+  sfnt_f26dot6 phantom_point_1_s, phantom_point_2_s;
 };
 
 /* Extend the arrays inside the compound glyph decomposition context
@@ -2702,11 +2714,17 @@ sfnt_round_fixed (int32_t number)
    GET_METRICS, along with DCONTEXT, mean the same as in
    sfnt_decompose_glyph.
 
+   If it has been arranged that a component's metrics (or those of an
+   innermore component also with the flag set) replace the metrics of
+   GLYPH, set *METRICS_RETURN to those metrics.  Mind that such
+   metrics are not scaled in any manner.
+
    Value is 1 upon failure, else 0.  */
 
 static int
 sfnt_decompose_compound_glyph (struct sfnt_glyph *glyph,
 			       struct sfnt_compound_glyph_context *context,
+			       struct sfnt_glyph_metrics *metrics_return,
 			       sfnt_get_glyph_proc get_glyph,
 			       sfnt_free_glyph_proc free_glyph,
 			       sfnt_get_metrics_proc get_metrics,
@@ -2942,16 +2960,61 @@ sfnt_decompose_compound_glyph (struct sfnt_glyph *glyph,
 
 	      /* Copy over the contours.  */
 	      for (i = 0; i < number_of_contours; ++i)
-		contour_base[i] = (contour_start
-				   + subglyph->simple->end_pts_of_contours[i]);
+		contour_base[i]
+		  = (contour_start
+		     + subglyph->simple->end_pts_of_contours[i]);
+
+	      /* If USE_MY_METRICS is present within this component,
+		 save its metrics within *METRICS_RETURN.  */
+
+	      if (component->flags & 01000 /* USE_MY_METRICS */)
+		{
+		  if ((*get_metrics) (component->glyph_index,
+				      metrics_return, dcontext))
+		    {
+		      if (need_free)
+			free_glyph (subglyph, dcontext);
+
+		      return 1;
+		    }
+
+		  /* Refer to the comment above sfnt_decompose_glyph
+		     for reasons and manner in which these offsets are
+		     applied.  */
+		  metrics_return->lbearing -= subglyph->origin_distortion;
+		  metrics_return->advance += subglyph->advance_distortion;
+		}
 	    }
 	}
       else
 	{
+	  /* If USE_MY_METRICS, save this subglyph's metrics within
+	     sub_metrics; they might be overwritten by metrics for
+	     subglyphs of this compound subglyph in turn.  */
+
+	  if (component->flags & 01000 /* USE_MY_METRICS */)
+	    {
+	      if ((*get_metrics) (component->glyph_index,
+				  &sub_metrics, dcontext))
+		{
+		  if (need_free)
+		    free_glyph (subglyph, dcontext);
+
+		  return 1;
+		}
+
+	      /* Refer to the comment above sfnt_decompose_glyph for
+		 reasons and manner in which these offsets are
+		 applied.  */
+	      sub_metrics.lbearing -= subglyph->origin_distortion;
+	      sub_metrics.advance += subglyph->advance_distortion;
+	    }
+
 	  /* Compound subglyph.  Decompose the glyph recursively, and
 	     then apply the transform.  */
 	  rc = sfnt_decompose_compound_glyph (subglyph,
 					      context,
+					      &sub_metrics,
 					      get_glyph,
 					      free_glyph,
 					      get_metrics,
@@ -2965,6 +3028,11 @@ sfnt_decompose_compound_glyph (struct sfnt_glyph *glyph,
 
 	      return 1;
 	    }
+
+	  if (component->flags & 01000 /* USE_MY_METRICS */)
+	    /* Save sub_metrics inside *metrics_return as stated
+	       above.  */
+	    *metrics_return = sub_metrics;
 
 	  /* When an anchor point is being used to translate the
 	     glyph, and the subglyph in question is actually a
@@ -3354,6 +3422,19 @@ sfnt_decompose_glyph_2 (size_t here, size_t last,
    GET_METRICS to obtain glyph metrics prerequisite for establishing
    their coordinates.
 
+   When glyphs originate from a GX font with an active set of
+   transforms, the correct manner of applying such transforms is to
+   apply them within GET_GLYPH, while returning unaltered metrics from
+   GET_METRICS.
+
+   If there is a component glyph within GLYPH whose metrics have been
+   indicated as replacing those of its parent glyph, the variable
+   *METRICS_RETURN will be set to its metrics with GX-induced offsets
+   applied.
+
+   *METRICS_RETURN must initially hold metrics with GX offsets
+   applied, if any.
+
    All functions will be called with DCONTEXT as an argument.
 
    The winding rule used to fill the resulting lines is described in
@@ -3365,6 +3446,7 @@ sfnt_decompose_glyph_2 (size_t here, size_t last,
 
 static int
 sfnt_decompose_glyph (struct sfnt_glyph *glyph,
+		      struct sfnt_glyph_metrics *metrics_return,
 		      sfnt_move_to_proc move_to,
 		      sfnt_line_to_proc line_to,
 		      sfnt_curve_to_proc curve_to,
@@ -3375,6 +3457,7 @@ sfnt_decompose_glyph (struct sfnt_glyph *glyph,
 {
   size_t here, last, n;
   struct sfnt_compound_glyph_context context;
+  struct sfnt_glyph_metrics compound_metrics;
 
   if (glyph->simple)
     {
@@ -3416,7 +3499,15 @@ sfnt_decompose_glyph (struct sfnt_glyph *glyph,
   /* Decompose the specified compound glyph.  */
   memset (&context, 0, sizeof context);
 
+  /* Rather than handing METRICS_RETURN over to
+     sfnt_decompose_compound_glyph, save metrics within a temporary
+     variable and postpone returning them until it is certain the
+     decomposition has succeeded.  */
+
+  compound_metrics = *metrics_return;
+
   if (sfnt_decompose_compound_glyph (glyph, &context,
+				     &compound_metrics,
 				     get_glyph, free_glyph,
 				     get_metrics, 0,
 				     dcontext))
@@ -3428,6 +3519,8 @@ sfnt_decompose_glyph (struct sfnt_glyph *glyph,
 
       return 1;
     }
+
+  *metrics_return = compound_metrics;
 
   /* Now, generate the outlines.  */
 
@@ -3986,7 +4079,14 @@ sfnt_curve_to_and_build (struct sfnt_point control,
    space.
 
    Use the unscaled glyph METRICS to determine the origin point of the
-   outline.
+   outline, or those of compound glyph components within *GLYPH
+   configured to replace their parents', which if existent are
+   returned in *METRICS.  METRICS should not be altered by GX-derived
+   offsets, as they will be applied to *METRICS if present, following
+   this formula:
+
+     LBEARING = LBEARING - GLYPH->origin_distortion
+     ADVANCE = ADVANCE + GLYPH->advance_distortion
 
    Call GET_GLYPH and FREE_GLYPH with the specified DCONTEXT to obtain
    glyphs for compound glyph subcomponents, and GET_METRICS with the
@@ -4029,8 +4129,15 @@ sfnt_build_glyph_outline (struct sfnt_glyph *glyph,
   /* Set the scale factor.  */
   build_outline_context.factor = scale;
 
+  /* Apply the glyph's advance and origin distortion to METRICS in
+     advance of constructing the glyph outline, which might replace
+     METRICS with the metrics of a compound subglyph.  */
+  metrics->lbearing -= glyph->origin_distortion;
+  metrics->advance += glyph->advance_distortion;
+
   /* Decompose the outline.  */
-  rc = sfnt_decompose_glyph (glyph, sfnt_move_to_and_build,
+  rc = sfnt_decompose_glyph (glyph, metrics,
+			     sfnt_move_to_and_build,
 			     sfnt_line_to_and_build,
 			     sfnt_curve_to_and_build,
 			     get_glyph, free_glyph, get_metrics,
@@ -4050,7 +4157,7 @@ sfnt_build_glyph_outline (struct sfnt_glyph *glyph,
      is first used to calculate the origin point, and the origin
      distortion is applied to it to get the distorted origin.  */
 
-  origin = glyph->xmin - metrics->lbearing + glyph->origin_distortion;
+  origin = glyph->xmin - metrics->lbearing;
   outline->origin = sfnt_mul_fixed (origin, scale);
 
   return outline;
@@ -4944,36 +5051,6 @@ sfnt_insert_raster_step (struct sfnt_step_raster *raster,
   step->coverage += coverage;
 }
 
-/* Sort an array of SIZE edges to increase by bottom Y position, in
-   preparation for building spans.
-
-   Insertion sort is used because there are usually not very many
-   edges, and anything larger would bloat up the code.  */
-
-static void
-sfnt_fedge_sort (struct sfnt_fedge *edges, size_t size)
-{
-  ssize_t i, j;
-  struct sfnt_fedge edge;
-
-  for (i = 1; i < size; ++i)
-    {
-      edge = edges[i];
-      j = i - 1;
-
-      /* Comparing truncated values yields a faint speedup, for not as
-	 many edges must be moved as would be otherwise.  */
-      while (j >= 0 && ((int) edges[j].bottom
-			> (int) edge.bottom))
-	{
-	  edges[j + 1] = edges[j];
-	  j--;
-	}
-
-      edges[j + 1] = edge;
-    }
-}
-
 /* Draw EDGES, an unsorted array of polygon edges of size NEDGES.
 
    Transform EDGES into an array of steps representing a raster with
@@ -4991,23 +5068,19 @@ sfnt_poly_edges_exact (struct sfnt_fedge *edges, size_t nedges,
 		       sfnt_step_raster_proc proc, void *dcontext)
 {
   int y;
-  size_t size, e;
-  struct sfnt_fedge *active, **prev, *a;
+  size_t size, e, edges_processed;
+  struct sfnt_fedge *active, **prev, *a, sentinel;
   struct sfnt_step_raster raster;
   struct sfnt_step_chunk *next, *last;
 
   if (!height)
     return;
 
-  /* Sort edges to ascend by Y-order.  Once again, remember: cartesian
-     coordinates.  */
-  sfnt_fedge_sort (edges, nedges);
-
   /* Step down line by line.  Find active edges.  */
 
   y = sfnt_floor_fixed (MAX (0, edges[0].bottom));
-  e = 0;
-  active = NULL;
+  e = edges_processed = 0;
+  active = &sentinel;
 
   /* Allocate the array of edges.  */
 
@@ -5021,20 +5094,28 @@ sfnt_poly_edges_exact (struct sfnt_fedge *edges, size_t nedges,
 
   for (; y != height; y += 1)
     {
-      /* Add in new edges keeping them sorted.  */
-      for (; e < nedges && edges[e].bottom < y + 1; ++e)
+      /* Run over the whole array on each iteration of this loop;
+	 experiments demonstrate this is faster for the majority of
+	 glyphs.  */
+      for (e = 0; e < nedges; ++e)
 	{
-	  if (edges[e].top > y)
+	  /* Although edges is unsorted, edges which have already been
+	     processed will see their next fields set, and can thus be
+	     disregarded.  */
+	  if (!edges[e].next
+	      && (edges[e].bottom < y + 1)
+	      && (edges[e].top > y))
 	    {
-	      /* Find where to place this edge.  */
-	      for (prev = &active; (a = *prev); prev = &(a->next))
-		{
-		  if (a->x > edges[e].x)
-		    break;
-		}
+	      /* As steps generated from each edge are sorted at the
+		 time of their insertion, sorting the list of active
+		 edges itself is redundant.  */
+	      edges[e].next = active;
+	      active = &edges[e];
 
-	      edges[e].next = *prev;
-	      *prev = &edges[e];
+	      /* Increment the counter recording the number of edges
+		 processed, which is used to terminate this loop early
+		 once all have been processed.  */
+	      edges_processed++;
 	    }
 	}
 
@@ -5042,7 +5123,7 @@ sfnt_poly_edges_exact (struct sfnt_fedge *edges, size_t nedges,
 	 removing it if it does not overlap with the next
 	 scanline.  */
 
-      for (prev = &active; (a = *prev);)
+      for (prev = &active; (a = *prev) != &sentinel;)
 	{
 	  float x_top, x_bot, x_min, x_max;
 	  float y_top, y_bot;
@@ -5369,11 +5450,15 @@ be as well.  */
 	  if (a->top < y + 1)
 	    *prev = a->next;
 	  else
+	    /* This edge doesn't intersect with the next scanline;
+	       remove it from the list.  After the edge at hand is so
+	       deleted from the list, its next field remains set,
+	       excluding it from future consideration.  */
 	    prev = &a->next;
 	}
 
       /* Break if all is done.  */
-      if (!active && e == nedges)
+      if (active == &sentinel && edges_processed == nedges)
 	break;
     }
 
@@ -5615,27 +5700,22 @@ sfnt_read_hmtx_table (int fd, struct sfnt_offset_subtable *subtable,
   return hmtx;
 }
 
-/* Obtain glyph metrics for the glyph indiced by GLYPH at the
-   specified PIXEL_SIZE.  Return 0 and the metrics in *METRICS if
-   metrics could be found, else 1.
+/* Obtain unscaled glyph metrics for the glyph indexed by GLYPH.
+   Return 0 and the metrics in *METRICS if metrics could be found,
+   else 1.
 
-   If PIXEL_SIZE is -1, do not perform any scaling on the glyph
-   metrics; HEAD need not be specified in that case.
-
-   HMTX, HHEA, HEAD and MAXP should be the hmtx, hhea, head, and maxp
-   tables of the font respectively.  */
+   HMTX, HHEA and MAXP should be the hmtx, hhea, head, and maxp tables
+   of the font respectively.  */
 
 TEST_STATIC int
-sfnt_lookup_glyph_metrics (sfnt_glyph glyph, int pixel_size,
+sfnt_lookup_glyph_metrics (sfnt_glyph glyph,
 			   struct sfnt_glyph_metrics *metrics,
 			   struct sfnt_hmtx_table *hmtx,
 			   struct sfnt_hhea_table *hhea,
-			   struct sfnt_head_table *head,
 			   struct sfnt_maxp_table *maxp)
 {
   short lbearing;
   unsigned short advance;
-  sfnt_fixed factor;
 
   if (glyph < hhea->num_of_long_hor_metrics)
     {
@@ -5657,37 +5737,27 @@ sfnt_lookup_glyph_metrics (sfnt_glyph glyph, int pixel_size,
     /* No entry corresponds to the glyph.  */
     return 1;
 
-  if (pixel_size == -1)
-    {
-      /* Return unscaled metrics in this case.  */
-      metrics->lbearing = lbearing;
-      metrics->advance = advance;
-      return 0;
-    }
-
-  /* Now scale lbearing and advance up to the pixel size.  */
-  factor = sfnt_div_fixed (pixel_size, head->units_per_em);
-
-  /* Save them.  */
-  metrics->lbearing = sfnt_mul_fixed (lbearing * 65536, factor);
-  metrics->advance = sfnt_mul_fixed (advance * 65536, factor);
-
-  /* All done.  */
+  /* Return unscaled metrics.  */
+  metrics->lbearing = lbearing;
+  metrics->advance = advance;
   return 0;
 }
 
-/* Scale the specified glyph metrics by FACTOR.
-   Set METRICS->lbearing and METRICS->advance to their current
-   values times factor.  */
+/* Scale the specified glyph metrics by FACTOR.  Set METRICS->lbearing
+   and METRICS->advance to their current values times factor; take the
+   floor of the left bearing and round the advance width.  */
 
 MAYBE_UNUSED TEST_STATIC void
 sfnt_scale_metrics (struct sfnt_glyph_metrics *metrics,
 		    sfnt_fixed factor)
 {
-  metrics->lbearing
-    = sfnt_mul_fixed (metrics->lbearing * 65536, factor);
-  metrics->advance
-    = sfnt_mul_fixed (metrics->advance * 65536, factor);
+  sfnt_fixed lbearing, advance;
+
+  lbearing = sfnt_mul_fixed (metrics->lbearing * 65536, factor);
+  advance = sfnt_mul_fixed (metrics->advance * 65536, factor);
+
+  metrics->lbearing = sfnt_floor_fixed (lbearing);
+  metrics->advance = sfnt_round_fixed (advance);
 }
 
 /* Calculate the factor used to convert em space to device space for a
@@ -12202,15 +12272,18 @@ sfnt_decompose_instructed_outline (struct sfnt_instructed_outline *outline,
 
 /* Decompose and build an outline for the specified instructed outline
    INSTRUCTED.  Return the outline data with a refcount of 0 upon
-   success, or NULL upon failure.
+   success, and the advance width of the instructed glyph in
+   *ADVANCE_WIDTH, or NULL upon failure.
 
    This function is not reentrant.  */
 
 TEST_STATIC struct sfnt_glyph_outline *
-sfnt_build_instructed_outline (struct sfnt_instructed_outline *instructed)
+sfnt_build_instructed_outline (struct sfnt_instructed_outline *instructed,
+			       sfnt_fixed *advance_width)
 {
   struct sfnt_glyph_outline *outline;
   int rc;
+  sfnt_f26dot6 x1, x2;
 
   memset (&build_outline_context, 0, sizeof build_outline_context);
 
@@ -12247,10 +12320,23 @@ sfnt_build_instructed_outline (struct sfnt_instructed_outline *instructed)
      instructed.  */
 
   if (instructed->num_points > 1)
-    outline->origin
-      = instructed->x_points[instructed->num_points - 2];
+    {
+      x1 = instructed->x_points[instructed->num_points - 2];
+      x2 = instructed->x_points[instructed->num_points - 1];
+
+      /* Convert the origin point to a 16.16 fixed point number.  */
+      outline->origin = x1 * 1024;
+
+      /* Do the same for the advance width.  */
+      *advance_width = (x2 - x1) * 1024;
+    }
   else
-    outline->origin = 0;
+    {
+      /* Phantom points are absent from this outline, which is
+	 impossible.  */
+      *advance_width = 0;
+      outline->origin = 0;
+    }
 
   if (rc)
     {
@@ -12587,7 +12673,8 @@ sfnt_transform_f26dot6 (struct sfnt_compound_glyph_component *component,
 /* Internal helper for sfnt_interpret_compound_glyph_3.
 
    Instruct the compound glyph GLYPH using INTERPRETER after all of
-   its components have been instructed.
+   its components have been instructed.  Save the resulting points
+   within CONTEXT, and set its phantom point fields to match as well.
 
    Use the unscaled METRICS to compute the phantom points of this
    glyph.
@@ -12621,7 +12708,7 @@ sfnt_interpret_compound_glyph_2 (struct sfnt_glyph *glyph,
   sfnt_f26dot6 *x_base, *y_base;
 
   /* Figure out how many points and contours there are to instruct.  A
-     minimum of two points must be present, to wit the origin and
+     minimum of two points must be present, namely: the origin and
      advance phantom points.  */
   num_points = context->num_points - base_index;
   num_contours = context->num_end_points - base_contour;
@@ -12747,6 +12834,12 @@ sfnt_interpret_compound_glyph_2 (struct sfnt_glyph *glyph,
   x_base[1] = zone->x_current[num_points - 1];
   y_base[0] = zone->y_current[num_points - 2];
   y_base[1] = zone->y_current[num_points - 1];
+  context->phantom_point_1_x = x_base[0];
+  context->phantom_point_1_y = y_base[0];
+  context->phantom_point_1_s = x_base[0];
+  context->phantom_point_2_x = x_base[1];
+  context->phantom_point_2_y = y_base[1];
+  context->phantom_point_2_s = x_base[1];
 
   /* Free the zone if needed.  */
   if (zone_was_allocated)
@@ -12793,12 +12886,8 @@ sfnt_interpret_compound_glyph_1 (struct sfnt_glyph *glyph,
   bool defer_offsets;
   struct sfnt_instructed_outline *value;
   struct sfnt_glyph_metrics sub_metrics;
-  sfnt_f26dot6 phantom_point_1_x;
-  sfnt_f26dot6 phantom_point_1_y;
-  sfnt_f26dot6 phantom_point_2_x;
-  sfnt_f26dot6 phantom_point_2_y;
-  sfnt_f26dot6 phantom_point_1_s;
-  sfnt_f26dot6 phantom_point_2_s;
+  sfnt_f26dot6 pp1x, pp1y, pp1s;
+  sfnt_f26dot6 pp2x, pp2y, pp2s;
 
   error = NULL;
 
@@ -12820,6 +12909,17 @@ sfnt_interpret_compound_glyph_1 (struct sfnt_glyph *glyph,
 
   /* Pacify -Wmaybe-uninitialized.  */
   point = point2 = 0;
+
+  /* Compute phantom points for this glyph here.  They will be
+     subsequently overridden if a component glyph's metrics must be
+     used instead.  */
+  sfnt_compute_phantom_points (glyph, metrics, interpreter->scale,
+			       &context->phantom_point_1_x,
+			       &context->phantom_point_1_y,
+			       &context->phantom_point_2_x,
+			       &context->phantom_point_2_y,
+			       &context->phantom_point_1_s,
+			       &context->phantom_point_2_s);
 
   for (j = 0; j < glyph->compound->num_components; ++j)
     {
@@ -12940,8 +13040,8 @@ sfnt_interpret_compound_glyph_1 (struct sfnt_glyph *glyph,
 	 decomposition.  */
 
       if (sfnt_lookup_glyph_metrics (component->glyph_index,
-				     -1, &sub_metrics,
-				     hmtx, hhea, NULL, maxp))
+				     &sub_metrics, hmtx, hhea,
+				     maxp))
 	{
 	  if (need_free)
 	    free_glyph (subglyph, dcontext);
@@ -13045,6 +13145,27 @@ sfnt_interpret_compound_glyph_1 (struct sfnt_glyph *glyph,
 		  y = (ytemp - value->y_points[point2]);
 		}
 
+	      /* If USE_MY_METRICS is present in this component, save
+		 the instructed phantom points inside CONTEXT.
+
+		 N.B. such points replace even the unrounded points
+		 within the context, as this distinction is lost in
+		 phantom points sourced from instructed glyphs.  */
+
+	      if (component->flags & 01000) /* USE_MY_METRICS */
+		{
+		  context->phantom_point_1_x
+		    = context->phantom_point_1_s
+		    = value->x_points[last_point];
+		  context->phantom_point_1_y
+		    = value->y_points[last_point];
+		  context->phantom_point_2_x
+		    = context->phantom_point_2_s
+		    = value->x_points[last_point + 1];
+		  context->phantom_point_2_y
+		    = value->y_points[last_point + 1];
+		}
+
 	      xfree (value);
 
 	      /* Apply the transform to the points, excluding phantom
@@ -13056,7 +13177,17 @@ sfnt_interpret_compound_glyph_1 (struct sfnt_glyph *glyph,
       else
 	{
 	  /* Compound subglyph.  Decompose and instruct the glyph
-	     recursively, and then apply the transform.  */
+	     recursively, and then apply the transform.
+
+	     If USE_MY_METRICS is not set, save the phantom points
+	     presently in CONTEXT, then restore them afterwards.  */
+
+	  pp1x = context->phantom_point_1_x;
+	  pp1y = context->phantom_point_1_y;
+	  pp1s = context->phantom_point_1_s;
+	  pp2x = context->phantom_point_2_x;
+	  pp2y = context->phantom_point_2_y;
+	  pp2s = context->phantom_point_2_s;
 
 	  error = sfnt_interpret_compound_glyph_1 (subglyph, interpreter,
 						   state,
@@ -13072,6 +13203,16 @@ sfnt_interpret_compound_glyph_1 (struct sfnt_glyph *glyph,
 		free_glyph (subglyph, dcontext);
 
 	      return error;
+	    }
+
+	  if (!(component->flags & 01000)) /* USE_MY_METRICS */
+	    {
+	      context->phantom_point_1_x = pp1x;
+	      context->phantom_point_1_y = pp1y;
+	      context->phantom_point_1_s = pp1s;
+	      context->phantom_point_2_x = pp2x;
+	      context->phantom_point_2_y = pp2y;
+	      context->phantom_point_2_s = pp2s;
 	    }
 
 	  /* Anchor points for glyphs with instructions must be
@@ -13133,14 +13274,8 @@ sfnt_interpret_compound_glyph_1 (struct sfnt_glyph *glyph,
     }
 
   /* Run the program for the entire compound glyph, if any.  CONTEXT
-     should not contain phantom points by this point, so append its
-     own.  */
-
-  /* Compute phantom points.  */
-  sfnt_compute_phantom_points (glyph, metrics, interpreter->scale,
-			       &phantom_point_1_x, &phantom_point_1_y,
-			       &phantom_point_2_x, &phantom_point_2_y,
-			       &phantom_point_1_s, &phantom_point_2_s);
+     should not contain phantom points by this point, so append the
+     points for this glyph as a whole.  */
 
   /* Grow various arrays to include those points.  */
   rc = sfnt_expand_compound_glyph_context (context,
@@ -13154,10 +13289,10 @@ sfnt_interpret_compound_glyph_1 (struct sfnt_glyph *glyph,
 					   &flags_base, &contour_base);
 
   /* Store the phantom points within the compound glyph.  */
-  x_base[0] = phantom_point_1_x;
-  x_base[1] = phantom_point_2_x;
-  y_base[0] = phantom_point_1_y;
-  y_base[1] = phantom_point_2_y;
+  x_base[0] = context->phantom_point_1_x;
+  x_base[1] = context->phantom_point_2_x;
+  y_base[0] = context->phantom_point_1_y;
+  y_base[1] = context->phantom_point_2_y;
   flags_base[0] = SFNT_POINT_PHANTOM;
   flags_base[1] = SFNT_POINT_PHANTOM;
 
@@ -13168,8 +13303,8 @@ sfnt_interpret_compound_glyph_1 (struct sfnt_glyph *glyph,
 					       context, base_index,
 					       base_contour,
 					       metrics,
-					       phantom_point_1_s,
-					       phantom_point_2_s);
+					       context->phantom_point_1_s,
+					       context->phantom_point_2_s);
     }
 
   return error;
@@ -16628,9 +16763,9 @@ sfnt_test_get_metrics (sfnt_glyph glyph, struct sfnt_glyph_metrics *metrics,
   struct sfnt_test_dcontext *tables;
 
   tables = dcontext;
-  return sfnt_lookup_glyph_metrics (glyph, -1, metrics,
+  return sfnt_lookup_glyph_metrics (glyph, metrics,
 				    tables->hmtx, tables->hhea,
-				    NULL, tables->maxp);
+				    tables->maxp);
 }
 
 static void
@@ -20216,6 +20351,7 @@ sfnt_verbose (struct sfnt_interpreter *interpreter)
   unsigned char opcode;
   const char *name;
   static unsigned int instructions;
+  sfnt_fixed advance;
 
   /* Build a temporary outline containing the values of the
      interpreter's glyph zone.  */
@@ -20229,7 +20365,7 @@ sfnt_verbose (struct sfnt_interpreter *interpreter)
       temp.y_points = interpreter->glyph_zone->y_current;
       temp.flags = interpreter->glyph_zone->flags;
 
-      outline = sfnt_build_instructed_outline (&temp);
+      outline = sfnt_build_instructed_outline (&temp, &advance);
 
       if (!outline)
 	return;
@@ -20444,6 +20580,7 @@ main (int argc, char **argv)
   struct sfnt_instance *instance;
   struct sfnt_blend blend;
   struct sfnt_metrics_distortion distortion;
+  sfnt_fixed advance;
 
   if (argc < 2)
     return 1;
@@ -20559,8 +20696,8 @@ main (int argc, char **argv)
       return 1;
     }
 
-#define FANCY_PPEM 14
-#define EASY_PPEM  14
+#define FANCY_PPEM 30
+#define EASY_PPEM  30
 
   interpreter = NULL;
   head = sfnt_read_head_table (fd, font);
@@ -20787,11 +20924,11 @@ main (int argc, char **argv)
 	  if (instance && gvar)
 	    sfnt_vary_simple_glyph (&blend, code, glyph,
 				    &distortion);
+	  else
+	    memset (&distortion, 0, sizeof distortion);
 
-	  if (sfnt_lookup_glyph_metrics (code, -1,
-					 &metrics,
-					 hmtx, hhea,
-					 head, maxp))
+	  if (sfnt_lookup_glyph_metrics (code, &metrics,
+					 hmtx, hhea, maxp))
 	    exit (4);
 
 	  interpreter->state = state;
@@ -20804,7 +20941,10 @@ main (int argc, char **argv)
 	      exit (5);
 	    }
 
-	  outline = sfnt_build_instructed_outline (value);
+	  outline = sfnt_build_instructed_outline (value, &advance);
+	  advances[i] = (advance / 65536);
+
+	  fprintf (stderr, "advance: %d\n", advances[i]);
 
 	  if (!outline)
 	    exit (6);
@@ -20819,8 +20959,6 @@ main (int argc, char **argv)
 	  xfree (outline);
 
 	  rasters[i] = raster;
-	  advances[i] = (sfnt_mul_fixed (metrics.advance, scale)
-			 + sfnt_mul_fixed (distortion.advance, scale));
 	}
 
       sfnt_x_raster (rasters, advances, length, hhea, scale);
@@ -21049,7 +21187,15 @@ main (int argc, char **argv)
 		    printf ("variation failed!\n");
 		}
 
-	      if (sfnt_decompose_glyph (glyph, sfnt_test_move_to,
+	      if (sfnt_lookup_glyph_metrics (code, &metrics,
+					     hmtx, hhea, maxp))
+		{
+		  printf ("metrics lookup failure");
+		  memset (&metrics, 0, sizeof metrics);
+		}
+
+	      if (sfnt_decompose_glyph (glyph, &metrics,
+					sfnt_test_move_to,
 					sfnt_test_line_to,
 					sfnt_test_curve_to,
 					sfnt_test_get_glyph,
@@ -21058,10 +21204,8 @@ main (int argc, char **argv)
 					&dcontext))
 		printf ("decomposition failure\n");
 
-	      if (sfnt_lookup_glyph_metrics (code, -1,
-					     &metrics,
-					     hmtx, hhea,
-					     head, maxp))
+	      if (sfnt_lookup_glyph_metrics (code, &metrics,
+					     hmtx, hhea, maxp))
 		{
 		  printf ("metrics lookup failure");
 		  memset (&metrics, 0, sizeof metrics);
@@ -21085,7 +21229,7 @@ main (int argc, char **argv)
 		  fprintf (stderr, "outline origin, rbearing: %"
 			   PRIi32" %"PRIi32"\n",
 			   outline->origin,
-			   outline->ymax - outline->origin);
+			   outline->xmax - outline->origin);
 		  sfnt_test_max = outline->ymax - outline->ymin;
 
 		  for (i = 0; i < outline->outline_used; i++)
@@ -21116,7 +21260,7 @@ main (int argc, char **argv)
 
 		  clock_gettime (CLOCK_THREAD_CPUTIME_ID, &start);
 
-		  for (i = 0; i < 800; ++i)
+		  for (i = 0; i < 12800; ++i)
 		    {
 		      xfree (raster);
 		      raster = (*test_raster_glyph_outline) (outline);
@@ -21141,13 +21285,19 @@ main (int argc, char **argv)
 
 	      if (hmtx && head)
 		{
-		  if (!sfnt_lookup_glyph_metrics (code, EASY_PPEM,
-						  &metrics,
-						  hmtx, hhea,
-						  head, maxp))
-		    printf ("lbearing, advance: %g, %g\n",
-			    sfnt_coerce_fixed (metrics.lbearing),
-			    sfnt_coerce_fixed (metrics.advance));
+		  sfnt_scale_metrics (&metrics, scale);
+		  printf ("scaled lbearing, advance: %g, %g\n",
+			  sfnt_coerce_fixed (metrics.lbearing),
+			  sfnt_coerce_fixed (metrics.advance));
+
+		  if (!sfnt_lookup_glyph_metrics (code, &metrics, hmtx,
+						  hhea, maxp))
+		    {
+		      sfnt_scale_metrics (&metrics, scale);
+		      printf ("lbearing, advance: %g, %g\n",
+			      sfnt_coerce_fixed (metrics.lbearing),
+			      sfnt_coerce_fixed (metrics.advance));
+		    }
 
 		  if (interpreter)
 		    {
@@ -21160,10 +21310,8 @@ main (int argc, char **argv)
 			  interpreter->pop_hook = sfnt_pop_hook;
 			}
 
-		      if (!sfnt_lookup_glyph_metrics (code, -1,
-						      &metrics,
-						      hmtx, hhea,
-						      head, maxp))
+		      if (!sfnt_lookup_glyph_metrics (code, &metrics,
+						      hmtx, hhea, maxp))
 			{
 			  printf ("interpreting glyph\n");
 			  interpreter->state = state;
@@ -21199,8 +21347,19 @@ main (int argc, char **argv)
 			      printf ("rasterizing instructed outline\n");
 			      if (outline)
 				xfree (outline);
-			      outline = sfnt_build_instructed_outline (value);
+			      outline
+				= sfnt_build_instructed_outline (value,
+								 &advance);
 			      xfree (value);
+
+#define LB outline->xmin - outline->origin
+#define RB outline->xmax - outline->origin
+			      printf ("instructed advance, lb, rb: %g %g %g\n",
+				      sfnt_coerce_fixed (advance),
+				      sfnt_coerce_fixed (LB),
+				      sfnt_coerce_fixed (RB));
+#undef LB
+#undef RB
 
 			      if (outline)
 				{
@@ -21231,7 +21390,8 @@ main (int argc, char **argv)
 	      printf ("time spent building edges: %lld sec %ld nsec\n",
 		      (long long) sub1.tv_sec, sub1.tv_nsec);
 	      printf ("time spent rasterizing: %lld sec %ld nsec\n",
-		      (long long) sub2.tv_sec / 800, sub2.tv_nsec / 800);
+		      (long long) sub2.tv_sec / 12800,
+		      sub2.tv_nsec / 12800);
 
 	      xfree (outline);
 	    }
