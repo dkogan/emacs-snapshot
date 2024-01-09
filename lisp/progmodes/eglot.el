@@ -1,6 +1,6 @@
 ;;; eglot.el --- The Emacs Client for LSP servers  -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2018-2023 Free Software Foundation, Inc.
+;; Copyright (C) 2018-2024 Free Software Foundation, Inc.
 
 ;; Version: 1.16
 ;; Author: João Távora <joaotavora@gmail.com>
@@ -3605,16 +3605,17 @@ edit proposed by the server."
 
 (defun eglot--code-action-bounds ()
   "Calculate appropriate bounds depending on region and point."
-  (let (diags)
+  (let (diags boftap)
     (cond ((use-region-p) `(,(region-beginning) ,(region-end)))
           ((setq diags (flymake-diagnostics (point)))
            (cl-loop for d in diags
                     minimizing (flymake-diagnostic-beg d) into beg
                     maximizing (flymake-diagnostic-end d) into end
                     finally (cl-return (list beg end))))
+          ((setq boftap (bounds-of-thing-at-point 'sexp))
+           (list (car boftap) (cdr boftap)))
           (t
-           (let ((boftap (bounds-of-thing-at-point 'sexp)))
-             (list (car boftap) (cdr boftap)))))))
+           (list (point) (point))))))
 
 (defun eglot-code-actions (beg &optional end action-kind interactive)
   "Find LSP code actions of type ACTION-KIND between BEG and END.
@@ -3649,7 +3650,8 @@ at point.  With prefix argument, prompt for ACTION-KIND."
          ;; Redo filtering, in case the `:only' didn't go through.
          (actions (cl-loop for a across actions
                            when (or (not action-kind)
-                                    (equal action-kind (plist-get a :kind)))
+                                    ;; github#847
+                                    (string-prefix-p action-kind (plist-get a :kind)))
                            collect a)))
     (if interactive
         (eglot--read-execute-code-action actions server action-kind)

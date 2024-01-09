@@ -1,6 +1,6 @@
 ;;; tramp-tests.el --- Tests of remote file access  -*- lexical-binding:t -*-
 
-;; Copyright (C) 2013-2023 Free Software Foundation, Inc.
+;; Copyright (C) 2013-2024 Free Software Foundation, Inc.
 
 ;; Author: Michael Albinus <michael.albinus@gmx.de>
 
@@ -134,7 +134,7 @@ A resource file is in the resource directory as per
   (eval-and-compile
     ;; There is no default value on w32 systems, which could work out
     ;; of the box.
-    (defconst ert-remote-temporary-file-directory
+    (defvar ert-remote-temporary-file-directory
       (cond
        ((getenv "REMOTE_TEMPORARY_FILE_DIRECTORY"))
        ((eq system-type 'windows-nt) null-device)

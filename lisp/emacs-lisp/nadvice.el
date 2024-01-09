@@ -1,6 +1,6 @@
 ;;; nadvice.el --- Light-weight advice primitives for Elisp functions  -*- lexical-binding: t -*-
 
-;; Copyright (C) 2012-2023 Free Software Foundation, Inc.
+;; Copyright (C) 2012-2024 Free Software Foundation, Inc.
 
 ;; Author: Stefan Monnier <monnier@iro.umontreal.ca>
 ;; Keywords: extensions, lisp, tools
@@ -539,6 +539,32 @@ Contrary to `remove-function', this also works when SYMBOL is a macro
 or an autoload and it preserves `fboundp'.
 Instead of the actual function to remove, FUNCTION can also be the `name'
 of the piece of advice."
+  (interactive
+   (let* ((pred (lambda (sym) (advice--p (advice--symbol-function sym))))
+          (default (when-let* ((f (function-called-at-point))
+                               ((funcall pred f)))
+                     (symbol-name f)))
+          (prompt (format-prompt "Remove advice from function" default))
+          (symbol (intern (completing-read prompt obarray pred t nil nil default)))
+          advices)
+     (advice-mapc (lambda (f p)
+                    (let ((k (or (alist-get 'name p) f)))
+                      (push (cons
+                             ;; "name" (string) and 'name (symbol) are
+                             ;; considered different names so we use
+                             ;; `prin1-to-string' even if the name is
+                             ;; a string to distinguish between these
+                             ;; two cases.
+                             (prin1-to-string k)
+                             ;; We use `k' here instead of `f' because
+                             ;; the same advice can have multiple
+                             ;; names.
+                             k)
+                            advices)))
+                  symbol)
+     (list symbol (cdr (assoc-string
+                        (completing-read "Advice to remove: " advices nil t)
+                        advices)))))
   (let ((f (symbol-function symbol)))
     (remove-function (cond ;This is `advice--symbol-function' but as a "place".
                       ((get symbol 'advice--pending)

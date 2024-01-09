@@ -1,6 +1,6 @@
 ;;; erc-scenarios-keep-place-indicator.el --- erc-keep-place-indicator-mode -*- lexical-binding: t -*-
 
-;; Copyright (C) 2023 Free Software Foundation, Inc.
+;; Copyright (C) 2023-2024 Free Software Foundation, Inc.
 
 ;; This file is part of GNU Emacs.
 
@@ -107,6 +107,7 @@
         (switch-to-buffer "#spam") ; lower follows, speaks to sync
         (erc-scenarios-common-say "two")
         (funcall expect 10 "<bob> Cause they take")
+        (goto-char (point-max))
 
         ;; Upper switches back first, finds indicator gone.
         (other-window 1)
@@ -126,7 +127,13 @@
           (should (looking-back (rx "you can cog")))
           (should (= (pos-bol) (window-start)))
           (should (= (overlay-start erc--keep-place-indicator-overlay)
-                     (pos-bol))))))
+                     (pos-bol)))))
+
+      (ert-info ("description")
+        (erc-send-input-line "#spam" "three")
+        (save-excursion (erc-d-t-search-for 10 "Ready"))
+        (switch-to-buffer "#spam")
+        (should (< (point) erc-input-marker))))
 
     (erc-keep-place-mode -1)
     (erc-scrolltobottom-mode -1)))

@@ -1,6 +1,6 @@
 ;;; erc-speedbar.el --- Speedbar support for ERC  -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2001-2004, 2006-2023 Free Software Foundation, Inc.
+;; Copyright (C) 2001-2004, 2006-2024 Free Software Foundation, Inc.
 
 ;; Author: Mario Lang <mlang@delysid.org>
 ;; Contributor: Eric M. Ludlam <zappo@gnu.org>
@@ -319,7 +319,9 @@ a list of four items: the userhost, the GECOS, the current
 	 (info (erc-server-user-info user))
 	 (login (erc-server-user-login user))
 	 (name (erc-server-user-full-name user))
-         (nick-str (concat (erc-get-channel-membership-prefix cuser) nick))
+         (nick-str (concat (with-current-buffer (or buffer (current-buffer))
+                             (erc-get-channel-membership-prefix cuser))
+                           nick))
 	 (finger (concat login (when (or login host) "@") host))
          (sbtoken (list finger name info (buffer-name buffer))))
     (if (or login host name info) ; we want to be expandable

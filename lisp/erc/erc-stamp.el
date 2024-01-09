@@ -1,6 +1,6 @@
 ;;; erc-stamp.el --- Timestamping for ERC messages  -*- lexical-binding:t -*-
 
-;; Copyright (C) 2002-2004, 2006-2023 Free Software Foundation, Inc.
+;; Copyright (C) 2002-2004, 2006-2024 Free Software Foundation, Inc.
 
 ;; Author: Mario Lang <mlang@delysid.org>
 ;; Maintainer: Amin Bandali <bandali@gnu.org>, F. Jason Park <jp@neverwas.me>
@@ -677,6 +677,13 @@ value of t means the option's value doesn't require trimming.")
                                  (substring erc-timestamp-format-left
                                             0 erc-stamp--date-format-end)
                                erc-timestamp-format-left))))
+
+(defun erc-stamp-inserting-date-stamp-p ()
+  "Return non-nil if the narrowed buffer contains a date stamp.
+Expect to be called by members of `erc-insert-modify-hook' and
+`erc-insert-post-hook' to detect whether the message being
+inserted is a date stamp."
+  (erc--check-msg-prop 'erc--msg 'datestamp))
 
 ;; Calling `erc-display-message' from within a hook it's currently
 ;; running is roundabout, but it's a definite means of ensuring hooks

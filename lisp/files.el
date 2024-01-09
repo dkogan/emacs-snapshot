@@ -1,6 +1,6 @@
 ;;; files.el --- file input and output commands for Emacs  -*- lexical-binding:t -*-
 
-;; Copyright (C) 1985-1987, 1992-2023 Free Software Foundation, Inc.
+;; Copyright (C) 1985-1987, 1992-2024 Free Software Foundation, Inc.
 
 ;; Maintainer: emacs-devel@gnu.org
 ;; Package: emacs
@@ -2208,37 +2208,33 @@ and others are ignored.  PREDICATE is called with the buffer as
 the only argument, but not with the buffer as the current buffer.
 
 If there is no such live buffer, return nil."
-  (let ((predicate (or predicate #'identity))
-        (truename (abbreviate-file-name (file-truename filename))))
-    (or (let ((buf (get-file-buffer filename)))
-          (when (and buf (funcall predicate buf)) buf))
-        (let ((list (buffer-list)) found)
-          (while (and (not found) list)
-            (with-current-buffer (car list)
-              (if (and buffer-file-name
-                       (string= buffer-file-truename truename)
-                       (funcall predicate (current-buffer)))
-                  (setq found (car list))))
-            (setq list (cdr list)))
-          found)
-        (let* ((attributes (file-attributes truename))
-               (number (file-attribute-file-identifier attributes))
-               (list (buffer-list)) found)
-          (and buffer-file-numbers-unique
-               (car-safe number)       ;Make sure the inode is not just nil.
-               (while (and (not found) list)
-                 (with-current-buffer (car list)
-                   (if (and buffer-file-name
-                            (equal buffer-file-number number)
-                            ;; Verify this buffer's file number
-                            ;; still belongs to its file.
-                            (file-exists-p buffer-file-name)
-                            (equal (file-attributes buffer-file-truename)
-                                   attributes)
-                            (funcall predicate (current-buffer)))
-                       (setq found (car list))))
-                 (setq list (cdr list))))
-          found))))
+  (or (let ((buf (get-file-buffer filename)))
+        (when (and buf (or (not predicate) (funcall predicate buf))) buf))
+      (let ((truename (abbreviate-file-name (file-truename filename))))
+        (or
+         (let ((buf (get-truename-buffer truename)))
+           (when (and buf (buffer-local-value 'buffer-file-name buf)
+                      (or (not predicate) (funcall predicate buf)))
+             buf))
+         (let* ((attributes (file-attributes truename))
+                (number (file-attribute-file-identifier attributes)))
+           (and buffer-file-numbers-unique
+                (car-safe number)       ;Make sure the inode is not just nil.
+                (let* ((buf (find-buffer 'buffer-file-number number))
+                       (buf-file-name
+                        (and buf (buffer-local-value 'buffer-file-name buf))))
+                  (when (and buf-file-name
+                             ;; Verify this buffer's file number
+                             ;; still belongs to its file.
+                             (file-exists-p buf-file-name)
+                             (equal (file-attributes
+                                     (buffer-local-value
+                                      'buffer-file-truename buf))
+                                    attributes)
+                             (or (not predicate)
+                                 (funcall predicate buf)))
+                    buf))))))))
+
 
 (defcustom find-file-wildcards t
   "Non-nil means file-visiting commands should handle wildcards.

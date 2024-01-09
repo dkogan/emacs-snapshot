@@ -1,6 +1,6 @@
 ;;; minibuffer.el --- Minibuffer and completion functions -*- lexical-binding: t -*-
 
-;; Copyright (C) 2008-2023 Free Software Foundation, Inc.
+;; Copyright (C) 2008-2024 Free Software Foundation, Inc.
 
 ;; Author: Stefan Monnier <monnier@iro.umontreal.ca>
 ;; Package: emacs
@@ -151,7 +151,15 @@ The metadata of a completion table should be constant between two boundaries."
                        minibuffer-completion-predicate))
 
 (defun completion-metadata-get (metadata prop)
-  (cdr (assq prop metadata)))
+  "Get PROP from completion METADATA.
+If the metadata specifies a completion category, the variables
+`completion-category-overrides' and
+`completion-category-defaults' take precedence."
+  (if-let (((not (eq prop 'category)))
+           (cat (alist-get 'category metadata))
+           (over (completion--category-override cat prop)))
+      (cdr over)
+    (alist-get prop metadata)))
 
 (defun complete-with-action (action collection string predicate)
   "Perform completion according to ACTION.
@@ -1135,23 +1143,42 @@ styles for specific categories, such as files, buffers, etc."
     (project-file (styles . (substring)))
     (xref-location (styles . (substring)))
     (info-menu (styles . (basic substring)))
-    (symbol-help (styles . (basic shorthand substring))))
+    (symbol-help (styles . (basic shorthand substring)))
+    (calendar-month (display-sort-function . identity)))
   "Default settings for specific completion categories.
+
 Each entry has the shape (CATEGORY . ALIST) where ALIST is
 an association list that can specify properties such as:
 - `styles': the list of `completion-styles' to use for that category.
 - `cycle': the `completion-cycle-threshold' to use for that category.
+- `cycle-sort-function': function to sort entries when cycling.
+- `display-sort-function': function to sort entries in *Completions*.
+- `group-function': function for grouping the completion candidates.
+- `annotation-function': function to add annotations in *Completions*.
+- `affixation-function': function to prepend/append a prefix/suffix.
+
 Categories are symbols such as `buffer' and `file', used when
 completing buffer and file names, respectively.
 
 Also see `completion-category-overrides'.")
 
 (defcustom completion-category-overrides nil
-  "List of category-specific user overrides for completion styles.
+  "List of category-specific user overrides for completion metadata.
+
 Each override has the shape (CATEGORY . ALIST) where ALIST is
 an association list that can specify properties such as:
 - `styles': the list of `completion-styles' to use for that category.
 - `cycle': the `completion-cycle-threshold' to use for that category.
+- `cycle-sort-function': function to sort entries when cycling.
+- `display-sort-function': nil means to use either the sorting
+function from metadata, or if that is nil, fall back to `completions-sort';
+`identity' disables sorting and keeps the original order; and other
+possible values are the same as in `completions-sort'.
+- `group-function': function for grouping the completion candidates.
+- `annotation-function': function to add annotations in *Completions*.
+- `affixation-function': function to prepend/append a prefix/suffix.
+See more description of metadata in `completion-metadata'.
+
 Categories are symbols such as `buffer' and `file', used when
 completing buffer and file names, respectively.
 
@@ -1171,7 +1198,33 @@ overrides the default specified in `completion-category-defaults'."
 		 ,completion--styles-type)
            (cons :tag "Completion Cycling"
 		 (const :tag "Select one value from the menu." cycle)
-                 ,completion--cycling-threshold-type))))
+                 ,completion--cycling-threshold-type)
+           (cons :tag "Cycle Sorting"
+                 (const :tag "Select one value from the menu."
+                        cycle-sort-function)
+                 (choice (function :tag "Custom function")))
+           (cons :tag "Completion Sorting"
+                 (const :tag "Select one value from the menu."
+                        display-sort-function)
+                 (choice (const :tag "Use default" nil)
+                         (const :tag "No sorting" identity)
+                         (const :tag "Alphabetical sorting"
+                                minibuffer-sort-alphabetically)
+                         (const :tag "Historical sorting"
+                                minibuffer-sort-by-history)
+                         (function :tag "Custom function")))
+           (cons :tag "Completion Groups"
+                 (const :tag "Select one value from the menu."
+                        group-function)
+                 (choice (function :tag "Custom function")))
+           (cons :tag "Completion Annotation"
+                 (const :tag "Select one value from the menu."
+                        annotation-function)
+                 (choice (function :tag "Custom function")))
+           (cons :tag "Completion Affixation"
+                 (const :tag "Select one value from the menu."
+                        affixation-function)
+                 (choice (function :tag "Custom function"))))))
 
 (defun completion--category-override (category tag)
   (or (assq tag (cdr (assq category completion-category-overrides)))

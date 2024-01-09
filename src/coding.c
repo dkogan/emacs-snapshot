@@ -1,5 +1,5 @@
 /* Coding system handler (conversion, detection, etc).
-   Copyright (C) 2001-2023 Free Software Foundation, Inc.
+   Copyright (C) 2001-2024 Free Software Foundation, Inc.
    Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004,
      2005, 2006, 2007, 2008, 2009, 2010, 2011
      National Institute of Advanced Industrial Science and Technology (AIST)
@@ -7658,8 +7658,7 @@ consume_chars (struct coding_system *coding, Lisp_Object translation_table,
 	  if (pos == stop_charset)
 	    buf = handle_charset_annotation (pos, end_pos, coding,
 					     buf, &stop_charset);
-	  stop = (stop_composition < stop_charset
-		  ? stop_composition : stop_charset);
+	  stop = min (stop_composition, stop_charset);
 	}
 
       if (! multibytep)

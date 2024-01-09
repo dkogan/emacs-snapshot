@@ -1,6 +1,6 @@
 /* TrueType format font support for GNU Emacs.
 
-Copyright (C) 2023 Free Software Foundation, Inc.
+Copyright (C) 2023-2024 Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -1937,8 +1937,11 @@ sfnt_read_simple_glyph (struct sfnt_glyph *glyph,
      simple->instructions comes one word past number_of_contours,
      because end_pts_of_contours also contains the instruction
      length.  */
-  simple->instructions = (uint8_t *) (simple->end_pts_of_contours
-				      + glyph->number_of_contours + 1);
+
+  simple->x_coordinates = (int16_t *) (simple->end_pts_of_contours
+				       + glyph->number_of_contours + 1);
+  simple->y_coordinates = simple->x_coordinates + number_of_points;
+  simple->instructions = (uint8_t *) (simple->y_coordinates + number_of_points);
   simple->flags = simple->instructions + simple->instruction_length;
 
   /* Read instructions into the glyph.  */
@@ -2022,7 +2025,6 @@ sfnt_read_simple_glyph (struct sfnt_glyph *glyph,
 
   /* Now that the flags have been decoded, start decoding the
      vectors.  */
-  simple->x_coordinates = (int16_t *) (simple->flags + number_of_points);
   vec_start = flags_start;
   i = 0;
   x = 0;
@@ -2080,7 +2082,6 @@ sfnt_read_simple_glyph (struct sfnt_glyph *glyph,
      pointer to the flags for the current vector.  */
   flags_start = simple->flags;
   y = 0;
-  simple->y_coordinates = simple->x_coordinates + i;
   i = 0;
 
   while (i < number_of_points)
@@ -6195,7 +6196,7 @@ sfnt_read_ttc_header (int fd)
   size = (SFNT_ENDOF (struct sfnt_ttc_header, ul_dsig_offset,
 		      uint32_t)
 	  - offsetof (struct sfnt_ttc_header, ul_dsig_tag));
-  rc = read (fd, &ttc->ul_dsig_offset, size);
+  rc = read (fd, &ttc->ul_dsig_tag, size);
   if (rc == -1 || rc < size)
     {
       xfree (ttc);
@@ -6944,7 +6945,7 @@ sfnt_interpret_trap (struct sfnt_interpreter *interpreter,
   {						\
     int16_t word;				\
 						\
-    word = (((int8_t) high) << 8 | low);	\
+    word = (((uint8_t) high) << 8 | low);	\
     PUSH_UNCHECKED (word);			\
   }						\
 
@@ -7024,14 +7025,18 @@ sfnt_interpret_trap (struct sfnt_interpreter *interpreter,
 
 #define SLOOP()					\
   {						\
-    uint32_t loop;				\
+    int32_t loop;				\
 						\
     loop = POP ();				\
 						\
-    if (!loop)					\
-      TRAP ("loop set to 0");			\
+    if (loop < 0)				\
+      TRAP ("loop set to invalid value");	\
 						\
-    interpreter->state.loop = loop;		\
+    /* N.B. loop might be greater than 65535,	\
+       but no reasonable font should define	\
+       such values.  */				\
+    interpreter->state.loop			\
+      = MIN (65535, loop);			\
   }
 
 #define SMD()					\
@@ -8570,8 +8575,11 @@ sfnt_address_zp2 (struct sfnt_interpreter *interpreter,
   if (number >= interpreter->glyph_zone->num_points)
     TRAP ("address to ZP2 (glyph zone) out of bounds");
 
-  *x = interpreter->glyph_zone->x_current[number];
-  *y = interpreter->glyph_zone->y_current[number];
+  if (x && y)
+    {
+      *x = interpreter->glyph_zone->x_current[number];
+      *y = interpreter->glyph_zone->y_current[number];
+    }
 
   if (x_org && y_org)
     {
@@ -8618,8 +8626,11 @@ sfnt_address_zp1 (struct sfnt_interpreter *interpreter,
   if (number >= interpreter->glyph_zone->num_points)
     TRAP ("address to ZP1 (glyph zone) out of bounds");
 
-  *x = interpreter->glyph_zone->x_current[number];
-  *y = interpreter->glyph_zone->y_current[number];
+  if (x && y)
+    {
+      *x = interpreter->glyph_zone->x_current[number];
+      *y = interpreter->glyph_zone->y_current[number];
+    }
 
   if (x_org && y_org)
     {
@@ -8666,8 +8677,11 @@ sfnt_address_zp0 (struct sfnt_interpreter *interpreter,
   if (number >= interpreter->glyph_zone->num_points)
     TRAP ("address to ZP0 (glyph zone) out of bounds");
 
-  *x = interpreter->glyph_zone->x_current[number];
-  *y = interpreter->glyph_zone->y_current[number];
+  if (x && y)
+    {
+      *x = interpreter->glyph_zone->x_current[number];
+      *y = interpreter->glyph_zone->y_current[number];
+    }
 
   if (x_org && y_org)
     {
@@ -10570,6 +10584,7 @@ sfnt_dot_fix_14 (int32_t ax, int32_t ay, int bx, int by)
   return (int32_t) (((uint32_t) hi << 18) | (l >> 14));
 #else
   int64_t xx, yy;
+  int64_t temp;
 
   xx = (int64_t) ax * bx;
   yy = (int64_t) ay * by;
@@ -10578,7 +10593,12 @@ sfnt_dot_fix_14 (int32_t ax, int32_t ay, int bx, int by)
   yy = xx >> 63;
   xx += 0x2000 + yy;
 
-  return (int32_t) (xx / (1 << 14));
+  /* TrueType fonts rely on "division" here truncating towards
+     negative infinity, so compute the arithmetic right shift in place
+     of division.  */
+  temp = -(xx < 0);
+  temp = (temp ^ xx) >> 14 ^ temp;
+  return (int32_t) (temp);
 #endif
 }
 
@@ -10721,6 +10741,15 @@ sfnt_move (sfnt_f26dot6 *restrict x, sfnt_f26dot6 *restrict y,
     }
 }
 
+/* Compute the dot product of the two versors A and B with
+   rounding.  */
+
+static sfnt_f2dot14
+sfnt_short_frac_dot (sfnt_f2dot14 a, sfnt_f2dot14 b)
+{
+  return (sfnt_f2dot14) ((((long) a * b) + 8192) / 16384);
+}
+
 /* Validate the graphics state GS.
    Establish function pointers for rounding and projection.
    Establish dot product used to convert vector distances between
@@ -10797,11 +10826,18 @@ sfnt_validate_gs (struct sfnt_graphics_state *gs)
     gs->vector_dot_product = gs->projection_vector.y;
   else
     /* Actually calculate the dot product.  */
-    gs->vector_dot_product = ((((long) gs->projection_vector.x
-				* gs->freedom_vector.x)
-			       + ((long) gs->projection_vector.y
-				  * gs->freedom_vector.y))
-			      / 16384);
+    gs->vector_dot_product = (sfnt_short_frac_dot (gs->projection_vector.x,
+						   gs->freedom_vector.x)
+			      + sfnt_short_frac_dot (gs->projection_vector.y,
+						     gs->freedom_vector.y));
+
+  /* If the product is less than 1/16th of a vector, prevent overflow
+     by resetting it to 1.  */
+
+  if (gs->vector_dot_product > -0x400
+      && gs->vector_dot_product < 0x400)
+    gs->vector_dot_product = (gs->vector_dot_product < 0
+			      ? -0x4000 : 0x4000);
 
   /* Now figure out which function to use to move distances.  Handle
      the common case where both the freedom and projection vectors are
@@ -11396,6 +11432,63 @@ sfnt_interpret_mirp (struct sfnt_interpreter *interpreter,
     interpreter->state.rp0 = p;
 }
 
+/* Return the projection of the two points P1 and P2's original values
+   along the dual projection vector, with P1 inside ZP0 and P2 inside
+   ZP1.  If this zone is the glyph zone and the outline positions of
+   those points are directly accessible, project their original
+   positions and scale the result with rounding, so as to prevent
+   rounding-introduced inaccuracies.
+
+   The scenario where such inaccuracies are significant is generally
+   where an Italic glyph is being instructed at small PPEM sizes,
+   during which a point moved by MDAP[rN] is within 1/64th of a
+   pixel's distance from a point on the grid, yet the measurements
+   taken between such a point and the reference point against which
+   the distance to move is computed is such that the position of the
+   point after applying their rounded values differs by one grid
+   coordinate from the font designer's intentions, either exaggerating
+   or neutralizing the slant of the stem to which it belongs.
+
+   This behavior applies only to MDRP, which see.  */
+
+static sfnt_f26dot6
+sfnt_project_zp1_zp0_org (struct sfnt_interpreter *interpreter,
+			  uint32_t p1, uint32_t p2)
+{
+  sfnt_fword x1, y1, x2, y2, projection;
+  struct sfnt_simple_glyph *simple;
+  sfnt_f26dot6 org_x1, org_y1, org_x2, org_y2;
+
+  /* Addressing the twilight zone, perhaps only partially.  */
+  if (!interpreter->state.zp0
+      || !interpreter->state.zp1
+      /* Not interpreting a glyph.  */
+      || !interpreter->glyph_zone
+      /* Not interpreting a simple glyph.  */
+      || !interpreter->glyph_zone->simple
+      /* P1 or P2 are phantom points.  */
+      || p1 >= interpreter->glyph_zone->simple->number_of_points
+      || p2 >= interpreter->glyph_zone->simple->number_of_points)
+    goto project_normally;
+
+  simple = interpreter->glyph_zone->simple;
+  x1 = simple->x_coordinates[p1];
+  y1 = simple->y_coordinates[p1];
+  x2 = simple->x_coordinates[p2];
+  y2 = simple->y_coordinates[p2];
+
+  /* Compute the projection.  */
+  projection = DUAL_PROJECT (x1 - x2, y1 - y2);
+
+  /* Return the projection, scaled with rounding.  */
+  return sfnt_mul_fixed_round (projection, interpreter->scale);
+
+ project_normally:
+  sfnt_address_zp1 (interpreter, p1, NULL, NULL, &org_x1, &org_y1);
+  sfnt_address_zp0 (interpreter, p2, NULL, NULL, &org_x2, &org_y2);
+  return DUAL_PROJECT (org_x1 - org_x2, org_y1 - org_y2);
+}
+
 /* Interpret an MDRP instruction with the specified OPCODE in
    INTERPRETER.  Pop a point in ZP1, and move the point until its
    distance from RP0 in ZP0 is the same as in the original outline.
@@ -11412,20 +11505,19 @@ sfnt_interpret_mdrp (struct sfnt_interpreter *interpreter,
   uint32_t p;
   sfnt_f26dot6 distance, applied;
   sfnt_f26dot6 current_projection;
-  sfnt_f26dot6 x, y, org_x, org_y;
-  sfnt_f26dot6 rx, ry, org_rx, org_ry;
+  sfnt_f26dot6 x, y, rx, ry;
 
   /* Point number.  */
   p = POP ();
 
   /* Load the points.  */
-  sfnt_address_zp1 (interpreter, p, &x, &y, &org_x, &org_y);
+  sfnt_address_zp1 (interpreter, p, &x, &y, NULL, NULL);
   sfnt_address_zp0 (interpreter, interpreter->state.rp0,
-		    &rx, &ry, &org_rx, &org_ry);
+		    &rx, &ry, NULL, NULL);
 
   /* Calculate the distance between P and rp0 prior to hinting.  */
-  distance = DUAL_PROJECT (org_x - org_rx,
-			   org_y - org_ry);
+  distance = sfnt_project_zp1_zp0_org (interpreter, p,
+				       interpreter->state.rp0);
 
   /* Calculate the distance between P and rp0 as of now in the hinting
      process.  */
@@ -12462,6 +12554,7 @@ sfnt_interpret_simple_glyph (struct sfnt_glyph *glyph,
   zone->y_current = zone->y_points + zone->num_points;
   zone->flags = (unsigned char *) (zone->y_current
 				   + zone->num_points);
+  zone->simple = glyph->simple;
 
   /* Load x_points and x_current.  */
   for (i = 0; i < glyph->simple->number_of_points; ++i)
@@ -12760,6 +12853,7 @@ sfnt_interpret_compound_glyph_2 (struct sfnt_glyph *glyph,
   zone->y_current = zone->y_points + zone->num_points;
   zone->flags = (unsigned char *) (zone->y_current
 				   + zone->num_points);
+  zone->simple = NULL;
 
   /* Copy and renumber all contour end points to start from
      base_index.  */
@@ -14175,7 +14269,7 @@ sfnt_read_fvar_table (int fd, struct sfnt_offset_subtable *subtable)
       || INT_ADD_WRAPV (min_bytes, temp, &min_bytes))
     goto bail;
 
-  pad = alignof (struct sfnt_variation_axis);
+  pad = alignof (struct sfnt_instance);
   pad -= min_bytes & (pad - 1);
 
   if (INT_ADD_WRAPV (min_bytes, pad, &min_bytes))
@@ -15314,6 +15408,188 @@ sfnt_compute_tuple_scale (struct sfnt_blend *blend, bool intermediate_p,
   return scale;
 }
 
+/* Move each point in the simple glyph GLYPH between PAIR_START and
+   PAIR_END to agree with the positions of those two anchor points as
+   compared with their initial positions recorded within the arrays X
+   and Y.
+
+   The range formed between PAIR_START and PAIR_END may encompass the
+   upper extreme of the contour between START and END.  */
+
+static void
+sfnt_infer_deltas_2 (struct sfnt_glyph *glyph, size_t pair_start,
+		     size_t pair_end, size_t start, size_t end,
+		     sfnt_fword *x, sfnt_fword *y)
+{
+  size_t j;
+  sfnt_fword min_pos, max_pos, position, d1, d2;
+  sfnt_fixed ratio, delta;
+
+  j = pair_start + 1;
+
+  while (j != pair_end)
+    {
+      /* Reset j to the contour's start position if it is about to
+	 overrun this contour.  */
+
+      if (j > end)
+	{
+	  /* The start of the contour might also be the end of this
+	     reference point.  */
+	  if (start == pair_end)
+	    return;
+
+	  j = start;
+	}
+
+      /* Consider the X axis.  Set min_pos and max_pos to the
+	 smallest and greatest values along that axis.  */
+      min_pos = MIN (x[pair_start], x[pair_end]);
+      max_pos = MAX (x[pair_start], x[pair_end]);
+
+      /* Now see if the current point lies between min and
+	 max...
+
+         GX interpolation differs from IUP in one important detail:
+         points are shifted to follow the movement of their reference
+         points if their positions are identical to those of any of
+         their reference points, whereas IUP considers such points to
+         fall within their reference points.  */
+      if (x[j] > min_pos && x[j] < max_pos)
+	{
+	  /* Interpolate between min_pos and max_pos.  */
+	  ratio = sfnt_div_fixed ((sfnt_sub (x[j], min_pos)
+				   * 65536),
+				  (sfnt_sub (max_pos, min_pos)
+				   * 65536));
+
+	  /* Load the current positions of pair_start and pair_end
+	     along this axis.  */
+	  min_pos = MIN (glyph->simple->x_coordinates[pair_start],
+			 glyph->simple->x_coordinates[pair_end]);
+	  max_pos = MAX (glyph->simple->x_coordinates[pair_start],
+			 glyph->simple->x_coordinates[pair_end]);
+
+	  /* Lerp in between.  */
+	  delta = sfnt_sub (max_pos, min_pos);
+	  delta = sfnt_mul_fixed (ratio, delta);
+	  glyph->simple->x_coordinates[j] = min_pos + delta;
+	}
+      else
+	{
+	  /* ... otherwise, move point j by the delta of the
+	     nearest touched point.  */
+
+	  /* If min_pos and max_pos are the same, apply
+	     pair_start's delta if it is identical to that of
+	     pair_end, or apply nothing at all otherwise.  */
+
+	  if (min_pos == max_pos)
+	    {
+	      d1 = (glyph->simple->x_coordinates[pair_start]
+		    - x[pair_start]);
+	      d2 = (glyph->simple->x_coordinates[pair_end]
+		    - x[pair_end]);
+
+	      if (d1 == d2)
+		glyph->simple->x_coordinates[j] += d1;
+
+	      goto consider_y;
+	    }
+
+	  if (x[j] >= max_pos)
+	    {
+	      position = MAX (glyph->simple->x_coordinates[pair_start],
+			      glyph->simple->x_coordinates[pair_end]);
+	      delta = position - max_pos;
+	    }
+	  else
+	    {
+	      position = MIN (glyph->simple->x_coordinates[pair_start],
+			      glyph->simple->x_coordinates[pair_end]);
+	      delta = position - min_pos;
+	    }
+
+	  glyph->simple->x_coordinates[j] = x[j] + delta;
+	}
+
+    consider_y:
+
+      /* Now, consider the Y axis.  */
+      min_pos = MIN (y[pair_start], y[pair_end]);
+      max_pos = MAX (y[pair_start], y[pair_end]);
+
+      /* Now see if the current point lies between min and
+	 max...
+
+         GX interpolation differs from IUP in one important detail:
+         points are shifted to follow the movement of their reference
+         points if their positions are identical to those of any of
+         their reference points, whereas IUP considers such points to
+         fall within their reference points.  */
+      if (y[j] > min_pos && y[j] < max_pos)
+	{
+	  /* Interpolate between min_pos and max_pos.  */
+	  ratio = sfnt_div_fixed ((sfnt_sub (y[j], min_pos)
+				   * 65536),
+				  (sfnt_sub (max_pos, min_pos)
+				   * 65536));
+
+	  /* Load the current positions of pair_start and pair_end
+	     along this axis.  */
+	  min_pos = MIN (glyph->simple->y_coordinates[pair_start],
+			 glyph->simple->y_coordinates[pair_end]);
+	  max_pos = MAX (glyph->simple->y_coordinates[pair_start],
+			 glyph->simple->y_coordinates[pair_end]);
+
+	  /* Lerp in between.  */
+	  delta = sfnt_sub (max_pos, min_pos);
+	  delta = sfnt_mul_fixed (ratio, delta);
+	  glyph->simple->y_coordinates[j] = min_pos + delta;
+	}
+      else
+	{
+	  /* ... otherwise, move point j by the delta of the
+	     nearest touched point.  */
+
+	  /* If min_pos and max_pos are the same, apply
+	     pair_start's delta if it is identical to that of
+	     pair_end, or apply nothing at all otherwise.  */
+
+	  if (min_pos == max_pos)
+	    {
+	      d1 = (glyph->simple->y_coordinates[pair_start]
+		    - y[pair_start]);
+	      d2 = (glyph->simple->y_coordinates[pair_end]
+		    - y[pair_end]);
+
+	      if (d1 == d2)
+		glyph->simple->y_coordinates[j] += d1;
+
+	      goto next;
+	    }
+
+	  if (y[j] >= max_pos)
+	    {
+	      position = MAX (glyph->simple->y_coordinates[pair_start],
+			      glyph->simple->y_coordinates[pair_end]);
+	      delta = position - max_pos;
+	    }
+	  else
+	    {
+	      position = MIN (glyph->simple->y_coordinates[pair_start],
+			      glyph->simple->y_coordinates[pair_end]);
+	      delta = position - min_pos;
+	    }
+
+	  glyph->simple->y_coordinates[j] = y[j] + delta;
+	}
+
+    next:
+      j++;
+    }
+}
+
 /* Infer point positions for points that have been partially moved
    within the contour in GLYPH denoted by START and END.  */
 
@@ -15322,9 +15598,7 @@ sfnt_infer_deltas_1 (struct sfnt_glyph *glyph, size_t start,
 		     size_t end, bool *touched, sfnt_fword *x,
 		     sfnt_fword *y)
 {
-  size_t i, pair_start, pair_end, pair_first, j;
-  sfnt_fword min_pos, max_pos, position;
-  sfnt_fixed ratio, delta;
+  size_t i, pair_start, pair_end, pair_first;
 
   pair_start = pair_first = -1;
 
@@ -15343,140 +15617,10 @@ sfnt_infer_deltas_1 (struct sfnt_glyph *glyph, size_t start,
 
       pair_end = i;
 
-      /* pair_start to pair_end are now a pair of points, where points
-	 in between should be interpolated.  */
-
-      for (j = pair_start + 1; j < pair_end; ++j)
-	{
-	  /* Consider the X axis.  Set min_pos and max_pos to the
-	     smallest and greatest values along that axis.  */
-	  min_pos = MIN (x[pair_start], x[pair_end]);
-	  max_pos = MAX (x[pair_start], x[pair_end]);
-
-	  /* Now see if the current point lies between min and
-	     max... */
-	  if (x[j] >= min_pos && x[j] <= max_pos)
-	    {
-	      /* If min_pos and max_pos are the same, apply
-		 pair_start's delta if it is identical to that of
-		 pair_end, or apply nothing at all otherwise.  */
-
-	      if (min_pos == max_pos)
-		{
-		  if ((glyph->simple->x_coordinates[pair_start]
-		       - x[pair_start])
-		      == (glyph->simple->x_coordinates[pair_end]
-			  - x[pair_end]))
-		    glyph->simple->x_coordinates[j]
-		      += (glyph->simple->x_coordinates[pair_start]
-			  - x[pair_start]);
-
-		  continue;
-		}
-
-	      /* Interpolate between min_pos and max_pos.  */
-	      ratio = sfnt_div_fixed ((sfnt_sub (x[j], min_pos)
-				       * 65536),
-				      (sfnt_sub (max_pos, min_pos)
-				       * 65536));
-
-	      /* Load the current positions of pair_start and pair_end
-	         along this axis.  */
-	      min_pos = MIN (glyph->simple->x_coordinates[pair_start],
-			     glyph->simple->x_coordinates[pair_end]);
-	      max_pos = MAX (glyph->simple->x_coordinates[pair_start],
-			     glyph->simple->x_coordinates[pair_end]);
-
-	      /* Lerp in between.  */
-	      delta = sfnt_sub (max_pos, min_pos);
-	      delta = sfnt_mul_fixed (ratio, delta);
-	      glyph->simple->x_coordinates[j] = min_pos + delta;
-	    }
-	  else
-	    {
-	      /* ... otherwise, move point j by the delta of the
-		 nearest touched point.  */
-
-	      if (x[j] >= max_pos)
-		{
-		  position = MAX (glyph->simple->x_coordinates[pair_start],
-				  glyph->simple->x_coordinates[pair_end]);
-		  delta = position - max_pos;
-		}
-	      else
-		{
-		  position = MIN (glyph->simple->x_coordinates[pair_start],
-				  glyph->simple->x_coordinates[pair_end]);
-		  delta = position - min_pos;
-		}
-
-	      glyph->simple->x_coordinates[j] = x[j] + delta;
-	    }
-
-	  /* Now, consider the Y axis.  */
-	  min_pos = MIN (y[pair_start], y[pair_end]);
-	  max_pos = MAX (y[pair_start], y[pair_end]);
-
-	  /* Now see if the current point lies between min and
-	     max... */
-	  if (y[j] >= min_pos && y[j] <= max_pos)
-	    {
-	      /* If min_pos and max_pos are the same, apply
-		 pair_start's delta if it is identical to that of
-		 pair_end, or apply nothing at all otherwise.  */
-
-	      if (min_pos == max_pos)
-		{
-		  if ((glyph->simple->y_coordinates[pair_start]
-		       - y[pair_start])
-		      == (glyph->simple->y_coordinates[pair_end]
-			  - y[pair_end]))
-		    glyph->simple->y_coordinates[j]
-		      += (glyph->simple->y_coordinates[pair_start]
-			  - y[pair_start]);
-
-		  continue;
-		}
-
-	      /* Interpolate between min_pos and max_pos.  */
-	      ratio = sfnt_div_fixed ((sfnt_sub (y[j], min_pos)
-				       * 65536),
-				      (sfnt_sub (max_pos, min_pos)
-				       * 65536));
-
-	      /* Load the current positions of pair_start and pair_end
-	         along this axis.  */
-	      min_pos = MIN (glyph->simple->y_coordinates[pair_start],
-			     glyph->simple->y_coordinates[pair_end]);
-	      max_pos = MAX (glyph->simple->y_coordinates[pair_start],
-			     glyph->simple->y_coordinates[pair_end]);
-
-	      /* Lerp in between.  */
-	      delta = sfnt_sub (max_pos, min_pos);
-	      delta = sfnt_mul_fixed (ratio, delta);
-	      glyph->simple->y_coordinates[j] = min_pos + delta;
-	    }
-	  else
-	    {
-	      /* ... otherwise, move point j by the delta of the
-		 nearest touched point.  */
-
-	      if (y[j] >= max_pos)
-		{
-		  position = MAX (glyph->simple->y_coordinates[pair_start],
-				  glyph->simple->y_coordinates[pair_end]);
-		  delta = position - max_pos;
-		}
-	      else
-		{
-		  position = MIN (glyph->simple->y_coordinates[pair_start],
-				  glyph->simple->y_coordinates[pair_end]);
-		  delta = position - min_pos;
-		}
-
-	      glyph->simple->y_coordinates[j] = y[j] + delta;
-	    }
-	}
+      /* pair_start to pair_end are now a pair of points whose
+	 intermediates should be interpolated.  */
+      sfnt_infer_deltas_2 (glyph, pair_start, pair_end,
+			   start, end, x, y);
 
     next:
       pair_start = i;
@@ -15487,149 +15631,12 @@ sfnt_infer_deltas_1 (struct sfnt_glyph *glyph, size_t start,
 
   if (pair_start != (size_t) -1)
     {
-      j = pair_start + 1;
-
-      if (j > end)
-	j = start;
-
       pair_end = pair_first;
 
-      while (j != pair_first)
-	{
-	  /* Consider the X axis.  Set min_pos and max_pos to the
-	     smallest and greatest values along that axis.  */
-	  min_pos = MIN (x[pair_start], x[pair_end]);
-	  max_pos = MAX (x[pair_start], x[pair_end]);
-
-	  /* Now see if the current point lies between min and
-	     max... */
-	  if (x[j] >= min_pos && x[j] <= max_pos)
-	    {
-	      /* If min_pos and max_pos are the same, apply
-		 pair_start's delta if it is identical to that of
-		 pair_end, or apply nothing at all otherwise.  */
-
-	      if (min_pos == max_pos)
-		{
-		  if ((glyph->simple->x_coordinates[pair_start]
-		       - x[pair_start])
-		      == (glyph->simple->x_coordinates[pair_end]
-			  - x[pair_end]))
-		    glyph->simple->x_coordinates[j]
-		      += (glyph->simple->x_coordinates[pair_start]
-			  - x[pair_start]);
-
-		  goto next_1;
-		}
-
-	      /* Interpolate between min_pos and max_pos.  */
-	      ratio = sfnt_div_fixed ((sfnt_sub (x[j], min_pos)
-				       * 65536),
-				      (sfnt_sub (max_pos, min_pos)
-				       * 65536));
-
-	      /* Load the current positions of pair_start and pair_end
-	         along this axis.  */
-	      min_pos = MIN (glyph->simple->x_coordinates[pair_start],
-			     glyph->simple->x_coordinates[pair_end]);
-	      max_pos = MAX (glyph->simple->x_coordinates[pair_start],
-			     glyph->simple->x_coordinates[pair_end]);
-
-	      /* Lerp in between.  */
-	      delta = sfnt_sub (max_pos, min_pos);
-	      delta = sfnt_mul_fixed (ratio, delta);
-	      glyph->simple->x_coordinates[j] = min_pos + delta;
-	    }
-	  else
-	    {
-	      /* ... otherwise, move point j by the delta of the
-		 nearest touched point.  */
-
-	      if (x[j] >= max_pos)
-		{
-		  position = MAX (glyph->simple->x_coordinates[pair_start],
-				  glyph->simple->x_coordinates[pair_end]);
-		  delta = position - max_pos;
-		}
-	      else
-		{
-		  position = MIN (glyph->simple->x_coordinates[pair_start],
-				  glyph->simple->x_coordinates[pair_end]);
-		  delta = position - min_pos;
-		}
-
-	      glyph->simple->x_coordinates[j] = x[j] + delta;
-	    }
-
-	  /* Now, consider the Y axis.  */
-	  min_pos = MIN (y[pair_start], y[pair_end]);
-	  max_pos = MAX (y[pair_start], y[pair_end]);
-
-	  /* Now see if the current point lies between min and
-	     max... */
-	  if (y[j] >= min_pos && y[j] <= max_pos)
-	    {
-	      /* If min_pos and max_pos are the same, apply
-		 pair_start's delta if it is identical to that of
-		 pair_end, or apply nothing at all otherwise.  */
-
-	      if (min_pos == max_pos)
-		{
-		  if ((glyph->simple->y_coordinates[pair_start]
-		       - y[pair_start])
-		      == (glyph->simple->y_coordinates[pair_end]
-			  - y[pair_end]))
-		    glyph->simple->y_coordinates[j]
-		      += (glyph->simple->y_coordinates[pair_start]
-			  - y[pair_start]);
-
-		  goto next_1;
-		}
-
-	      /* Interpolate between min_pos and max_pos.  */
-	      ratio = sfnt_div_fixed ((sfnt_sub (y[j], min_pos)
-				       * 65536),
-				      (sfnt_sub (max_pos, min_pos)
-				       * 65536));
-
-	      /* Load the current positions of pair_start and pair_end
-	         along this axis.  */
-	      min_pos = MIN (glyph->simple->y_coordinates[pair_start],
-			     glyph->simple->y_coordinates[pair_end]);
-	      max_pos = MAX (glyph->simple->y_coordinates[pair_start],
-			     glyph->simple->y_coordinates[pair_end]);
-
-	      /* Lerp in between.  */
-	      delta = sfnt_sub (max_pos, min_pos);
-	      delta = sfnt_mul_fixed (ratio, delta);
-	      glyph->simple->y_coordinates[j] = min_pos + delta;
-	    }
-	  else
-	    {
-	      /* ... otherwise, move point j by the delta of the
-		 nearest touched point.  */
-
-	      if (y[j] >= max_pos)
-		{
-		  position = MAX (glyph->simple->y_coordinates[pair_start],
-				  glyph->simple->y_coordinates[pair_end]);
-		  delta = position - max_pos;
-		}
-	      else
-		{
-		  position = MIN (glyph->simple->y_coordinates[pair_start],
-				  glyph->simple->y_coordinates[pair_end]);
-		  delta = position - min_pos;
-		}
-
-	      glyph->simple->y_coordinates[j] = y[j] + delta;
-	    }
-
-	next_1:
-	  j++;
-	  if (j > end)
-	    j = start;
-	}
+      /* pair_start to pair_end are now a pair of points whose
+	 intermediates should be interpolated.  */
+      sfnt_infer_deltas_2 (glyph, pair_start, pair_end,
+			   start, end, x, y);
     }
 }
 
@@ -15986,13 +15993,19 @@ sfnt_vary_simple_glyph (struct sfnt_blend *blend, sfnt_glyph id,
 				     * glyph->simple->number_of_points);
 
 	      original_y = original_x + glyph->simple->number_of_points;
-	      memcpy (original_x, glyph->simple->x_coordinates,
-		      (sizeof *original_x
-		       * glyph->simple->number_of_points));
-	      memcpy (original_y, glyph->simple->y_coordinates,
-		      (sizeof *original_y
-		       * glyph->simple->number_of_points));
 	    }
+
+	  /* The array of original coordinates should reflect the
+	     state of the glyph immediately before deltas from this
+	     tuple are applied, in contrast to the state before any
+	     deltas are applied.  */
+
+	  memcpy (original_x, glyph->simple->x_coordinates,
+		  (sizeof *original_x
+		   * glyph->simple->number_of_points));
+	  memcpy (original_y, glyph->simple->y_coordinates,
+		  (sizeof *original_y
+		   * glyph->simple->number_of_points));
 
 	  memset (touched, 0, (sizeof *touched
 			       * glyph->simple->number_of_points));
@@ -18524,13 +18537,13 @@ static struct sfnt_interpreter_test all_tests[] =
       "SLOOP",
       /* PUSHB[0] 2
 	 SLOOP[]
-	 PUSHB[0] 0
+	 PUSHW[0] 255 255 (-1)
 	 SLOOP[] */
       (unsigned char []) { 0xb0, 2,
 			   0x17,
-			   0xb0, 0,
+			   0xb8, 255, 255,
 			   0x17, },
-      6,
+      7,
       NULL,
       sfnt_check_sloop,
     },
@@ -20323,7 +20336,8 @@ sfnt_identify_instruction (struct sfnt_interpreter *interpreter)
       return buffer;
     }
 
-  if (exec_fpgm->instructions
+  if (exec_fpgm
+      && exec_fpgm->instructions
       && where >= exec_fpgm->instructions
       && where < (exec_fpgm->instructions
 		  + exec_fpgm->num_instructions))
@@ -20594,6 +20608,13 @@ main (int argc, char **argv)
       if (!interpreter)
 	abort ();
 
+      if (getenv ("SFNT_VERBOSE"))
+	{
+	  interpreter->run_hook = sfnt_verbose;
+	  interpreter->push_hook = sfnt_push_hook;
+	  interpreter->pop_hook = sfnt_pop_hook;
+	}
+
       for (i = 0; i < ARRAYELTS (all_tests); ++i)
 	sfnt_run_interpreter_test (&all_tests[i], interpreter);
 
@@ -20696,8 +20717,8 @@ main (int argc, char **argv)
       return 1;
     }
 
-#define FANCY_PPEM 30
-#define EASY_PPEM  30
+#define FANCY_PPEM 16
+#define EASY_PPEM  16
 
   interpreter = NULL;
   head = sfnt_read_head_table (fd, font);
@@ -21088,6 +21109,16 @@ main (int argc, char **argv)
       interpreter = sfnt_make_interpreter (maxp, cvt, head,
 					   fvar, FANCY_PPEM,
 					   FANCY_PPEM);
+
+      if (getenv ("SFNT_DEBUG"))
+	interpreter->run_hook = sfnt_run_hook;
+      else if (getenv ("SFNT_VERBOSE"))
+	{
+	  interpreter->run_hook = sfnt_verbose;
+	  interpreter->push_hook = sfnt_push_hook;
+	  interpreter->pop_hook = sfnt_pop_hook;
+	}
+
       state = interpreter->state;
 
       if (instance && gvar)
@@ -21301,15 +21332,6 @@ main (int argc, char **argv)
 
 		  if (interpreter)
 		    {
-		      if (getenv ("SFNT_DEBUG"))
-			interpreter->run_hook = sfnt_run_hook;
-		      else if (getenv ("SFNT_VERBOSE"))
-			{
-			  interpreter->run_hook = sfnt_verbose;
-			  interpreter->push_hook = sfnt_push_hook;
-			  interpreter->pop_hook = sfnt_pop_hook;
-			}
-
 		      if (!sfnt_lookup_glyph_metrics (code, &metrics,
 						      hmtx, hhea, maxp))
 			{

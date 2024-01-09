@@ -1,6 +1,6 @@
 /* Display generation from window structure and buffer text.
 
-Copyright (C) 1985-2023 Free Software Foundation, Inc.
+Copyright (C) 1985-2024 Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -3072,10 +3072,24 @@ dsafe__call (bool inhibit_quit, Lisp_Object (f) (ptrdiff_t, Lisp_Object *),
   return val;
 }
 
+static Lisp_Object
+funcall_with_backtraces (ptrdiff_t nargs, Lisp_Object *args)
+{
+  /* If an error is signaled during a Lisp hook in redisplay, write a
+     backtrace into the buffer *Redisplay-trace*.  */
+  push_handler_bind (list_of_error, Qdebug_early__muted, 0);
+  Lisp_Object res = Ffuncall (nargs, args);
+  pop_handler ();
+  return res;
+}
+
 #define SAFE_CALLMANY(inhibit_quit, f, array) \
   dsafe__call ((inhibit_quit), f, ARRAYELTS (array), array)
-#define dsafe_calln(inhibit_quit, ...) \
-  SAFE_CALLMANY ((inhibit_quit), Ffuncall, ((Lisp_Object []) {__VA_ARGS__}))
+#define dsafe_calln(inhibit_quit, ...)                 \
+  SAFE_CALLMANY ((inhibit_quit),                       \
+                 backtrace_on_redisplay_error          \
+                 ? funcall_with_backtraces : Ffuncall, \
+                 ((Lisp_Object []) {__VA_ARGS__}))
 
 static Lisp_Object
 dsafe_call1 (Lisp_Object f, Lisp_Object arg)
@@ -24634,7 +24648,7 @@ maybe_produce_line_number (struct it *it)
   /* Produce the glyphs for the line number.  */
   struct it tem_it;
   char lnum_buf[INT_STRLEN_BOUND (ptrdiff_t) + 1];
-  bool beyond_zv = IT_BYTEPOS (*it) >= ZV_BYTE ? true : false;
+  bool beyond_zv = IT_BYTEPOS (*it) >= ZV_BYTE;
   ptrdiff_t lnum_offset = -1; /* to produce 1-based line numbers */
   int lnum_face_id = merge_faces (it->w, Qline_number, 0, DEFAULT_FACE_ID);
   int current_lnum_face_id
@@ -33565,13 +33579,18 @@ notice_overwritten_cursor (struct window *w, enum glyph_row_area area,
 
 void
 gui_fix_overlapping_area (struct window *w, struct glyph_row *row,
-			enum glyph_row_area area, int overlaps)
+			  enum glyph_row_area area, int overlaps)
 {
   int i, x;
 
   block_input ();
 
-  x = 0;
+  /* row->x might be smaller than zero when produced from an iterator
+     under horizontal scrolling.  Offset all measurements by this
+     basic value, lest hscrolled text with overlaps be displayed with
+     its overlapping portions misaligned.  */
+  x = row->x;
+
   for (i = 0; i < row->used[area];)
     {
       if (row->glyphs[area][i].overlaps_vertically_p)
@@ -37747,6 +37766,8 @@ cursor shapes.  */);
   DEFSYM (Qempty_box, "empty-box");
   DEFSYM (Qthin_space, "thin-space");
   DEFSYM (Qzero_width, "zero-width");
+
+  DEFSYM (Qdebug_early__muted, "debug-early--muted");
 
   DEFVAR_LISP ("pre-redisplay-function", Vpre_redisplay_function,
 	       doc: /* Function run just before redisplay.

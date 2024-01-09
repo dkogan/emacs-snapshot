@@ -1,6 +1,6 @@
 /* sfnt format font support for GNU Emacs.
 
-Copyright (C) 2023 Free Software Foundation, Inc.
+Copyright (C) 2023-2024 Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -1759,6 +1759,10 @@ struct sfnt_interpreter_zone
 
   /* Pointer to the flags associated with this data.  */
   unsigned char *flags;
+
+  /* If this structure was produced from a simple glyph, pointer to
+     the simple glyph itself.  NULL otherwise.  */
+  struct sfnt_simple_glyph *simple;
 };
 
 enum

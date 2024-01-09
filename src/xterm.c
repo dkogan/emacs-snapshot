@@ -1,6 +1,6 @@
 /* X Communication module for terminals which understand the X protocol.
 
-Copyright (C) 1989, 1993-2023 Free Software Foundation, Inc.
+Copyright (C) 1989, 1993-2024 Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -31503,7 +31503,6 @@ x_term_init (Lisp_Object display_name, char *xrm_option, char *resource_name)
 				      dpyinfo->selection_tracking_window,
 				      selection_name,
 				      (XFixesSetSelectionOwnerNotifyMask
-				       | XFixesSetSelectionOwnerNotifyMask
 				       | XFixesSelectionClientCloseNotifyMask));
 	}
 

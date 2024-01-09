@@ -1,6 +1,6 @@
 ;;; dired.el --- directory-browsing commands -*- lexical-binding: t -*-
 
-;; Copyright (C) 1985-1986, 1992-1997, 2000-2023 Free Software
+;; Copyright (C) 1985-1986, 1992-1997, 2000-2024 Free Software
 ;; Foundation, Inc.
 
 ;; Author: Sebastian Kremer <sk@thp.uni-koeln.de>
@@ -2017,9 +2017,22 @@ mouse-2: visit this file in other window"
               keymap ,(let* ((current-dir dir)
                              (click (lambda ()
                                       (interactive)
-                                      (if (assoc current-dir dired-subdir-alist)
-                                          (dired-goto-subdir current-dir)
-                                        (dired current-dir)))))
+                                      (cond
+                                       ((assoc current-dir dired-subdir-alist)
+                                        (dired-goto-subdir current-dir))
+                                       ;; If there is a wildcard chars
+                                       ;; in the directory name, don't
+                                       ;; use the alternate file machinery
+                                       ;; which tries to keep only one
+                                       ;; dired buffer open at once.
+                                       ;;
+                                       ;; FIXME: Is this code path reachable?
+                                       ((insert-directory-wildcard-in-dir-p
+                                         current-dir)
+                                        (dired current-dir))
+                                       (t
+                                        (dired--find-possibly-alternative-file
+                                         current-dir))))))
                         (define-keymap
                           "<mouse-2>" click
                           "<follow-link>" 'mouse-face

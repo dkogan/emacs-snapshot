@@ -1,6 +1,6 @@
 ;;; android-win.el --- terminal set up for Android  -*- lexical-binding:t -*-
 
-;; Copyright (C) 2023 Free Software Foundation, Inc.
+;; Copyright (C) 2023-2024 Free Software Foundation, Inc.
 
 ;; Author: FSF
 ;; Keywords: terminals, i18n, android
@@ -417,7 +417,7 @@ been denied.  Click "
          :link '("here" android-display-storage-permission-popup)
          " to grant them.")
       (insert
-       "Permissions necessary to access external storage directories have been
+       "\nPermissions necessary to access external storage directories have been
 denied.  ")
       (insert-button "Click here to grant them."
                      'action #'android-display-storage-permission-popup
