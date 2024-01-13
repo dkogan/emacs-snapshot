@@ -1912,6 +1912,12 @@ completion commands.  Its value should be a list of property and value
 pairs.  The following properties are supported:
 
 @table @code
+@item :category
+The value should be a symbol describing what kind of text the
+completion function is trying to complete.  If the symbol matches one
+of the keys in @code{completion-category-overrides}, the usual
+completion behavior is overridden.  @xref{Completion Variables}.
+
 @item :annotation-function
 The value should be a function to add annotations in the completions
 buffer.  This function must accept one argument, a completion, and
@@ -1927,6 +1933,15 @@ completions, and should return a list of annotated completions.  Each
 element of the returned list must be a three-element list, the
 completion, a prefix string, and a suffix string.  This function takes
 priority over @code{:annotation-function}.
+
+@item :group-function
+The function to group completions.
+
+@item :display-sort-function
+The function to sort entries in the @file{*Completions*} buffer.
+
+@item :cycle-sort-function
+The function to sort entries when cycling.
 
 @item :exit-function
 The value should be a function to run after performing completion.
