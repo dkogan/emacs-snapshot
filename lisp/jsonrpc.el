@@ -4,7 +4,7 @@
 
 ;; Author: João Távora <joaotavora@gmail.com>
 ;; Keywords: processes, languages, extensions
-;; Version: 1.0.23
+;; Version: 1.0.24
 ;; Package-Requires: ((emacs "25.2"))
 
 ;; This is a GNU ELPA :core package.  Avoid functionality that is not
@@ -438,7 +438,7 @@ ignored."
                        `(canceled ,cancel-on-input-retval))
                       (t (while t (accept-process-output nil 30)))))
             ;; In normal operation, continuations for error/success is
-            ;; handled by `jsonrpc-continue'.  Timeouts also remove
+            ;; handled by `jsonrpc--continue'.  Timeouts also remove
             ;; the continuation...
             (pcase-let* ((`(,id ,_) id-and-timer))
               ;; ...but we still have to guard against exist explicit
@@ -689,8 +689,22 @@ With optional CLEANUP, kill any associated buffers."
         (when-let (p (slot-value connection '-autoport-inferior)) (delete-process p))
         (funcall (jsonrpc--on-shutdown connection) connection)))))
 
+(defvar jsonrpc--in-process-filter nil
+  "Non-nil if inside `jsonrpc--process-filter'.")
+
 (cl-defun jsonrpc--process-filter (proc string)
   "Called when new data STRING has arrived for PROC."
+  (when jsonrpc--in-process-filter
+    ;; Problematic recursive process filters may happen if
+    ;; `jsonrpc-connection-receive', called by us, eventually calls
+    ;; client code which calls `process-send-string' (which see) to,
+    ;; say send a follow-up message.  If that happens to writes enough
+    ;; bytes for pending output to be received, we will lose JSONRPC
+    ;; messages.  In that case, remove recursiveness by re-scheduling
+    ;; ourselves to run from within a timer as soon as possible
+    ;; (bug#60088)
+    (run-at-time 0 nil #'jsonrpc--process-filter proc string)
+    (cl-return-from jsonrpc--process-filter))
   (when (buffer-live-p (process-buffer proc))
     (with-current-buffer (process-buffer proc)
       (let* ((conn (process-get proc 'jsonrpc-connection))
@@ -782,7 +796,7 @@ Return the full continuation (ID SUCCESS-FN ERROR-FN TIMER)"
     (if deferred-spec (remhash deferred-spec defs))
     (when-let ((ass (assq id conts)))
       (cl-destructuring-bind (_ _ _ _ timer) ass
-        (cancel-timer timer))
+        (when timer (cancel-timer timer)))
       (setf conts (delete ass conts))
       ass)))
 

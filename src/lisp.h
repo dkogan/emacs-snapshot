@@ -369,11 +369,11 @@ typedef EMACS_INT Lisp_Word;
 # define lisp_h_Qnil {0}
 #endif
 
-#define lisp_h_PSEUDOVECTORP(a,code)                            \
-  (lisp_h_VECTORLIKEP((a)) &&                                   \
-   ((XUNTAG ((a), Lisp_Vectorlike, union vectorlike_header)->size     \
-     & (PSEUDOVECTOR_FLAG | PVEC_TYPE_MASK))                    \
-    == (PSEUDOVECTOR_FLAG | ((code) << PSEUDOVECTOR_AREA_BITS))))
+#define lisp_h_PSEUDOVECTORP(a,code)                            	\
+  (lisp_h_VECTORLIKEP (a)						\
+   && ((XUNTAG (a, Lisp_Vectorlike, union vectorlike_header)->size	\
+	& (PSEUDOVECTOR_FLAG | PVEC_TYPE_MASK))				\
+       == (PSEUDOVECTOR_FLAG | ((code) << PSEUDOVECTOR_AREA_BITS))))
 
 #define lisp_h_CHECK_FIXNUM(x) CHECK_TYPE (FIXNUMP (x), Qfixnump, x)
 #define lisp_h_CHECK_SYMBOL(x) CHECK_TYPE (SYMBOLP (x), Qsymbolp, x)
@@ -391,17 +391,17 @@ typedef EMACS_INT Lisp_Word;
  * What about keeping the part after `symbols_with_pos_enabled` in
  * a separate function?  */
 #define lisp_h_EQ(x, y)                                     \
-  ((XLI ((x)) == XLI ((y)))                                 \
+  (XLI (x) == XLI (y)					    \
    || (symbols_with_pos_enabled                             \
-       && (SYMBOL_WITH_POS_P ((x))                          \
-           ? (BARE_SYMBOL_P ((y))                           \
-              ? XLI (XSYMBOL_WITH_POS((x))->sym) == XLI (y) \
-              : SYMBOL_WITH_POS_P((y))                      \
-                && (XLI (XSYMBOL_WITH_POS((x))->sym)        \
-                    == XLI (XSYMBOL_WITH_POS((y))->sym)))   \
-           : (SYMBOL_WITH_POS_P ((y))                       \
-              && BARE_SYMBOL_P ((x))                        \
-              && (XLI (x) == XLI ((XSYMBOL_WITH_POS ((y)))->sym))))))
+       && (SYMBOL_WITH_POS_P (x)			    \
+           ? (BARE_SYMBOL_P (y)				    \
+              ? XLI (XSYMBOL_WITH_POS (x)->sym) == XLI (y)  \
+              : (SYMBOL_WITH_POS_P (y)			    \
+		 && (XLI (XSYMBOL_WITH_POS (x)->sym)	    \
+		     == XLI (XSYMBOL_WITH_POS (y)->sym))))  \
+           : (SYMBOL_WITH_POS_P (y)			    \
+              && BARE_SYMBOL_P (x)			    \
+              && (XLI (x) == XLI (XSYMBOL_WITH_POS (y)->sym))))))
 
 #define lisp_h_FIXNUMP(x) \
    (! (((unsigned) (XLI (x) >> (USE_LSB_TAG ? 0 : FIXNUM_BITS)) \
@@ -417,10 +417,10 @@ typedef EMACS_INT Lisp_Word;
 #define lisp_h_SYMBOL_TRAPPED_WRITE_P(sym) (XSYMBOL (sym)->u.s.trapped_write)
 #define lisp_h_SYMBOL_VAL(sym) \
    (eassert ((sym)->u.s.redirect == SYMBOL_PLAINVAL), (sym)->u.s.val.value)
-#define lisp_h_SYMBOL_WITH_POS_P(x) PSEUDOVECTORP ((x), PVEC_SYMBOL_WITH_POS)
-#define lisp_h_BARE_SYMBOL_P(x) TAGGEDP ((x), Lisp_Symbol)
-#define lisp_h_SYMBOLP(x) ((BARE_SYMBOL_P ((x)) ||               \
-                            (symbols_with_pos_enabled && (SYMBOL_WITH_POS_P ((x))))))
+#define lisp_h_SYMBOL_WITH_POS_P(x) PSEUDOVECTORP (x, PVEC_SYMBOL_WITH_POS)
+#define lisp_h_BARE_SYMBOL_P(x) TAGGEDP (x, Lisp_Symbol)
+#define lisp_h_SYMBOLP(x) \
+   (BARE_SYMBOL_P (x) || (symbols_with_pos_enabled && SYMBOL_WITH_POS_P (x)))
 #define lisp_h_TAGGEDP(a, tag) \
    (! (((unsigned) (XLI (a) >> (USE_LSB_TAG ? 0 : VALBITS)) \
 	- (unsigned) (tag)) \
@@ -1145,7 +1145,7 @@ XSYMBOL_WITH_POS (Lisp_Object a)
 }
 
 INLINE struct Lisp_Symbol * ATTRIBUTE_NO_SANITIZE_UNDEFINED
-(XBARE_SYMBOL) (Lisp_Object a)
+XBARE_SYMBOL (Lisp_Object a)
 {
   eassert (BARE_SYMBOL_P (a));
   intptr_t i = (intptr_t) XUNTAG (a, Lisp_Symbol, struct Lisp_Symbol);
@@ -1154,29 +1154,45 @@ INLINE struct Lisp_Symbol * ATTRIBUTE_NO_SANITIZE_UNDEFINED
 }
 
 INLINE struct Lisp_Symbol * ATTRIBUTE_NO_SANITIZE_UNDEFINED
-(XSYMBOL) (Lisp_Object a)
+XSYMBOL (Lisp_Object a)
 {
-  eassert (SYMBOLP ((a)));
-  if (!symbols_with_pos_enabled || BARE_SYMBOL_P (a))
-    return XBARE_SYMBOL (a);
-  return XBARE_SYMBOL (XSYMBOL_WITH_POS (a)->sym);
+  if (!BARE_SYMBOL_P (a))
+    {
+      eassert (symbols_with_pos_enabled);
+      a = XSYMBOL_WITH_POS (a)->sym;
+    }
+  return XBARE_SYMBOL (a);
+}
+
+/* Internal use only.  */
+INLINE Lisp_Object
+make_lisp_symbol_internal (struct Lisp_Symbol *sym)
+{
+  /* GCC 7 x86-64 generates faster code if lispsym is
+     cast to char * rather than to intptr_t.
+     Do not use eassert here, so that builtin symbols like Qnil compile to
+     constants; this is needed for some circa-2024 GCCs even with -O2.  */
+  char *symoffset = (char *) ((char *) sym - (char *) lispsym);
+  /* FIXME: We need this silly `a = ... return` η-redex because otherwise GCC
+     complains about:
+     lisp.h:615:28: error: expected expression before ‘{’ token
+       615 | # define LISP_INITIALLY(w) {w}   */
+  Lisp_Object a = TAG_PTR (Lisp_Symbol, symoffset);
+  return a;
 }
 
 INLINE Lisp_Object
 make_lisp_symbol (struct Lisp_Symbol *sym)
 {
-  /* GCC 7 x86-64 generates faster code if lispsym is
-     cast to char * rather than to intptr_t.  */
-  char *symoffset = (char *) ((char *) sym - (char *) lispsym);
-  Lisp_Object a = TAG_PTR (Lisp_Symbol, symoffset);
-  eassert (XSYMBOL (a) == sym);
+  Lisp_Object a = make_lisp_symbol_internal (sym);
+  eassert (XBARE_SYMBOL (a) == sym);
   return a;
 }
 
 INLINE Lisp_Object
 builtin_lisp_symbol (int index)
 {
-  return make_lisp_symbol (&lispsym[index]);
+  return make_lisp_symbol_internal (&lispsym[index]);
 }
 
 INLINE bool
@@ -1407,19 +1423,19 @@ dead_object (void)
 	    == (PSEUDOVECTOR_FLAG | (code << PSEUDOVECTOR_AREA_BITS))))
 
 #define XSETWINDOW_CONFIGURATION(a, b) \
-  (XSETPSEUDOVECTOR (a, b, PVEC_WINDOW_CONFIGURATION))
-#define XSETPROCESS(a, b) (XSETPSEUDOVECTOR (a, b, PVEC_PROCESS))
-#define XSETWINDOW(a, b) (XSETPSEUDOVECTOR (a, b, PVEC_WINDOW))
-#define XSETTERMINAL(a, b) (XSETPSEUDOVECTOR (a, b, PVEC_TERMINAL))
-#define XSETSUBR(a, b) (XSETPSEUDOVECTOR (a, b, PVEC_SUBR))
-#define XSETBUFFER(a, b) (XSETPSEUDOVECTOR (a, b, PVEC_BUFFER))
-#define XSETCHAR_TABLE(a, b) (XSETPSEUDOVECTOR (a, b, PVEC_CHAR_TABLE))
-#define XSETBOOL_VECTOR(a, b) (XSETPSEUDOVECTOR (a, b, PVEC_BOOL_VECTOR))
-#define XSETSUB_CHAR_TABLE(a, b) (XSETPSEUDOVECTOR (a, b, PVEC_SUB_CHAR_TABLE))
-#define XSETTHREAD(a, b) (XSETPSEUDOVECTOR (a, b, PVEC_THREAD))
-#define XSETMUTEX(a, b) (XSETPSEUDOVECTOR (a, b, PVEC_MUTEX))
-#define XSETCONDVAR(a, b) (XSETPSEUDOVECTOR (a, b, PVEC_CONDVAR))
-#define XSETNATIVE_COMP_UNIT(a, b) (XSETPSEUDOVECTOR (a, b, PVEC_NATIVE_COMP_UNIT))
+  XSETPSEUDOVECTOR (a, b, PVEC_WINDOW_CONFIGURATION)
+#define XSETPROCESS(a, b) XSETPSEUDOVECTOR (a, b, PVEC_PROCESS)
+#define XSETWINDOW(a, b) XSETPSEUDOVECTOR (a, b, PVEC_WINDOW)
+#define XSETTERMINAL(a, b) XSETPSEUDOVECTOR (a, b, PVEC_TERMINAL)
+#define XSETSUBR(a, b) XSETPSEUDOVECTOR (a, b, PVEC_SUBR)
+#define XSETBUFFER(a, b) XSETPSEUDOVECTOR (a, b, PVEC_BUFFER)
+#define XSETCHAR_TABLE(a, b) XSETPSEUDOVECTOR (a, b, PVEC_CHAR_TABLE)
+#define XSETBOOL_VECTOR(a, b) XSETPSEUDOVECTOR (a, b, PVEC_BOOL_VECTOR)
+#define XSETSUB_CHAR_TABLE(a, b) XSETPSEUDOVECTOR (a, b, PVEC_SUB_CHAR_TABLE)
+#define XSETTHREAD(a, b) XSETPSEUDOVECTOR (a, b, PVEC_THREAD)
+#define XSETMUTEX(a, b) XSETPSEUDOVECTOR (a, b, PVEC_MUTEX)
+#define XSETCONDVAR(a, b) XSETPSEUDOVECTOR (a, b, PVEC_CONDVAR)
+#define XSETNATIVE_COMP_UNIT(a, b) XSETPSEUDOVECTOR (a, b, PVEC_NATIVE_COMP_UNIT)
 
 /* Efficiently convert a pointer to a Lisp object and back.  The
    pointer is represented as a fixnum, so the garbage collector
@@ -2385,10 +2401,23 @@ INLINE int
 
 struct Lisp_Hash_Table;
 
+/* The type of a hash value stored in the table.
+   It's unsigned and a subtype of EMACS_UINT.  */
+typedef uint32_t hash_hash_t;
+
+typedef enum {
+  Test_eql,
+  Test_eq,
+  Test_equal,
+} hash_table_std_test_t;
+
 struct hash_table_test
 {
-  /* Function used to compare keys; always a bare symbol.  */
-  Lisp_Object name;
+  /* C function to compute hash code.  */
+  hash_hash_t (*hashfn) (Lisp_Object, struct Lisp_Hash_Table *);
+
+  /* C function to compare two keys.  */
+  Lisp_Object (*cmpfn) (Lisp_Object, Lisp_Object, struct Lisp_Hash_Table *);
 
   /* User-supplied hash function, or nil.  */
   Lisp_Object user_hash_function;
@@ -2396,12 +2425,25 @@ struct hash_table_test
   /* User-supplied key comparison function, or nil.  */
   Lisp_Object user_cmp_function;
 
-  /* C function to compare two keys.  */
-  Lisp_Object (*cmpfn) (Lisp_Object, Lisp_Object, struct Lisp_Hash_Table *);
-
-  /* C function to compute hash code.  */
-  Lisp_Object (*hashfn) (Lisp_Object, struct Lisp_Hash_Table *);
+  /* Function used to compare keys; always a bare symbol.  */
+  Lisp_Object name;
 };
+
+typedef enum {
+  Weak_None,		 /* No weak references.  */
+  Weak_Key,		 /* Reference to key is weak.  */
+  Weak_Value,		 /* Reference to value is weak.  */
+  Weak_Key_Or_Value,	 /* References to key or value are weak:
+			    element kept as long as strong reference to
+			    either key or value remains.  */
+  Weak_Key_And_Value,	 /* References to key and value are weak:
+			    element kept as long as strong references to
+			    both key and value remain.  */
+} hash_table_weakness_t;
+
+/* The type of a hash table index, both for table indices and index
+   (hash) indices.  It's signed and a subtype of ptrdiff_t.  */
+typedef int32_t hash_idx_t;
 
 struct Lisp_Hash_Table
 {
@@ -2432,35 +2474,50 @@ struct Lisp_Hash_Table
      The table is physically split into three vectors (hash, next,
      key_and_value) which may or may not be beneficial.  */
 
-  /* Nil if table is non-weak.  Otherwise a symbol describing the
-     weakness of the table.  */
-  Lisp_Object weak;
+  hash_idx_t index_size;   /* Size of the index vector.  */
+  hash_idx_t table_size;   /* Size of the next and hash vectors.  */
 
-  /* Vector of hash codes, or nil if the table needs rehashing.
-     If the I-th entry is unused, then hash[I] should be nil.  */
-  Lisp_Object hash;
+  /* Bucket vector.  An entry of -1 indicates no item is present,
+     and a nonnegative entry is the index of the first item in
+     a collision chain.
+     This vector is index_size entries long.
+     If index_size is 1 (and table_size is 0), then this is the
+     constant read-only vector {-1}, shared between all instances.
+     Otherwise it is heap-allocated.  */
+  hash_idx_t *index;
+
+  /* Vector of hash codes.  Unused entries have undefined values.
+     This vector is table_size entries long.  */
+  hash_hash_t *hash;
+
+  /* Vector of keys and values.  The key of item I is found at index
+     2 * I, the value is found at index 2 * I + 1.
+     If the key is HASH_UNUSED_ENTRY_KEY, then this slot is unused.
+     This is gc_marked specially if the table is weak.
+     This vector is 2 * table_size entries long.  */
+  Lisp_Object *key_and_value;
+
+  /* The comparison and hash functions.  */
+  const struct hash_table_test *test;
 
   /* Vector used to chain entries.  If entry I is free, next[I] is the
      entry number of the next free item.  If entry I is non-free,
      next[I] is the index of the next entry in the collision chain,
-     or -1 if there is such entry.  */
-  Lisp_Object next;
-
-  /* Bucket vector.  An entry of -1 indicates no item is present,
-     and a nonnegative entry is the index of the first item in
-     a collision chain.  This vector's size can be larger than the
-     hash table size to reduce collisions.  */
-  Lisp_Object index;
-
-  /* Only the fields above are traced normally by the GC.  The ones after
-     'index' are special and are either ignored by the GC or traced in
-     a special way (e.g. because of weakness).  */
+     or -1 if there is no such entry.
+     This vector is table_size entries long.  */
+  hash_idx_t *next;
 
   /* Number of key/value entries in the table.  */
-  ptrdiff_t count;
+  hash_idx_t count;
 
   /* Index of first free entry in free list, or -1 if none.  */
-  ptrdiff_t next_free;
+  hash_idx_t next_free;
+
+  /* Weakness of the table.  */
+  hash_table_weakness_t weakness : 8;
+
+  /* Hash table test (only used when frozen in dump)  */
+  hash_table_std_test_t frozen_test : 8;
 
   /* True if the table can be purecopied.  The table cannot be
      changed afterwards.  */
@@ -2471,37 +2528,19 @@ struct Lisp_Hash_Table
      immutable for recursive attempts to mutate it.  */
   bool mutable;
 
-  /* Resize hash table when number of entries / table size is >= this
-     ratio.  */
-  float rehash_threshold;
-
-  /* Used when the table is resized.  If equal to a negative integer,
-     the user rehash-size is the integer -REHASH_SIZE, and the new
-     size is the old size plus -REHASH_SIZE.  If positive, the user
-     rehash-size is the floating-point value REHASH_SIZE + 1, and the
-     new size is the old size times REHASH_SIZE + 1.  */
-  float rehash_size;
-
-  /* Vector of keys and values.  The key of item I is found at index
-     2 * I, the value is found at index 2 * I + 1.
-     If the key is HASH_UNUSED_ENTRY_KEY, then this slot is unused.
-     This is gc_marked specially if the table is weak.  */
-  Lisp_Object key_and_value;
-
-  /* The comparison and hash functions.  */
-  struct hash_table_test test;
-
   /* Next weak hash table if this is a weak hash table.  The head of
      the list is in weak_hash_tables.  Used only during garbage
      collection --- at other times, it is NULL.  */
   struct Lisp_Hash_Table *next_weak;
 } GCALIGNED_STRUCT;
 
-/* Sanity-check pseudovector layout.  */
-verify (offsetof (struct Lisp_Hash_Table, weak) == header_size);
+/* A specific Lisp_Object that is not a valid Lisp value.
+   We need to be careful not to leak this value into machinery
+   where it may be treated as one; we'd get a segfault if lucky.  */
+#define INVALID_LISP_VALUE make_lisp_ptr (NULL, Lisp_Float)
 
 /* Key value that marks an unused hash table entry.  */
-#define HASH_UNUSED_ENTRY_KEY Qunbound
+#define HASH_UNUSED_ENTRY_KEY INVALID_LISP_VALUE
 
 /* KEY is a key of an unused hash table entry.  */
 INLINE bool
@@ -2524,60 +2563,79 @@ XHASH_TABLE (Lisp_Object a)
 }
 
 #define XSET_HASH_TABLE(VAR, PTR) \
-     (XSETPSEUDOVECTOR (VAR, PTR, PVEC_HASH_TABLE))
+  XSETPSEUDOVECTOR (VAR, PTR, PVEC_HASH_TABLE)
 
 /* Value is the key part of entry IDX in hash table H.  */
 INLINE Lisp_Object
 HASH_KEY (const struct Lisp_Hash_Table *h, ptrdiff_t idx)
 {
-  return AREF (h->key_and_value, 2 * idx);
+  eassert (idx >= 0 && idx < h->table_size);
+  return h->key_and_value[2 * idx];
 }
 
 /* Value is the value part of entry IDX in hash table H.  */
 INLINE Lisp_Object
 HASH_VALUE (const struct Lisp_Hash_Table *h, ptrdiff_t idx)
 {
-  return AREF (h->key_and_value, 2 * idx + 1);
+  eassert (idx >= 0 && idx < h->table_size);
+  return h->key_and_value[2 * idx + 1];
 }
 
 /* Value is the hash code computed for entry IDX in hash table H.  */
-INLINE Lisp_Object
+INLINE hash_hash_t
 HASH_HASH (const struct Lisp_Hash_Table *h, ptrdiff_t idx)
 {
-  return AREF (h->hash, idx);
+  eassert (idx >= 0 && idx < h->table_size);
+  return h->hash[idx];
 }
 
 /* Value is the size of hash table H.  */
 INLINE ptrdiff_t
 HASH_TABLE_SIZE (const struct Lisp_Hash_Table *h)
 {
-  ptrdiff_t size = ASIZE (h->next);
-  eassume (0 < size);
-  return size;
+  return h->table_size;
 }
 
-/* Compute hash value for KEY in hash table H.  */
-INLINE Lisp_Object
+/* Hash value for KEY in hash table H.  */
+INLINE hash_hash_t
 hash_from_key (struct Lisp_Hash_Table *h, Lisp_Object key)
 {
-  return h->test.hashfn (key, h);
+  return h->test->hashfn (key, h);
 }
 
-void hash_table_rehash (Lisp_Object);
+/* Iterate K and V as key and value of valid entries in hash table H.
+   The body may mutate the hash-table.  */
+#define DOHASH(h, k, v)							 \
+  for (Lisp_Object *dohash_##k##_##v##_base = (h)->key_and_value,	 \
+                   *dohash_##k##_##v##_kv   = dohash_##k##_##v##_base,	 \
+                   *dohash_##k##_##v##_end  = dohash_##k##_##v##_base	 \
+                                              + 2 * HASH_TABLE_SIZE (h), \
+                   k, v;						 \
+       dohash_##k##_##v##_kv < dohash_##k##_##v##_end			 \
+       && (dohash_##k##_##v##_base == (h)->key_and_value                 \
+           /* The `key_and_value` table has been reallocated!  */        \
+           || (dohash_##k##_##v##_kv                                     \
+                  = (dohash_##k##_##v##_kv - dohash_##k##_##v##_base)	 \
+                    + (h)->key_and_value,                                \
+               dohash_##k##_##v##_base = (h)->key_and_value,             \
+               dohash_##k##_##v##_end  = dohash_##k##_##v##_base	 \
+                                         + 2 * HASH_TABLE_SIZE (h),      \
+               /* Check again, in case the table has shrunk.  */         \
+               dohash_##k##_##v##_kv < dohash_##k##_##v##_end))          \
+       && (k = dohash_##k##_##v##_kv[0],                                 \
+           v = dohash_##k##_##v##_kv[1], /*maybe unused*/ (void)v,       \
+           true);			                                 \
+        dohash_##k##_##v##_kv += 2)				         \
+    if (hash_unused_entry_key_p (k))				         \
+      ;								         \
+    else
+
+
+void hash_table_thaw (Lisp_Object hash_table);
 
 /* Default size for hash tables if not specified.  */
 
-enum DEFAULT_HASH_SIZE { DEFAULT_HASH_SIZE = 65 };
-
-/* Default threshold specifying when to resize a hash table.  The
-   value gives the ratio of current entries in the hash table and the
-   size of the hash table.  */
-
-static float const DEFAULT_REHASH_THRESHOLD = 0.8125;
-
-/* Default factor by which to increase the size of a hash table, minus 1.  */
-
-static float const DEFAULT_REHASH_SIZE = 1.5 - 1;
+enum DEFAULT_HASH_SIZE { DEFAULT_HASH_SIZE = 0 };
 
 /* Combine two integers X and Y for hashing.  The result might exceed
    INTMASK.  */
@@ -3784,13 +3842,15 @@ vcopy (Lisp_Object v, ptrdiff_t offset, Lisp_Object const *args,
 INLINE void
 set_hash_key_slot (struct Lisp_Hash_Table *h, ptrdiff_t idx, Lisp_Object val)
 {
-  gc_aset (h->key_and_value, 2 * idx, val);
+  eassert (idx >= 0 && idx < h->table_size);
+  h->key_and_value[2 * idx] = val;
 }
 
 INLINE void
 set_hash_value_slot (struct Lisp_Hash_Table *h, ptrdiff_t idx, Lisp_Object val)
 {
-  gc_aset (h->key_and_value, 2 * idx + 1, val);
+  eassert (idx >= 0 && idx < h->table_size);
+  h->key_and_value[2 * idx + 1] = val;;
 }
 
 /* Use these functions to set Lisp_Object
@@ -4028,6 +4088,7 @@ extern ptrdiff_t multibyte_chars_in_text (const unsigned char *, ptrdiff_t);
 extern void syms_of_character (void);
 
 /* Defined in charset.c.  */
+extern void mark_charset (void);
 extern void init_charset (void);
 extern void init_charset_once (void);
 extern void syms_of_charset (void);
@@ -4048,12 +4109,14 @@ extern void hexbuf_digest (char *, void const *, int);
 extern char *extract_data_from_object (Lisp_Object, ptrdiff_t *, ptrdiff_t *);
 EMACS_UINT hash_string (char const *, ptrdiff_t);
 EMACS_UINT sxhash (Lisp_Object);
-Lisp_Object hashfn_user_defined (Lisp_Object, struct Lisp_Hash_Table *);
-Lisp_Object make_hash_table (struct hash_table_test, EMACS_INT, float, float,
-                             Lisp_Object, bool);
-ptrdiff_t hash_lookup (struct Lisp_Hash_Table *, Lisp_Object, Lisp_Object *);
+Lisp_Object make_hash_table (const struct hash_table_test *, EMACS_INT,
+                             hash_table_weakness_t, bool);
+Lisp_Object hash_table_weakness_symbol (hash_table_weakness_t weak);
+ptrdiff_t hash_lookup (struct Lisp_Hash_Table *, Lisp_Object);
+ptrdiff_t hash_lookup_get_hash (struct Lisp_Hash_Table *h, Lisp_Object key,
+				hash_hash_t *phash);
 ptrdiff_t hash_put (struct Lisp_Hash_Table *, Lisp_Object, Lisp_Object,
-		    Lisp_Object);
+		    hash_hash_t);
 void hash_remove_from_table (struct Lisp_Hash_Table *, Lisp_Object);
 extern struct hash_table_test const hashtest_eq, hashtest_eql, hashtest_equal;
 extern void validate_subarray (Lisp_Object, Lisp_Object, Lisp_Object,
@@ -4080,6 +4143,7 @@ extern Lisp_Object plist_put (Lisp_Object plist, Lisp_Object prop,
 			      Lisp_Object val);
 extern Lisp_Object plist_member (Lisp_Object plist, Lisp_Object prop);
 extern void syms_of_fns (void);
+extern void mark_fns (void);
 
 /* Defined in sort.c  */
 extern void tim_sort (Lisp_Object, Lisp_Object *, const ptrdiff_t);
@@ -4460,6 +4524,9 @@ extern void init_alloc (void);
 extern void syms_of_alloc (void);
 extern struct buffer *allocate_buffer (void) ATTRIBUTE_RETURNS_NONNULL;
 extern int valid_lisp_object_p (Lisp_Object);
+
+void *hash_table_alloc_bytes (ptrdiff_t nbytes) ATTRIBUTE_MALLOC_SIZE ((1));
+void hash_table_free_bytes (void *p, ptrdiff_t nbytes);
 
 /* Defined in gmalloc.c.  */
 #if !defined DOUG_LEA_MALLOC && !defined HYBRID_MALLOC && !defined SYSTEM_MALLOC

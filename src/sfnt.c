@@ -3767,29 +3767,6 @@ sfnt_multiply_divide_2 (struct sfnt_large_integer *ab,
   return q;
 }
 
-#endif
-
-/* Calculate (A * B) / C with no rounding and return the result, using
-   a 64 bit integer if necessary.  */
-
-static unsigned int
-sfnt_multiply_divide (unsigned int a, unsigned int b, unsigned int c)
-{
-#ifndef INT64_MAX
-  struct sfnt_large_integer temp;
-
-  sfnt_multiply_divide_1 (a, b, &temp);
-  return sfnt_multiply_divide_2 (&temp, c);
-#else
-  uint64_t temp;
-
-  temp = (uint64_t) a * (uint64_t) b;
-  return temp / c;
-#endif
-}
-
-#ifndef INT64_MAX
-
 /* Add the specified unsigned 32-bit N to the large integer
    INTEGER.  */
 
@@ -3806,6 +3783,50 @@ sfnt_large_integer_add (struct sfnt_large_integer *integer,
   *integer = number;
 }
 
+#endif /* !INT64_MAX */
+
+/* Calculate (A * B) / C with no rounding and return the result, using
+   a 64 bit integer if necessary.  */
+
+static unsigned int
+sfnt_multiply_divide (unsigned int a, unsigned int b, unsigned int c)
+{
+#ifndef INT64_MAX
+  struct sfnt_large_integer temp;
+
+  sfnt_multiply_divide_1 (a, b, &temp);
+  return sfnt_multiply_divide_2 (&temp, c);
+#else /* INT64_MAX */
+  uint64_t temp;
+
+  temp = (uint64_t) a * (uint64_t) b;
+  return temp / c;
+#endif /* !INT64_MAX */
+}
+
+/* Calculate (A * B) / C with rounding and return the result, using a
+   64 bit integer if necessary.  */
+
+static unsigned int
+sfnt_multiply_divide_rounded (unsigned int a, unsigned int b,
+			      unsigned int c)
+{
+#ifndef INT64_MAX
+  struct sfnt_large_integer temp;
+
+  sfnt_multiply_divide_1 (a, b, &temp);
+  sfnt_large_integer_add (&temp, c / 2);
+  return sfnt_multiply_divide_2 (&temp, c);
+#else /* INT64_MAX */
+  uint64_t temp;
+
+  temp = (uint64_t) a * (uint64_t) b + c / 2;
+  return temp / c;
+#endif /* !INT64_MAX */
+}
+
+#ifndef INT64_MAX
+
 /* Calculate (A * B) / C, rounding the result with a threshold of N.
    Use a 64 bit temporary.  */
 
@@ -3820,9 +3841,9 @@ sfnt_multiply_divide_round (unsigned int a, unsigned int b,
   return sfnt_multiply_divide_2 (&temp, c);
 }
 
-#endif /* INT64_MAX */
+#endif /* !INT64_MAX */
 
-/* The same as sfnt_multiply_divide, but handle signed values
+/* The same as sfnt_multiply_divide_rounded, but handle signed values
    instead.  */
 
 MAYBE_UNUSED static int
@@ -3841,8 +3862,8 @@ sfnt_multiply_divide_signed (int a, int b, int c)
   if (c < 0)
     sign = -sign;
 
-  return (sfnt_multiply_divide (abs (a), abs (b), abs (c))
-	  * sign);
+  return (sfnt_multiply_divide_rounded (abs (a), abs (b),
+					abs (c)) * sign);
 }
 
 /* Multiply the two 16.16 fixed point numbers X and Y.  Return the
@@ -3858,7 +3879,7 @@ sfnt_mul_fixed (sfnt_fixed x, sfnt_fixed y)
 
   /* This can be done quickly with int64_t.  */
   return product / (int64_t) 65536;
-#else
+#else /* !INT64_MAX */
   int sign;
 
   sign = 1;
@@ -3871,7 +3892,7 @@ sfnt_mul_fixed (sfnt_fixed x, sfnt_fixed y)
 
   return sfnt_multiply_divide (abs (x), abs (y),
 			       65536) * sign;
-#endif
+#endif /* INT64_MAX */
 }
 
 /* Multiply the two 16.16 fixed point numbers X and Y, with rounding
@@ -3888,7 +3909,7 @@ sfnt_mul_fixed_round (sfnt_fixed x, sfnt_fixed y)
 
   /* This can be done quickly with int64_t.  */
   return (product + round) / (int64_t) 65536;
-#else
+#else /* !INT64_MAX */
   int sign;
 
   sign = 1;
@@ -3901,7 +3922,7 @@ sfnt_mul_fixed_round (sfnt_fixed x, sfnt_fixed y)
 
   return sfnt_multiply_divide_round (abs (x), abs (y),
 				     32768, 65536) * sign;
-#endif
+#endif /* INT64_MAX */
 }
 
 /* Set the pen size to the specified point and return.  POINT will be
@@ -6469,6 +6490,36 @@ sfnt_mul_f26dot6 (sfnt_f26dot6 a, sfnt_f26dot6 b)
 #endif
 }
 
+/* Multiply the specified two 26.6 fixed point numbers A and B, with
+   rounding.  Return the result, or an undefined value upon
+   overflow.  */
+
+static sfnt_f26dot6
+sfnt_mul_f26dot6_round (sfnt_f26dot6 a, sfnt_f26dot6 b)
+{
+#ifdef INT64_MAX
+  int64_t product;
+
+  product = (int64_t) a * (int64_t) b;
+
+  /* This can be done quickly with int64_t.  */
+  return (product + 32) / (int64_t) 64;
+#else /* !INT64_MAX */
+  int sign;
+
+  sign = 1;
+
+  if (a < 0)
+    sign = -sign;
+
+  if (b < 0)
+    sign = -sign;
+
+  return sfnt_multiply_divide_round (abs (a), abs (b),
+				     32, 64) * sign;
+#endif /* INT64_MAX */
+}
+
 /* Multiply the specified 2.14 number with another signed 32 bit
    number.  Return the result as a signed 32 bit number.  */
 
@@ -6498,53 +6549,12 @@ sfnt_mul_f2dot14 (sfnt_f2dot14 a, int32_t b)
 }
 
 /* Multiply the specified 26.6 fixed point number X by the specified
-   16.16 fixed point number Y with symmetric rounding.
-
-   The 26.6 fixed point number must fit inside -32768 to 32767.ffff.
-   Value is otherwise undefined.  */
+   16.16 fixed point number Y with rounding.  */
 
 static sfnt_f26dot6
 sfnt_mul_f26dot6_fixed (sfnt_f26dot6 x, sfnt_fixed y)
 {
-#ifdef INT64_MAX
-  uint64_t product;
-  int sign;
-
-  sign = 1;
-
-  if (x < 0)
-    {
-      x = -x;
-      sign = -sign;
-    }
-
-  if (y < 0)
-    {
-      y = -y;
-      sign = -sign;
-    }
-
-  product = (uint64_t) y * (uint64_t) x;
-
-  /* This can be done quickly with int64_t.  */
-  return ((int64_t) (product + 32768)
-	  / (int64_t) 65536) * sign;
-#else
-  struct sfnt_large_integer temp;
-  int sign;
-
-  sign = 1;
-
-  if (x < 0)
-    sign = -sign;
-
-  if (y < 0)
-    sign = -sign;
-
-  sfnt_multiply_divide_1 (abs (x), abs (y), &temp);
-  sfnt_large_integer_add (&temp, 32676);
-  return sfnt_multiply_divide_2 (&temp, 65536) * sign;
-#endif
+  return sfnt_mul_fixed_round (x, y);
 }
 
 /* Return the floor of the specified 26.6 fixed point value X.  */
@@ -6839,7 +6849,7 @@ sfnt_interpret_trap (struct sfnt_interpreter *interpreter,
   (interpreter->SP - interpreter->stack)
 
 #define TRAP(why)				\
-  sfnt_interpret_trap (interpreter, (why))
+  sfnt_interpret_trap (interpreter, why)
 
 #define MOVE(a, b, n)				\
   memmove (a, b, (n) * sizeof (uint32_t))
@@ -7561,12 +7571,13 @@ sfnt_interpret_trap (struct sfnt_interpreter *interpreter,
 
 #define MUL()					\
   {						\
-    sfnt_f26dot6 n2, n1;			\
+    sfnt_f26dot6 n2, n1, r;			\
 						\
     n2 = POP ();				\
     n1 = POP ();				\
 						\
-    PUSH_UNCHECKED (sfnt_mul_f26dot6 (n2, n1));	\
+    r = sfnt_mul_f26dot6_round (n2, n1);	\
+    PUSH_UNCHECKED (r);				\
   }
 
 #define ABS()					\
@@ -8552,8 +8563,12 @@ sfnt_address_zp2 (struct sfnt_interpreter *interpreter,
       if (number >= interpreter->twilight_zone_size)
 	TRAP ("address to ZP2 (twilight zone) out of bounds");
 
+      if (!x || !y)
+	goto next;
+
       *x = interpreter->twilight_x[number];
       *y = interpreter->twilight_y[number];
+    next:
 
       if (!x_org || !y_org)
 	return;
@@ -8603,8 +8618,12 @@ sfnt_address_zp1 (struct sfnt_interpreter *interpreter,
       if (number >= interpreter->twilight_zone_size)
 	TRAP ("address to ZP1 (twilight zone) out of bounds");
 
+      if (!x || !y)
+	goto next;
+
       *x = interpreter->twilight_x[number];
       *y = interpreter->twilight_y[number];
+    next:
 
       if (!x_org || !y_org)
 	return;
@@ -8654,8 +8673,12 @@ sfnt_address_zp0 (struct sfnt_interpreter *interpreter,
       if (number >= interpreter->twilight_zone_size)
 	TRAP ("address to ZP0 (twilight zone) out of bounds");
 
+      if (!x || !y)
+	goto next;
+
       *x = interpreter->twilight_x[number];
       *y = interpreter->twilight_y[number];
+    next:
 
       if (!x_org || !y_org)
 	return;
@@ -8966,7 +8989,7 @@ sfnt_dual_project_vector (struct sfnt_interpreter *interpreter,
 
 static void
 sfnt_interpret_fliprgoff (struct sfnt_interpreter *interpreter,
-			  uint32_t l, uint32_t h)
+			  uint32_t h, uint32_t l)
 {
   uint32_t i;
 
@@ -8976,7 +8999,7 @@ sfnt_interpret_fliprgoff (struct sfnt_interpreter *interpreter,
   if (!interpreter->state.zp0)
     return;
 
-  for (i = l; i < h; ++i)
+  for (i = l; i <= h; ++i)
     interpreter->glyph_zone->flags[i] &= ~01;
 }
 
@@ -8985,7 +9008,7 @@ sfnt_interpret_fliprgoff (struct sfnt_interpreter *interpreter,
 
 static void
 sfnt_interpret_fliprgon (struct sfnt_interpreter *interpreter,
-			 uint32_t l, uint32_t h)
+			 uint32_t h, uint32_t l)
 {
   uint32_t i;
 
@@ -8995,8 +9018,8 @@ sfnt_interpret_fliprgon (struct sfnt_interpreter *interpreter,
   if (!interpreter->state.zp0)
     return;
 
-  for (i = l; i < h; ++i)
-    interpreter->glyph_zone->flags[i] |= ~01;
+  for (i = l; i <= h; ++i)
+    interpreter->glyph_zone->flags[i] |= 01;
 }
 
 /* Interpret a FLIPPT instruction in INTERPRETER.  For loop times, pop
@@ -9640,6 +9663,8 @@ sfnt_interpret_ip (struct sfnt_interpreter *interpreter)
   sfnt_f26dot6 new_distance;
   uint32_t p;
   sfnt_f26dot6 x, y, original_x, original_y;
+  struct sfnt_interpreter_zone *zone;
+  bool scale;
 
   /* First load both reference points.  */
   sfnt_address_zp0 (interpreter, interpreter->state.rp1,
@@ -9649,6 +9674,57 @@ sfnt_interpret_ip (struct sfnt_interpreter *interpreter)
 		    &rp2x, &rp2y, &rp2_original_x,
 		    &rp2_original_y);
 
+  /* If RP1, RP2, and all arguments all fall within the glyph zone and
+     a simple glyph is loaded, replace their original coordinates as
+     loaded here with coordinates from the unscaled glyph outline.  */
+
+  zone = interpreter->glyph_zone;
+  scale = false;
+
+  if (zone && zone->simple
+      && interpreter->state.zp0
+      && interpreter->state.zp1
+      && interpreter->state.zp2)
+    {
+      p = interpreter->state.rp1;
+
+      /* If P is a phantom point... */
+      if (p >= zone->simple->number_of_points)
+	{
+	  /* ...scale the phantom point to the size of the original
+	     outline.  */
+	  rp1_original_x = sfnt_div_fixed (rp1_original_x,
+					   interpreter->scale);
+	  rp1_original_y = sfnt_div_fixed (rp1_original_y,
+					   interpreter->scale);
+	}
+      else
+	{
+	  rp1_original_x = zone->simple->x_coordinates[p];
+	  rp1_original_y = zone->simple->y_coordinates[p];
+	}
+
+      p = interpreter->state.rp2;
+
+      /* If P is a phantom point... */
+      if (p >= zone->simple->number_of_points)
+	{
+	  /* ...scale the phantom point to the size of the original
+	     outline.  */
+	  rp2_original_x = sfnt_div_fixed (rp2_original_x,
+					   interpreter->scale);
+	  rp2_original_y = sfnt_div_fixed (rp2_original_y,
+					   interpreter->scale);
+	}
+      else
+	{
+	  rp2_original_x = zone->simple->x_coordinates[p];
+	  rp2_original_y = zone->simple->y_coordinates[p];
+	}
+
+      scale = true;
+    }
+
   /* Get the original distance between of RP1 and RP2 measured
      relative to the dual projection vector.  */
   range = sfnt_dual_project_vector (interpreter,
@@ -9656,6 +9732,9 @@ sfnt_interpret_ip (struct sfnt_interpreter *interpreter)
 					      rp1_original_x),
 				    sfnt_sub (rp2_original_y,
 					      rp1_original_y));
+
+  if (scale)
+    range = sfnt_mul_fixed_round (range, interpreter->scale);
 
   /* Get the new distance.  */
   new_range = sfnt_dual_project_vector (interpreter,
@@ -9670,6 +9749,25 @@ sfnt_interpret_ip (struct sfnt_interpreter *interpreter)
       sfnt_address_zp2 (interpreter, p, &x, &y, &original_x,
 			&original_y);
 
+      if (scale)
+	{
+	  /* If P is a phantom point... */
+	  if (p >= zone->simple->number_of_points)
+	    {
+	      /* ...scale the phantom point to the size of the original
+		 outline.  */
+	      original_x = sfnt_div_fixed (original_x,
+					   interpreter->scale);
+	      original_y = sfnt_div_fixed (original_y,
+					   interpreter->scale);
+	    }
+	  else
+	    {
+	      original_x = zone->simple->x_coordinates[p];
+	      original_y = zone->simple->y_coordinates[p];
+	    }
+	}
+
       /* Now compute the old distance from this point to rp1.  */
       org_distance
 	= sfnt_dual_project_vector (interpreter,
@@ -9677,6 +9775,10 @@ sfnt_interpret_ip (struct sfnt_interpreter *interpreter)
 					      rp1_original_x),
 				    sfnt_sub (original_y,
 					      rp1_original_y));
+
+      if (scale)
+	org_distance = sfnt_mul_fixed_round (org_distance,
+					     interpreter->scale);
 
       /* And the current distance from this point to rp1, so
          how much to move can be determined.  */
@@ -10686,6 +10788,7 @@ sfnt_move (sfnt_f26dot6 *restrict x, sfnt_f26dot6 *restrict y,
   sfnt_f26dot6 versor, k;
   sfnt_f2dot14 dot_product;
   size_t num;
+  unsigned char *flags_start;
 
   dot_product = interpreter->state.vector_dot_product;
 
@@ -10697,6 +10800,10 @@ sfnt_move (sfnt_f26dot6 *restrict x, sfnt_f26dot6 *restrict y,
   /* Not actually 26.6, but the multiply-divisions below cancel each
      other out, so the result is 26.6.  */
   versor = interpreter->state.freedom_vector.x;
+
+  /* Save flags that it may be restored for the second Y axis
+     loop.  */
+  flags_start = flags;
 
   if (versor)
     {
@@ -10717,6 +10824,7 @@ sfnt_move (sfnt_f26dot6 *restrict x, sfnt_f26dot6 *restrict y,
 	}
     }
 
+  flags = flags_start;
   versor = interpreter->state.freedom_vector.y;
 
   if (versor)
@@ -11058,6 +11166,11 @@ sfnt_interpret_shp (struct sfnt_interpreter *interpreter,
    ? interpreter->glyph_zone->x_points[p]	\
    : interpreter->glyph_zone->y_points[p])
 
+#define load_unscaled(p)				\
+  (opcode == 0x31					\
+   ? interpreter->glyph_zone->simple->x_coordinates[p]	\
+   : interpreter->glyph_zone->simple->y_coordinates[p])
+
 #define IUP_SINGLE_PAIR()						\
   /* Now make touch_start the first point before, i.e. the first	\
      touched point in this pair.  */					\
@@ -11107,23 +11220,40 @@ sfnt_interpret_shp (struct sfnt_interpreter *interpreter,
       if (position >= original_min_pos					\
 	  && position <= original_max_pos)				\
 	{								\
+	  /* Compute the ratio between the two touched point positions  \
+	     and the original position of the point being touched with  \
+	     positions from the unscaled outline, if at all		\
+	     possible.  */						\
+									\
+	  if (interpreter->glyph_zone->simple)				\
+	    {								\
+	      org_max_pos = load_unscaled (point_max);			\
+	      org_min_pos = load_unscaled (point_min);			\
+	      position = load_unscaled (i);				\
+	    }								\
+	  else								\
+	    {								\
+	      org_max_pos = original_max_pos;				\
+	      org_min_pos = original_min_pos;				\
+	    }								\
+									\
 	  /* Handle the degenerate case where original_min_pos and	\
 	     original_max_pos have not changed by placing the point in	\
 	     the middle.  */						\
-	  if (original_min_pos == original_max_pos)			\
+	  if (org_min_pos == org_max_pos)				\
 	    ratio = 077777;						\
 	  else								\
 	    /* ... preserve the ratio of i between min_pos and		\
 	       max_pos...  */						\
 	    ratio = sfnt_div_fixed ((sfnt_sub (position,		\
-					       original_min_pos)	\
+					       org_min_pos)		\
 				     * 1024),				\
-				    (sfnt_sub (original_max_pos,	\
-					       original_min_pos)	\
+				    (sfnt_sub (org_max_pos,		\
+					       org_min_pos)		\
 				     * 1024));				\
 									\
 	  delta = sfnt_sub (max_pos, min_pos);				\
-	  delta = sfnt_mul_fixed (ratio, delta);			\
+	  delta = sfnt_mul_fixed_round (ratio, delta);			\
 	  store_point (i, sfnt_add (min_pos, delta));			\
 	}								\
       else								\
@@ -11158,8 +11288,8 @@ sfnt_interpret_iup_1 (struct sfnt_interpreter *interpreter,
   size_t first_point;
   size_t point_min, point_max, i;
   sfnt_f26dot6 position, min_pos, max_pos, delta, ratio;
-  sfnt_f26dot6 original_max_pos;
-  sfnt_f26dot6 original_min_pos;
+  sfnt_f26dot6 original_max_pos, org_max_pos;
+  sfnt_f26dot6 original_min_pos, org_min_pos;
 
   /* Find the first touched point.  If none is found, simply
      return.  */
@@ -11245,6 +11375,7 @@ sfnt_interpret_iup_1 (struct sfnt_interpreter *interpreter,
 #undef load_point
 #undef store_point
 #undef load_original
+#undef load_unscaled
 
 /* Interpret an IUP (``interpolate untouched points'') instruction.
    INTERPRETER is the interpreter, and OPCODE is the instruction
@@ -11447,7 +11578,8 @@ sfnt_interpret_mirp (struct sfnt_interpreter *interpreter,
    coordinate from the font designer's intentions, either exaggerating
    or neutralizing the slant of the stem to which it belongs.
 
-   This behavior applies only to MDRP, which see.  */
+   This behavior applies only to MDRP (which see), although a similar
+   strategy is also applied while interpreting IP instructions.  */
 
 static sfnt_f26dot6
 sfnt_project_zp1_zp0_org (struct sfnt_interpreter *interpreter,
@@ -12233,10 +12365,10 @@ sfnt_interpret_control_value_program (struct sfnt_interpreter *interpreter,
   sfnt_interpret_run (interpreter,
 		      SFNT_RUN_CONTEXT_CONTROL_VALUE_PROGRAM);
 
-  /* If instruct_control & 4, then changes to the graphics state made
+  /* If instruct_control & 2, then changes to the graphics state made
      in this program should be reverted.  */
 
-  if (interpreter->state.instruct_control & 4)
+  if (interpreter->state.instruct_control & 2)
     sfnt_init_graphics_state (&interpreter->state);
   else
     {
@@ -20715,8 +20847,8 @@ main (int argc, char **argv)
       return 1;
     }
 
-#define FANCY_PPEM 16
-#define EASY_PPEM  16
+#define FANCY_PPEM 14
+#define EASY_PPEM  14
 
   interpreter = NULL;
   head = sfnt_read_head_table (fd, font);

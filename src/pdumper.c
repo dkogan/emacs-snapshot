@@ -1226,7 +1226,7 @@ dump_queue_dequeue (struct dump_queue *dump_queue, dump_off basis)
      dump_tailq_length (&dump_queue->zero_weight_objects),
      dump_tailq_length (&dump_queue->one_weight_normal_objects),
      dump_tailq_length (&dump_queue->one_weight_strong_objects),
-     XHASH_TABLE (dump_queue->link_weights)->count);
+     (ptrdiff_t) XHASH_TABLE (dump_queue->link_weights)->count);
 
   static const int nr_candidates = 3;
   struct candidate
@@ -1331,13 +1331,7 @@ dump_queue_dequeue (struct dump_queue *dump_queue, dump_off basis)
 static bool
 dump_object_needs_dumping_p (Lisp_Object object)
 {
-  /* Some objects, like symbols, are self-representing because they
-     have invariant bit patterns, but sometimes these objects have
-     associated data too, and these data-carrying objects need to be
-     included in the dump despite all references to them being
-     bitwise-invariant.  */
-  return (!dump_object_self_representing_p (object)
-	  || dump_object_emacs_ptr (object));
+  return !(FIXNUMP (object));
 }
 
 static void
@@ -2646,32 +2640,20 @@ dump_vectorlike_generic (struct dump_context *ctx,
   return offset;
 }
 
-/* Return a vector of KEY, VALUE pairs in the given hash table H.  The
-   first H->count pairs are valid, and the rest are unbound.  */
-static Lisp_Object
+/* Return a vector of KEY, VALUE pairs in the given hash table H.
+   No room for growth is included.  */
+static Lisp_Object *
 hash_table_contents (struct Lisp_Hash_Table *h)
 {
-  if (h->test.hashfn == hashfn_user_defined)
-    error ("cannot dump hash tables with user-defined tests");  /* Bug#36769 */
-
-  ptrdiff_t size = HASH_TABLE_SIZE (h);
-  Lisp_Object key_and_value = make_uninit_vector (2 * size);
+  ptrdiff_t size = h->count;
+  Lisp_Object *key_and_value = hash_table_alloc_bytes (2 * size
+						       * sizeof *key_and_value);
   ptrdiff_t n = 0;
 
-  /* Make sure key_and_value ends up in the same order; charset.c
-     relies on it by expecting hash table indices to stay constant
-     across the dump.  */
-  for (ptrdiff_t i = 0; i < size; i++)
-    if (!NILP (HASH_HASH (h, i)))
-      {
-	ASET (key_and_value, n++, HASH_KEY (h, i));
-	ASET (key_and_value, n++, HASH_VALUE (h, i));
-      }
-
-  while (n < 2 * size)
+  DOHASH (h, k, v)
     {
-      ASET (key_and_value, n++, Qunbound);
-      ASET (key_and_value, n++, Qnil);
+      key_and_value[n++] = k;
+      key_and_value[n++] = v;
     }
 
   return key_and_value;
@@ -2686,31 +2668,62 @@ dump_hash_table_list (struct dump_context *ctx)
     return 0;
 }
 
+static hash_table_std_test_t
+hash_table_std_test (const struct hash_table_test *t)
+{
+  if (BASE_EQ (t->name, Qeq))
+    return Test_eq;
+  if (BASE_EQ (t->name, Qeql))
+    return Test_eql;
+  if (BASE_EQ (t->name, Qequal))
+    return Test_equal;
+  error ("cannot dump hash tables with user-defined tests");  /* Bug#36769 */
+}
+
+/* Compact contents and discard inessential information from a hash table,
+   preparing it for dumping.
+   See `hash_table_thaw' for the code that restores the object to a usable
+   state. */
 static void
 hash_table_freeze (struct Lisp_Hash_Table *h)
 {
-  ptrdiff_t npairs = ASIZE (h->key_and_value) / 2;
   h->key_and_value = hash_table_contents (h);
-  h->next = h->hash = make_fixnum (npairs);
-  h->index = make_fixnum (ASIZE (h->index));
-  h->next_free = (npairs == h->count ? -1 : h->count);
+  h->next = NULL;
+  h->hash = NULL;
+  h->index = NULL;
+  h->table_size = 0;
+  h->index_size = 0;
+  h->frozen_test = hash_table_std_test (h->test);
+  h->test = NULL;
 }
 
-static void
-hash_table_thaw (Lisp_Object hash)
+static dump_off
+dump_hash_table_contents (struct dump_context *ctx, struct Lisp_Hash_Table *h)
 {
-  struct Lisp_Hash_Table *h = XHASH_TABLE (hash);
-  h->hash = make_nil_vector (XFIXNUM (h->hash));
-  h->next = Fmake_vector (h->next, make_fixnum (-1));
-  h->index = Fmake_vector (h->index, make_fixnum (-1));
+  dump_align_output (ctx, DUMP_ALIGNMENT);
+  dump_off start_offset = ctx->offset;
+  ptrdiff_t n = 2 * h->count;
 
-  hash_table_rehash (hash);
+  struct dump_flags old_flags = ctx->flags;
+  ctx->flags.pack_objects = true;
+
+  for (ptrdiff_t i = 0; i < n; i++)
+    {
+      Lisp_Object out;
+      const Lisp_Object *slot = &h->key_and_value[i];
+      dump_object_start (ctx, &out, sizeof out);
+      dump_field_lv (ctx, &out, slot, slot, WEIGHT_STRONG);
+      dump_object_finish (ctx, &out, sizeof out);
+    }
+
+  ctx->flags = old_flags;
+  return start_offset;
 }
 
 static dump_off
 dump_hash_table (struct dump_context *ctx, Lisp_Object object)
 {
-#if CHECK_STRUCTS && !defined HASH_Lisp_Hash_Table_6D63EDB618
+#if CHECK_STRUCTS && !defined HASH_Lisp_Hash_Table_313A489F0A
 # error "Lisp_Hash_Table changed. See CHECK_STRUCTS comment in config.h."
 #endif
   const struct Lisp_Hash_Table *hash_in = XHASH_TABLE (object);
@@ -2722,30 +2735,27 @@ dump_hash_table (struct dump_context *ctx, Lisp_Object object)
 
   START_DUMP_PVEC (ctx, &hash->header, struct Lisp_Hash_Table, out);
   dump_pseudovector_lisp_fields (ctx, &out->header, &hash->header);
-  /* TODO: dump the hash bucket vectors synchronously here to keep
-     them as close to the hash table as possible.  */
   DUMP_FIELD_COPY (out, hash, count);
-  DUMP_FIELD_COPY (out, hash, next_free);
+  DUMP_FIELD_COPY (out, hash, weakness);
   DUMP_FIELD_COPY (out, hash, purecopy);
   DUMP_FIELD_COPY (out, hash, mutable);
-  DUMP_FIELD_COPY (out, hash, rehash_threshold);
-  DUMP_FIELD_COPY (out, hash, rehash_size);
-  dump_field_lv (ctx, out, hash, &hash->key_and_value, WEIGHT_STRONG);
-  dump_field_lv (ctx, out, hash, &hash->test.name, WEIGHT_STRONG);
-  dump_field_lv (ctx, out, hash, &hash->test.user_hash_function,
-                 WEIGHT_STRONG);
-  dump_field_lv (ctx, out, hash, &hash->test.user_cmp_function,
-                 WEIGHT_STRONG);
-  dump_field_emacs_ptr (ctx, out, hash, &hash->test.cmpfn);
-  dump_field_emacs_ptr (ctx, out, hash, &hash->test.hashfn);
+  DUMP_FIELD_COPY (out, hash, frozen_test);
+  if (hash->key_and_value)
+    dump_field_fixup_later (ctx, out, hash, &hash->key_and_value);
   eassert (hash->next_weak == NULL);
-  return finish_dump_pvec (ctx, &out->header);
+  dump_off offset = finish_dump_pvec (ctx, &out->header);
+  if (hash->key_and_value)
+    dump_remember_fixup_ptr_raw
+      (ctx,
+       offset + dump_offsetof (struct Lisp_Hash_Table, key_and_value),
+       dump_hash_table_contents (ctx, hash));
+  return offset;
 }
 
 static dump_off
 dump_buffer (struct dump_context *ctx, const struct buffer *in_buffer)
 {
-#if CHECK_STRUCTS && !defined HASH_buffer_EB0A5191C5
+#if CHECK_STRUCTS && !defined HASH_buffer_EBBA38AEFA
 # error "buffer changed. See CHECK_STRUCTS comment in config.h."
 #endif
   struct buffer munged_buffer = *in_buffer;
@@ -3211,7 +3221,7 @@ dump_charset (struct dump_context *ctx, int cs_i)
   struct charset out;
   dump_object_start (ctx, &out, sizeof (out));
   DUMP_FIELD_COPY (&out, cs, id);
-  DUMP_FIELD_COPY (&out, cs, hash_index);
+  dump_field_lv (ctx, &out, cs, &cs->attributes, WEIGHT_NORMAL);
   DUMP_FIELD_COPY (&out, cs, dimension);
   memcpy (out.code_space, &cs->code_space, sizeof (cs->code_space));
   if (cs_i < charset_table_used && cs->code_space_mask)
@@ -3249,12 +3259,15 @@ dump_charset_table (struct dump_context *ctx)
   ctx->flags.pack_objects = true;
   dump_align_output (ctx, DUMP_ALIGNMENT);
   dump_off offset = ctx->offset;
+  if (dump_set_referrer (ctx))
+    ctx->current_referrer = build_string ("charset_table");
   /* We are dumping the entire table, not just the used slots, because
      otherwise when we restore from the pdump file, the actual size of
      the table will be smaller than charset_table_size, and we will
      crash if/when a new charset is defined.  */
   for (int i = 0; i < charset_table_size; ++i)
     dump_charset (ctx, i);
+  dump_clear_referrer (ctx);
   dump_emacs_reloc_to_dump_ptr_raw (ctx, &charset_table, offset);
   ctx->flags = old_flags;
   return offset;
