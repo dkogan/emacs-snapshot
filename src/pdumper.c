@@ -1858,11 +1858,10 @@ dump_field_lv_or_rawptr (struct dump_context *ctx,
 
 /* Set a pointer field on an output object during dump.
 
-   CTX is the dump context.  OFFSET is the offset at which the current
-   object starts.  OUT is a pointer to the dump output object.
-   IN_START is the start of the current Emacs object.  IN_FIELD is a
-   pointer to the field in that object.  TYPE is the type of pointer
-   to which IN_FIELD points.
+   CTX is the dump context.  OUT is a pointer to the dump output
+   object.  IN_START is the start of the current Emacs object.
+   IN_FIELD is a pointer to the field in that object.  TYPE is the
+   type of pointer to which IN_FIELD points.
  */
 static void
 dump_field_lv_rawptr (struct dump_context *ctx,
@@ -1877,8 +1876,7 @@ dump_field_lv_rawptr (struct dump_context *ctx,
 
 /* Set a Lisp_Object field on an output object during dump.
 
-   CTX is a dump context.  OFFSET is the offset at which the current
-   object starts.  OUT is a pointer to the dump output object.
+   CTX is a dump context.  OUT is a pointer to the dump output object.
    IN_START is the start of the current Emacs object.  IN_FIELD is a
    pointer to a Lisp_Object field in that object.
 
@@ -2659,13 +2657,11 @@ hash_table_contents (struct Lisp_Hash_Table *h)
   return key_and_value;
 }
 
-static dump_off
+static void
 dump_hash_table_list (struct dump_context *ctx)
 {
   if (!NILP (ctx->hash_tables))
-    return dump_object (ctx, CALLN (Fapply, Qvector, ctx->hash_tables));
-  else
-    return 0;
+    dump_object (ctx, CALLN (Fvconcat, ctx->hash_tables));
 }
 
 static hash_table_std_test_t
@@ -3213,37 +3209,42 @@ dump_object_for_offset (struct dump_context *ctx, Lisp_Object object)
 static dump_off
 dump_charset (struct dump_context *ctx, int cs_i)
 {
-#if CHECK_STRUCTS && !defined (HASH_charset_317C49E291)
+#if CHECK_STRUCTS && !defined (HASH_charset_E31F4B5D96)
 # error "charset changed. See CHECK_STRUCTS comment in config.h."
 #endif
-  dump_align_output (ctx, alignof (struct charset));
+  /* We can't change the alignment here, because ctx->offset is what
+     will be used for the whole array.  */
+  eassert (ctx->offset % alignof (struct charset) == 0);
   const struct charset *cs = charset_table + cs_i;
   struct charset out;
   dump_object_start (ctx, &out, sizeof (out));
-  DUMP_FIELD_COPY (&out, cs, id);
-  dump_field_lv (ctx, &out, cs, &cs->attributes, WEIGHT_NORMAL);
-  DUMP_FIELD_COPY (&out, cs, dimension);
-  memcpy (out.code_space, &cs->code_space, sizeof (cs->code_space));
-  if (cs_i < charset_table_used && cs->code_space_mask)
-    dump_field_fixup_later (ctx, &out, cs, &cs->code_space_mask);
-  DUMP_FIELD_COPY (&out, cs, code_linear_p);
-  DUMP_FIELD_COPY (&out, cs, iso_chars_96);
-  DUMP_FIELD_COPY (&out, cs, ascii_compatible_p);
-  DUMP_FIELD_COPY (&out, cs, supplementary_p);
-  DUMP_FIELD_COPY (&out, cs, compact_codes_p);
-  DUMP_FIELD_COPY (&out, cs, unified_p);
-  DUMP_FIELD_COPY (&out, cs, iso_final);
-  DUMP_FIELD_COPY (&out, cs, iso_revision);
-  DUMP_FIELD_COPY (&out, cs, emacs_mule_id);
-  DUMP_FIELD_COPY (&out, cs, method);
-  DUMP_FIELD_COPY (&out, cs, min_code);
-  DUMP_FIELD_COPY (&out, cs, max_code);
-  DUMP_FIELD_COPY (&out, cs, char_index_offset);
-  DUMP_FIELD_COPY (&out, cs, min_char);
-  DUMP_FIELD_COPY (&out, cs, max_char);
-  DUMP_FIELD_COPY (&out, cs, invalid_code);
-  memcpy (out.fast_map, &cs->fast_map, sizeof (cs->fast_map));
-  DUMP_FIELD_COPY (&out, cs, code_offset);
+  if (cs_i < charset_table_used) /* Don't look at uninitialized data.  */
+    {
+      DUMP_FIELD_COPY (&out, cs, id);
+      dump_field_lv (ctx, &out, cs, &cs->attributes, WEIGHT_NORMAL);
+      DUMP_FIELD_COPY (&out, cs, dimension);
+      memcpy (out.code_space, &cs->code_space, sizeof (cs->code_space));
+      if (cs->code_space_mask)
+        dump_field_fixup_later (ctx, &out, cs, &cs->code_space_mask);
+      DUMP_FIELD_COPY (&out, cs, code_linear_p);
+      DUMP_FIELD_COPY (&out, cs, iso_chars_96);
+      DUMP_FIELD_COPY (&out, cs, ascii_compatible_p);
+      DUMP_FIELD_COPY (&out, cs, supplementary_p);
+      DUMP_FIELD_COPY (&out, cs, compact_codes_p);
+      DUMP_FIELD_COPY (&out, cs, unified_p);
+      DUMP_FIELD_COPY (&out, cs, iso_final);
+      DUMP_FIELD_COPY (&out, cs, iso_revision);
+      DUMP_FIELD_COPY (&out, cs, emacs_mule_id);
+      DUMP_FIELD_COPY (&out, cs, method);
+      DUMP_FIELD_COPY (&out, cs, min_code);
+      DUMP_FIELD_COPY (&out, cs, max_code);
+      DUMP_FIELD_COPY (&out, cs, char_index_offset);
+      DUMP_FIELD_COPY (&out, cs, min_char);
+      DUMP_FIELD_COPY (&out, cs, max_char);
+      DUMP_FIELD_COPY (&out, cs, invalid_code);
+      memcpy (out.fast_map, &cs->fast_map, sizeof (cs->fast_map));
+      DUMP_FIELD_COPY (&out, cs, code_offset);
+    }
   dump_off offset = dump_object_finish (ctx, &out, sizeof (out));
   if (cs_i < charset_table_used && cs->code_space_mask)
     dump_remember_cold_op (ctx, COLD_OP_CHARSET,
@@ -3257,7 +3258,7 @@ dump_charset_table (struct dump_context *ctx)
 {
   struct dump_flags old_flags = ctx->flags;
   ctx->flags.pack_objects = true;
-  dump_align_output (ctx, DUMP_ALIGNMENT);
+  dump_align_output (ctx, alignof (struct charset));
   dump_off offset = ctx->offset;
   if (dump_set_referrer (ctx))
     ctx->current_referrer = build_string ("charset_table");
@@ -4223,22 +4224,19 @@ types.  */)
       dump_drain_deferred_symbols (ctx);
       dump_drain_normal_queue (ctx);
     }
-  while (!dump_queue_empty_p (&ctx->dump_queue)
-	 || !NILP (ctx->deferred_hash_tables)
-	 || !NILP (ctx->deferred_symbols));
+  while (!(dump_queue_empty_p (&ctx->dump_queue)
+	   && NILP (ctx->deferred_hash_tables)
+	   && NILP (ctx->deferred_symbols)));
 
   ctx->header.hash_list = ctx->offset;
   dump_hash_table_list (ctx);
 
-  do
-    {
-      dump_drain_deferred_hash_tables (ctx);
-      dump_drain_deferred_symbols (ctx);
-      dump_drain_normal_queue (ctx);
-    }
-  while (!dump_queue_empty_p (&ctx->dump_queue)
-	 || !NILP (ctx->deferred_hash_tables)
-	 || !NILP (ctx->deferred_symbols));
+  /* dump_hash_table_list just adds a new vector to the dump but all
+     its content should already have been in the dump, so it doesn't
+     add anything to any queue.  */
+  eassert (dump_queue_empty_p (&ctx->dump_queue)
+	   && NILP (ctx->deferred_hash_tables)
+	   && NILP (ctx->deferred_symbols));
 
   dump_sort_copied_objects (ctx);
 
