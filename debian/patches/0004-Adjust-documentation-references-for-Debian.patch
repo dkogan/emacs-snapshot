@@ -7,23 +7,17 @@ Various documentation references have been adjusted for Debian.
 References to /usr/local/... have been changed to /usr/... as
 appropriate, etc.
 ---
- etc/NEWS | 10 ++++++++++
- 1 file changed, 10 insertions(+)
+ etc/NEWS | 4 ++++
+ 1 file changed, 4 insertions(+)
 
 diff --git a/etc/NEWS b/etc/NEWS
-index 816613d..bab5c2b 100644
+index 816613d..0963e14 100644
 --- a/etc/NEWS
 +++ b/etc/NEWS
-@@ -15,6 +15,16 @@ in older Emacs versions.
+@@ -15,6 +15,10 @@ in older Emacs versions.
  You can narrow news to a specific version by calling 'view-emacs-news'
  with a prefix argument or by typing 'C-u C-h C-n'.
  
-+Temporary note:
-++++ indicates that all relevant manuals in doc/ have been updated.
-+--- means no change in the manuals is needed.
-+When you add a new item, use the appropriate mark if you are sure it
-+applies, and please also update docstrings as needed.
-+
 +* Debian specific changes to Emacs
 +
 +Please see /usr/share/doc/emacs-snapshot-common/README.Debian.gz.
