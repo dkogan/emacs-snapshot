@@ -67,11 +67,6 @@
 (declare-function file-notify-rm-watch "filenotify")
 (declare-function netrc-parse "netrc")
 (defvar auto-save-file-name-transforms)
-(defvar ls-lisp-dirs-first)
-(defvar ls-lisp-emulation)
-(defvar ls-lisp-ignore-case)
-(defvar ls-lisp-use-insert-directory-program)
-(defvar ls-lisp-verbosity)
 (defvar tramp-prefix-format)
 (defvar tramp-prefix-regexp)
 (defvar tramp-method-regexp)
@@ -562,7 +557,7 @@ host runs a restricted shell, it shall be added to this list, too."
       eos)
   "Host names which are regarded as local host.
 If the local host runs a chrooted environment, set this to nil."
-  :version "30.1"
+  :version "29.3"
   :type '(choice (const :tag "Chrooted environment" nil)
 		 (regexp :tag "Host regexp")))
 
@@ -4189,6 +4184,11 @@ Let-bind it when necessary.")
     (filename switches &optional wildcard full-directory-p)
   "Like `insert-directory' for Tramp files."
   (require 'ls-lisp)
+  (defvar ls-lisp-dirs-first)
+  (defvar ls-lisp-emulation)
+  (defvar ls-lisp-ignore-case)
+  (defvar ls-lisp-use-insert-directory-program)
+  (defvar ls-lisp-verbosity)
   (unless switches (setq switches ""))
   ;; Mark trailing "/".
   (when (and (directory-name-p filename)

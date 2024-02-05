@@ -38,7 +38,6 @@
 (declare-function dired-compress-file "dired-aux")
 (declare-function dired-remove-file "dired-aux")
 (defvar dired-compress-file-suffixes)
-(defvar ls-lisp-use-insert-directory-program)
 ;; Added in Emacs 28.1.
 (defvar process-file-return-signal-string)
 (defvar vc-handled-backends)
@@ -2010,7 +2009,7 @@ ID-FORMAT valid values are `string' and `integer'."
 	     #'copy-directory
 	     (list dirname newname keep-date parents copy-contents))))
 
-	;; When newname did exist, we have wrong cached values.
+	;; NEWNAME has wrong cached values.
 	(when t2
 	  (with-parsed-tramp-file-name (expand-file-name newname) nil
 	    (tramp-flush-file-properties v localname)))))))
@@ -2149,6 +2148,16 @@ file names."
 	      ;; One of them must be a Tramp file.
 	      (error "Tramp implementation says this cannot happen")))
 
+	    ;; In case of `rename', we must flush the cache of the source file.
+	    (when (and t1 (eq op 'rename))
+	      (with-parsed-tramp-file-name filename v1
+		(tramp-flush-file-properties v1 v1-localname)))
+
+	    ;; NEWNAME has wrong cached values.
+	    (when t2
+	      (with-parsed-tramp-file-name newname v2
+		(tramp-flush-file-properties v2 v2-localname)))
+
 	    ;; Handle `preserve-extended-attributes'.  We ignore
 	    ;; possible errors, because ACL strings could be
 	    ;; incompatible.
@@ -2156,16 +2165,6 @@ file names."
 					(file-extended-attributes filename))))
 	      (ignore-errors
 		(set-file-extended-attributes newname attributes)))
-
-	    ;; In case of `rename', we must flush the cache of the source file.
-	    (when (and t1 (eq op 'rename))
-	      (with-parsed-tramp-file-name filename v1
-		(tramp-flush-file-properties v1 v1-localname)))
-
-	    ;; When newname did exist, we have wrong cached values.
-	    (when t2
-	      (with-parsed-tramp-file-name newname v2
-		(tramp-flush-file-properties v2 v2-localname)))
 
             ;; KEEP-DATE handling.
             (when (and keep-date (not copy-keep-date))
@@ -2438,7 +2437,7 @@ The method used must be an out-of-band method."
 	    copy-program (tramp-get-method-parameter v 'tramp-copy-program)
 	    copy-args
 	    ;; " " has either been a replacement of "%k" (when
-	    ;; keep-date argument is non-nil), or a replacement for
+	    ;; KEEP-DATE argument is non-nil), or a replacement for
 	    ;; the whole keep-date sublist.
 	    (delete " " (apply #'tramp-expand-args v 'tramp-copy-args spec))
 	    ;; `tramp-ssh-controlmaster-options' is a string instead
@@ -2636,7 +2635,7 @@ The method used must be an out-of-band method."
 (defun tramp-sh-handle-insert-directory
     (filename switches &optional wildcard full-directory-p)
   "Like `insert-directory' for Tramp files."
-  (if (and (featurep 'ls-lisp)
+  (if (and (boundp 'ls-lisp-use-insert-directory-program)
 	   (not ls-lisp-use-insert-directory-program))
       (tramp-handle-insert-directory
        filename switches wildcard full-directory-p)
@@ -5354,7 +5353,7 @@ connection if a previous connection has died for some reason."
 			      "2>" (tramp-get-remote-null-device previous-hop))
 			  ?l (concat remote-shell " " extra-args " -i"))
 			 ;; A restricted shell does not allow "exec".
-		         (when r-shell '("&&" "exit")) '("||" "exit"))
+			 (when r-shell '("&&" "exit")) '("||" "exit"))
 			" "))
 
 		      ;; Send the command.
