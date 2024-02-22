@@ -3443,7 +3443,7 @@ cleanup_vector (struct Lisp_Vector *vector)
 	struct Lisp_Hash_Table *h = PSEUDOVEC_STRUCT (vector, Lisp_Hash_Table);
 	if (h->table_size > 0)
 	  {
-	    eassert (h->index_size > 1);
+	    eassert (h->index_bits > 0);
 	    xfree (h->index);
 	    xfree (h->key_and_value);
 	    xfree (h->next);
@@ -3451,7 +3451,7 @@ cleanup_vector (struct Lisp_Vector *vector)
 	    ptrdiff_t bytes = (h->table_size * (2 * sizeof *h->key_and_value
 						+ sizeof *h->hash
 						+ sizeof *h->next)
-			       + h->index_size * sizeof *h->index);
+			       + hash_table_index_size (h) * sizeof *h->index);
 	    hash_table_allocated_bytes -= bytes;
 	  }
       }
@@ -5959,7 +5959,8 @@ purecopy_hash_table (struct Lisp_Hash_Table *table)
       for (ptrdiff_t i = 0; i < nvalues; i++)
 	pure->key_and_value[i] = purecopy (table->key_and_value[i]);
 
-      ptrdiff_t index_bytes = table->index_size * sizeof *table->index;
+      ptrdiff_t index_bytes = hash_table_index_size (table)
+	                      * sizeof *table->index;
       pure->index = pure_alloc (index_bytes, -(int)sizeof *table->index);
       memcpy (pure->index, table->index, index_bytes);
     }
@@ -6033,8 +6034,7 @@ purecopy (Lisp_Object obj)
           return obj; /* Don't hash cons it.  */
         }
 
-      struct Lisp_Hash_Table *h = purecopy_hash_table (table);
-      XSET_HASH_TABLE (obj, h);
+      obj = make_lisp_hash_table (purecopy_hash_table (table));
     }
   else if (COMPILEDP (obj) || VECTORP (obj) || RECORDP (obj))
     {

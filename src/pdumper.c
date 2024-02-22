@@ -2688,7 +2688,7 @@ hash_table_freeze (struct Lisp_Hash_Table *h)
   h->hash = NULL;
   h->index = NULL;
   h->table_size = 0;
-  h->index_size = 0;
+  h->index_bits = 0;
   h->frozen_test = hash_table_std_test (h->test);
   h->test = NULL;
 }
@@ -2719,7 +2719,7 @@ dump_hash_table_contents (struct dump_context *ctx, struct Lisp_Hash_Table *h)
 static dump_off
 dump_hash_table (struct dump_context *ctx, Lisp_Object object)
 {
-#if CHECK_STRUCTS && !defined HASH_Lisp_Hash_Table_313A489F0A
+#if CHECK_STRUCTS && !defined HASH_Lisp_Hash_Table_0360833954
 # error "Lisp_Hash_Table changed. See CHECK_STRUCTS comment in config.h."
 #endif
   const struct Lisp_Hash_Table *hash_in = XHASH_TABLE (object);
@@ -5593,10 +5593,7 @@ pdumper_load (const char *dump_filename, char *argv0)
 
   struct dump_header header_buf = { 0 };
   struct dump_header *header = &header_buf;
-  struct dump_memory_map sections[NUMBER_DUMP_SECTIONS];
-
-  /* Use memset instead of "= { 0 }" to work around GCC bug 105961.  */
-  memset (sections, 0, sizeof sections);
+  struct dump_memory_map sections[NUMBER_DUMP_SECTIONS] = { 0 };
 
   const struct timespec start_time = current_timespec ();
   char *dump_filename_copy;

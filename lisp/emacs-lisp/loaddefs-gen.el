@@ -183,7 +183,9 @@ expression, in which case we want to handle forms differently."
         (loaddefs-generate--shorten-autoload
          `(autoload ,(nth 1 form) ,file ,doc ,interactive ,type))))
 
-     ((and expansion (memq car '(progn prog1)))
+     ;; Look inside `progn', and `eval-and-compile', since these
+     ;; are often used in the expansion of things like `pcase-defmacro'.
+     ((and expansion (memq car '(progn prog1 eval-and-compile)))
       (let ((end (memq :autoload-end form)))
 	(when end             ;Cut-off anything after the :autoload-end marker.
           (setq form (copy-sequence form))
@@ -199,8 +201,7 @@ expression, in which case we want to handle forms differently."
                        define-globalized-minor-mode defun defmacro
 		       easy-mmode-define-minor-mode define-minor-mode
                        define-inline cl-defun cl-defmacro cl-defgeneric
-                       cl-defstruct pcase-defmacro iter-defun cl-iter-defun
-                       transient-define-prefix))
+                       cl-defstruct pcase-defmacro iter-defun cl-iter-defun))
            (macrop car)
 	   (setq expand (let ((load-true-file-name file)
                               (load-file-name file))
@@ -216,13 +217,17 @@ expression, in which case we want to handle forms differently."
 		   define-globalized-minor-mode
 		   easy-mmode-define-minor-mode define-minor-mode
 		   cl-defun defun* cl-defmacro defmacro*
-                   define-overloadable-function))
+                   define-overloadable-function
+                   transient-define-prefix transient-define-suffix
+                   transient-define-infix transient-define-argument))
       (let* ((macrop (memq car '(defmacro cl-defmacro defmacro*)))
 	     (name (nth 1 form))
 	     (args (pcase car
                      ((or 'defun 'defmacro
                           'defun* 'defmacro* 'cl-defun 'cl-defmacro
-                          'define-overloadable-function)
+                          'define-overloadable-function
+                          'transient-define-prefix 'transient-define-suffix
+                          'transient-define-infix 'transient-define-argument)
                       (nth 2 form))
                      ('define-skeleton '(&optional str arg))
                      ((or 'define-generic-mode 'define-derived-mode
@@ -244,7 +249,11 @@ expression, in which case we want to handle forms differently."
                                    define-global-minor-mode
                                    define-globalized-minor-mode
                                    easy-mmode-define-minor-mode
-                                   define-minor-mode))
+                                   define-minor-mode
+                                   transient-define-prefix
+                                   transient-define-suffix
+                                   transient-define-infix
+                                   transient-define-argument))
                       t)
                  (and (eq (car-safe (car body)) 'interactive)
                       ;; List of modes or just t.
@@ -489,31 +498,35 @@ don't include."
 
         (when (and autoload-compute-prefixes
                    compute-prefixes)
-          (when-let ((form (loaddefs-generate--compute-prefixes load-name)))
-            ;; This output needs to always go in the main loaddefs.el,
-            ;; regardless of `generated-autoload-file'.
-            (push (list main-outfile file form) defs)))))
+          (with-demoted-errors "%S"
+            (when-let
+                ((form (loaddefs-generate--compute-prefixes load-name)))
+              ;; This output needs to always go in the main loaddefs.el,
+              ;; regardless of `generated-autoload-file'.
+              (push (list main-outfile file form) defs))))))
     defs))
 
 (defun loaddefs-generate--compute-prefixes (load-name)
   (goto-char (point-min))
-  (let ((prefs nil))
+  (let ((prefs nil)
+        (temp-obarray (obarray-make)))
     ;; Avoid (defvar <foo>) by requiring a trailing space.
     (while (re-search-forward
             "^(\\(def[^ \t\n]+\\)[ \t\n]+['(]*\\([^' ()\"\n]+\\)[\n \t]" nil t)
       (unless (member (match-string 1) autoload-ignored-definitions)
         (let* ((name (match-string-no-properties 2))
                ;; Consider `read-symbol-shorthands'.
-               (probe (let ((obarray (obarray-make)))
+               (probe (let ((obarray temp-obarray))
                         (car (read-from-string name)))))
-          (setq name (symbol-name probe))
-          (when (save-excursion
-                  (goto-char (match-beginning 0))
-                  (or (bobp)
-                      (progn
-                        (forward-line -1)
-                        (not (looking-at ";;;###autoload")))))
-            (push name prefs)))))
+          (when (symbolp probe)
+            (setq name (symbol-name probe))
+            (when (save-excursion
+                    (goto-char (match-beginning 0))
+                    (or (bobp)
+                        (progn
+                          (forward-line -1)
+                          (not (looking-at ";;;###autoload")))))
+              (push name prefs))))))
     (loaddefs-generate--make-prefixes prefs load-name)))
 
 (defun loaddefs-generate--rubric (file &optional type feature compile)
