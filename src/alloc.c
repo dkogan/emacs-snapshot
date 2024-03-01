@@ -360,13 +360,13 @@ static struct gcstat
   object_ct total_intervals, total_free_intervals;
   object_ct total_buffers;
 
-  /* Size of the ancillary arrays of live hash-table objects.
+  /* Size of the ancillary arrays of live hash-table and obarray objects.
      The objects themselves are not included (counted as vectors above).  */
   byte_ct total_hash_table_bytes;
 } gcstat;
 
-/* Total size of ancillary arrays of all allocated hash-table objects,
-   both dead and alive.  This number is always kept up-to-date.  */
+/* Total size of ancillary arrays of all allocated hash-table and obarray
+   objects, both dead and alive.  This number is always kept up-to-date.  */
 static ptrdiff_t hash_table_allocated_bytes = 0;
 
 /* Points to memory space allocated as "spare", to be freed if we run
@@ -3455,6 +3455,15 @@ cleanup_vector (struct Lisp_Vector *vector)
 	    hash_table_allocated_bytes -= bytes;
 	  }
       }
+      break;
+    case PVEC_OBARRAY:
+      {
+	struct Lisp_Obarray *o = PSEUDOVEC_STRUCT (vector, Lisp_Obarray);
+	xfree (o->buckets);
+	ptrdiff_t bytes = obarray_size (o) * sizeof *o->buckets;
+	hash_table_allocated_bytes -= bytes;
+      }
+      break;
     /* Keep the switch exhaustive.  */
     case PVEC_NORMAL_VECTOR:
     case PVEC_FREE:
@@ -3951,7 +3960,7 @@ Its value is void, and its function definition and property list are nil.  */)
   if (symbol_free_list)
     {
       ASAN_UNPOISON_SYMBOL (symbol_free_list);
-      XSETSYMBOL (val, symbol_free_list);
+      val = make_lisp_symbol (symbol_free_list);
       symbol_free_list = symbol_free_list->u.s.next;
     }
   else
@@ -3967,7 +3976,7 @@ Its value is void, and its function definition and property list are nil.  */)
 	}
 
       ASAN_UNPOISON_SYMBOL (&symbol_block->symbols[symbol_block_index]);
-      XSETSYMBOL (val, &symbol_block->symbols[symbol_block_index]);
+      val = make_lisp_symbol (&symbol_block->symbols[symbol_block_index]);
       symbol_block_index++;
     }
 
@@ -5632,7 +5641,8 @@ valid_lisp_object_p (Lisp_Object obj)
   return 0;
 }
 
-/* Like xmalloc, but makes allocation count toward the total consing.
+/* Like xmalloc, but makes allocation count toward the total consing
+   and hash table or obarray usage.
    Return NULL for a zero-sized allocation.  */
 void *
 hash_table_alloc_bytes (ptrdiff_t nbytes)
@@ -7310,6 +7320,14 @@ process_mark_stack (ptrdiff_t base_sp)
 		  break;
 		}
 
+	      case PVEC_OBARRAY:
+		{
+		  struct Lisp_Obarray *o = (struct Lisp_Obarray *)ptr;
+		  set_vector_marked (ptr);
+		  mark_stack_push_values (o->buckets, obarray_size (o));
+		  break;
+		}
+
 	      case PVEC_CHAR_TABLE:
 	      case PVEC_SUB_CHAR_TABLE:
 		mark_char_table (ptr, (enum pvec_type) pvectype);
@@ -7380,12 +7398,8 @@ process_mark_stack (ptrdiff_t base_sp)
 		mark_stack_push_value (SYMBOL_VAL (ptr));
 		break;
 	      case SYMBOL_VARALIAS:
-		{
-		  Lisp_Object tem;
-		  XSETSYMBOL (tem, SYMBOL_ALIAS (ptr));
-		  mark_stack_push_value (tem);
-		  break;
-		}
+		mark_stack_push_value (make_lisp_symbol (SYMBOL_ALIAS (ptr)));
+		break;
 	      case SYMBOL_LOCALIZED:
 		{
 		  struct Lisp_Buffer_Local_Value *blv = SYMBOL_BLV (ptr);
