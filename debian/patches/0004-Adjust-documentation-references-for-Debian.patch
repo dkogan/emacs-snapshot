@@ -11,7 +11,7 @@ appropriate, etc.
  1 file changed, 4 insertions(+)
 
 diff --git a/etc/NEWS b/etc/NEWS
-index 7b248c3..77e32f2 100644
+index df07b2a..98d161f 100644
 --- a/etc/NEWS
 +++ b/etc/NEWS
 @@ -15,6 +15,10 @@ in older Emacs versions.
