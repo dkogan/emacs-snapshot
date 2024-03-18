@@ -283,7 +283,20 @@ right-aligned to is controlled by the new user option
 It specifies whether the window of the displayed buffer should be
 selected or deselected at the end of executing the current command.
 
++++
+*** New variable 'window-restore-killed-buffer-windows'.
+It specifies how 'set-window-configuration' and 'window-state-put'
+should proceed with windows whose buffer was killed after the
+corresponding configuration or state was recorded.
+
 ** Tab Bars and Tab Lines
+
+---
+*** New user option 'tab-bar-select-restore-windows'.
+It defines what to do with windows whose buffer was killed
+since the tab was last selected.  By default it displays
+a placeholder buffer that provides information about the name
+of the killed buffer that was displayed in that window.
 
 ---
 *** New user option 'tab-bar-tab-name-format-functions'.
@@ -1129,6 +1142,12 @@ distracting and easily confused with actual code, or a significant
 early aid that relieves you from moving the buffer or reaching for the
 mouse to consult an error message.
 
+** Flyspell
+
+*** New user option 'flyspell-check-changes'.
+When non-nil, Flyspell mode spell-checks only words that you edited; it
+does not check unedited words just because you move point across them.
+
 ** JS mode.
 The binding 'M-.' has been removed from the major mode keymaps in
 'js-mode' and 'js-ts-mode', having it default to the global binding
@@ -1436,6 +1455,12 @@ to the old behavior of not remembering input history between sessions.
 This allows the user to customize the key selection method, which can be
 either by using a pop-up buffer or from the minibuffer.  The pop-up
 buffer method is the default, which preserves previous behavior.
+
+** Xwidget Webkit
+
++++
+*** New user option 'xwidget-webkit-disable-javascript'.
+This allows disabling JavaScript in xwidget Webkit sessions.
 
 
 * New Modes and Packages in Emacs 30.1
@@ -1793,6 +1818,16 @@ variable non-nil around calls to functions such as
 styles to skip eager fontification of completion candidates, which
 improves performance.  Such a Lisp program can then use the
 'completion-lazy-hilit' function to fontify candidates just in time.
+
+** New primitive 'buffer-last-name'.
+It returns the name of a buffer before the last time it was renamed or
+killed.
+
+** New primitive 'marker-last-position'.
+It returns the last position of a marker in its buffer even if that
+buffer has been killed.  ('marker-position' would return nil in that
+case.)
+
 
 ** Functions and variables to transpose sexps
 
