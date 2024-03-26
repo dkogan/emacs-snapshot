@@ -482,9 +482,6 @@ There can be multiple entries for the same NAME if it has several aliases.")
          (push name byte-optimize--dynamic-vars)
          `(,fn ,name . ,optimized-rest)))
 
-      (`(,(pred byte-code-function-p) . ,exps)
-       (cons fn (mapcar #'byte-optimize-form exps)))
-
       ((guard (when for-effect
 		(if-let ((tmp (byte-opt--fget fn 'side-effect-free)))
 		    (or byte-compile-delete-errors
@@ -3116,7 +3113,6 @@ If FOR-EFFECT is non-nil, the return value is assumed to be of no importance."
 ;;
 (eval-when-compile
  (or (compiled-function-p (symbol-function 'byte-optimize-form))
-     (assq 'byte-code (symbol-function 'byte-optimize-form))
      (let ((byte-optimize nil)
 	   (byte-compile-warnings nil))
        (mapc (lambda (x)
