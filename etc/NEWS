@@ -43,6 +43,12 @@ external packages and to resolve potential incompatibilities between
 Linux and BSD versions of ALSA.  Use '--with-sound=alsa' to build with
 ALSA on these operating systems instead.
 
+---
+** Native JSON support is now always available; libjansson is no longer used.
+No external library is required.  The '--with-json' configure option has
+been removed.  'json-available-p' now always returns non-nil and is only
+kept for compatibility.
+
 
 * Startup Changes in Emacs 30.1
 
@@ -285,6 +291,14 @@ right-aligned to is controlled by the new user option
 
 ** Windows
 
++++
+*** New action alist entry 'category' for 'display-buffer'.
+If the caller of 'display-buffer' passes '(category . symbol)'
+in its 'action' argument, you can match the displayed buffer
+by adding '(category . symbol)' to the condition part of
+'display-buffer-alist' entries.
+
++++
 *** New action alist entry 'post-command-select-window' for 'display-buffer'.
 It specifies whether the window of the displayed buffer should be
 selected or deselected at the end of executing the current command.
@@ -295,7 +309,23 @@ It specifies how 'set-window-configuration' and 'window-state-put'
 should proceed with windows whose buffer was killed after the
 corresponding configuration or state was recorded.
 
+*** New variable 'window-point-context-set-function'.
+It can be used to set a context for window point in all windows by
+'window-point-context-set' before calling 'current-window-configuration'
+and 'window-state-get'.  Then later another new variable
+'window-point-context-use-function' can be used by
+'window-point-context-use' after 'set-window-configuration' and
+'window-state-put' to restore positions of window points
+according to the context stored in a window parameter.
+
 ** Tab Bars and Tab Lines
+
+---
+*** New user option 'tab-bar-select-restore-context'.
+It uses 'window-point-context-set' to save contexts where
+window points were located before switching away from the tab,
+and 'window-point-context-use' to restore positions of window
+points after switching back to that tab.
 
 ---
 *** New user option 'tab-bar-select-restore-windows'.
@@ -1212,11 +1242,22 @@ instead of:
 This allows the user to specify command line arguments to the non
 interactive Python interpreter specified by 'python-interpreter'.
 
+** Scheme mode
+
+Scheme mode now handles regular expression literal #/regexp/ that is
+available in some Scheme implementations.
+Also, it should now handle nested sexp-comments.
+
 ** use-package
 
 +++
 *** New ':vc' keyword.
 This keyword enables the user to install packages using 'package-vc'.
+
++++
+*** New user option 'use-package-vc-prefer-newest'.
+This allows the user to always install the newest commit of a package
+when using the ':vc' keyword.
 
 ** Gnus
 
@@ -1430,6 +1471,14 @@ When this is non-nil, the lines of key sequences are displayed with
 the most recent line first.  This is can be useful when working with
 macros with many lines, such as from 'kmacro-edit-lossage'.
 
+** Proced
+
+---
+*** More control on automatic update of Proced buffers.
+The user option 'proced-auto-update-flag' can now be set to 2 additional
+values, which control automatic updates of Proced buffers that are not
+displayed in some window.
+
 ** Miscellaneous
 
 ---
@@ -1540,6 +1589,8 @@ sexp navigation more intuitive.
 This minor mode shows you symbol completion suggestions as you type,
 using an inline preview.  New user options in the 'completion-preview'
 customization group control exactly when Emacs displays this preview.
+'completion-preview-mode' is buffer-local, to enable it globally use
+'global-completion-preview-mode'.
 
 ---
 ** The highly accessible Modus themes collection has eight items.
@@ -1565,6 +1616,14 @@ Emacs now comes with a stub implementation of the
 forwards-compatibility Compat package from GNU ELPA.  This allows
 built-in packages to use the library more effectively, and helps
 preventing the installation of Compat if unnecessary.
+
++++
+** New package PEG.
+Emacs now includes a library for writing Parsing Expression
+Grammars (PEG), an approach to text parsing that provides more structure
+than regular expressions, but less complexity than context-free
+grammars.  The Info manual "(elisp) Parsing Expression Grammars" has
+documentation and examples.
 
 
 * Incompatible Lisp Changes in Emacs 30.1
@@ -1686,6 +1745,19 @@ Use a float value for the first argument instead.
 Instead, use 'eshell-process-wait-time', which supports floating-point
 values.
 
+** JSON
+
+---
+*** The parser keeps duplicated object keys in alist and plist output.
+A JSON object such as '{"a":1,"a":2}' will now be translated into the
+Lisp values '((a . 1) (a . 2))' or '(:a 1 :a 2)' if alist or plist
+object types are requested.
+
+---
+*** The parser sometimes signals different types of errors.
+It will now signal 'json-utf8-decode-error' for inputs that are not
+correctly UTF-8 encoded.
+
 
 * Lisp Changes in Emacs 30.1
 
@@ -1700,9 +1772,11 @@ This function is like 'type-of' except that it sometimes returns
 a more precise type.  For example, for nil and t it returns 'null'
 and 'boolean' respectively, instead of just 'symbol'.
 
-** New function `primitive-function-p`.
-This is like `subr-primitive-p` except that it returns t only if the
-argument is a function rather than a special-form.
+** New functions `primitive-function-p` and `cl-functionp`.
+`primitive-function-p` is like `subr-primitive-p` except that it returns
+t only if the argument is a function rather than a special-form,
+and `cl-functionp` is like `functionp` except it return nil
+for lists and symbols.
 
 ** Built-in types have now corresponding classes.
 At the Lisp level, this means that things like (cl-find-class 'integer)
@@ -1750,10 +1824,40 @@ precedence over the variable when present.
 Mostly used internally to do a kind of topological sort of
 inheritance hierarchies.
 
-** New function 'sort-on'.
-This function implements the Schwartzian transform, and is appropriate
-for sorting lists when the computation of the sort key of a list
-element can be expensive.
++++
+** New polymorphic comparison function 'value<'.
+This function returns non-nil if the first argument is less than the
+second.  It works for any two values of the same type with reasonable
+ordering for numbers, strings, symbols, bool-vectors, markers, buffers
+and processes.  Conses, lists, vectors and records are ordered
+lexicographically.
+It is intended as a convenient ordering predicate for sorting, and is
+likely to be faster than hand-written Lisp functions.
+
++++
+** New 'sort' arguments and features.
+The 'sort' function can now be called using the signature
+
+    (sort SEQ &rest KEYWORD-ARGUMENTS)
+
+where arguments after the first are keyword/value pairs, all optional:
+':key' specifies a function that produces the sorting key from an element,
+':lessp' specifies the ordering predicate, defaulting to 'value<',
+':reverse' is used to reverse the sorting order,
+':in-place is used for in-place sorting, as the default is now to
+sort a copy of the input.
+
+The new signature is less error-prone and reduces the need to write
+ordering predicates by hand.  We recommend that you use the ':key'
+argument instead of ':lessp' unless a suitable ordering predicate is
+already available.  This can also be used for multi-key sorting:
+
+    (sort seq :key (lambda (x) (list (age x) (size x) (cost x))))
+
+sorts by the return value of 'age', then by 'size', then by 'cost'.
+
+The old signature, '(sort SEQ PREDICATE)', can still be used and sorts
+its input in-place as before.
 
 ** New API for 'derived-mode-p' and control of the graph of major modes.
 
@@ -1811,6 +1915,11 @@ conditions.
 The new function 'haiku-notifications-notify' provides a subset of the
 capabilities of the 'notifications-notify' function in a manner
 analogous to 'w32-notification-notify'.
+
+** New variable 'haiku-pass-control-tab-to-system'.
+This sets whether Emacs should pass C-TAB on to the system instead of
+handling it, fixing a problem where window switching would not activate
+if an Emacs frame had focus on the Haiku operation system.
 
 +++
 ** New value 'if-regular' for the REPLACE argument to 'insert-file-contents'.
@@ -2253,6 +2362,10 @@ arguments.  (Previously the 'old-object' argument was required which, in
 this case, would mean repeating the object in the argument list.)  When
 replacing an object with a different one, passing both the new and old
 objects is still necessary.
+
+---
+** The JSON encoder and decoder now accept arbitarily large integers.
+Previously, they were limited to the range of signed 64-bit integers.
 
 
 * Changes in Emacs 30.1 on Non-Free Operating Systems
