@@ -23,9 +23,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 import android.app.ActivityManager.AppTask;
+import android.app.ActivityManager.RecentTaskInfo;
 import android.app.ActivityManager;
 import android.app.ActivityOptions;
-import android.app.TaskInfo;
 
 import android.content.Context;
 import android.content.Intent;
@@ -60,7 +60,7 @@ import android.util.Log;
      getAttachmentToken ()
 
    should return a token uniquely identifying a consumer, which, on API
-   29 and up, enables attributing the tasks of activities to the windows
+   21 and up, enables attributing the tasks of activities to the windows
    for which they were created, and with that, consistent interaction
    between user-visible window state and their underlying frames.  */
 
@@ -84,7 +84,7 @@ public final class EmacsWindowManager
     MANAGER = new EmacsWindowManager ();
   };
 
-  public interface WindowConsumer
+  interface WindowConsumer
   {
     public void attachWindow (EmacsWindow window);
     public EmacsWindow getAttachedWindow ();
@@ -182,7 +182,21 @@ public final class EmacsWindowManager
     /* Intent.FLAG_ACTIVITY_NEW_DOCUMENT is lamentably unavailable on
        older systems than Lolipop.  */
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP)
-      intent.addFlags (Intent.FLAG_ACTIVITY_NEW_DOCUMENT);
+      {
+	intent.addFlags (Intent.FLAG_ACTIVITY_NEW_DOCUMENT);
+
+	/* Bind this window to the activity in advance, i.e., before its
+	   creation, so that its ID will be recorded in the RecentTasks
+	   list.  */
+	token = ++nextActivityToken;
+      }
+    else
+      /* APIs required for linking activities to windows are not
+	 available in earlier Android versions.  */
+      token = -2;
+
+    window.attachmentToken = token;
+    intent.putExtra (ACTIVITY_TOKEN, token);
 
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N)
       EmacsService.SERVICE.startActivity (intent);
@@ -191,19 +205,6 @@ public final class EmacsWindowManager
 	/* Specify the desired window size.  */
 	options = ActivityOptions.makeBasic ();
 	options.setLaunchBounds (window.getGeometry ());
-
-	if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q)
-	  /* Bind this window to the activity in advance, i.e., before
-	     its creation, so that its ID will be recorded in the
-	     RecentTasks list.  */
-	  token = ++nextActivityToken;
-	else
-	  /* APIs required for linking activities to windows are not
-	     available in earlier Android versions.  */
-	  token = -2;
-
-	window.attachmentToken = token;
-	intent.putExtra (ACTIVITY_TOKEN, token);
 	EmacsService.SERVICE.startActivity (intent, options.toBundle ());
       }
 
@@ -221,11 +222,14 @@ public final class EmacsWindowManager
       {
 	consumer.detachWindow ();
 
-	/* Though pruneWindows will likely remove the same windows, call
-	   onActivityDetached anyway if isFinishing is set, as in
-	   obscure circumstances pruneWindows will not remove frames
-	   bound to the system-started task.  */
-	if (isFinishing)
+	/* Though pruneWindows will likely remove the same window(s),
+	   call onActivityDetached anyway if isFinishing is set, if
+	   CONSUMER not be a multitasking activity, as in obscure
+	   circumstances pruneWindows will not remove frames bound to
+	   the system-started task.  */
+	if (isFinishing
+	    && (!(consumer instanceof EmacsMultitaskActivity)
+		|| Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP))
 	  window.onActivityDetached ();
       }
 
@@ -294,12 +298,17 @@ public final class EmacsWindowManager
   private static long
   getTaskToken (AppTask task)
   {
-    TaskInfo info;
+    RecentTaskInfo info;
 
-    info = (TaskInfo) task.getTaskInfo ();
+    info = task.getTaskInfo ();
+
+    /* baseIntent is a member of info's superclass, TaskInfo, on Android
+       10 and later.  Prior to this release, it had been a member of
+       RecentTaskInfo since SDK 1, and whatever the misleading
+       documentation might suggest, a reference to `baseIntent' through
+       TaskInfo is just as good a reference to RecentTaskInfo.  */
     return (info.baseIntent != null
-	    ? info.baseIntent.getLongExtra (ACTIVITY_TOKEN,
-					    -1l)
+	    ? info.baseIntent.getLongExtra (ACTIVITY_TOKEN, -1l)
 	    : 0);
   }
 
@@ -316,7 +325,7 @@ public final class EmacsWindowManager
     long taskToken;
     boolean set;
 
-    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP
 	|| EmacsService.SERVICE == null)
       return;
 

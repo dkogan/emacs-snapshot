@@ -182,11 +182,11 @@ public final class EmacsService extends Service
 	manager = (NotificationManager) tem;
 	infoBlurb = ("This notification is displayed to keep Emacs"
 		     + " running while it is in the background.  You"
-		     + " may disable it if you want;"
+		     + " may disable it if you wish;"
 		     + " see (emacs)Android Environment.");
 	channel
 	  = new NotificationChannel ("emacs", "Emacs Background Service",
-				     NotificationManager.IMPORTANCE_DEFAULT);
+				     NotificationManager.IMPORTANCE_LOW);
 	manager.createNotificationChannel (channel);
 	notification = (new Notification.Builder (this, "emacs")
 			.setContentTitle ("Emacs")
@@ -380,6 +380,23 @@ public final class EmacsService extends Service
 	call ()
 	{
 	  view.getLocationOnScreen (coordinates);
+	  return null;
+	}
+      });
+
+    EmacsService.<Void>syncRunnable (task);
+  }
+
+  public void
+  getLocationInWindow (final EmacsView view, final int[] coordinates)
+  {
+    FutureTask<Void> task;
+
+    task = new FutureTask<Void> (new Callable<Void> () {
+	public Void
+	call ()
+	{
+	  view.getLocationInWindow (coordinates);
 	  return null;
 	}
       });
