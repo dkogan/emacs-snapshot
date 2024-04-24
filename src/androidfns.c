@@ -1202,7 +1202,10 @@ DEFUN ("xw-display-color-p", Fxw_display_color_p,
        doc: /* SKIP: real doc in xfns.c.  */)
   (Lisp_Object terminal)
 {
-  return Qt;
+  struct android_display_info *dpyinfo;
+
+  dpyinfo = check_android_display_info (terminal);
+  return dpyinfo->n_planes > 8 ? Qt : Qnil;
 }
 
 DEFUN ("x-display-grayscale-p", Fx_display_grayscale_p,
@@ -1210,7 +1213,11 @@ DEFUN ("x-display-grayscale-p", Fx_display_grayscale_p,
        doc: /* SKIP: real doc in xfns.c.  */)
   (Lisp_Object terminal)
 {
-  return Qnil;
+  struct android_display_info *dpyinfo;
+
+  dpyinfo = check_android_display_info (terminal);
+  return (dpyinfo->n_planes > 1 && dpyinfo->n_planes <= 8
+	  ? Qt : Qnil);
 }
 
 DEFUN ("x-display-pixel-width", Fx_display_pixel_width,
@@ -1345,7 +1352,12 @@ DEFUN ("x-display-visual-class", Fx_display_visual_class,
        doc: /* SKIP: real doc in xfns.c.  */)
   (Lisp_Object terminal)
 {
-  check_android_display_info (terminal);
+  struct android_display_info *dpyinfo;
+
+  dpyinfo = check_android_display_info (terminal);
+
+  if (dpyinfo->n_planes < 24)
+    return Qstatic_gray;
 
   return Qtrue_color;
 }
@@ -1805,7 +1817,16 @@ Android, so there is no equivalent of `x-open-connection'.  */)
   terminal = Qnil;
 
   if (x_display_list)
-    XSETTERMINAL (terminal, x_display_list->terminal);
+    {
+      XSETTERMINAL (terminal, x_display_list->terminal);
+
+      /* Update the display's bit depth from
+	 `android_display_planes'.  */
+      x_display_list->n_planes
+	= (android_display_planes > 8
+	   ? 24 : (android_display_planes > 1
+		   ? android_display_planes : 1));
+    }
 
   return terminal;
 #endif
@@ -3479,6 +3500,7 @@ syms_of_androidfns (void)
 {
   /* Miscellaneous symbols used by some functions here.  */
   DEFSYM (Qtrue_color, "true-color");
+  DEFSYM (Qstatic_gray, "static-color");
   DEFSYM (Qwhen_mapped, "when-mapped");
 
   DEFVAR_LISP ("x-pointer-shape", Vx_pointer_shape,

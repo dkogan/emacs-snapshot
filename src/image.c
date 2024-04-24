@@ -198,6 +198,9 @@ typedef android_pixmap Pixmap;
 #define GREEN16_FROM_ULONG(color)	(GREEN_FROM_ULONG (color) * 0x101)
 #define BLUE16_FROM_ULONG(color)	(BLUE_FROM_ULONG (color) * 0x101)
 
+/* DPYINFO->n_planes is unsuitable for this file, because it accepts
+   values that may not be supported for pixmap creation.  */
+#define n_planes n_image_planes
 #endif
 
 static void image_disable_image (struct frame *, struct image *);
@@ -419,7 +422,7 @@ x_bitmap_stipple (struct frame *f, Pixmap pixmap)
 #endif	/* USE_CAIRO */
 #endif
 
-#if defined (HAVE_X_WINDOWS) || defined (HAVE_NTGUI)
+#if defined (HAVE_X_WINDOWS) || defined (HAVE_NTGUI) || defined (HAVE_ANDROID)
 ptrdiff_t
 image_bitmap_pixmap (struct frame *f, ptrdiff_t id)
 {
@@ -954,10 +957,17 @@ image_create_bitmap_from_file (struct frame *f, Lisp_Object file)
 	}
     }
 
-  /* Search bitmap-file-path for the file, if appropriate.  */
-  if (openp (Vx_bitmap_file_path, file, Qnil, &found,
-	     make_fixnum (R_OK), false, false, NULL)
-      < 0)
+  /* Search bitmap-file-path for the file, if appropriate.  If no file
+     extension or directory is specified and no file by this name
+     exists, append the extension ".xbm" and retry.  */
+  if ((openp (Vx_bitmap_file_path, file, Qnil, &found,
+	      make_fixnum (R_OK), false, false, NULL) < 0)
+      && (NILP (Fequal (Ffile_name_nondirectory (file), file))
+	  || strrchr (SSDATA (file), '.')
+	  || (openp (Vx_bitmap_file_path,
+		     CALLN (Fconcat, file, build_string (".xbm")),
+		     Qnil, &found, make_fixnum (R_OK), false, false,
+		     NULL) < 0)))
     return -1;
 
   if (!STRINGP (image_find_image_fd (file, &fd))
@@ -1699,14 +1709,26 @@ free_image (struct frame *f, struct image *img)
       c->images[img->id] = NULL;
 
 #if !defined USE_CAIRO && defined HAVE_XRENDER
-      if (img->picture)
-        XRenderFreePicture (FRAME_X_DISPLAY (f), img->picture);
-      if (img->mask_picture)
-        XRenderFreePicture (FRAME_X_DISPLAY (f), img->mask_picture);
-#endif
+      /* FRAME_X_DISPLAY (f) could be NULL if this is being called from
+	 the display IO error handler.*/
 
-      /* Free resources, then free IMG.  */
-      img->type->free_img (f, img);
+      if (FRAME_X_DISPLAY (f))
+	{
+	  if (img->picture)
+	    XRenderFreePicture (FRAME_X_DISPLAY (f),
+				img->picture);
+	  if (img->mask_picture)
+	    XRenderFreePicture (FRAME_X_DISPLAY (f),
+				img->mask_picture);
+	}
+#endif /* !USE_CAIRO && HAVE_XRENDER */
+
+#ifdef HAVE_X_WINDOWS
+      if (FRAME_X_DISPLAY (f))
+#endif /* HAVE_X_WINDOWS */
+	/* Free resources, then free IMG.  */
+	img->type->free_img (f, img);
+
       xfree (img->face_font_family);
       xfree (img);
     }

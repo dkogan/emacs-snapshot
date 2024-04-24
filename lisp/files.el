@@ -2113,6 +2113,15 @@ killed."
 	(rename-buffer oname)))
     (unless (eq (current-buffer) obuf)
       (with-current-buffer obuf
+	;; Restore original buffer's file names so they can be still
+	;; used when referencing the now defunct buffer (Bug#68235).
+	(setq buffer-file-name ofile)
+	(setq buffer-file-number onum)
+	(setq buffer-file-truename otrue)
+	(unless (get-buffer oname)
+	  ;; Restore original's buffer name so 'kill-buffer' can use it
+	  ;; to assign its last name (Bug#68235).
+	  (rename-buffer oname))
 	;; We already ran these; don't run them again.
 	(let (kill-buffer-query-functions kill-buffer-hook)
 	  (kill-buffer obuf))))))
@@ -8803,9 +8812,10 @@ Otherwise, trash FILENAME using the freedesktop.org conventions,
   ;; If `system-move-file-to-trash' is defined, use it.
   (cond ((fboundp 'system-move-file-to-trash)
 	 (system-move-file-to-trash filename))
-        (trash-directory
+        ((connection-local-value trash-directory)
 	 ;; If `trash-directory' is non-nil, move the file there.
-	 (let* ((trash-dir   (expand-file-name trash-directory))
+	 (let* ((trash-dir   (expand-file-name
+                              (connection-local-value trash-directory)))
 		(fn          (directory-file-name (expand-file-name filename)))
 		(new-fn      (concat (file-name-as-directory trash-dir)
 				     (file-name-nondirectory fn))))
