@@ -1339,7 +1339,9 @@ is not read-only."
                  ;; Now simulate a mouse click there.  If there is a
                  ;; link or a button, use mouse-2 to push it.
                  (let* ((event (list (if (or (mouse-on-link-p posn)
-                                             (and point (button-at point)))
+                                             (and point
+                                                  (get-char-property
+                                                   point 'button)))
                                          'mouse-2
                                        'mouse-1)
                                      posn))
@@ -1356,16 +1358,29 @@ is not read-only."
                    ;; Figure out if the on screen keyboard needs to be
                    ;; displayed.
                    (when command
-                     (if (memq command touch-screen-set-point-commands)
+                     (if (or (memq command touch-screen-set-point-commands)
+                             ;; Users of packages that redefine
+                             ;; `mouse-set-point', or other commands
+                             ;; recognized as defining the point, should
+                             ;; not find the on screen keyboard
+                             ;; inaccessible even with
+                             ;; `touch-screen-display-keyboard' enabled.
+                             touch-screen-display-keyboard)
                          (if touch-screen-translate-prompt
                              ;; Forgo displaying the virtual keyboard
-                             ;; should touch-screen-translate-prompt be
+                             ;; should `touch-screen-translate-prompt' be
                              ;; set, for then the key won't be delivered
                              ;; to the command loop, but rather to a
-                             ;; caller of read-key-sequence such as
-                             ;; describe-key.
+                             ;; caller of `read-key-sequence' such as
+                             ;; `describe-key'.
                              (throw 'input-event event)
                            (if (and (or (not buffer-read-only)
+                                        ;; Display the on screen
+                                        ;; keyboard even if just the
+                                        ;; text under point is not
+                                        ;; read-only.
+                                        (get-text-property point
+                                                           'inhibit-read-only)
                                         touch-screen-display-keyboard)
                                     ;; Detect the splash screen and
                                     ;; avoid displaying the on screen

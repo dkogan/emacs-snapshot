@@ -744,7 +744,7 @@ static Lisp_Object
 comp_hash_string (Lisp_Object string)
 {
   Lisp_Object digest = make_uninit_string (MD5_DIGEST_SIZE * 2);
-  md5_buffer (SSDATA (string), SCHARS (string), SSDATA (digest));
+  md5_buffer (SSDATA (string), SBYTES (string), SSDATA (digest));
   hexbuf_digest (SSDATA (digest), SDATA (digest), MD5_DIGEST_SIZE);
 
   return Fsubstring (digest, Qnil, make_fixnum (HASH_LENGTH));
@@ -5199,7 +5199,7 @@ maybe_defer_native_compilation (Lisp_Object function_name,
   if (!native_comp_jit_compilation
       || noninteractive
       || !NILP (Vpurify_flag)
-      || !COMPILEDP (definition)
+      || !CLOSUREP (definition)
       || !STRINGP (Vload_true_file_name)
       || !suffix_p (Vload_true_file_name, ".elc")
       || !NILP (Fgethash (Vload_true_file_name, V_comp_no_native_file_h, Qnil)))

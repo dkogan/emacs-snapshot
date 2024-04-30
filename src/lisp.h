@@ -1049,7 +1049,7 @@ enum pvec_type
   PVEC_SQLITE,
 
   /* These should be last, for internal_equal and sxhash_obj.  */
-  PVEC_COMPILED,
+  PVEC_CLOSURE,
   PVEC_CHAR_TABLE,
   PVEC_SUB_CHAR_TABLE,
   PVEC_RECORD,
@@ -3223,16 +3223,16 @@ XFLOAT_DATA (Lisp_Object f)
 #define IEEE_FLOATING_POINT (FLT_RADIX == 2 && FLT_MANT_DIG == 24 \
 			     && FLT_MIN_EXP == -125 && FLT_MAX_EXP == 128)
 
-/* Meanings of slots in a Lisp_Compiled:  */
+/* Meanings of slots in a Lisp_Closure:  */
 
-enum Lisp_Compiled
+enum Lisp_Closure
   {
-    COMPILED_ARGLIST = 0,
-    COMPILED_BYTECODE = 1,
-    COMPILED_CONSTANTS = 2,
-    COMPILED_STACK_DEPTH = 3,
-    COMPILED_DOC_STRING = 4,
-    COMPILED_INTERACTIVE = 5
+    CLOSURE_ARGLIST = 0,
+    CLOSURE_CODE = 1,
+    CLOSURE_CONSTANTS = 2,
+    CLOSURE_STACK_DEPTH = 3,
+    CLOSURE_DOC_STRING = 4,
+    CLOSURE_INTERACTIVE = 5
   };
 
 /* Flag bits in a character.  These also get used in termhooks.h.
@@ -3307,9 +3307,9 @@ WINDOW_CONFIGURATIONP (Lisp_Object a)
 }
 
 INLINE bool
-COMPILEDP (Lisp_Object a)
+CLOSUREP (Lisp_Object a)
 {
-  return PSEUDOVECTORP (a, PVEC_COMPILED);
+  return PSEUDOVECTORP (a, PVEC_CLOSURE);
 }
 
 INLINE bool
@@ -4933,6 +4933,8 @@ extern void unmark_main_thread (void);
 
 /* Defined in editfns.c.  */
 extern void insert1 (Lisp_Object);
+extern void find_field (Lisp_Object, Lisp_Object, Lisp_Object,
+			ptrdiff_t *, Lisp_Object, ptrdiff_t *);
 extern void save_excursion_save (union specbinding *);
 extern void save_excursion_restore (Lisp_Object, Lisp_Object);
 extern Lisp_Object save_restriction_save (void);
@@ -5496,6 +5498,7 @@ extern char *emacs_root_dir (void);
 #ifdef HAVE_TEXT_CONVERSION
 /* Defined in textconv.c.  */
 extern void reset_frame_state (struct frame *);
+extern void reset_frame_conversion (struct frame *);
 extern void report_selected_window_change (struct frame *);
 extern void report_point_change (struct frame *, struct window *,
 				 struct buffer *);

@@ -446,6 +446,20 @@ Use 'TAB' in the minibuffer to show or hide the password.  Likewise,
 there is an icon on the mode-line, which toggles the visibility of the
 password when clicking with 'mouse-1'.
 
++++
+** Support for styled underline face attributes.
+These are implemented as new values of the 'style' attribute in a face
+underline specification, 'double-line', 'dots', and 'dashes', and are
+available on GUI systems.  If your terminal's termcap or terminfo
+database entry defines the 'Su' or 'Smulx' capability, Emacs will also
+emit the prescribed escape sequence to render faces with such styles on
+TTY frames.
+
+---
+** Support for underline colors on TTY frames.
+Colors specified in face underlines will now also be displayed in TTY
+frames with the previously mentioned capabilities.
+
 
 * Editing Changes in Emacs 30.1
 
@@ -1106,6 +1120,20 @@ for setting the remote PATH environment variable.
 
 ** EWW
 
+---
+*** New mouse bindings in EWW buffers.
+Certain form elements that were displayed as buttons, yet could only be
+activated by keyboard input, are now operable using 'mouse-2'.  With
+"Submit" buttons, this triggers submission of the form, while clicks on
+other classes of buttons either toggle their values or prompt for user
+input, as the case may be.
+
+---
+*** EWW text input fields and areas are now fields.
+In consequence, movement commands and OS input method features now
+recognize and confine their activities to the text input field around
+point.  See also (elisp)Fields.
+
 +++
 *** 'eww-open-file' can now display the file in a new buffer.
 By default, the command reuses the "*eww*" buffer, but if called with
@@ -1139,7 +1167,7 @@ This is useful for continuing reading the URL in the current buffer
 when the new URL is fetched.
 
 ---
-*** History navigation in EWW now works like other browsers.
+*** History navigation in EWW now behaves as in other browsers.
 Previously, when navigating back and forward through page history, EWW
 would add a duplicate entry to the end of the history list each time.
 This made it impossible to navigate to the "end" of the history list.
@@ -1752,6 +1780,23 @@ documentation and examples.
 * Incompatible Lisp Changes in Emacs 30.1
 
 +++
+** Evaluating a 'lambda' returns an object of type 'interpreted-function'.
+Instead of representing interpreted functions as lists that start with
+either 'lambda' or 'closure', Emacs now represents them as objects
+of their own 'interpreted-function' type, which is very similar
+to 'byte-code-function' objects (the argument list, docstring, and
+interactive forms are placed in the same slots).
+Lists that start with 'lambda' are now used only for non-evaluated
+functions (in other words, for source code), but for backward compatibility
+reasons, 'functionp' still recognizes them as functions and you can
+still call them as before.
+Thus code that attempts to "dig" into the internal structure of an
+interpreted function's object with the likes of 'car' or 'cdr' will
+no longer work and will need to use 'aref' instead to extract its
+various subparts (when 'interactive-form', 'documentation', and
+'help-function-arglist' aren't adequate).
+
++++
 ** 'define-globalized-minor-mode' requires that modes use 'run-mode-hooks'.
 Minor modes defined with 'define-globalized-minor-mode', such as
 'global-font-lock-mode', will not be enabled any more in those buffers
@@ -1890,6 +1935,14 @@ unibyte string.
 
 * Lisp Changes in Emacs 30.1
 
+** New types 'closure' and 'interpreted-function'.
+'interpreted-function' is the new type used for interpreted functions,
+and 'closure' is the common parent type of 'interpreted-function'
+and 'byte-code-function'.
+Those new types come with the associated new predicates
+'closurep' and `interpreted-function-p' as well as a new constructor
+'make-interpreted-closure'.
+
 ** New function 'help-fns-function-name'.
 For named functions, it just returns the name and otherwise
 it returns a short "unique" string that identifies the function.
@@ -1959,6 +2012,9 @@ precedence over the variable when present.
 ** New function 'merge-ordered-lists'.
 Mostly used internally to do a kind of topological sort of
 inheritance hierarchies.
+
++++
+** 'drop' is now an alias for the function 'nthcdr'.
 
 +++
 ** New polymorphic comparison function 'value<'.
@@ -2558,6 +2614,10 @@ buffer edits.
 
 This function helps user to add custom font-lock rules to a tree-sitter
 major mode.
+
+---
+** The variable 'rx-constituents' is now obsolete.
+Use 'rx-define', 'rx-let' and 'rx-let-eval' instead.
 
 
 

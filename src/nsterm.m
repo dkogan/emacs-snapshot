@@ -3330,14 +3330,15 @@ ns_draw_text_decoration (struct glyph_string *s, struct face *face,
   /* Do underline.  */
   if (face->underline)
     {
-      if (s->face->underline == FACE_UNDER_WAVE)
+      if (s->face->underline == FACE_UNDERLINE_WAVE)
         {
           if (!face->underline_defaulted_p)
             [[NSColor colorWithUnsignedLong:face->underline_color] set];
 
           ns_draw_underwave (s, width, x);
         }
-      else if (s->face->underline == FACE_UNDER_LINE)
+      else if (s->face->underline == FACE_UNDERLINE_SINGLE
+	       || s->face->underline == FACE_UNDERLINE_DOUBLE_LINE)
         {
 
           NSRect r;
@@ -3345,7 +3346,9 @@ ns_draw_text_decoration (struct glyph_string *s, struct face *face,
 
           /* If the prev was underlined, match its appearance.  */
           if (s->prev
-	      && s->prev->face->underline == FACE_UNDER_LINE
+	      && ((s->prev->face->underline == FACE_UNDERLINE_SINGLE)
+		  || (s->prev->face->underline
+		      == FACE_UNDERLINE_DOUBLE_LINE))
               && s->prev->underline_thickness > 0
 	      && (s->prev->face->underline_at_descent_line_p
 		  == s->face->underline_at_descent_line_p)
@@ -3417,6 +3420,17 @@ ns_draw_text_decoration (struct glyph_string *s, struct face *face,
             [[NSColor colorWithUnsignedLong:face->underline_color] set];
 
           NSRectFill (r);
+
+	  /* Place a second underline above the first if this was
+	     requested in the face specification.  */
+
+	  if (s->face->underline == FACE_UNDERLINE_DOUBLE_LINE)
+	    {
+	      /* Compute the position of the second underline.  */
+	      position = position - thickness - 1;
+	      r = NSMakeRect (x, s->ybase + position, width, thickness);
+	      NSRectFill (r);
+	    }
         }
     }
   /* Do overline. We follow other terms in using a thickness of 1
