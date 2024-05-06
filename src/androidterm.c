@@ -151,14 +151,8 @@ android_flash (struct frame *f)
   fd_set fds;
 
   block_input ();
-
-  values.function = ANDROID_GC_XOR;
-  values.foreground = (FRAME_FOREGROUND_PIXEL (f)
-		       ^ FRAME_BACKGROUND_PIXEL (f));
-
-  gc = android_create_gc ((ANDROID_GC_FUNCTION
-			   | ANDROID_GC_FOREGROUND),
-			  &values);
+  values.function = ANDROID_GC_INVERT;
+  gc = android_create_gc (ANDROID_GC_FUNCTION, &values);
 
   /* Get the height not including a menu bar widget.  */
   int height = FRAME_PIXEL_HEIGHT (f);
@@ -4931,7 +4925,7 @@ android_copy_java_string (JNIEnv *env, jstring string, size_t *length)
 }
 
 JNIEXPORT void JNICALL
-NATIVE_NAME (beginBatchEdit) (JNIEnv *env, jobject object, jshort window)
+NATIVE_NAME (beginBatchEdit) (JNIEnv *env, jobject object, jlong window)
 {
   JNI_STACK_ALIGNMENT_PROLOGUE;
 
@@ -4952,7 +4946,7 @@ NATIVE_NAME (beginBatchEdit) (JNIEnv *env, jobject object, jshort window)
 }
 
 JNIEXPORT void JNICALL
-NATIVE_NAME (endBatchEdit) (JNIEnv *env, jobject object, jshort window)
+NATIVE_NAME (endBatchEdit) (JNIEnv *env, jobject object, jlong window)
 {
   JNI_STACK_ALIGNMENT_PROLOGUE;
 
@@ -4973,7 +4967,7 @@ NATIVE_NAME (endBatchEdit) (JNIEnv *env, jobject object, jshort window)
 }
 
 JNIEXPORT void JNICALL
-NATIVE_NAME (commitCompletion) (JNIEnv *env, jobject object, jshort window,
+NATIVE_NAME (commitCompletion) (JNIEnv *env, jobject object, jlong window,
 				jstring completion_text, jint position)
 {
   JNI_STACK_ALIGNMENT_PROLOGUE;
@@ -5007,7 +5001,7 @@ NATIVE_NAME (commitCompletion) (JNIEnv *env, jobject object, jshort window,
 }
 
 JNIEXPORT void JNICALL
-NATIVE_NAME (commitText) (JNIEnv *env, jobject object, jshort window,
+NATIVE_NAME (commitText) (JNIEnv *env, jobject object, jlong window,
 			  jstring commit_text, jint position)
 {
   JNI_STACK_ALIGNMENT_PROLOGUE;
@@ -5042,7 +5036,7 @@ NATIVE_NAME (commitText) (JNIEnv *env, jobject object, jshort window,
 
 JNIEXPORT void JNICALL
 NATIVE_NAME (deleteSurroundingText) (JNIEnv *env, jobject object,
-				     jshort window, jint left_length,
+				     jlong window, jint left_length,
 				     jint right_length)
 {
   JNI_STACK_ALIGNMENT_PROLOGUE;
@@ -5065,7 +5059,7 @@ NATIVE_NAME (deleteSurroundingText) (JNIEnv *env, jobject object,
 
 JNIEXPORT void JNICALL
 NATIVE_NAME (finishComposingText) (JNIEnv *env, jobject object,
-				   jshort window)
+				   jlong window)
 {
   JNI_STACK_ALIGNMENT_PROLOGUE;
 
@@ -5086,7 +5080,7 @@ NATIVE_NAME (finishComposingText) (JNIEnv *env, jobject object,
 }
 
 JNIEXPORT void JNICALL
-NATIVE_NAME (replaceText) (JNIEnv *env, jobject object, jshort window,
+NATIVE_NAME (replaceText) (JNIEnv *env, jobject object, jlong window,
 			   jint start, jint end, jobject text,
 			   int new_cursor_position, jobject attribute)
 {
@@ -5252,7 +5246,7 @@ android_text_to_string (JNIEnv *env, char *buffer, ptrdiff_t n,
 }
 
 JNIEXPORT jstring JNICALL
-NATIVE_NAME (getTextAfterCursor) (JNIEnv *env, jobject object, jshort window,
+NATIVE_NAME (getTextAfterCursor) (JNIEnv *env, jobject object, jlong window,
 				  jint length, jint flags)
 {
   JNI_STACK_ALIGNMENT_PROLOGUE;
@@ -5296,7 +5290,7 @@ NATIVE_NAME (getTextAfterCursor) (JNIEnv *env, jobject object, jshort window,
 }
 
 JNIEXPORT jstring JNICALL
-NATIVE_NAME (getTextBeforeCursor) (JNIEnv *env, jobject object, jshort window,
+NATIVE_NAME (getTextBeforeCursor) (JNIEnv *env, jobject object, jlong window,
 				   jint length, jint flags)
 {
   JNI_STACK_ALIGNMENT_PROLOGUE;
@@ -5340,7 +5334,7 @@ NATIVE_NAME (getTextBeforeCursor) (JNIEnv *env, jobject object, jshort window,
 }
 
 JNIEXPORT void JNICALL
-NATIVE_NAME (setComposingText) (JNIEnv *env, jobject object, jshort window,
+NATIVE_NAME (setComposingText) (JNIEnv *env, jobject object, jlong window,
 				jstring composing_text,
 				jint new_cursor_position)
 {
@@ -5375,7 +5369,7 @@ NATIVE_NAME (setComposingText) (JNIEnv *env, jobject object, jshort window,
 }
 
 JNIEXPORT void JNICALL
-NATIVE_NAME (setComposingRegion) (JNIEnv *env, jobject object, jshort window,
+NATIVE_NAME (setComposingRegion) (JNIEnv *env, jobject object, jlong window,
 				  jint start, jint end)
 {
   JNI_STACK_ALIGNMENT_PROLOGUE;
@@ -5397,7 +5391,7 @@ NATIVE_NAME (setComposingRegion) (JNIEnv *env, jobject object, jshort window,
 }
 
 JNIEXPORT void JNICALL
-NATIVE_NAME (setSelection) (JNIEnv *env, jobject object, jshort window,
+NATIVE_NAME (setSelection) (JNIEnv *env, jobject object, jlong window,
 			    jint start, jint end)
 {
   JNI_STACK_ALIGNMENT_PROLOGUE;
@@ -5475,7 +5469,7 @@ android_get_selection (void *data)
 }
 
 JNIEXPORT jintArray JNICALL
-NATIVE_NAME (getSelection) (JNIEnv *env, jobject object, jshort window)
+NATIVE_NAME (getSelection) (JNIEnv *env, jobject object, jlong window)
 {
   JNI_STACK_ALIGNMENT_PROLOGUE;
 
@@ -5514,7 +5508,7 @@ NATIVE_NAME (getSelection) (JNIEnv *env, jobject object, jshort window)
 
 JNIEXPORT void JNICALL
 NATIVE_NAME (performEditorAction) (JNIEnv *env, jobject object,
-				   jshort window, int action)
+				   jlong window, int action)
 {
   JNI_STACK_ALIGNMENT_PROLOGUE;
 
@@ -5566,7 +5560,7 @@ NATIVE_NAME (performEditorAction) (JNIEnv *env, jobject object,
 
 JNIEXPORT void JNICALL
 NATIVE_NAME (performContextMenuAction) (JNIEnv *env, jobject object,
-					jshort window, int action)
+					jlong window, int action)
 {
   JNI_STACK_ALIGNMENT_PROLOGUE;
 
@@ -5771,7 +5765,7 @@ android_build_extracted_text (jstring text, ptrdiff_t start,
 
 JNIEXPORT jobject JNICALL
 NATIVE_NAME (getExtractedText) (JNIEnv *env, jobject ignored_object,
-				jshort window, jobject request,
+				jlong window, jobject request,
 				jint flags)
 {
   JNI_STACK_ALIGNMENT_PROLOGUE;
@@ -5883,7 +5877,7 @@ NATIVE_NAME (getExtractedText) (JNIEnv *env, jobject ignored_object,
 
 JNIEXPORT jstring JNICALL
 NATIVE_NAME (getSelectedText) (JNIEnv *env, jobject object,
-			       jshort window)
+			       jlong window)
 {
   JNI_STACK_ALIGNMENT_PROLOGUE;
 
@@ -5913,7 +5907,7 @@ NATIVE_NAME (getSelectedText) (JNIEnv *env, jobject object,
 
 JNIEXPORT void JNICALL
 NATIVE_NAME (requestSelectionUpdate) (JNIEnv *env, jobject object,
-				      jshort window)
+				      jlong window)
 {
   JNI_STACK_ALIGNMENT_PROLOGUE;
 
@@ -5935,7 +5929,7 @@ NATIVE_NAME (requestSelectionUpdate) (JNIEnv *env, jobject object,
 
 JNIEXPORT void JNICALL
 NATIVE_NAME (requestCursorUpdates) (JNIEnv *env, jobject object,
-				    jshort window, jint mode)
+				    jlong window, jint mode)
 {
   JNI_STACK_ALIGNMENT_PROLOGUE;
 
@@ -5964,7 +5958,7 @@ NATIVE_NAME (requestCursorUpdates) (JNIEnv *env, jobject object,
 
 JNIEXPORT void JNICALL
 NATIVE_NAME (clearInputFlags) (JNIEnv *env, jobject object,
-			       jshort window)
+			       jlong window)
 {
   JNI_STACK_ALIGNMENT_PROLOGUE;
 
@@ -6079,7 +6073,7 @@ android_get_surrounding_text (void *data)
    Value is the object upon success, else NULL.  */
 
 static jobject
-android_get_surrounding_text_internal (JNIEnv *env, jshort window,
+android_get_surrounding_text_internal (JNIEnv *env, jlong window,
 				       jint before_length,
 				       jint after_length,
 				       ptrdiff_t *conversion_start,
@@ -6172,7 +6166,7 @@ android_get_surrounding_text_internal (JNIEnv *env, jshort window,
 
 JNIEXPORT jobject JNICALL
 NATIVE_NAME (getSurroundingText) (JNIEnv *env, jobject object,
-				  jshort window, jint before_length,
+				  jlong window, jint before_length,
 				  jint after_length, jint flags)
 {
   JNI_STACK_ALIGNMENT_PROLOGUE;
@@ -6182,7 +6176,7 @@ NATIVE_NAME (getSurroundingText) (JNIEnv *env, jobject object,
 }
 
 JNIEXPORT jobject JNICALL
-NATIVE_NAME (takeSnapshot) (JNIEnv *env, jobject object, jshort window)
+NATIVE_NAME (takeSnapshot) (JNIEnv *env, jobject object, jlong window)
 {
   JNI_STACK_ALIGNMENT_PROLOGUE;
 

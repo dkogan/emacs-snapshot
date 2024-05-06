@@ -27,11 +27,7 @@ import android.graphics.Canvas;
 import android.graphics.ColorFilter;
 import android.graphics.PorterDuff.Mode;
 import android.graphics.PorterDuffColorFilter;
-import android.graphics.PorterDuffXfermode;
 import android.graphics.Shader.TileMode;
-import android.graphics.Xfermode;
-
-import android.graphics.drawable.BitmapDrawable;
 
 import android.os.Build;
 
@@ -40,16 +36,14 @@ import android.os.Build;
 
 public final class EmacsGC extends EmacsHandleObject
 {
-  public static final int GC_COPY = 0;
-  public static final int GC_XOR  = 1;
+  public static final int GC_COPY    = 0;
+  public static final int GC_INVERT  = 1;
 
   public static final int GC_FILL_SOLID			= 0;
   public static final int GC_FILL_OPAQUE_STIPPLED	= 1;
 
   public static final int GC_LINE_SOLID			= 0;
   public static final int GC_LINE_ON_OFF_DASH		= 1;
-
-  public static final Xfermode xorAlu, srcInAlu;
 
   public int function, fill_style;
   public int foreground, background;
@@ -62,7 +56,7 @@ public final class EmacsGC extends EmacsHandleObject
   public Paint gcPaint;
 
   /* Drawable object for rendering the stiple bitmap.  */
-  public BitmapDrawable tileObject;
+  public EmacsTileObject tileObject;
 
   /* ID incremented every time the clipping rectangles of any GC
      changes.  */
@@ -72,22 +66,16 @@ public final class EmacsGC extends EmacsHandleObject
      rectangles changed.  0 if there are no clip rectangles.  */
   public long clipRectID;
 
-  static
-  {
-    xorAlu = new PorterDuffXfermode (Mode.XOR);
-    srcInAlu = new PorterDuffXfermode (Mode.SRC_IN);
-  }
-
   /* The following fields are only set on immutable GCs.  */
 
   public
-  EmacsGC (short handle)
+  EmacsGC ()
   {
     /* For historical reasons the C code has an extra layer of
        indirection above this GC handle.  struct android_gc is the GC
        used by Emacs code, while android_gcontext is the type of the
        handle.  */
-    super (handle);
+    super ();
 
     fill_style = GC_FILL_SOLID;
     function = GC_COPY;
@@ -131,8 +119,6 @@ public final class EmacsGC extends EmacsHandleObject
     /* A line_width of 0 is equivalent to that of 1.  */
     gcPaint.setStrokeWidth (line_width < 1 ? 1 : line_width);
     gcPaint.setColor (foreground | 0xff000000);
-    gcPaint.setXfermode (function == GC_XOR
-			 ? xorAlu : srcInAlu);
 
     /* Update the stipple object with the new stipple bitmap, or delete
        it if the stipple has been cleared on systems too old to support
@@ -144,11 +130,9 @@ public final class EmacsGC extends EmacsHandleObject
 
 	/* Allocate a new tile object if none is already present or it
 	   cannot be reconfigured.  */
-	if ((tileObject == null)
-	    || (Build.VERSION.SDK_INT < Build.VERSION_CODES.S))
+	if (tileObject == null)
 	  {
-	    tileObject = new BitmapDrawable (EmacsService.resources,
-					     stippleBitmap);
+	    tileObject = new EmacsTileObject (stippleBitmap);
 	    tileObject.setTileModeXY (TileMode.REPEAT, TileMode.REPEAT);
 	  }
 	else
@@ -156,11 +140,8 @@ public final class EmacsGC extends EmacsHandleObject
 	     bitmap.  */
 	  tileObject.setBitmap (stippleBitmap);
       }
-    else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
-	     && tileObject != null)
-      tileObject.setBitmap (null);
     else if (tileObject != null)
-      tileObject = null;
+      tileObject.setBitmap (null);
   }
 
   /* Prepare the tile object to draw a stippled image onto a section of

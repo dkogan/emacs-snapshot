@@ -352,9 +352,9 @@ points after switching back to that tab.
 ---
 *** New user option 'tab-bar-select-restore-windows'.
 It defines what to do with windows whose buffer was killed since the tab
-was last selected.  By default it displays a placeholder buffer that
-provides information about the name of the killed buffer that was
-displayed in that window.
+was last selected.  By default it displays a placeholder buffer
+with the name " *Old buffer <name>*" that provides information about
+the name of the killed buffer that was displayed in that window.
 
 ---
 *** New user option 'tab-bar-tab-name-format-functions'.
@@ -403,19 +403,6 @@ The commands 'add-dir-local-variable', 'delete-dir-local-variable' and
 'copy-file-locals-to-dir-locals' now take an optional prefix argument,
 to enter the file you want to modify.
 
-** Miscellaneous
-
----
-*** New face 'appt-notification' for 'appt-display-mode-line'.
-It can be used to customize the look of the appointment notification
-displayed on the mode line when 'appt-display-mode-line' is non-nil.
-
----
-*** Emacs now recognizes shebang lines that pass '-S'/'--split-string' to 'env'.
-When visiting a script that invokes 'env -S INTERPRETER ARGS...' in
-its shebang line, Emacs will now skip over 'env -S' and deduce the
-major mode based on the interpreter after 'env -S'.
-
 ** Emacs Server and Client
 
 ---
@@ -459,6 +446,19 @@ TTY frames.
 ** Support for underline colors on TTY frames.
 Colors specified in face underlines will now also be displayed in TTY
 frames with the previously mentioned capabilities.
+
+** Miscellaneous
+
+---
+*** New face 'appt-notification' for 'appt-display-mode-line'.
+It can be used to customize the look of the appointment notification
+displayed on the mode line when 'appt-display-mode-line' is non-nil.
+
+---
+*** Emacs now recognizes shebang lines that pass '-S'/'--split-string' to 'env'.
+When visiting a script that invokes 'env -S INTERPRETER ARGS...' in
+its shebang line, Emacs will now skip over 'env -S' and deduce the
+major mode based on the interpreter after 'env -S'.
 
 
 * Editing Changes in Emacs 30.1
@@ -695,6 +695,12 @@ as global bindings (to run other commands inside the project root),
 you can add this to your init script:
 
     (setopt project-switch-commands #'project-prefix-or-any-command)
+
+---
+*** New variable 'project-files-relative-names'.
+If it's non-nil, 'project-files' can return file names relative to the
+project root.  Project backends can use this to improve the performance
+of their 'project-files' implementation.
 
 ** VC
 
@@ -1347,6 +1353,18 @@ instead of:
 This allows the user to specify command line arguments to the non
 interactive Python interpreter specified by 'python-interpreter'.
 
+*** New function 'python-shell-send-block'.
+It sends the python block delimited by 'python-nav-beginning-of-block'
+and 'python-nav-end-of-block' to the inferior Python process.
+
+** Inferior Python mode
+
+---
+*** Default value of 'python-shell-compilation-regexp-alist' is changed.
+Support for Python's ExceptionGroup has been added, so in the Python
+shell, the line indicating the source of error in the error messages
+from ExceptionGroup will be recognized as well.
+
 ** Scheme mode
 Scheme mode now handles regular expression literal '#/regexp/' that is
 available in some Scheme implementations.
@@ -1603,36 +1621,6 @@ of the currently existing keyboards macros using the new mode
 duplicating them, deleting them, and editing their counters, formats,
 and keys.
 
-** Miscellaneous
-
----
-*** Webjump now assumes URIs are HTTPS instead of HTTP.
-For links in 'webjump-sites' without an explicit URI scheme, it was
-previously assumed that they should be prefixed with "http://".  Such
-URIs are now prefixed with "https://" instead.
-
----
-*** 'bug-reference-mode' now supports 'thing-at-point'.
-Now, calling '(thing-at-point 'url)' when point is on a bug reference
-will return the URL for that bug.
-
-+++
-*** New user option 'rcirc-log-time-format'
-This allows for rcirc logs to use a custom timestamp format, than the
-chat buffers use by default.
-
----
-*** New user option 'Buffer-menu-group-by'.
-It controls how buffers are divided into groups that are displayed with
-headings using Outline minor mode.
-
-+++
-*** New command 'Buffer-menu-toggle-internal'.
-This command toggles the display of internal buffers in Buffer Menu mode;
-that is, buffers not visiting a file and whose names start with a space.
-Previously, such buffers were never shown.  This command is bound to 'I'
-in Buffer Menu mode.
-
 ** Customize
 
 +++
@@ -1691,6 +1679,36 @@ options of GNU 'ls'.
 *** New user option 'widget-skip-inactive'.
 If non-nil, moving point forward or backward between widgets by typing
 TAB or S-TAB skips over inactive widgets.  The default value is nil.
+
+** Miscellaneous
+
+---
+*** Webjump now assumes URIs are HTTPS instead of HTTP.
+For links in 'webjump-sites' without an explicit URI scheme, it was
+previously assumed that they should be prefixed with "http://".  Such
+URIs are now prefixed with "https://" instead.
+
+---
+*** 'bug-reference-mode' now supports 'thing-at-point'.
+Now, calling '(thing-at-point 'url)' when point is on a bug reference
+will return the URL for that bug.
+
++++
+*** New user option 'rcirc-log-time-format'
+This allows for rcirc logs to use a custom timestamp format, than the
+chat buffers use by default.
+
+---
+*** New user option 'Buffer-menu-group-by'.
+It controls how buffers are divided into groups that are displayed with
+headings using Outline minor mode.
+
++++
+*** New command 'Buffer-menu-toggle-internal'.
+This command toggles the display of internal buffers in Buffer Menu mode;
+that is, buffers not visiting a file and whose names start with a space.
+Previously, such buffers were never shown.  This command is bound to 'I'
+in Buffer Menu mode.
 
 
 * New Modes and Packages in Emacs 30.1
@@ -1934,6 +1952,11 @@ unibyte string.
 
 
 * Lisp Changes in Emacs 30.1
+
++++
+** Function type declaration.
+It is now possible to declare the expected type of a function's
+arguments and its return type using the 'declare' macro.
 
 ** New types 'closure' and 'interpreted-function'.
 'interpreted-function' is the new type used for interpreted functions,
@@ -2619,6 +2642,10 @@ major mode.
 ** The variable 'rx-constituents' is now obsolete.
 Use 'rx-define', 'rx-let' and 'rx-let-eval' instead.
 
+---
+** 'defvar-keymap' can specify hints for 'repeat-mode'.
+Using ':repeat (:hints ((command . "hint") ...))' will show
+the hint string in the echo area together with repeatable keys.
 
 
 * Changes in Emacs 30.1 on Non-Free Operating Systems

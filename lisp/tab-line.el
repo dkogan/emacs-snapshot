@@ -387,7 +387,7 @@ Used only for `tab-line-tabs-mode-buffers' and `tab-line-tabs-buffer-groups'.")
 (defcustom tab-line-tabs-buffer-group-function
   #'tab-line-tabs-buffer-group-by-mode
   "Function to add a buffer to the appropriate group of tabs.
-Takes a buffer as arg and should return a group name as a string.
+Takes a buffer as argument and should return a group name as a string.
 If the return value is nil, the buffer has no group, so \"No group\"
 is displayed instead of a group name and the buffer is not grouped
 together with other buffers.
@@ -408,15 +408,34 @@ as a group name."
   :group 'tab-line
   :version "30.1")
 
-(defvar tab-line-tabs-buffer-group-sort-function
+(defcustom tab-line-tabs-buffer-group-sort-function
   #'tab-line-tabs-buffer-group-sort-by-name
-  "Function to sort buffers in a group.")
+  "Function to sort buffers in a group."
+  :type '(choice (const :tag "Don't sort" nil)
+                 (const :tag "Sort by name alphabetically"
+                        tab-line-tabs-buffer-group-sort-by-name)
+                 (function :tag "Custom function"))
+  :initialize 'custom-initialize-default
+  :set (lambda (sym val)
+         (set-default sym val)
+         (force-mode-line-update))
+  :group 'tab-line
+  :version "30.1")
 
 (defun tab-line-tabs-buffer-group-sort-by-name (a b)
   (string< (buffer-name a) (buffer-name b)))
 
-(defvar tab-line-tabs-buffer-groups-sort-function #'string<
-  "Function to sort group names.")
+(defcustom tab-line-tabs-buffer-groups-sort-function #'string<
+  "Function to sort group names."
+  :type '(choice (const :tag "Don't sort" nil)
+                 (const :tag "Sort alphabetically" string<)
+                 (function :tag "Custom function"))
+  :initialize 'custom-initialize-default
+  :set (lambda (sym val)
+         (set-default sym val)
+         (force-mode-line-update))
+  :group 'tab-line
+  :version "30.1")
 
 (defvar tab-line-tabs-buffer-groups mouse-buffer-menu-mode-groups
   "How to group various major modes together in the tab line.
@@ -445,7 +464,8 @@ named the same as the mode.")
 
 (defun tab-line-tabs-buffer-group-name (&optional buffer)
   (if (functionp tab-line-tabs-buffer-group-function)
-      (funcall tab-line-tabs-buffer-group-function buffer)))
+      (funcall tab-line-tabs-buffer-group-function buffer)
+    (tab-line-tabs-buffer-group-by-mode buffer)))
 
 (defun tab-line-tabs-buffer-groups ()
   "Return a list of tabs that should be displayed in the tab line.
@@ -455,13 +475,14 @@ If non-nil, `tab-line-tabs-buffer-group-function' is used to
 generate the group name."
   (if (window-parameter nil 'tab-line-groups)
       (let* ((buffers (funcall tab-line-tabs-buffer-list-function))
-             (groups
-              (seq-sort tab-line-tabs-buffer-groups-sort-function
-                        (delq nil (mapcar #'car (seq-group-by
-                                                 (lambda (buffer)
-                                                   (tab-line-tabs-buffer-group-name
-                                                    buffer))
-                                                 buffers)))))
+             (groups (delq nil
+                           (mapcar #'car
+                                   (seq-group-by #'tab-line-tabs-buffer-group-name
+                                                 buffers))))
+             (sorted-groups (if (functionp tab-line-tabs-buffer-groups-sort-function)
+                                (seq-sort tab-line-tabs-buffer-groups-sort-function
+                                          groups)
+                              groups))
              (selected-group (window-parameter nil 'tab-line-group))
              (tabs
               (mapcar (lambda (group)
@@ -472,9 +493,8 @@ generate the group name."
                                        (set-window-parameter nil 'tab-line-groups nil)
                                        (set-window-parameter nil 'tab-line-group group)
                                        (set-window-parameter nil 'tab-line-hscroll nil)))))
-                      groups)))
+                      sorted-groups)))
         tabs)
-
     (let* ((window-parameter (window-parameter nil 'tab-line-group))
            (group-name (tab-line-tabs-buffer-group-name (current-buffer)))
            (group (prog1 (or window-parameter group-name "No group")
@@ -487,10 +507,9 @@ generate the group name."
                                      (set-window-parameter nil 'tab-line-groups t)
                                      (set-window-parameter nil 'tab-line-group group)
                                      (set-window-parameter nil 'tab-line-hscroll nil)))))
-           (buffers
-            (seq-filter (lambda (b)
-                          (equal (tab-line-tabs-buffer-group-name b) group))
-                        (funcall tab-line-tabs-buffer-list-function)))
+           (buffers (seq-filter (lambda (b)
+                                  (equal (tab-line-tabs-buffer-group-name b) group))
+                                (funcall tab-line-tabs-buffer-list-function)))
            (sorted-buffers (if (functionp tab-line-tabs-buffer-group-sort-function)
                                (seq-sort tab-line-tabs-buffer-group-sort-function
                                          buffers)

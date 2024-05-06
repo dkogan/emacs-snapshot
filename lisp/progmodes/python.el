@@ -350,6 +350,7 @@ To customize the Python interpreter for interactive use, modify
     (define-key map "\C-c\C-e" #'python-shell-send-statement)
     (define-key map "\C-c\C-r" #'python-shell-send-region)
     (define-key map "\C-\M-x"  #'python-shell-send-defun)
+    (define-key map "\C-c\C-b" #'python-shell-send-block)
     (define-key map "\C-c\C-c" #'python-shell-send-buffer)
     (define-key map "\C-c\C-l" #'python-shell-send-file)
     (define-key map "\C-c\C-z" #'python-shell-switch-to-shell)
@@ -390,6 +391,8 @@ To customize the Python interpreter for interactive use, modify
          :help "Switch to running inferior Python process"]
         ["Eval string" python-shell-send-string
          :help "Eval string in inferior Python session"]
+        ["Eval block" python-shell-send-block
+         :help "Eval block in inferior Python session"]
         ["Eval buffer" python-shell-send-buffer
          :help "Eval buffer in inferior Python session"]
         ["Eval statement" python-shell-send-statement
@@ -785,6 +788,7 @@ sign in chained assignment."
            "InterruptedError" "IsADirectoryError" "NotADirectoryError"
            "PermissionError" "ProcessLookupError" "RecursionError"
            "ResourceWarning" "StopAsyncIteration" "TimeoutError"
+           "ExceptionGroup"
            ;; OS specific
            "VMSError" "WindowsError"
            )
@@ -1052,6 +1056,7 @@ It makes underscores and dots word constituent chars.")
     "InterruptedError" "IsADirectoryError" "NotADirectoryError"
     "PermissionError" "ProcessLookupError" "RecursionError"
     "ResourceWarning" "StopAsyncIteration" "TimeoutError"
+    "ExceptionGroup"
     ;; OS specific
     "VMSError" "WindowsError"
     ))
@@ -1202,6 +1207,7 @@ fontified."
      (class_definition
       name: (identifier) @font-lock-type-face)
      (parameters (identifier) @font-lock-variable-name-face)
+     (parameters (typed_parameter (identifier) @font-lock-variable-name-face))
      (parameters (default_parameter name: (identifier) @font-lock-variable-name-face)))
 
    :feature 'builtin
@@ -2854,7 +2860,7 @@ virtualenv."
   :type '(repeat symbol))
 
 (defcustom python-shell-compilation-regexp-alist
-  `((,(rx line-start (1+ (any " \t")) "File \""
+  `((,(rx line-start (1+ (any " \t")) (? ?| (1+ (any " \t"))) "File \""
           (group (1+ (not (any "\"<")))) ; avoid `<stdin>' &c
           "\", line " (group (1+ digit)))
      1 2)
@@ -2865,7 +2871,8 @@ virtualenv."
           "(" (group (1+ digit)) ")" (1+ (not (any "("))) "()")
      1 2))
   "`compilation-error-regexp-alist' for inferior Python."
-  :type '(alist regexp))
+  :type '(alist regexp)
+  :version "30.1")
 
 (defcustom python-shell-dedicated nil
   "Whether to make Python shells dedicated by default.
@@ -4137,6 +4144,28 @@ interactively."
      (save-excursion (python-nav-beginning-of-statement))
      (save-excursion (python-nav-end-of-statement))
      send-main msg t)))
+
+(defun python-shell-send-block (&optional arg msg)
+  "Send the block at point to inferior Python process.
+The block is delimited by `python-nav-beginning-of-block' and
+`python-nav-end-of-block'.  If optional argument ARG is non-nil
+(interactively, the prefix argument), send the block body without
+its header.  If optional argument MSG is non-nil, force display
+of a user-friendly message if there's no process running; this
+always happens interactively."
+  (interactive (list current-prefix-arg t))
+  (let ((beg (save-excursion
+               (when (python-nav-beginning-of-block)
+                 (if (null arg)
+                     (beginning-of-line)
+                   (python-nav-end-of-statement)
+                   (beginning-of-line 2)))
+               (point-marker)))
+        (end (save-excursion (python-nav-end-of-block)))
+        (python-indent-guess-indent-offset-verbose nil))
+    (if (and beg end)
+        (python-shell-send-region beg end nil msg t)
+      (user-error "Can't get code block from current position."))))
 
 (defun python-shell-send-buffer (&optional send-main msg)
   "Send the entire buffer to inferior Python process.
@@ -7178,6 +7207,7 @@ implementations: `python-mode' and `python-ts-mode'."
                python-nav-if-name-main
                python-nav-up-list
                python-remove-import
+               python-shell-send-block
                python-shell-send-buffer
                python-shell-send-defun
                python-shell-send-statement

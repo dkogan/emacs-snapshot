@@ -179,15 +179,30 @@ For internal use by the test suite only.")
 Each function in FUNCTIONS is run after PASS.
 Useful to hook into pass checkers.")
 
-(defconst comp-known-func-cstr-h
+(defconst comp-primitive-func-cstr-h
   (cl-loop
    with comp-ctxt = (make-comp-cstr-ctxt)
    with h = (make-hash-table :test #'eq)
-   for (f type-spec) in comp-known-type-specifiers
+   for (f type-spec) in comp-primitive-type-specifiers
    for cstr = (comp-type-spec-to-cstr type-spec)
    do (puthash f cstr h)
    finally return h)
   "Hash table function -> `comp-constraint'.")
+
+(defsubst comp--symbol-func-to-fun (symbol-func)
+  "Given a function called SYMBOL-FUNC return its `comp-func'."
+  (gethash (gethash symbol-func (comp-ctxt-sym-to-c-name-h comp-ctxt))
+           (comp-ctxt-funcs-h comp-ctxt)))
+
+(defun comp--get-function-cstr (function)
+  "Given FUNCTION return the corresponding `comp-constraint'."
+  (when (symbolp function)
+    (let ((f (symbol-function function)))
+      (or (gethash f comp-primitive-func-cstr-h)
+          (when-let ((type (or (when-let ((f (comp--symbol-func-to-fun function)))
+                                 (comp-func-declared-type f))
+                               (function-get function 'function-type))))
+            (comp-type-spec-to-cstr type))))))
 
 ;; Keep it in sync with the `cl-deftype-satisfies' property set in
 ;; cl-macs.el. We can't use `cl-deftype-satisfies' directly as the
@@ -515,6 +530,8 @@ CFG is mutated by a pass.")
          :documentation "Optimization level (see `native-comp-speed').")
   (pure nil :type boolean
         :documentation "t if pure nil otherwise.")
+  (declared-type nil :type list
+        :documentation "Declared function type.")
   (type nil :type (or null comp-mvar)
         :documentation "Mvar holding the derived return type."))
 
@@ -590,11 +607,6 @@ In use by the back-end."
                do (puthash name t h)
                finally return t)
     t))
-
-(defsubst comp--symbol-func-to-fun (symbol-func)
-  "Given a function called SYMBOL-FUNC return its `comp-func'."
-  (gethash (gethash symbol-func (comp-ctxt-sym-to-c-name-h comp-ctxt))
-           (comp-ctxt-funcs-h comp-ctxt)))
 
 (defun comp--function-pure-p (f)
   "Return t if F is pure."
@@ -813,6 +825,7 @@ clashes."
             (comp-func-lap func) lap
             (comp-func-frame-size func) (comp--byte-frame-size byte-func)
             (comp-func-speed func) (comp--spill-speed name)
+            (comp-func-declared-type func) (comp--spill-decl-spec name 'function-type)
             (comp-func-pure func) (comp--spill-decl-spec name 'pure))
 
       ;; Store the c-name to have it retrievable from
@@ -2102,10 +2115,10 @@ TARGET-BB-SYM is the symbol name of the target block."
      (when-let ((match
                  (pcase insn
                    (`(set ,lhs (,(pred comp--call-op-p) ,f . ,args))
-                    (when-let ((cstr-f (gethash f comp-known-func-cstr-h)))
+                    (when-let ((cstr-f (comp--get-function-cstr f)))
                       (cl-values f cstr-f lhs args)))
                    (`(,(pred comp--call-op-p) ,f . ,args)
-                    (when-let ((cstr-f (gethash f comp-known-func-cstr-h)))
+                    (when-let ((cstr-f (comp--get-function-cstr f)))
                       (cl-values f cstr-f nil args))))))
        (cl-multiple-value-bind (f cstr-f lhs args) match
          (cl-loop
@@ -2642,7 +2655,7 @@ Fold the call in case."
                (comp-cstr-imm-vld-p (car args)))
       (setf f (comp-cstr-imm (car args))
             args (cdr args)))
-    (when-let ((cstr-f (gethash f comp-known-func-cstr-h)))
+    (when-let ((cstr-f (comp--get-function-cstr f)))
       (let ((cstr (comp-cstr-f-ret cstr-f)))
         (when (comp-cstr-empty-p cstr)
           ;; Store it to be rewritten as non local exit.
@@ -3301,11 +3314,13 @@ Prepare every function for final compilation and drive the C back-end."
 ;; are assumed just to be true. Use with extreme caution...
 
 (defun comp-hint-fixnum (x)
-  (declare (gv-setter (lambda (val) `(setf ,x ,val))))
+  (declare (type (function (t) fixnum))
+           (gv-setter (lambda (val) `(setf ,x ,val))))
   x)
 
 (defun comp-hint-cons (x)
-  (declare (gv-setter (lambda (val) `(setf ,x ,val))))
+  (declare (type (function (t) cons))
+           (gv-setter (lambda (val) `(setf ,x ,val))))
   x)
 
 

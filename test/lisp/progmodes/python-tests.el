@@ -4896,7 +4896,8 @@ def foo():
 
 (ert-deftest python-shell-completion-at-point-ipython ()
   "Check if Python shell completion works for IPython."
-  (let ((python-shell-interpreter "ipython")
+  (let ((python-tests-shell-interpreter "ipython")
+        (python-shell-interpreter "ipython")
         (python-shell-interpreter-args "-i --simple-prompt"))
     (skip-unless
      (and
@@ -7465,6 +7466,33 @@ buffer with overlapping strings."
                          "Unused import a.b.c (unused-import)"
                        "W0611: Unused import a.b.c (unused-import)"))))))
 
+(ert-deftest python-test--shell-send-block ()
+  (skip-unless (executable-find python-tests-shell-interpreter))
+  (python-tests-with-temp-buffer-with-shell
+    "print('current 0')
+for x in range(1,3):
+    print('current %s' % x)
+print('current 3')"
+    (goto-char (point-min))
+    (should-error (python-shell-send-block) :type 'user-error)
+    (forward-line)
+    (python-shell-send-block)
+    (python-tests-shell-wait-for-prompt)
+    (python-shell-with-shell-buffer
+      (goto-char (point-min))
+      (should-not (re-search-forward "current 0" nil t))
+      (should (re-search-forward "current 1" nil t))
+      (should (re-search-forward "current 2" nil t))
+      (should-not (re-search-forward "current 3" nil t)))
+    (forward-line)
+    (python-shell-send-block t) ;; send block body only
+    (python-tests-shell-wait-for-prompt)
+    (python-shell-with-shell-buffer
+      ;; should only 1 line output from the block body
+      (should (re-search-forward "current"))
+      (should (looking-at " 2"))
+      (should-not (re-search-forward "current" nil t)))))
+
 ;;; python-ts-mode font-lock tests
 
 (defmacro python-ts-tests-with-temp-buffer (contents &rest body)
@@ -7545,6 +7573,9 @@ always located at the beginning of buffer."
 (ert-deftest python-ts-mode-types-face-1 ()
   (python-ts-tests-with-temp-buffer
    "def f(val: Callable[[Type0], (Type1, Type2)]):"
+   (search-forward "val")
+   (goto-char (match-beginning 0))
+   (should (eq (face-at-point) font-lock-variable-name-face))
    (dolist (test '("Callable" "Type0" "Type1" "Type2"))
      (search-forward test)
      (goto-char (match-beginning 0))

@@ -1053,13 +1053,19 @@ DEFUN ("get-file-char", Fget_file_char, Sget_file_char, 0, 0, 0,
 
 
 
-/* Return true if the lisp code read using READCHARFUN defines a non-nil
-   `lexical-binding' file variable.  After returning, the stream is
-   positioned following the first line, if it is a comment or #! line,
-   otherwise nothing is read.  */
+typedef enum {
+  Cookie_None,			/* no cookie */
+  Cookie_Dyn,			/* explicit dynamic binding */
+  Cookie_Lex			/* explicit lexical binding */
+} lexical_cookie_t;
 
-static bool
-lisp_file_lexically_bound_p (Lisp_Object readcharfun)
+/* Determine if the lisp code read using READCHARFUN defines a
+   `lexical-binding' file variable return its value.
+   After returning, the stream is positioned following the first line,
+   if it is a comment or #! line, otherwise nothing is read.  */
+
+static lexical_cookie_t
+lisp_file_lexical_cookie (Lisp_Object readcharfun)
 {
   int ch = READCHAR;
 
@@ -1070,7 +1076,7 @@ lisp_file_lexically_bound_p (Lisp_Object readcharfun)
         {
           UNREAD (ch);
           UNREAD ('#');
-          return 0;
+          return Cookie_None;
         }
       while (ch != '\n' && ch != EOF)
         ch = READCHAR;
@@ -1083,12 +1089,12 @@ lisp_file_lexically_bound_p (Lisp_Object readcharfun)
     /* The first line isn't a comment, just give up.  */
     {
       UNREAD (ch);
-      return 0;
+      return Cookie_None;
     }
   else
     /* Look for an appropriate file-variable in the first line.  */
     {
-      bool rv = 0;
+      lexical_cookie_t rv = Cookie_None;
       enum {
 	NOMINAL, AFTER_FIRST_DASH, AFTER_ASTERIX
       } beg_end_state = NOMINAL;
@@ -1170,7 +1176,7 @@ lisp_file_lexically_bound_p (Lisp_Object readcharfun)
 	      if (strcmp (var, "lexical-binding") == 0)
 		/* This is it...  */
 		{
-		  rv = (strcmp (val, "nil") != 0);
+		  rv = strcmp (val, "nil") != 0 ? Cookie_Lex : Cookie_Dyn;
 		  break;
 		}
 	    }
@@ -1785,7 +1791,7 @@ Return t if the file exists and loads successfully.  */)
     }
   else
     {
-      if (lisp_file_lexically_bound_p (Qget_file_char))
+      if (lisp_file_lexical_cookie (Qget_file_char) == Cookie_Lex)
         Fset (Qlexical_binding, Qt);
 
       if (! version || version >= 22)
@@ -2643,7 +2649,8 @@ settings in the buffer, and if there is no such setting, the buffer
 will be evaluated without lexical binding.
 
 This function preserves the position of point.  */)
-  (Lisp_Object buffer, Lisp_Object printflag, Lisp_Object filename, Lisp_Object unibyte, Lisp_Object do_allow_print)
+  (Lisp_Object buffer, Lisp_Object printflag, Lisp_Object filename,
+   Lisp_Object unibyte, Lisp_Object do_allow_print)
 {
   specpdl_ref count = SPECPDL_INDEX ();
   Lisp_Object tem, buf;
@@ -2667,7 +2674,8 @@ This function preserves the position of point.  */)
   specbind (Qstandard_output, tem);
   record_unwind_protect_excursion ();
   BUF_TEMP_SET_PT (XBUFFER (buf), BUF_BEGV (XBUFFER (buf)));
-  specbind (Qlexical_binding, lisp_file_lexically_bound_p (buf) ? Qt : Qnil);
+  specbind (Qlexical_binding,
+	    lisp_file_lexical_cookie (buf) == Cookie_Lex ? Qt : Qnil);
   BUF_TEMP_SET_PT (XBUFFER (buf), BUF_BEGV (XBUFFER (buf)));
   readevalloop (buf, 0, filename,
 		!NILP (printflag), unibyte, Qnil, Qnil, Qnil);

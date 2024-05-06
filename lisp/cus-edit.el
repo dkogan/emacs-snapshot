@@ -4971,6 +4971,8 @@ if only the first line of the docstring is shown."))
             ;; readably.  (Bug#52554)
             (print-escape-control-characters t))
         (atomic-change-group
+          (when (eobp)
+            (insert ";;; -*- lexical-binding: t -*-\n"))
 	  (custom-save-variables)
 	  (custom-save-faces)
           (custom-save-icons)))
@@ -5363,6 +5365,12 @@ If several parents are listed, go to the first of them."
     (setq-local widget-link-suffix ""))
   (setq show-trailing-whitespace nil))
 
+(defvar touch-screen-keyboard-function) ; In touch-screen.el.
+
+(defun Custom-display-on-screen-keyboard-p ()
+  "Return whether it is okay to display the virtual keyboard at point."
+  (get-char-property (point) 'field))
+
 (define-derived-mode Custom-mode nil "Custom"
   "Major mode for editing customization buffers.
 
@@ -5401,6 +5409,8 @@ if that value is non-nil."
               custom--hidden-state 'hidden)
   (setq-local revert-buffer-function #'custom--revert-buffer)
   (setq-local text-conversion-style 'action)
+  (setq-local touch-screen-keyboard-function
+              #'Custom-display-on-screen-keyboard-p)
   (make-local-variable 'custom-options)
   (make-local-variable 'custom-local-buffer)
   (custom--initialize-widget-variables)
