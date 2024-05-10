@@ -1022,9 +1022,9 @@ It makes underscores and dots word constituent chars.")
     "copyright" "credits" "exit" "license" "quit"))
 
 (defvar python--treesit-operators
-  '("-" "-=" "!=" "*" "**" "**=" "*=" "/" "//" "//=" "/=" "&" "%" "%="
-    "^" "+" "->" "+=" "<" "<<" "<=" "<>" "=" ":=" "==" ">" ">=" ">>" "|"
-    "~" "@" "@="))
+  '("-" "-=" "!=" "*" "**" "**=" "*=" "/" "//" "//=" "/=" "&" "&=" "%" "%="
+    "^" "^=" "+" "->" "+=" "<" "<<" "<<=" "<=" "<>" "=" ":=" "==" ">" ">="
+    ">>" ">>=" "|" "|=" "~" "@" "@="))
 
 (defvar python--treesit-special-attributes
   '("__annotations__" "__closure__" "__code__"
@@ -1251,6 +1251,7 @@ fontified."
                            @font-lock-variable-name-face)
      (named_expression name: (identifier)
                        @font-lock-variable-name-face)
+     (for_statement left: (identifier) @font-lock-variable-name-face)
      (pattern_list [(identifier)
                     (list_splat_pattern (identifier))]
                    @font-lock-variable-name-face)
@@ -4737,6 +4738,8 @@ as one line, which is required by native completion."
 Optional argument PROCESS forces completions to be retrieved
 using that one instead of current buffer's process."
   (setq process (or process (get-buffer-process (current-buffer))))
+  (unless process
+    (user-error "No active python inferior process"))
   (let* ((is-shell-buffer (derived-mode-p 'inferior-python-mode))
          (line-start (if is-shell-buffer
                          ;; Working on a shell buffer: use prompt end.

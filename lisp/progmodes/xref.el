@@ -1922,8 +1922,9 @@ to control which program to use when looking for matches."
        (hits nil)
        ;; Support for remote files.  The assumption is that, if the
        ;; first file is remote, they all are, and on the same host.
-       (dir (or (file-name-directory (car files))
-                default-directory))
+       (dir (if (file-name-absolute-p (car files))
+                (file-name-directory (car files))
+              default-directory))
        (remote-id (file-remote-p dir))
        ;; The 'auto' default would be fine too, but ripgrep can't handle
        ;; the options we pass in that case.
@@ -2099,6 +2100,8 @@ Such as the current syntax table and the applied syntax properties."
   (pcase-let* ((`(,line ,file ,text) hit)
                (file (and file (concat xref--hits-remote-id file)))
                (buf (xref--find-file-buffer file))
+               ;; This is fairly dangerouns, but improves performance
+               ;; for large lists, see https://debbugs.gnu.org/53749#227
                (inhibit-modification-hooks t))
     (if buf
         (with-current-buffer buf
@@ -2130,6 +2133,8 @@ Such as the current syntax table and the applied syntax properties."
           (erase-buffer))
         (insert text)
         (goto-char (point-min))
+        (when syntax-needed
+          (syntax-ppss-flush-cache (point)))
         (xref--collect-matches-1 regexp file line
                                  (point)
                                  (point-max)

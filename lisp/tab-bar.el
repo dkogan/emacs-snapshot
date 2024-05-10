@@ -352,6 +352,7 @@ regardless of where you click on it.  Also add a new tab."
          (tab-number (tab-bar--key-to-number (nth 0 item))))
     (cond
      ((and (memq (car item) '(add-tab history-back history-forward global))
+           (not (eq (nth 1 item) 'tab-bar-mouse-1))
            (functionp (nth 1 item)))
       (call-interactively (nth 1 item)))
      ((and (nth 2 item) (not (eq tab-number t)))
@@ -1119,7 +1120,9 @@ When `tab-bar-format-global' is added to `tab-bar-format'
 then modes that display information on the mode line
 using `global-mode-string' will display the same text
 on the tab bar instead."
-  `((global menu-item ,(format-mode-line global-mode-string) ignore)))
+  (mapcar (lambda (string)
+            `(global menu-item ,(format-mode-line string) ignore))
+          global-mode-string))
 
 (defun tab-bar-format-list (format-list)
   (let ((i 0))
@@ -1449,7 +1452,6 @@ if it was visiting a file."
              (new-buffer (generate-new-buffer
                           (format " *Old buffer %s*" name))))
         (with-current-buffer new-buffer
-          (set-auto-mode)
           (insert (format-message "This window displayed the %s `%s'.\n"
                                   (if file "file" "buffer")
                                   name))
@@ -1462,7 +1464,7 @@ if it was visiting a file."
                (set-window-point window (nth 3 quad))))
             (insert "\n"))
           (goto-char (point-min))
-          (setq buffer-read-only t)
+          (special-mode)
           (set-window-buffer window new-buffer))))))
 
 (defcustom tab-bar-select-restore-context t
