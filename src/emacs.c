@@ -166,6 +166,7 @@ static const char emacs_copyright[] = COPYRIGHT;
 static const char emacs_bugreport[] = PACKAGE_BUGREPORT;
 
 /* Put version info into the executable in the form that 'ident' uses.  */
+extern char const RCS_Id[];
 char const EXTERNALLY_VISIBLE RCS_Id[]
   = "$Id" ": GNU Emacs " PACKAGE_VERSION
     " (" EMACS_CONFIGURATION " " EMACS_CONFIG_FEATURES ") $";
@@ -3004,7 +3005,9 @@ killed.  */
 #if defined HAVE_ANDROID && !defined ANDROID_STUBIFY
   if (android_init_gui)
     {
-      /* Calls to exit may be followed by illegal accesses from
+      struct sigaction sa;
+
+      /* Calls to exit may be followed by invalid accesses from
 	 toolkit-managed threads as the thread group is destroyed, which
 	 are inconsequential when the process is being terminated, but
 	 which must be suppressed to inhibit reporting of superfluous
@@ -3012,8 +3015,10 @@ killed.  */
 
          Execution won't return to Emacs whatever the value of RESTART,
          as `android_restart_emacs' will only ever abort or succeed.  */
-      signal (SIGBUS, SIG_IGN);
-      signal (SIGSEGV, SIG_IGN);
+      sigemptyset (&sa.sa_mask);
+      sa.sa_handler = _exit;
+      sigaction (SIGSEGV, &sa, NULL);
+      sigaction (SIGBUS, &sa, NULL);
     }
 #endif /* HAVE_ANDROID && !ANDROID_STUBIFY */
 

@@ -562,11 +562,13 @@ host runs a restricted shell, it shall be added to this list, too."
 	    ;; Fedora.
 	    "localhost4" "localhost6"
 	    ;; Ubuntu.
-	    "ip6-localhost" "ip6-loopback"))
+	    "ip6-localhost" "ip6-loopback"
+	    ;; OpenSUSE.
+	    "ipv6-localhost" "ipv6-loopback"))
       eos)
   "Host names which are regarded as local host.
 If the local host runs a chrooted environment, set this to nil."
-  :version "29.3"
+  :version "30.1"
   :type '(choice (const :tag "Chrooted environment" nil)
 		 (regexp :tag "Host regexp")))
 
@@ -2978,17 +2980,15 @@ They are collected by `tramp-completion-dissect-file-name1'."
 	   (regexp tramp-prefix-ipv6-regexp)
 	   (group (? (regexp tramp-ipv6-regexp))) eol)
 	  1 2 3 nil)))
-    (delq
-     nil
-     (mapcar
-      (lambda (structure) (tramp-completion-dissect-file-name1 structure name))
-      (list
-       tramp-completion-file-name-structure1
-       tramp-completion-file-name-structure2
-       tramp-completion-file-name-structure3
-       tramp-completion-file-name-structure4
-       tramp-completion-file-name-structure5
-       tramp-completion-file-name-structure6)))))
+    (tramp-compat-seq-keep
+     (lambda (structure) (tramp-completion-dissect-file-name1 structure name))
+     (list
+      tramp-completion-file-name-structure1
+      tramp-completion-file-name-structure2
+      tramp-completion-file-name-structure3
+      tramp-completion-file-name-structure4
+      tramp-completion-file-name-structure5
+      tramp-completion-file-name-structure6))))
 
 (defun tramp-completion-dissect-file-name1 (structure name)
   "Return a `tramp-file-name' structure for NAME matching STRUCTURE.
@@ -4660,8 +4660,11 @@ Do not set it manually, it is used buffer-local in `tramp-get-lock-pid'.")
 	       ((process-live-p (tramp-get-process v)))
 	       (lockname (tramp-compat-make-lock-file-name file)))
           (delete-file lockname)
-	;; Trigger the unlock error.
-	(signal 'file-error `("Cannot remove lock file for" ,file)))
+	;; Trigger the unlock error.  Be quiet if user isn't
+	;; interested in lock files.  See Bug#70900.
+	(unless (or (not create-lockfiles)
+		    (bound-and-true-p remote-file-name-inhibit-locks))
+	  (signal 'file-error `("Cannot remove lock file for" ,file))))
     ;; `userlock--handle-unlock-error' exists since Emacs 28.1.  It
     ;; checks for `create-lockfiles' since Emacs 30.1, we don't need
     ;; this check here, then.
@@ -4777,10 +4780,10 @@ Do not set it manually, it is used buffer-local in `tramp-get-lock-pid'.")
 	   vec "Method `%s' is not supported for multi-hops"
 	   (tramp-file-name-method item)))))
 
-    ;; Some methods ("su", "sg", "sudo", "doas", "ksu") do not use the
-    ;; host name in their command template.  In this case, the remote
-    ;; file name must use either a local host name (first hop), or a
-    ;; host name matching the previous hop.
+    ;; Some methods ("su", "sg", "sudo", "doas", "run0", "ksu") do not
+    ;; use the host name in their command template.  In this case, the
+    ;; remote file name must use either a local host name (first hop),
+    ;; or a host name matching the previous hop.
     (let ((previous-host (or tramp-local-host-regexp "")))
       (setq choices target-alist)
       (while (setq item (pop choices))

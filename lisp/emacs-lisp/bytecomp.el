@@ -137,6 +137,19 @@
   "Emacs Lisp byte-compiler."
   :group 'lisp)
 
+(defcustom compilation-safety 1
+  "Safety level for generated compiled code.
+Possible values are:
+  0 - emitted code can misbehave, even crash Emacs, if declarations of
+      functions do not correctly describe their actual behavior;
+  1 - emitted code is to be generated in a safe manner, even if functions
+      are mis-declared.
+
+This currently affects only code produced by native-compilation."
+  :type 'integer
+  :safe #'integerp
+  :version "30.1")
+
 (defcustom emacs-lisp-file-regexp "\\.el\\'"
   "Regexp which matches Emacs Lisp source files.
 If you change this, you might want to set `byte-compile-dest-file-function'.
@@ -2443,6 +2456,7 @@ With argument ARG, insert value in current buffer after the form."
         (when byte-native-compiling
           (defvar native-comp-speed)
           (push `(native-comp-speed . ,native-comp-speed) byte-native-qualities)
+          (push `(compilation-safety . ,compilation-safety) byte-native-qualities)
           (defvar native-comp-debug)
           (push `(native-comp-debug . ,native-comp-debug) byte-native-qualities)
           (defvar native-comp-compiler-options)

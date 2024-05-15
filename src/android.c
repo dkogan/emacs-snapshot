@@ -115,6 +115,7 @@ struct android_emacs_window
   jmethodID recreate_activity;
   jmethodID clear_window;
   jmethodID clear_area;
+  jmethodID set_wm_name;
 };
 
 struct android_emacs_cursor
@@ -153,7 +154,7 @@ char *android_cache_dir;
 
 /* The list of archive files within which the Java virtual macine
    looks for class files.  */
-char *android_class_path;
+static char *android_class_path;
 
 /* The display's pixel densities.  */
 double android_pixel_density_x, android_pixel_density_y;
@@ -1307,22 +1308,6 @@ android_create_lib_link (void)
 #pragma GCC diagnostic ignored "-Wmissing-prototypes"
 #endif
 
-JNIEXPORT jint JNICALL
-NATIVE_NAME (dup) (JNIEnv *env, jobject object, jint fd)
-{
-  JNI_STACK_ALIGNMENT_PROLOGUE;
-
-  return dup (fd);
-}
-
-JNIEXPORT jint JNICALL
-NATIVE_NAME (close) (JNIEnv *env, jobject object, jint fd)
-{
-  JNI_STACK_ALIGNMENT_PROLOGUE;
-
-  return close (fd);
-}
-
 JNIEXPORT jstring JNICALL
 NATIVE_NAME (getFingerprint) (JNIEnv *env, jobject object)
 {
@@ -1858,6 +1843,7 @@ android_init_emacs_window (void)
   FIND_METHOD (recreate_activity, "recreateActivity", "()V");
   FIND_METHOD (clear_window, "clearWindow", "()V");
   FIND_METHOD (clear_area, "clearArea", "(IIII)V");
+  FIND_METHOD (set_wm_name, "setWmName", "(Ljava/lang/String;)V");
 #undef FIND_METHOD
 }
 
@@ -5616,6 +5602,27 @@ android_set_dont_accept_focus (android_window handle,
 						 window_class.class,
 						 method,
 						 (jboolean) no_accept_focus);
+  android_exception_check ();
+}
+
+/* Set the WM name of HANDLE to STRING, a Java string.  This name
+   provides the task description of activities that receive HANDLE.  */
+
+void
+android_set_wm_name (android_window handle, jstring name)
+{
+  jmethodID method;
+  jobject window;
+
+  window = android_resolve_handle (handle);
+  method = window_class.set_wm_name;
+
+  if (android_get_current_api_level () < 21)
+    return;
+
+  (*android_java_env)->CallNonvirtualVoidMethod (android_java_env, window,
+						 window_class.class, method,
+						 name);
   android_exception_check ();
 }
 

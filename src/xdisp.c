@@ -13195,8 +13195,6 @@ truncate_message_1 (void *a1, Lisp_Object a2)
   return false;
 }
 
-extern intptr_t garbage_collection_inhibited;
-
 /* Set the current message to STRING.  */
 
 static void
@@ -35735,6 +35733,7 @@ note_mode_line_or_margin_highlight (Lisp_Object window, int x, int y,
   define_frame_cursor1 (f, cursor, pointer);
 }
 
+#ifdef HAVE_WINDOW_SYSTEM
 
 /* Take proper action when mouse has moved to the window WINDOW, with
    window-local x-position X and y-position Y.  This is only used for
@@ -35812,6 +35811,8 @@ note_fringe_highlight (struct frame *f, Lisp_Object window, int x, int y,
 	}
     }
 }
+
+#endif	/* HAVE_WINDOW_SYSTEM */
 
 /* EXPORT:
    Take proper action when the mouse has moved to position X, Y on

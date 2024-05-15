@@ -1048,11 +1048,15 @@ beginning of the line."
 (defun xref--add-log-current-defun ()
   "Return the string used to group a set of locations.
 This function is used as a value for `add-log-current-defun-function'."
-  (xref--group-name-for-display
-   (if-let (item (xref--item-at-point))
-       (xref-location-group (xref-match-item-location item))
-     (xref--imenu-extract-index-name))
-   (xref--project-root (project-current))))
+  (let ((project-root (xref--project-root (project-current))))
+    (xref--group-name-for-display
+     (if-let (item (xref--item-at-point))
+         (xref-location-group (xref-match-item-location item))
+       (xref--imenu-extract-index-name))
+     project-root
+     (and
+      (string-prefix-p project-root default-directory)
+      (substring default-directory (length project-root))))))
 
 (defun xref--next-error-function (n reset?)
   (when reset?
@@ -1184,12 +1188,15 @@ GROUP is a string for decoration purposes and XREF is an
       (xref--apply-truncation)))
   (run-hooks 'xref-after-update-hook))
 
-(defun xref--group-name-for-display (group project-root)
+(defun xref--group-name-for-display (group project-root dd-suffix)
   "Return GROUP formatted in the preferred style.
 
 The style is determined by the value of `xref-file-name-display'.
 If GROUP looks like a file name, its value is formatted according
-to that style.  Otherwise it is returned unchanged."
+to that style.  Otherwise it is returned unchanged.
+
+PROJECT-ROOT is the root of the current project, if any.  DD-SUFFIX is
+the relative name of `default-directory' relative to the project root."
   ;; XXX: The way we verify that it's indeed a file name and not some
   ;; other kind of string, e.g. Java package name or TITLE from
   ;; `tags-apropos-additional-actions', is pretty lax.  But we don't
@@ -1199,16 +1206,19 @@ to that style.  Otherwise it is returned unchanged."
   ;; values themselves (e.g. by piping through some public function),
   ;; or adding a new accessor to locations, like GROUP-TYPE.
   (cl-ecase xref-file-name-display
-    (abs group)
+    (abs (if (file-name-absolute-p group) group (expand-file-name group)))
     (nondirectory
-     (if (file-name-absolute-p group)
-         (file-name-nondirectory group)
-       group))
+     (file-name-nondirectory group))
     (project-relative
-     (if (and project-root
-              (string-prefix-p project-root group))
-         (substring group (length project-root))
-       group))))
+     (cond
+      ((not (file-name-absolute-p group))
+       (concat dd-suffix group))
+      ((and project-root
+            (string-prefix-p project-root group))
+       (substring group (length project-root)))
+      ;; Default to absolute when there's not project around.
+      (t
+       (expand-file-name group))))))
 
 (defun xref--analyze (xrefs)
   "Find common groups in XREFS and format group names.
@@ -1221,10 +1231,13 @@ Return an alist of the form ((GROUP . (XREF ...)) ...)."
                    (eq xref-file-name-display 'project-relative)
                    (project-current)))
          (project-root (and project
-                            (expand-file-name (xref--project-root project)))))
+                            (expand-file-name (xref--project-root project))))
+         (dd-suffix (and project-root
+                         (string-prefix-p project-root default-directory)
+                         (substring default-directory (length project-root)))))
     (mapcar
      (lambda (pair)
-       (cons (xref--group-name-for-display (car pair) project-root)
+       (cons (xref--group-name-for-display (car pair) project-root dd-suffix)
              (cdr pair)))
      alist)))
 
@@ -1269,7 +1282,7 @@ Return an alist of the form ((GROUP . (XREF ...)) ...)."
     (erase-buffer)
     (setq overlay-arrow-position nil)
     (xref--insert-xrefs xref-alist)
-    (add-hook 'post-command-hook 'xref--apply-truncation nil t)
+    (add-hook 'post-command-hook #'xref--apply-truncation nil t)
     (goto-char (point-min))
     (setq xref--original-window (assoc-default 'window alist)
           xref--original-window-intent (assoc-default 'display-action alist))
@@ -2099,10 +2112,7 @@ Such as the current syntax table and the applied syntax properties."
 (defun xref--collect-matches (hit regexp tmp-buffer syntax-needed)
   (pcase-let* ((`(,line ,file ,text) hit)
                (file (and file (concat xref--hits-remote-id file)))
-               (buf (xref--find-file-buffer file))
-               ;; This is fairly dangerouns, but improves performance
-               ;; for large lists, see https://debbugs.gnu.org/53749#227
-               (inhibit-modification-hooks t))
+               (buf (xref--find-file-buffer file)))
     (if buf
         (with-current-buffer buf
           (save-excursion
@@ -2117,6 +2127,9 @@ Such as the current syntax table and the applied syntax properties."
       ;; Using the temporary buffer is both a performance and a buffer
       ;; management optimization.
       (with-current-buffer tmp-buffer
+        ;; This let is fairly dangerouns, but improves performance
+        ;; for large lists, see https://debbugs.gnu.org/53749#227
+        (let ((inhibit-modification-hooks t))
         (erase-buffer)
         (when (and syntax-needed
                    (not (equal file xref--temp-buffer-file-name)))
@@ -2131,7 +2144,7 @@ Such as the current syntax table and the applied syntax properties."
           (setq-local xref--temp-buffer-file-name file)
           (setq-local inhibit-read-only t)
           (erase-buffer))
-        (insert text)
+        (insert text))
         (goto-char (point-min))
         (when syntax-needed
           (syntax-ppss-flush-cache (point)))

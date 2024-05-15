@@ -3650,6 +3650,7 @@ readable_events (int flags)
 }
 
 /* Set this for debugging, to have a way to get out */
+extern int stop_character;
 int stop_character EXTERNALLY_VISIBLE;
 
 static KBOARD *
@@ -5021,7 +5022,7 @@ static const char *const lispy_accent_keys[] =
    merely abstruse terminology for the ``select'' key frequently
    located in certain physical keyboards.  */
 
-const char *const lispy_function_keys[] =
+static const char *const lispy_function_keys[] =
   {
     /* All elements in this array default to 0, except for the few
        function keys that Emacs recognizes.  */
@@ -5395,6 +5396,10 @@ static const char *const lispy_kana_keys[] =
 
 /* You'll notice that this table is arranged to be conveniently
    indexed by X Windows keysym values.  */
+#ifdef HAVE_NS
+/* FIXME: Why are we using X11 keysym values for NS?  */
+static
+#endif
 const char *const lispy_function_keys[] =
   {
     /* X Keysym value */
