@@ -100,7 +100,14 @@ static Lisp_Object
 specpdl_where (union specbinding *pdl)
 {
   eassert (pdl->kind > SPECPDL_LET);
-  return pdl->let.where;
+  return pdl->let.where.buf;
+}
+
+static KBOARD *
+specpdl_kboard (union specbinding *pdl)
+{
+  eassert (pdl->kind == SPECPDL_LET);
+  return pdl->let.where.kbd;
 }
 
 static Lisp_Object
@@ -520,14 +527,22 @@ IFORM if non-nil should be of the form (interactive ...).  */)
   (Lisp_Object args, Lisp_Object body, Lisp_Object env,
    Lisp_Object docstring, Lisp_Object iform)
 {
+  Lisp_Object ifcdr, value, slots[6];
+
   CHECK_CONS (body);          /* Make sure it's not confused with byte-code! */
   CHECK_LIST (args);
   CHECK_LIST (iform);
-  Lisp_Object ifcdr = Fcdr (iform);
-  Lisp_Object slots[] = { args,  body, env, Qnil, docstring,
-			  NILP (Fcdr (ifcdr))
-			  ? Fcar (ifcdr)
-			  : CALLN (Fvector, XCAR (ifcdr), XCDR (ifcdr)) };
+  ifcdr = CDR (iform);
+  if (NILP (CDR (ifcdr)))
+    value = CAR (ifcdr);
+  else
+    value = CALLN (Fvector, XCAR (ifcdr), XCDR (ifcdr));
+  slots[0] = args;
+  slots[1] = body;
+  slots[2] = env;
+  slots[3] = Qnil;
+  slots[4] = docstring;
+  slots[5] = value;
   /* Adjusting the size is indispensable since, as for byte-code objects,
      we distinguish interactive functions by the presence or absence of the
      iform slot.  */
@@ -668,12 +683,17 @@ signal a `cyclic-variable-indirection' error.  */)
   else if (!NILP (Fboundp (new_alias))
            && !EQ (find_symbol_value (new_alias),
                    find_symbol_value (base_variable)))
-    call2 (Qdisplay_warning,
-           list3 (Qdefvaralias, Qlosing_value, new_alias),
-           CALLN (Fformat_message,
-                  build_string
-                  ("Overwriting value of `%s' by aliasing to `%s'"),
-                  new_alias, base_variable));
+    {
+      Lisp_Object message, formatted;
+
+      message = build_string ("Overwriting value of `%s' by aliasing"
+			      " to `%s'");
+      formatted = CALLN (Fformat_message, message,
+			 new_alias, base_variable);
+      call2 (Qdisplay_warning,
+	     list3 (Qdefvaralias, Qlosing_value, new_alias),
+	     formatted);
+    }
 
   {
     union specbinding *p;
@@ -2514,7 +2534,7 @@ eval_sub (Lisp_Object form)
   else if (!NILP (fun) && (fun = XSYMBOL (fun)->u.s.function, SYMBOLP (fun)))
     fun = indirect_function (fun);
 
-  if (SUBRP (fun) && !SUBR_NATIVE_COMPILED_DYNP (fun))
+  if (SUBRP (fun) && !NATIVE_COMP_FUNCTION_DYNP (fun))
     {
       Lisp_Object args_left = original_args;
       ptrdiff_t numargs = list_length (args_left);
@@ -2620,7 +2640,7 @@ eval_sub (Lisp_Object form)
 	}
     }
   else if (CLOSUREP (fun)
-	   || SUBR_NATIVE_COMPILED_DYNP (fun)
+	   || NATIVE_COMP_FUNCTION_DYNP (fun)
 	   || MODULE_FUNCTIONP (fun))
     return apply_lambda (fun, original_args, count);
   else
@@ -3016,10 +3036,10 @@ funcall_general (Lisp_Object fun, ptrdiff_t numargs, Lisp_Object *args)
       && (fun = XSYMBOL (fun)->u.s.function, SYMBOLP (fun)))
     fun = indirect_function (fun);
 
-  if (SUBRP (fun) && !SUBR_NATIVE_COMPILED_DYNP (fun))
+  if (SUBRP (fun) && !NATIVE_COMP_FUNCTION_DYNP (fun))
     return funcall_subr (XSUBR (fun), numargs, args);
   else if (CLOSUREP (fun)
-	   || SUBR_NATIVE_COMPILED_DYNP (fun)
+	   || NATIVE_COMP_FUNCTION_DYNP (fun)
 	   || MODULE_FUNCTIONP (fun))
     return funcall_lambda (fun, numargs, args);
   else
@@ -3242,7 +3262,7 @@ funcall_lambda (Lisp_Object fun, ptrdiff_t nargs, Lisp_Object *arg_vector)
     return funcall_module (fun, nargs, arg_vector);
 #endif
 #ifdef HAVE_NATIVE_COMP
-  else if (SUBR_NATIVE_COMPILED_DYNP (fun))
+  else if (NATIVE_COMP_FUNCTION_DYNP (fun))
     {
       syms_left = XSUBR (fun)->lambda_list;
       lexenv = Qnil;
@@ -3315,9 +3335,9 @@ funcall_lambda (Lisp_Object fun, ptrdiff_t nargs, Lisp_Object *arg_vector)
   Lisp_Object val;
   if (CONSP (fun))
     val = Fprogn (XCDR (XCDR (fun)));
-  else if (SUBR_NATIVE_COMPILEDP (fun))
+  else if (NATIVE_COMP_FUNCTIONP (fun))
     {
-      eassert (SUBR_NATIVE_COMPILED_DYNP (fun));
+      eassert (NATIVE_COMP_FUNCTION_DYNP (fun));
       /* No need to use funcall_subr as we have zero arguments by
 	 construction.  */
       val = XSUBR (fun)->function.a0 ();
@@ -3483,7 +3503,8 @@ do_specbind (struct Lisp_Symbol *sym, union specbinding *bind,
       if (BUFFER_OBJFWDP (SYMBOL_FWD (sym))
 	  && specpdl_kind (bind) == SPECPDL_LET_DEFAULT)
 	{
-          set_default_internal (specpdl_symbol (bind), value, bindflag);
+          set_default_internal (specpdl_symbol (bind), value, bindflag,
+				NULL);
 	  return;
 	}
       FALLTHROUGH;
@@ -3525,6 +3546,7 @@ specbind (Lisp_Object symbol, Lisp_Object value)
       specpdl_ptr->let.kind = SPECPDL_LET;
       specpdl_ptr->let.symbol = symbol;
       specpdl_ptr->let.old_value = SYMBOL_VAL (sym);
+      specpdl_ptr->let.where.kbd = NULL;
       break;
     case SYMBOL_LOCALIZED:
     case SYMBOL_FORWARDED:
@@ -3533,7 +3555,7 @@ specbind (Lisp_Object symbol, Lisp_Object value)
 	specpdl_ptr->let.kind = SPECPDL_LET_LOCAL;
 	specpdl_ptr->let.symbol = symbol;
 	specpdl_ptr->let.old_value = ovalue;
-	specpdl_ptr->let.where = Fcurrent_buffer ();
+	specpdl_ptr->let.where.buf = Fcurrent_buffer ();
 
 	eassert (sym->u.s.redirect != SYMBOL_LOCALIZED
 		 || (BASE_EQ (SYMBOL_BLV (sym)->where, Fcurrent_buffer ())));
@@ -3552,6 +3574,11 @@ specbind (Lisp_Object symbol, Lisp_Object value)
 	       happens with other buffer-local variables.  */
 	    if (NILP (Flocal_variable_p (symbol, Qnil)))
 	      specpdl_ptr->let.kind = SPECPDL_LET_DEFAULT;
+	  }
+	else if (KBOARD_OBJFWDP (SYMBOL_FWD (sym)))
+	  {
+	    specpdl_ptr->let.where.kbd = kboard_for_bindings ();
+	    specpdl_ptr->let.kind = SPECPDL_LET;
 	  }
 	else
 	  specpdl_ptr->let.kind = SPECPDL_LET;
@@ -3656,6 +3683,8 @@ static void
 do_one_unbind (union specbinding *this_binding, bool unwinding,
                enum Set_Internal_Bind bindflag)
 {
+  KBOARD *kbdwhere = NULL;
+
   eassert (unwinding || this_binding->kind >= SPECPDL_LET);
   switch (this_binding->kind)
     {
@@ -3708,12 +3737,13 @@ do_one_unbind (union specbinding *this_binding, bool unwinding,
 	  }
       }
       /* Come here only if make_local_foo was used for the first time
-	 on this var within this let.  */
+	 on this var within this let or the symbol is not a plainval.  */
+      kbdwhere = specpdl_kboard (this_binding);
       FALLTHROUGH;
     case SPECPDL_LET_DEFAULT:
       set_default_internal (specpdl_symbol (this_binding),
                             specpdl_old_value (this_binding),
-                            bindflag);
+                            bindflag, kbdwhere);
       break;
     case SPECPDL_LET_LOCAL:
       {
@@ -3982,6 +4012,8 @@ specpdl_unrewind (union specbinding *pdl, int distance, bool vars_only)
 {
   union specbinding *tmp = pdl;
   int step = -1;
+  KBOARD *kbdwhere;
+
   if (distance < 0)
     { /* It's a rewind rather than unwind.  */
       tmp += distance - 1;
@@ -3992,6 +4024,8 @@ specpdl_unrewind (union specbinding *pdl, int distance, bool vars_only)
   for (; distance > 0; distance--)
     {
       tmp += step;
+      kbdwhere = NULL;
+
       switch (tmp->kind)
 	{
 	  /* FIXME: Ideally we'd like to "temporarily unwind" (some of) those
@@ -4032,14 +4066,16 @@ specpdl_unrewind (union specbinding *pdl, int distance, bool vars_only)
 	      }
 	  }
 	  /* Come here only if make_local_foo was used for the first
-	     time on this var within this let.  */
+	     time on this var within this let or the symbol is forwarded.  */
+	  kbdwhere = specpdl_kboard (tmp);
 	  FALLTHROUGH;
 	case SPECPDL_LET_DEFAULT:
 	  {
 	    Lisp_Object sym = specpdl_symbol (tmp);
 	    Lisp_Object old_value = specpdl_old_value (tmp);
 	    set_specpdl_old_value (tmp, default_value (sym));
-	    set_default_internal (sym, old_value, SET_INTERNAL_THREAD_SWITCH);
+	    set_default_internal (sym, old_value, SET_INTERNAL_THREAD_SWITCH,
+				  kbdwhere);
 	  }
 	  break;
 	case SPECPDL_LET_LOCAL:

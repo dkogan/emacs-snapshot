@@ -49,11 +49,6 @@ INTFWDP (lispfwd a)
   return XFWDTYPE (a) == Lisp_Fwd_Int;
 }
 static bool
-KBOARD_OBJFWDP (lispfwd a)
-{
-  return XFWDTYPE (a) == Lisp_Fwd_Kboard_Obj;
-}
-static bool
 OBJFWDP (lispfwd a)
 {
   return XFWDTYPE (a) == Lisp_Fwd_Obj;
@@ -244,7 +239,7 @@ a fixed set of types.  */)
         case PVEC_WINDOW: return Qwindow;
         case PVEC_SUBR:
           return XSUBR (object)->max_args == UNEVALLED ? Qspecial_form
-                 : SUBR_NATIVE_COMPILEDP (object) ? Qsubr_native_elisp
+                 : NATIVE_COMP_FUNCTIONP (object) ? Qnative_comp_function
                  : Qprimitive_function;
         case PVEC_CLOSURE:
           return CONSP (AREF (object, CLOSURE_CODE))
@@ -913,7 +908,7 @@ signal a `cyclic-function-indirection' error.  */)
 
   if (!NILP (Vnative_comp_enable_subr_trampolines)
       && SUBRP (function)
-      && !SUBR_NATIVE_COMPILEDP (function))
+      && !NATIVE_COMP_FUNCTIONP (function))
     CALLN (Ffuncall, Qcomp_subr_trampoline_install, symbol);
 #endif
 
@@ -1060,12 +1055,11 @@ SUBR must be a built-in function.  */)
   return build_string (name);
 }
 
-DEFUN ("subr-native-elisp-p", Fsubr_native_elisp_p, Ssubr_native_elisp_p, 1, 1,
-       0, doc: /* Return t if the object is native compiled lisp
-function, nil otherwise.  */)
+DEFUN ("native-comp-function-p", Fnative_comp_function_p, Snative_comp_function_p, 1, 1,
+       0, doc: /* Return t if the object is native compiled Lisp function, nil otherwise.  */)
   (Lisp_Object object)
 {
-  return SUBR_NATIVE_COMPILEDP (object) ? Qt : Qnil;
+  return NATIVE_COMP_FUNCTIONP (object) ? Qt : Qnil;
 }
 
 DEFUN ("subr-native-lambda-list", Fsubr_native_lambda_list,
@@ -1077,7 +1071,7 @@ function or t otherwise.  */)
   CHECK_SUBR (subr);
 
 #ifdef HAVE_NATIVE_COMP
-  if (SUBR_NATIVE_COMPILED_DYNP (subr))
+  if (NATIVE_COMP_FUNCTION_DYNP (subr))
     return XSUBR (subr)->lambda_list;
 #endif
   return Qt;
@@ -1154,7 +1148,7 @@ Value, if non-nil, is a list (interactive SPEC).  */)
 
   if (SUBRP (fun))
     {
-      if (SUBR_NATIVE_COMPILEDP (fun) && !NILP (XSUBR (fun)->intspec.native))
+      if (NATIVE_COMP_FUNCTIONP (fun) && !NILP (XSUBR (fun)->intspec.native))
 	return XSUBR (fun)->intspec.native;
 
       const char *spec = XSUBR (fun)->intspec.string;
@@ -1304,6 +1298,26 @@ If OBJECT is not a symbol, just return it.  */)
   return object;
 }
 
+/* Return the KBOARD to which bindings currently established and values
+   set should apply.  */
+
+KBOARD *
+kboard_for_bindings (void)
+{
+  /* We used to simply use current_kboard here, but from Lisp code, its
+     value is often unexpected.  It seems nicer to allow constructions
+     like this to work as intuitively expected:
+
+     (with-selected-frame frame
+     (define-key local-function-map "\eOP" [f1]))
+
+     On the other hand, this affects the semantics of last-command and
+     real-last-command, and people may rely on that.  I took a quick
+     look at the Lisp codebase, and I don't think anything will break.
+     --lorentey */
+
+  return FRAME_KBOARD (SELECTED_FRAME ());
+}
 
 /* Given the raw contents of a symbol value cell,
    return the Lisp value of the symbol.
@@ -1329,19 +1343,8 @@ do_symval_forwarding (lispfwd valcontents)
 			       XBUFFER_OBJFWD (valcontents)->offset);
 
     case Lisp_Fwd_Kboard_Obj:
-      /* We used to simply use current_kboard here, but from Lisp
-	 code, its value is often unexpected.  It seems nicer to
-	 allow constructions like this to work as intuitively expected:
-
-	 (with-selected-frame frame
-	 (define-key local-function-map "\eOP" [f1]))
-
-	 On the other hand, this affects the semantics of
-	 last-command and real-last-command, and people may rely on
-	 that.  I took a quick look at the Lisp codebase, and I
-	 don't think anything will break.  --lorentey  */
-      return *(Lisp_Object *)(XKBOARD_OBJFWD (valcontents)->offset
-			      + (char *)FRAME_KBOARD (SELECTED_FRAME ()));
+      return *(Lisp_Object *) (XKBOARD_OBJFWD (valcontents)->offset
+			       + (char *) kboard_for_bindings ());
     default: emacs_abort ();
     }
 }
@@ -1489,7 +1492,7 @@ store_symval_forwarding (lispfwd valcontents, Lisp_Object newval,
 
     case Lisp_Fwd_Kboard_Obj:
       {
-	char *base = (char *) FRAME_KBOARD (SELECTED_FRAME ());
+	char *base = (char *) kboard_for_bindings ();
 	char *p = base + XKBOARD_OBJFWD (valcontents)->offset;
 	*(Lisp_Object *) p = newval;
       }
@@ -1768,7 +1771,8 @@ set_internal (Lisp_Object symbol, Lisp_Object newval, Lisp_Object where,
 	        && !PER_BUFFER_VALUE_P (buf, idx))
 	      {
 		if (let_shadows_buffer_binding_p (sym))
-		  set_default_internal (symbol, newval, bindflag);
+		  set_default_internal (symbol, newval, bindflag,
+					NULL);
 		else
 		  SET_PER_BUFFER_VALUE_P (buf, idx, 1);
 	      }
@@ -1991,7 +1995,7 @@ local bindings in certain buffers.  */)
 
 void
 set_default_internal (Lisp_Object symbol, Lisp_Object value,
-                      enum Set_Internal_Bind bindflag)
+                      enum Set_Internal_Bind bindflag, KBOARD *where)
 {
   CHECK_SYMBOL (symbol);
   struct Lisp_Symbol *sym = XSYMBOL (symbol);
@@ -2071,6 +2075,13 @@ set_default_internal (Lisp_Object symbol, Lisp_Object value,
 		  }
 	      }
 	  }
+	else if (KBOARD_OBJFWDP (valcontents))
+	  {
+	    char *base = (char *) (where ? where
+				   : kboard_for_bindings ());
+	    char *p = base + XKBOARD_OBJFWD (valcontents)->offset;
+	    *(Lisp_Object *) p = value;
+	  }
 	else
           set_internal (symbol, value, Qnil, bindflag);
         return;
@@ -2085,7 +2096,7 @@ The default value is seen in buffers that do not have their own values
 for this variable.  */)
   (Lisp_Object symbol, Lisp_Object value)
 {
-  set_default_internal (symbol, value, SET_INTERNAL_SET);
+  set_default_internal (symbol, value, SET_INTERNAL_SET, NULL);
   return value;
 }
 
@@ -4151,7 +4162,8 @@ syms_of_data (void)
   DEFSYM (Qsubr, "subr");
   DEFSYM (Qspecial_form, "special-form");
   DEFSYM (Qprimitive_function, "primitive-function");
-  DEFSYM (Qsubr_native_elisp, "subr-native-elisp");
+  DEFSYM (Qsubr_native_elisp, "subr-native-elisp"); /* Deprecated name.  */
+  DEFSYM (Qnative_comp_function, "native-comp-function");
   DEFSYM (Qbyte_code_function, "byte-code-function");
   DEFSYM (Qinterpreted_function, "interpreted-function");
   DEFSYM (Qbuffer, "buffer");
@@ -4286,7 +4298,7 @@ syms_of_data (void)
   defsubr (&Sbyteorder);
   defsubr (&Ssubr_arity);
   defsubr (&Ssubr_name);
-  defsubr (&Ssubr_native_elisp_p);
+  defsubr (&Snative_comp_function_p);
   defsubr (&Ssubr_native_lambda_list);
   defsubr (&Ssubr_type);
 #ifdef HAVE_NATIVE_COMP

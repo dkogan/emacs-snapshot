@@ -64,6 +64,7 @@
 (declare-function tramp-method-out-of-band-p "tramp-sh")
 (declare-function tramp-smb-get-localname "tramp-smb")
 (defvar ange-ftp-make-backup-files)
+(defvar comp-warn-primitives)
 (defvar tramp-connection-properties)
 (defvar tramp-copy-size-limit)
 (defvar tramp-fuse-remove-hidden-files)
@@ -3689,7 +3690,8 @@ This tests also `access-file', `file-readable-p',
 	    ;; `access-file' returns nil in case of success.
 	    (should-not (access-file tmp-name1 "error"))
 	    ;; `access-file' could use a timeout.
-	    (let ((remote-file-name-access-timeout 1))
+	    (let ((remote-file-name-access-timeout 1)
+		  comp-warn-primitives)
 	      (cl-letf (((symbol-function #'file-exists-p)
 			 (lambda (_filename) (sleep-for 5))))
 		(should-error
@@ -5388,10 +5390,7 @@ If UNSTABLE is non-nil, the test is tagged as `:unstable'."
        ;; We do expect an established connection already,
        ;; `file-truename' does it by side-effect.  Suppress
        ;; `tramp--test-enabled', in order to keep the connection.
-       ;; Suppress "Process ... finished" messages.
-       (cl-letf (((symbol-function #'tramp--test-enabled) #'tramp-compat-always)
-		 ((symbol-function #'internal-default-process-sentinel)
-		  #'ignore))
+       (cl-letf (((symbol-function #'tramp--test-enabled) #'tramp-compat-always))
 	 (file-truename ert-remote-temporary-file-directory)
 	 (funcall (ert-test-body ert-test))))))
 
@@ -5934,7 +5933,7 @@ INPUT, if non-nil, is a string sent to the process."
       (when (natnump cols)
 	(should (= cols async-shell-command-width))))))
 
-(tramp--test-deftest-direct-async-process tramp-test32-shell-command 'unstable)
+(tramp--test-deftest-direct-async-process tramp-test32-shell-command)
 
 ;; This test is inspired by Bug#39067.
 (ert-deftest tramp-test32-shell-command-dont-erase-buffer ()

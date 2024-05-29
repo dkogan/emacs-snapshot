@@ -362,14 +362,17 @@ if the variable `help-downcase-arguments' is non-nil."
   (propertize (if help-downcase-arguments (downcase arg) arg)
 	      'face 'help-argument-name))
 
-(defun help-do-arg-highlight (doc args)
+(defun help-do-arg-highlight (doc args &optional usage-p)
   (with-syntax-table (make-syntax-table emacs-lisp-mode-syntax-table)
     (modify-syntax-entry ?\- "w")
     (dolist (arg args)
       (setq doc (replace-regexp-in-string
                  ;; This is heuristic, but covers all common cases
                  ;; except ARG1-ARG2
-                 (concat "([^ ]+ .*"             ; skip function name
+                 (concat (when usage-p
+                           ;; Skip function name in usage string
+                           ;; (Bug#65580).
+                           "([^ ]+ .*")
                          "\\<"                   ; beginning of word
                          "\\(?:[a-z-]*-\\)?"     ; for xxx-ARG
                          "\\("
@@ -404,7 +407,7 @@ if the variable `help-downcase-arguments' is non-nil."
               (search-backward "(")
               (goto-char (scan-sexps (point) 1)))))
         ;; Highlight arguments in the USAGE string
-        (setq usage (help-do-arg-highlight (buffer-string) args))
+        (setq usage (help-do-arg-highlight (buffer-string) args t))
         ;; Highlight arguments in the DOC string
         (setq doc (and doc (help-do-arg-highlight doc args))))))
   ;; Return value is like the one from help-split-fundoc, but highlighted
@@ -475,7 +478,7 @@ the C sources, too."
     (cond
      ((and (not file-name)
            (subrp type)
-           (not (subr-native-elisp-p type)))
+           (not (native-comp-function-p type)))
       ;; A built-in function.  The form is from `describe-function-1'.
       (if (or (get-buffer " *DOC*")
               (and also-c-source

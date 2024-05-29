@@ -316,14 +316,14 @@ value of last one, or nil if there are none."
 Such objects can be functions or special forms."
   (declare (side-effect-free error-free))
   (and (subrp object)
-       (not (subr-native-elisp-p object))))
+       (not (native-comp-function-p object))))
 
 (defsubst primitive-function-p (object)
   "Return t if OBJECT is a built-in primitive function.
 This excludes special forms, since they are not functions."
   (declare (side-effect-free error-free))
   (and (subrp object)
-       (not (or (subr-native-elisp-p object)
+       (not (or (native-comp-function-p object)
                 (eq (cdr (subr-arity object)) 'unevalled)))))
 
 (defsubst xor (cond1 cond2)
@@ -3022,7 +3022,7 @@ This is to `put' what `defalias' is to `fset'."
 
 (defvar comp-native-version-dir)
 (defvar native-comp-eln-load-path)
-(declare-function subr-native-elisp-p "data.c")
+(declare-function native-comp-function-p "data.c")
 (declare-function native-comp-unit-file "data.c")
 (declare-function subr-native-comp-unit "data.c")
 (declare-function comp-el-to-eln-rel-filename "comp.c")
@@ -3071,7 +3071,7 @@ instead."
 	     (symbolp symbol)
 	     (native-comp-available-p)
 	     ;; If it's a defun, we have a shortcut.
-	     (subr-native-elisp-p (symbol-function symbol)))
+	     (native-comp-function-p (symbol-function symbol)))
 	;; native-comp-unit-file returns unnormalized file names.
 	(expand-file-name (native-comp-unit-file (subr-native-comp-unit
 						  (symbol-function symbol))))
@@ -4782,7 +4782,14 @@ t (mix it with ordinary output), or a file name string.
 If BUFFER is 0, `call-shell-region' returns immediately with value nil.
 Otherwise it waits for COMMAND to terminate
 and returns a numeric exit status or a signal description string.
-If you quit, the process is killed with SIGINT, or SIGKILL if you quit again."
+If you quit, the process is killed with SIGINT, or SIGKILL if you quit again.
+
+If COMMAND names a shell (e.g., via `shell-file-name'), keep in mind
+that behavior of various shells when commands are piped to their
+standard input is shell- and system-dependent, and thus non-portable.
+The differences are especially prominent when the region includes
+more than one line, i.e. when piping to a shell commands with embedded
+newlines."
   (call-process-region start end
                        shell-file-name delete buffer nil
                        shell-command-switch command))

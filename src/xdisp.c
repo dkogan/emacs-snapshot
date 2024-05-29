@@ -3878,7 +3878,7 @@ init_from_display_pos (struct it *it, struct window *w, struct display_pos *pos)
   if (in_ellipses_for_invisible_text_p (pos, w))
     {
       --charpos;
-      bytepos = 0;
+      bytepos = BYTE_TO_CHAR (charpos);
     }
 
   /* Keep in mind: the call to reseat in init_iterator skips invisible
@@ -13377,8 +13377,10 @@ echo_area_display (bool update_frame_p)
   w = XWINDOW (mini_window);
   f = XFRAME (WINDOW_FRAME (w));
 
-  /* Don't display if frame is invisible or not yet initialized.  */
-  if (!FRAME_REDISPLAY_P (f) || !f->glyphs_initialized_p)
+  /* Don't display if frame is invisible or not yet initialized or
+     if redisplay is inhibited.  */
+  if (!FRAME_REDISPLAY_P (f) || !f->glyphs_initialized_p
+      || !NILP (Vinhibit_redisplay))
     return;
 
 #ifdef HAVE_WINDOW_SYSTEM

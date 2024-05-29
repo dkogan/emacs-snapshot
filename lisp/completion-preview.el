@@ -129,7 +129,7 @@ If this option is nil, these commands do not display any message."
 
 (defface completion-preview-exact
   ;; An exact match is also the longest common prefix of all matches.
-  '((t :underline "gray25" :inherit completion-preview-common))
+  '((t :underline "#00aa00" :inherit completion-preview-common))
   "Face for matches in the completion preview overlay."
   :version "30.1")
 
@@ -570,11 +570,15 @@ backward."
 ;;;###autoload
 (define-globalized-minor-mode global-completion-preview-mode
   completion-preview-mode completion-preview-mode
-  :predicate '((not compilation-mode
+  :predicate '((not archive-mode
+                    calc-mode
+                    compilation-mode
                     diff-mode
                     dired-mode
+                    image-mode
                     minibuffer-mode
                     minibuffer-inactive-mode
+                    org-agenda-mode
                     special-mode
                     wdired-mode)
                t))

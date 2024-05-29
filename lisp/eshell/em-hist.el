@@ -294,13 +294,13 @@ Returns nil if INPUT is prepended by blank space, otherwise non-nil."
   (make-local-variable 'eshell-save-history-index)
   (setq-local eshell-hist--new-items 0)
 
+  (setq-local eshell-history-ring nil)
   (if (minibuffer-window-active-p (selected-window))
-      (setq-local eshell-save-history-on-exit nil)
-    (setq-local eshell-history-ring nil)
+      (progn
+        (setq-local eshell-history-append t)
+        (add-hook 'minibuffer-exit-hook #'eshell-add-command-to-history nil t))
     (if eshell-history-file-name
-	(eshell-read-history nil t))
-
-    (add-hook 'eshell-exit-hook #'eshell--save-history nil t))
+	(eshell-read-history nil t)))
 
   (unless eshell-history-ring
     (setq eshell-history-ring (make-ring eshell-history-size)))
@@ -398,11 +398,9 @@ input."
              (pcase eshell-hist-ignoredups
                ('nil t)                 ; Always add to history
                ('erase                  ; Add, removing any old occurrences
-                (when-let ((old-index (ring-member eshell-history-ring input)))
-                  ;; Remove the old occurrence of this input so we can
-                  ;; add it to the end.  FIXME: Should we try to
-                  ;; remove multiple old occurrences, e.g. if the user
-                  ;; recently changed to using `erase'?
+                (while-let ((old-index (ring-member eshell-history-ring input)))
+                  ;; Remove the old occurrences of this input so we can
+                  ;; add it to the end.
                   (ring-remove eshell-history-ring old-index))
                 t)
                (_                       ; Add if not already the latest entry
@@ -423,7 +421,8 @@ command.
 This function is supposed to be called from the minibuffer, presumably
 as a `minibuffer-exit-hook'."
   (eshell-add-input-to-history
-   (buffer-substring (minibuffer-prompt-end) (point-max))))
+   (buffer-substring (minibuffer-prompt-end) (point-max)))
+  (eshell--save-history))
 
 (defun eshell-add-to-history ()
   "Add last Eshell command to the history ring.

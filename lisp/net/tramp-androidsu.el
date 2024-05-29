@@ -118,16 +118,14 @@ multibyte mode and waits for the shell prompt to appear."
 	  (unless (process-live-p p)
 	    (with-tramp-progress-reporter
 		vec 3
-		(if (tramp-string-empty-or-nil-p (tramp-file-name-user vec))
-		    (format "Opening connection %s for %s using %s"
-			    process-name
-			    (tramp-file-name-host vec)
-			    (tramp-file-name-method vec))
-		  (format "Opening connection %s for %s@%s using %s"
-			  process-name
-			  (tramp-file-name-user vec)
-			  (tramp-file-name-host vec)
-			  (tramp-file-name-method vec)))
+		(format "Opening connection%s for %s%s using %s"
+			(if (tramp-string-empty-or-nil-p process-name)
+			    "" (concat " " process-name))
+			(if (tramp-string-empty-or-nil-p
+			     (tramp-file-name-user vec))
+			    "" (concat (tramp-file-name-user vec) "@"))
+			(tramp-file-name-host vec)
+			(tramp-file-name-method vec))
               (let* ((coding-system-for-read 'utf-8-unix)
                      (process-connection-type tramp-process-connection-type)
                      ;; The executable loader cannot execute setuid
@@ -387,6 +385,8 @@ FUNCTION."
           ;; Generate a command to start the process using `su' with
           ;; suitable options for specifying the mount namespace and
           ;; suchlike.
+	  ;; Suppress `internal-default-process-sentinel', which is
+	  ;; set when :sentinel is nil.  (Bug#71049)
 	  (setq
 	   p (let ((android-use-exec-loader nil))
                (make-process
@@ -409,7 +409,7 @@ FUNCTION."
 	        :coding coding
                 :noquery noquery
                 :connection-type connection-type
-	        :sentinel sentinel
+	        :sentinel (or sentinel #'ignore)
                 :stderr stderr)))
 	  ;; Set filter.  Prior Emacs 29.1, it doesn't work reliably
 	  ;; to provide it as `make-process' argument when filter is

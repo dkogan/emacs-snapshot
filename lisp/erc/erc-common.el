@@ -216,7 +216,7 @@ instead of a `set' state, which precludes any actual saving."
     `(defun ,ablsym ,(if localp `(&optional ,arg) '())
        ,(erc--fill-module-docstring
          (if val "Enable" "Disable")
-         " ERC " (symbol-name name) " mode."
+         " ERC " (symbol-name name) " mode" (and localp " locally") "."
          (when localp
            (concat "\nWhen called interactively,"
                    " do so in all buffers for the current connection.")))
@@ -413,11 +413,11 @@ Example:
     `(progn
        (define-minor-mode
          ,mode
-         ,(erc--fill-module-docstring (format "Toggle ERC %s mode.
-With a prefix argument ARG, enable %s if ARG is positive,
+         ,(erc--fill-module-docstring (format "Toggle ERC %s mode%s.
+If called interactively, enable `%s' if ARG is positive,
 and disable it otherwise.  If called from Lisp, enable the mode
 if ARG is omitted or nil.
-\n%s" name name doc))
+\n%s" name (if local-p " locally" "") mode doc))
          :global ,(not local-p)
          :group (erc--find-group ',name ,(and alias (list 'quote alias)))
          ,@(unless local-p `(:require ',(erc--find-feature name alias)))
@@ -556,6 +556,21 @@ Use the CASEMAPPING ISUPPORT parameter to determine the style."
     (inline-quote
      (gethash (erc-downcase ,nick)
               (erc-with-server-buffer erc-server-users)))))
+
+(defun erc--get-server-user (nick)
+  (erc-get-server-user nick))
+
+(define-inline erc--remove-user-from-targets (downcased-nick buffers)
+  "Remove DOWNCASED-NICK from `erc-channel-members' in BUFFERS."
+  (inline-quote
+   (progn
+     (defvar erc-channel-members-changed-hook)
+     (dolist (buffer ,buffers)
+       (when (buffer-live-p buffer)
+         (with-current-buffer buffer
+           (remhash ,downcased-nick erc-channel-users)
+           (when erc-channel-members-changed-hook
+             (run-hooks 'erc-channel-members-changed-hook))))))))
 
 (defmacro erc--with-dependent-type-match (type &rest features)
   "Massage Custom :type TYPE with :match function that pre-loads FEATURES."

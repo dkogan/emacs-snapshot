@@ -330,6 +330,7 @@
                                (cl-incf counter))))
          erc-accidental-paste-threshold-seconds
          erc-insert-modify-hook
+         erc-send-modify-hook
          (erc-last-input-time 0)
          (erc-modules (remq 'stamp erc-modules))
          (erc-send-input-line-function #'ignore)
@@ -1268,6 +1269,7 @@
       (should-not (erc--valid-local-channel-p "#chan"))
       (should (erc--valid-local-channel-p "&local")))))
 
+;; FIXME remove this because it serves no purpose.  See bug#71178.
 (ert-deftest erc--restore-initialize-priors ()
   (unless (>= emacs-major-version 28)
     (ert-skip "Lisp nesting exceeds `max-lisp-eval-depth'"))
@@ -2533,7 +2535,7 @@
         erc-kill-channel-hook erc-kill-server-hook erc-kill-buffer-hook)
     (cl-letf (((symbol-function 'erc-display-message)
                (lambda (_ _ _ msg &rest args)
-                 (push (apply #'erc-format-message msg args) calls)))
+                 (ignore (push (apply #'erc-format-message msg args) calls))))
               ((symbol-function 'erc-server-send)
                (lambda (line _) (push line calls)))
               ((symbol-function 'erc-server-buffer)
@@ -3665,9 +3667,9 @@
 
                       (define-minor-mode erc-mname-mode
                         "Toggle ERC mname mode.
-With a prefix argument ARG, enable mname if ARG is positive, and
-disable it otherwise.  If called from Lisp, enable the mode if
-ARG is omitted or nil.
+If called interactively, enable `erc-mname-mode' if ARG is
+positive, and disable it otherwise.  If called from Lisp, enable
+the mode if ARG is omitted or nil.
 
 Some docstring."
                         :global t
@@ -3722,10 +3724,10 @@ Some docstring."
     (should (equal got
                    `(progn
                       (define-minor-mode erc-mname-mode
-                        "Toggle ERC mname mode.
-With a prefix argument ARG, enable mname if ARG is positive, and
-disable it otherwise.  If called from Lisp, enable the mode if
-ARG is omitted or nil.
+                        "Toggle ERC mname mode locally.
+If called interactively, enable `erc-mname-mode' if ARG is
+positive, and disable it otherwise.  If called from Lisp, enable
+the mode if ARG is omitted or nil.
 
 Some docstring."
                         :global nil
@@ -3736,7 +3738,7 @@ Some docstring."
                             (erc-mname-disable))))
 
                       (defun erc-mname-enable (&optional ,arg-en)
-                        "Enable ERC mname mode.
+                        "Enable ERC mname mode locally.
 When called interactively, do so in all buffers for the current
 connection."
                         (interactive "p")
@@ -3749,7 +3751,7 @@ connection."
                             (ignore a) (ignore b))))
 
                       (defun erc-mname-disable (&optional ,arg-dis)
-                        "Disable ERC mname mode.
+                        "Disable ERC mname mode locally.
 When called interactively, do so in all buffers for the current
 connection."
                         (interactive "p")

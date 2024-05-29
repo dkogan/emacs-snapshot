@@ -45,6 +45,8 @@ import android.graphics.Paint;
 import android.os.Build;
 import android.util.Log;
 
+import java.util.Arrays;
+
 /* This is an Android view which has a back and front buffer.  When
    swapBuffers is called, the back buffer is swapped to the front
    buffer, and any damage is invalidated.  frontBitmap and backBitmap
@@ -830,6 +832,12 @@ public final class EmacsView extends ViewGroup
        details.  */
 
     selection = EmacsService.viewGetSelection (window.handle);
+
+    if (EmacsService.DEBUG_IC)
+      Log.d (TAG, ("onCreateInputConnection: "
+		   + (selection != null
+		      ? Arrays.toString (selection)
+		      : "(unavailable)")));
 
     if (selection == null)
       {

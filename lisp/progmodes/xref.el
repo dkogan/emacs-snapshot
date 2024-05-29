@@ -1,7 +1,7 @@
 ;;; xref.el --- Cross-referencing commands              -*-lexical-binding:t-*-
 
 ;; Copyright (C) 2014-2024 Free Software Foundation, Inc.
-;; Version: 1.6.3
+;; Version: 1.7.0
 ;; Package-Requires: ((emacs "26.1"))
 
 ;; This is a GNU ELPA :core package.  Avoid functionality that is not
@@ -1277,11 +1277,11 @@ Return an alist of the form ((GROUP . (XREF ...)) ...)."
   "Refresh the search results in the current buffer."
   (interactive)
   (let ((inhibit-read-only t)
-        (buffer-undo-list t)
-        (inhibit-modification-hooks t))
+        (buffer-undo-list t))
     (save-excursion
       (condition-case err
-          (let ((alist (xref--analyze (funcall xref--fetcher))))
+          (let ((alist (xref--analyze (funcall xref--fetcher)))
+                (inhibit-modification-hooks t))
             (erase-buffer)
             (xref--insert-xrefs alist))
         (user-error

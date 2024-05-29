@@ -4246,6 +4246,12 @@ Default face attributes override any local face attributes.  */)
       /* This can be NULL (e.g., in batch mode).  */
       if (oldface)
 	{
+	  /* In some cases, realize_face below can call Lisp, which could
+             trigger redisplay.  But we are in the process of realizing
+             the default face, and therefore are not ready to do display.  */
+	  specpdl_ref count = SPECPDL_INDEX ();
+	  specbind (Qinhibit_redisplay, Qt);
+
 	  /* Ensure that the face vector is fully specified by merging
 	     the previously-cached vector.  */
 	  memcpy (attrs, oldface->lface, sizeof attrs);
@@ -4291,6 +4297,8 @@ Default face attributes override any local face attributes.  */)
 			      gvec[LFACE_BACKGROUND_INDEX]);
 	      Fmodify_frame_parameters (frame, arg);
 	    }
+
+	  unbind_to (count, Qnil);
 	}
     }
 
@@ -5959,7 +5967,13 @@ realize_default_face (struct frame *f)
   eassert (lface_fully_specified_p (XVECTOR (lface)->contents));
   check_lface (lface);
   memcpy (attrs, xvector_contents (lface), sizeof attrs);
+  /* In some cases, realize_face below can call Lisp, which could
+     trigger redisplay.  But we are in the process of realizing
+     the default face, and therefore are not ready to do display.  */
+  specpdl_ref count = SPECPDL_INDEX ();
+  specbind (Qinhibit_redisplay, Qt);
   struct face *face = realize_face (c, attrs, DEFAULT_FACE_ID);
+  unbind_to (count, Qnil);
 
 #ifndef HAVE_WINDOW_SYSTEM
   (void) face;
@@ -6043,7 +6057,8 @@ realize_face (struct face_cache *cache, Lisp_Object attrs[LFACE_VECTOR_SIZE],
     {
       /* Remove the former face.  */
       struct face *former_face = cache->faces_by_id[former_face_id];
-      uncache_face (cache, former_face);
+      if (former_face)
+	uncache_face (cache, former_face);
       free_realized_face (cache->f, former_face);
       SET_FRAME_GARBAGED (cache->f);
     }

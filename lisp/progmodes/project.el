@@ -1,8 +1,8 @@
 ;;; project.el --- Operations on the current project  -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2015-2024 Free Software Foundation, Inc.
-;; Version: 0.10.0
-;; Package-Requires: ((emacs "26.1") (xref "1.4.0"))
+;; Version: 0.11.0
+;; Package-Requires: ((emacs "26.1") (xref "1.7.0"))
 
 ;; This is a GNU ELPA :core package.  Avoid functionality that is not
 ;; compatible with the version of Emacs recorded above.
@@ -295,7 +295,7 @@ headers search path, load path, class path, and so on."
 Nominally unique, but not enforced."
   (file-name-nondirectory (directory-file-name (project-root project))))
 
-(cl-defgeneric project-ignores (_project _dir)
+(cl-defgeneric project-ignores (_project dir)
   "Return the list of glob patterns to ignore inside DIR.
 Patterns can match both regular files and directories.
 To root an entry, start it with `./'.  To match directories only,
@@ -305,12 +305,15 @@ end it with `/'.  DIR must be either `project-root' or one of
   ;; TODO: Support whitelist entries.
   (require 'grep)
   (defvar grep-find-ignored-files)
+  (declare-function grep-find-ignored-files "grep" (dir))
   (nconc
    (mapcar
     (lambda (dir)
       (concat dir "/"))
     vc-directory-exclusion-list)
-   grep-find-ignored-files))
+   (if (fboundp 'grep-find-ignored-files)
+       (grep-find-ignored-files dir)
+     grep-find-ignored-files)))
 
 (defun project--file-completion-table (all-files)
   (lambda (string pred action)
@@ -1077,8 +1080,9 @@ for VCS directories listed in `vc-directory-exclusion-list'."
          (dirs (list root))
          (project-files-relative-names t))
     (project-find-file-in
-     (or (thing-at-point 'filename)
-         (and buffer-file-name (project--find-default-from buffer-file-name pr)))
+     (delq nil (list (and buffer-file-name (project--find-default-from
+                                            buffer-file-name pr))
+                     (thing-at-point 'filename)))
      dirs pr include-all)))
 
 ;;;###autoload
@@ -1100,8 +1104,9 @@ for VCS directories listed in `vc-directory-exclusion-list'."
                 (project-external-roots pr)))
          (project-file-history-behavior t))
     (project-find-file-in
-     (or (thing-at-point 'filename)
-         (and buffer-file-name (project--find-default-from buffer-file-name pr)))
+     (delq nil (list (and buffer-file-name (project--find-default-from
+                                            buffer-file-name pr))
+                     (thing-at-point 'filename)))
      dirs pr include-all)))
 
 (defcustom project-read-file-name-function #'project--read-file-cpd-relative
@@ -1163,11 +1168,14 @@ by the user at will."
                          (setq all-files
                                (delete common-parent-directory all-files))
                          t))
-         (mb-default (if (and common-parent-directory
-                              mb-default
-                              (file-name-absolute-p mb-default))
-                         (file-relative-name mb-default common-parent-directory)
-                       mb-default))
+         (mb-default (mapcar (lambda (mb-default)
+                               (if (and common-parent-directory
+                                        mb-default
+                                        (file-name-absolute-p mb-default))
+                                   (file-relative-name
+                                    mb-default common-parent-directory)
+                                 mb-default))
+                             (if (listp mb-default) mb-default (list mb-default))))
          (substrings (mapcar (lambda (s) (substring s cpd-length)) all-files))
          (_ (when included-cpd
               (setq substrings (cons "./" substrings))))
