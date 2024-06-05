@@ -372,36 +372,16 @@ and the hook `eshell-exit-hook'."
   ;; strong R2L character.
   (setq bidi-paragraph-direction 'left-to-right)
 
-  ;; load extension modules into memory.  This will cause any global
-  ;; variables they define to be visible, since some of the core
-  ;; modules sometimes take advantage of their functionality if used.
-  (dolist (module eshell-modules-list)
-    (let ((module-fullname (symbol-name module))
-	  module-shortname)
-      (if (string-match "^eshell-\\(.*\\)" module-fullname)
-	  (setq module-shortname
-		(concat "em-" (match-string 1 module-fullname))))
-      (unless module-shortname
-	(error "Invalid Eshell module name: %s" module-fullname))
-      (unless (featurep (intern module-shortname))
-        (condition-case nil
-            (load module-shortname)
-          (error (lwarn 'eshell :error
-                        "Unable to load module `%s' (defined in `eshell-modules-list')"
-                        module-fullname))))))
+  ;; Load extension modules into memory.
+  (eshell-load-modules eshell-modules-list)
 
   (unless (file-exists-p eshell-directory-name)
-    (eshell-make-private-directory eshell-directory-name t))
+    (with-demoted-errors "Error creating Eshell directory: %s"
+      (eshell-make-private-directory eshell-directory-name t)))
 
-  ;; Load core Eshell modules, then extension modules, for this session.
-  (dolist (module (append (eshell-subgroups 'eshell) eshell-modules-list))
-    (let ((load-hook (intern-soft (format "%s-load-hook" module)))
-          (initfunc (intern-soft (format "%s-initialize" module))))
-      (when (and load-hook (boundp load-hook))
-        (if (memq initfunc (symbol-value load-hook)) (setq initfunc nil))
-        (run-hooks load-hook))
-      ;; So we don't need the -initialize functions on the hooks (bug#5375).
-      (and initfunc (fboundp initfunc) (funcall initfunc))))
+  ;; Initialize core Eshell modules, then extension modules, for this session.
+  (eshell-initialize-modules (eshell-subgroups 'eshell))
+  (eshell-initialize-modules eshell-modules-list)
 
   (if eshell-send-direct-to-subprocesses
       (add-hook 'pre-command-hook #'eshell-intercept-commands t t))
@@ -679,15 +659,11 @@ newline."
 				  (eval cmd)
 				(eshell-eval-command cmd input))))
 			   (eshell-life-is-too-much)))))
-	      (quit
-	       (eshell-reset t)
-	       (run-hooks 'eshell-post-command-hook)
-	       (signal 'quit nil))
 	      (error
 	       (eshell-reset t)
 	       (eshell-interactive-print
 		(concat (error-message-string err) "\n"))
-	       (run-hooks 'eshell-post-command-hook)
+               (run-hooks 'eshell-post-command-hook)
 	       (insert-and-inherit input)))))))))
 
 (defun eshell-send-eof-to-process ()
@@ -976,7 +952,7 @@ buffer's process if STRING contains a password prompt defined by
 `eshell-password-prompt-regexp'.
 
 This function could be in the list `eshell-output-filter-functions'."
-  (when eshell-foreground-command
+  (when (eshell-head-process)
     (save-excursion
       (let ((case-fold-search t))
 	(goto-char eshell-last-output-block-begin)

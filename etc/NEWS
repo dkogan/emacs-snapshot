@@ -141,6 +141,12 @@ function to the advice to remove.
 
 ** Emacs now supports Unicode Standard version 15.1.
 
+** New pre-defined values for 'electric-quote-chars'.
+The available customization options for 'electric-quote-chars' have been
+updated with common pairs of quotation characters, including "‘", "’",
+"“", "”", "«", "»", "‹", "›", "‚", "„", "「", "」", "『", and "』".
+The default is unchanged.
+
 ** Network Security Manager
 
 +++
@@ -158,6 +164,11 @@ number has been bumped to 2048 bits.
 
 ** Help
 
++++
+*** New command 'help-find-source'.
+Switch to a buffer visiting the source of what is being described in
+"*Help*".  It is bound to 'C-h 4 s' globally.
+
 *** 'describe-function' shows function inferred type when available.
 For native compiled Lisp functions 'describe-function' prints (after
 the signature) the automatically inferred function type as well.
@@ -172,6 +183,12 @@ This user option controls outline visibility in the output buffer of
 Set 'describe-mode-outline' to nil to get back the old behavior.
 
 ** Outline mode
+
+*** New commands to show/hide outlines by regexp.
+'/ h' ('outline-hide-by-heading-regexp') asks for a regexp and then
+hides the body lines of all outlines whose heading lines match the
+regexp.  '/ s' ('outline-show-by-heading-regexp') does the same but
+shows the matched outlines.
 
 +++
 *** 'outline-minor-mode' is supported in tree-sitter major modes.
@@ -515,10 +532,11 @@ function call.
 
 +++
 ** Emacs now has better support for touchscreen devices.
-Many touch screen gestures are now implemented and translated into
-mouse or gesture events, and support for tapping tool bar buttons and
-opening menus has been written.  Countless packages, such as Dired and
-Custom have been adjusted to better understand touch screen input.
+On systems that understand them (at present X, Android, and PGTK), many
+touch screen gestures are now implemented and translated into mouse or
+gesture events, and support for tapping tool bar buttons and opening
+menus has been written.  Countless packages, such as Dired and Custom
+have been adjusted to better understand touch screen input.
 
 ---
 ** On X, Emacs now supports input methods which perform "string conversion".
@@ -579,6 +597,40 @@ This input method supports the Colemak keyboard layout.
 These characters can now be input with 'C-x 8 a e' and 'C-x 8 A E',
 respectively, in addition to the existing translations 'C-x 8 / e' and
 'C-x 8 / E'.
+
+*** New 'C-x 8' key translations for "low" quotes "„", and "‚".
+These can now be entered with 'C-x , "' and 'C-x , ''.
+
+*** New German language 'C-x 8' key translations for quotation marks.
+The characters "„", "“", and "”" can now be entered with 'C-x 8 v',
+'C-x 8 b' and 'C-x 8 n'.  The single versions "‚", "‘", and "’" can now
+be entered with 'C-x 8 V', 'C-x 8 B' and 'C-x 8 N'.  These characters
+are used for the official German quoting style.  Using them requires
+activating German language support via 'iso-transl-set-language'.
+
+*** "latin-prefix" and "latin-postfix" quotation marks additions.
+These input methods can now produce single, double and "low" left and
+right quotation marks:
+
+    "‘", "’", "“", "”", "„", and "‚"
+
+by using "[", "]", and "," for "left", "right", and "low" respectively
+to modify "'" and """.
+
+*** "latin-prefix" and "latin-postfix" guillemets support.
+These input methods can now produce single guillemets "‹" and "›".  For
+"latin-prefix" use "~~<" and "~~>", for "latin-postfix" use "<~" and
+">~".  Double guillemets ("«" and "»") were already supported.
+
+*** New French language 'C-x 8' key translations for "‹" and "›".
+These characters can now be entered using 'C-x 8 ~ <' and 'C-x 8 ~ >'
+respectively, after activating French language support via
+'iso-transl-set-language'.  Double guillemets were already supported via
+'C-x 8 <' and 'C-x 8 >'
+
+*** Additional 'C-x 8' key translation for Euro "€" currency symbol.
+This can now be entered using 'C-x 8 E' in addition to the existing
+'C-x 8 * E' translation.
 
 
 * Changes in Specialized Modes and Packages in Emacs 30.1
@@ -866,6 +918,13 @@ using this new option.  (Or set 'display-buffer-alist' directly.)
 ** Eshell
 
 +++
+*** You can now run Eshell scripts in batch mode.
+By adding the following interpreter directive to an Eshell script, you
+can make it executable like other shell scripts:
+
+    #!/usr/bin/env -S emacs --batch -f eshell-batch-file
+
++++
 *** New builtin Eshell command 'compile'.
 This command runs another command, sending its output to a compilation
 buffer when the command would output interactively.  This can be useful
@@ -1034,6 +1093,15 @@ When this user option is non-nil, 'shell-get-old-input' ('C-RET')
 includes multiple shell "\" continuation lines from command output.
 Default is nil.
 
++++
+*** New user option 'shell-history-file-name'.
+When this user option is set to t, 'shell-mode' does not read the shell
+history file.  Setting this user option to a string specifies the name
+of the shell history file to be read.  A nil value triggers reading the
+environment variable 'HISTFILE'.
+
+In a 'shell' buffer, this user option is connection-local.
+
 ** Make mode
 
 *** The Makefile browser is now obsolete.
@@ -1054,8 +1122,8 @@ point is not in a comment or a string.  It is by default bound to
 
 +++
 *** New user option 'imenu-flatten'.
-It defines whether to flatten the list of sections in an imenu
-or show it nested.
+It controls  whether to flatten the list of sections in an imenu, and
+how to display the sections in the flattened list.
 
 +++
 *** The sort order of Imenu completions can now be customized.
@@ -1074,7 +1142,7 @@ mode line.  'header' will display in the header line;
 +++
 *** New user option 'which-func-update-delay'.
 This replaces the user option 'idle-update-delay', which was previously
-used to control the delay before `which-function-mode` updated its
+used to control the delay before 'which-function-mode' updated its
 display.  The user option 'idle-update-delay', which was only used by
 Which Function mode, is now obsolete.
 
@@ -1103,10 +1171,11 @@ These are the external methods counterparts of "docker" and "podman".
 
 +++
 *** New optional connection methods for containers.
-Tere are new optional connection methods "toolbox", "flatpak",
-"apptainer" and "nspawn".  They allow accessing system containers
-provided by Toolbox, sandboxes provided by Flatpak, instances managed by
-Apptainer, or accessing systemd-based light-weight containers..
+There are new optional connection methods "toolbox", "distrobox",
+"flatpak", "apptainer" and "nspawn".  They allow accessing system
+containers provided by Toolbox or Distrobox, sandboxes provided by
+Flatpak, instances managed by Apptainer, or accessing systemd-based
+light-weight containers..
 
 +++
 *** Connection method "kubernetes" supports now optional container name.
@@ -1168,7 +1237,7 @@ manual "(tramp) Improving performance of asynchronous remote processes".
 ---
 *** Direct asynchronous processes use 'tramp-remote-path'.
 When a direct asynchronous process is invoked, it uses 'tramp-remote-path'
-for setting the remote PATH environment variable.
+for setting the remote 'PATH' environment variable.
 
 ** File Notifications
 
@@ -1669,6 +1738,25 @@ The user option 'proced-auto-update-flag' can now be set to 2 additional
 values, which control automatic updates of Proced buffers that are not
 displayed in some window.
 
+** Kmacro
+
++++
+*** New Advanced Macro Counter functions.
+New commands have been added to implement advanced macro counter
+functions.
+
+The commands 'C-x C-k C-r l' and 'C-x C-k C-r s' load and save the
+macro counter from and to a number register, respectively.
+
+The commands 'C-x C-k C-r a =', 'C-x C-k C-r a <', and
+'C-x C-k C-r a >' compare the macro counter with the contents of a
+number register and increment the counter by an optional prefix if the
+comparison succeeds.
+
+The commands 'C-x C-k C-q =', 'C-x C-k C-q <', and 'C-x C-k C-q >'
+compare the macro counter with an optional prefix and terminate the
+macro if the comparison succeeds.
+
 ** Kmacro Menu mode
 
 +++
@@ -1888,6 +1976,12 @@ than regular expressions, but less complexity than context-free
 grammars.  The Info manual "(elisp) Parsing Expression Grammars" has
 documentation and examples.
 
+** New major mode 'shell-command-mode'.
+This mode is used by default for the output of asynchronous 'shell-command'.
+To revert to the previous behavior, set the (also new) variable
+'async-shell-command-mode' to 'shell-mode'.  Any hooks or mode-specific
+variables used should be adapted appropriately.
+
 
 * Incompatible Lisp Changes in Emacs 30.1
 
@@ -2075,7 +2169,7 @@ and 'closure' is the common parent type of 'interpreted-function'
 and 'byte-code-function'.
 
 Those new types come with the associated new predicates 'closurep' and
-`interpreted-function-p' as well as a new constructor
+'interpreted-function-p' as well as a new constructor
 'make-interpreted-closure'.
 
 ** New function 'help-fns-function-name'.
@@ -2685,6 +2779,10 @@ treesitter grammar.
 ** New buffer-local variable 'tabulated-list-groups'.
 It controls display and separate sorting of groups of entries.
 
++++
+** New variable 'revert-buffer-restore-functions'.
+It helps to preserve various states after reverting the buffer.
+
 ---
 ** New text property 'context-menu-functions'.
 Like the variable with the same name, it adds menus from the list that
@@ -2775,22 +2873,10 @@ parsers with that tag.  Note that passing nil as tag doesn't mean return
 all parsers, but rather "all parsers with no tags".
 
 +++
-*** New function 'treesit-parser-changed-ranges'.
-This function returns buffer regions that are affected by the last
-buffer edits.
-
-*** New function 'treesit-add-font-lock-rules'.
-This function helps users to add custom font-lock rules to a tree-sitter
-major mode.
-
----
-** The variable 'rx-constituents' is now obsolete.
-Use 'rx-define', 'rx-let' and 'rx-let-eval' instead.
-
----
-** 'defvar-keymap' can specify hints for 'repeat-mode'.
-Using ':repeat (:hints ((command . "hint") ...))' will show
-the hint string in the echo area together with repeatable keys.
+*** New variable 'treesit-primary-parser'.
+This variable should be set by multi-langauge major modes before calling
+'treesit-major-mode-setup', in order for tree-sitter integration
+functionalities to operate correctly.
 
 
 * Changes in Emacs 30.1 on Non-Free Operating Systems
@@ -2804,6 +2890,18 @@ title bars' and scroll bars' appearance.  If the new user option
 'w32-follow-system-dark-mode' is customized to the nil value, Emacs
 will disregard the system's Dark mode and will always use the default
 Light mode.
+
+---
+*** You can now use Image-Dired even if 'convert' command is not installed.
+If you don't have GraphicsMagick or ImageMagick installed, and thus the
+'gm convert'/'convert' command is not available, Emacs on MS-Windows
+will now use its own function 'w32image-create-thumbnail' to create
+thumbnail images and show them in the thumbnail buffer.  Unlike with
+using 'convert', this fallback method is synchronous, so Emacs will wait
+until all the thumbnails are created and displayed, before showing them.
+
+---
+*** Emacs on MS-Windows now supports the ':stipple' face attribute.
 
 
 ----------------------------------------------------------------------

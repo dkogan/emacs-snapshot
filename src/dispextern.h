@@ -3621,6 +3621,7 @@ extern void update_redisplay_ticks (int, struct window *);
 
 #ifdef HAVE_WINDOW_SYSTEM
 
+extern void clear_image_cache (struct frame *, Lisp_Object);
 extern ptrdiff_t image_bitmap_pixmap (struct frame *, ptrdiff_t);
 extern void image_reference_bitmap (struct frame *, ptrdiff_t);
 extern ptrdiff_t image_create_bitmap_from_data (struct frame *, char *,
@@ -3811,6 +3812,7 @@ extern void gui_update_window_end (struct window *, bool, bool);
 #endif
 void do_pending_window_change (bool);
 void change_frame_size (struct frame *, int, int, bool, bool, bool);
+extern bool frame_size_change_delayed (void);
 void init_display (void);
 void syms_of_display (void);
 extern void spec_glyph_lookup_face (struct window *, GLYPH *);

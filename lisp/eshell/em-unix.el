@@ -38,7 +38,7 @@
 (require 'esh-mode)
 (require 'pcomplete)
 
-;;;###autoload
+;;;###esh-module-autoload
 (progn
 (defgroup eshell-unix nil
   "This module defines many of the more common UNIX utilities as
@@ -683,9 +683,7 @@ Concatenate FILE(s), or standard input, to standard output.")
 	       (with-current-buffer curbuf
 		 (eshell-buffered-print str)))
 	     (forward-line)))))
-     (eshell-flush)
-     ;; if the file does not end in a newline, do not emit one
-     (setq eshell-ensure-newline-p nil))))
+     (eshell-flush))))
 
 (put 'eshell/cat 'eshell-no-numeric-conversions t)
 (put 'eshell/cat 'eshell-filename-arguments t)
@@ -1096,9 +1094,4 @@ Show wall-clock time elapsed during execution of COMMAND.")
 (define-obsolete-function-alias 'eshell-diff-quit #'ignore "30.1")
 
 (provide 'em-unix)
-
-;; Local Variables:
-;; generated-autoload-file: "esh-groups.el"
-;; End:
-
 ;;; em-unix.el ends here

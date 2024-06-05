@@ -1277,13 +1277,18 @@ Return an alist of the form ((GROUP . (XREF ...)) ...)."
   "Refresh the search results in the current buffer."
   (interactive)
   (let ((inhibit-read-only t)
-        (buffer-undo-list t))
+        (buffer-undo-list t)
+        restore-functions)
+    (when (boundp 'revert-buffer-restore-functions)
+      (run-hook-wrapped 'revert-buffer-restore-functions
+                        (lambda (f) (push (funcall f) restore-functions) nil)))
     (save-excursion
       (condition-case err
           (let ((alist (xref--analyze (funcall xref--fetcher)))
                 (inhibit-modification-hooks t))
             (erase-buffer)
-            (xref--insert-xrefs alist))
+            (prog1 (xref--insert-xrefs alist)
+              (mapc #'funcall (delq nil restore-functions))))
         (user-error
          (erase-buffer)
          (insert
@@ -2117,7 +2122,7 @@ Such as the current syntax table and the applied syntax properties."
       ;; Using the temporary buffer is both a performance and a buffer
       ;; management optimization.
       (with-current-buffer tmp-buffer
-        ;; This let is fairly dangerouns, but improves performance
+        ;; This let is fairly dangerous, but improves performance
         ;; for large lists, see https://debbugs.gnu.org/53749#227
         (let ((inhibit-modification-hooks t))
         (erase-buffer)

@@ -194,6 +194,11 @@ and a string describing how the process finished.")
 
 (defvar compilation-error-regexp-alist-alist
  (eval-when-compile
+   ;; The order of this list is the default order of items in
+   ;; `compilation-error-regexp-alist' which is also the matching order,
+   ;; so don't add things in alphabetic order just out of habit.
+   ;; FIXME: We should sort it by frequency (less often used ones in the back),
+   ;; but individual patterns also have their own partial order.
   `((absoft
      "^\\(?:[Ee]rror on \\|[Ww]arning on\\( \\)\\)?[Ll]ine[ \t]+\\([0-9]+\\)[ \t]+\
 of[ \t]+\"?\\([a-zA-Z]?:?[^\":\n]+\\)\"?:" 3 2 nil (1))
@@ -223,13 +228,6 @@ of[ \t]+\"?\\([a-zA-Z]?:?[^\":\n]+\\)\"?:" 3 2 nil (1))
      "^[ \t]*File \\(\"?\\)\\([^,\" \n\t<>]+\\)\\1, lines? \\([0-9]+\\)-?\\([0-9]+\\)?\\(?:$\\|,\
 \\(?: characters? \\([0-9]+\\)-?\\([0-9]+\\)?:\\)?\\([ \n]Warning\\(?: [0-9]+\\)?:\\)?\\)"
      2 (3 . 4) (5 . 6) (7))
-
-    (cargo
-     "\\(?:\\(?4:error\\)\\|\\(?5:warning\\)\\):[^\0]+?--> \\(?1:[^:]+\\):\\(?2:[[:digit:]]+\\):\\(?3:[[:digit:]]+\\)"
-     1 2 3 (5)
-     nil
-     (5 compilation-warning-face)
-     (4 compilation-error-face))
 
     (cmake
      "^CMake \\(?:Error\\|\\(Warning\\)\\) at \\(.*\\):\\([1-9][0-9]*\\) ([^)]+):$"

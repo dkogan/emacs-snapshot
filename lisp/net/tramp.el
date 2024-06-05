@@ -1370,7 +1370,8 @@ let-bind this variable."
   '(tramp-default-remote-path "/bin" "/usr/bin" "/sbin" "/usr/sbin"
     "/usr/local/bin" "/usr/local/sbin" "/local/bin" "/local/freeware/bin"
     "/local/gnu/bin" "/usr/freeware/bin" "/usr/pkg/bin" "/usr/contrib/bin"
-    "/opt/bin" "/opt/sbin" "/opt/local/bin")
+    "/opt/bin" "/opt/sbin" "/opt/local/bin"
+    "/opt/homebrew/bin" "/opt/homebrew/sbin")
   "List of directories to search for executables on remote host.
 For every remote host, this variable will be set buffer local,
 keeping the list of existing directories on that host.
@@ -4850,7 +4851,7 @@ a connection-local variable."
 (defvar tramp-direct-async-process nil
   "Whether direct asynchronous processes should be used.
 It is not recommended to change this variable globally.  Instead, it
-should be set conmnection-local.")
+should be set connection-local.")
 
 (defun tramp-direct-async-process-p (&rest args)
   "Whether direct async `make-process' can be called."
@@ -4962,6 +4963,18 @@ should be set conmnection-local.")
 			      (string-join (tramp-get-remote-path v) ":")))
 			(setenv-internal env "PATH" remote-path 'keep)
 		      env))
+	       ;; Add HISTFILE if indicated.
+	       (env (if-let ((sh-file-name-handler-p))
+			(cond
+			 ((stringp tramp-histfile-override)
+			  (setenv-internal env "HISTFILE" tramp-histfile-override 'keep))
+			 (tramp-histfile-override
+			  (setq env (setenv-internal env "HISTFILE" "''" 'keep))
+			  (setq env (setenv-internal env "HISTSIZE" "0" 'keep))
+			  (setenv-internal env "HISTFILESIZE" "0" 'keep))
+			 (t env))
+		      env))
+	       ;; Add INSIDE_EMACS.
 	       (env (setenv-internal
 		     env "INSIDE_EMACS" (tramp-inside-emacs) 'keep))
 	       (env (mapcar #'tramp-shell-quote-argument (delq nil env)))
@@ -5247,8 +5260,13 @@ support symbolic links."
 	      ;; Display output.
 	      (with-current-buffer output-buffer
 		(setq mode-line-process '(":%s"))
-		(unless (eq major-mode 'shell-mode)
-		  (shell-mode))
+                (cond
+                 ((boundp 'async-shell-command-mode)
+                  ;; Emacs 30+
+                  (unless (eq major-mode async-shell-command-mode)
+                    (funcall async-shell-command-mode)))
+                 ((not (eq major-mode 'shell-mode))
+                  (shell-mode)))
 		(set-process-filter p #'comint-output-filter)
 		(set-process-sentinel p #'shell-command-sentinel)
 		(when error-file

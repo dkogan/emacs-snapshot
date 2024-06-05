@@ -64,6 +64,7 @@ If it is nil, out-of-the-band copy will be used without a check."
   :group 'tramp
   :type '(choice (const nil) integer))
 
+;;;###tramp-autoload
 (defcustom tramp-histfile-override "~/.tramp_history"
   "When invoking a shell, override the HISTFILE with this value.
 When setting to a string, it redirects the shell history to that
@@ -79,6 +80,8 @@ the default storage location, e.g. \"$HOME/.sh_history\"."
   :type '(choice (const :tag "Do not override HISTFILE" nil)
                  (const :tag "Unset HISTFILE" t)
                  (string :tag "Redirect to a file")))
+
+(put 'tramp-histfile-override 'permanent-local t)
 
 ;; ksh on OpenBSD 4.5 requires that $PS1 contains a `#' character for
 ;; root users.  It uses the `$' character for other users.  In order
@@ -186,7 +189,7 @@ The string is used in `tramp-methods'.")
                 (tramp-login-args           (("-l" "%u") ("-p" "%p") ("%c")
 				             ("-e" "none") ("%h")))
                 (tramp-async-args           (("-q")))
-                (tramp-direct-async         t)
+		(tramp-direct-async         ("-t" "-t"))
                 (tramp-remote-shell         ,tramp-default-remote-shell)
                 (tramp-remote-shell-login   ("-l"))
                 (tramp-remote-shell-args    ("-c"))
@@ -250,7 +253,7 @@ The string is used in `tramp-methods'.")
                 (tramp-login-args           (("-l" "%u") ("-p" "%p") ("%c")
 				             ("-e" "none") ("%h")))
                 (tramp-async-args           (("-q")))
-                (tramp-direct-async         t)
+		(tramp-direct-async         ("-t" "-t"))
                 (tramp-remote-shell         ,tramp-default-remote-shell)
                 (tramp-remote-shell-login   ("-l"))
                 (tramp-remote-shell-args    ("-c"))))
@@ -2702,7 +2705,7 @@ The method used must be an out-of-band method."
       (let ((dired (tramp-get-ls-command-with v "--dired")))
 	(when (stringp switches)
           (setq switches (split-string switches)))
-        ;; Newer coreutil versions of ls (9.5 and up) imply long format
+        ;; Newer coreutils versions of ls (9.5 and up) imply long format
         ;; output when "--dired" is given.  Suppress this implicit rule.
         (when dired
           (let ((tem switches)
