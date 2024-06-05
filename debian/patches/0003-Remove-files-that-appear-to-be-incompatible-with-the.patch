@@ -169,10 +169,10 @@ index 2841916..48b5351 100644
  ## This is discouraged because the .texi files it generates
  ## are not as well formatted as handwritten ones.
 diff --git a/lisp/help.el b/lisp/help.el
-index 616a453..e654df79 100644
+index 2feb178..c67a6c1 100644
 --- a/lisp/help.el
 +++ b/lisp/help.el
-@@ -521,6 +521,14 @@ If that doesn't give a function, return nil."
+@@ -523,6 +523,14 @@ If that doesn't give a function, return nil."
    (goto-address-mode 1)
    (goto-char (point-min)))
  
