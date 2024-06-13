@@ -118,10 +118,10 @@ index 20394cb..5f787ba 100644
  
  $(UNINSTALL_DOC):
 diff --git a/configure.ac b/configure.ac
-index e3213f4..c4a28d1 100644
+index f75c0a9..7449b88 100644
 --- a/configure.ac
 +++ b/configure.ac
-@@ -7814,11 +7814,10 @@ ARCH_INDEPENDENT_CONFIG_FILES([$srcdir/doc/man/emacs.1])
+@@ -7824,11 +7824,10 @@ ARCH_INDEPENDENT_CONFIG_FILES([$srcdir/doc/man/emacs.1])
  
  AC_CONFIG_FILES([lib/Makefile lib-src/Makefile oldXMenu/Makefile src/Makefile
                   lwlib/Makefile nextstep/Makefile nt/Makefile])
@@ -135,7 +135,7 @@ index e3213f4..c4a28d1 100644
  
  dnl The test/ directory is missing if './make-dist --no-tests' was used.
  opt_makefile=test/Makefile
-@@ -7890,15 +7889,6 @@ if test "$XCONFIGURE" != "android"; then
+@@ -7900,15 +7899,6 @@ if test "$XCONFIGURE" != "android"; then
    fi
    ])
  
@@ -152,7 +152,7 @@ index e3213f4..c4a28d1 100644
    dnl then a directory etc/refcards is created in the build directory,
    dnl which is probably harmless, but confusing (in out-of-tree builds).
 diff --git a/doc/misc/Makefile.in b/doc/misc/Makefile.in
-index 2841916..48b5351 100644
+index b26d352..38502b1 100644
 --- a/doc/misc/Makefile.in
 +++ b/doc/misc/Makefile.in
 @@ -84,6 +84,12 @@ INFO_INSTALL = $(INFO_COMMON) $(DOCMISC_W32)
@@ -169,7 +169,7 @@ index 2841916..48b5351 100644
  ## This is discouraged because the .texi files it generates
  ## are not as well formatted as handwritten ones.
 diff --git a/lisp/help.el b/lisp/help.el
-index 2feb178..c67a6c1 100644
+index 878dd40..af94bc7 100644
 --- a/lisp/help.el
 +++ b/lisp/help.el
 @@ -523,6 +523,14 @@ If that doesn't give a function, return nil."
