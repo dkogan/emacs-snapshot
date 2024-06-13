@@ -1819,7 +1819,7 @@ possibilities can be narrowed to specific indentation points."
         (`(:after-block-end . ,start)
          ;; Subtract one indentation level.
          (goto-char start)
-         (- (current-indentation) python-indent-offset))
+         (max 0 (- (current-indentation) python-indent-offset)))
         (`(:at-dedenter-block-start . ,_)
          ;; List all possible indentation levels from opening blocks.
          (let ((opening-block-start-points
@@ -5722,7 +5722,8 @@ Interactively, prompt for symbol."
 (defun python-hideshow-forward-sexp-function (_arg)
   "Python specific `forward-sexp' function for `hs-minor-mode'.
 Argument ARG is ignored."
-  (python-nav-end-of-block))
+  (python-nav-end-of-block)
+  (end-of-line))
 
 (defun python-hideshow-find-next-block (regexp maxp comments)
   "Python specific `hs-find-next-block' function for `hs-minor-mode'.

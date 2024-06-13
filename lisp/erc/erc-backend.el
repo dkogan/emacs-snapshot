@@ -885,7 +885,7 @@ Expect BUFFER to be the server buffer for the current connection."
                                                  (time-convert nil 'integer))))
                            ((or "connection broken by remote peer\n"
                                 (rx bot "failed"))
-                            (funcall reschedule proc)))))
+                            (run-at-time nil nil reschedule proc)))))
              (filter (lambda (proc _)
                        (delete-process proc)
                        (with-current-buffer buffer
@@ -1648,6 +1648,10 @@ Would expand to:
   non-nil, stop processing the hook.  Otherwise, continue.
 
   See also `erc-server-311'.\"))
+
+  Note that while all ALIASES share the same handler function, each gets
+  its own distinct hook variable.  The default value of these variables
+  may be a list or a function.  Robust code should handle both.
 
 \(fn (NAME &rest ALIASES) &optional EXTRA-FN-DOC EXTRA-VAR-DOC &rest FN-BODY)"
   (declare (debug (&define [&name "erc-response-handler@"

@@ -1827,8 +1827,7 @@ in *Help* buffer.  See also the command `describe-char'."
   (interactive "P")
   (let* ((char (following-char))
          (char-name (and what-cursor-show-names
-                         (or (get-char-code-property char 'name)
-                             (get-char-code-property char 'old-name))))
+                         (char-to-name char)))
          (char-name-fmt (if char-name
                             (format ", %s" char-name)
                           ""))
@@ -10683,8 +10682,10 @@ Returns the newly created indirect buffer."
      (list (if current-prefix-arg
 	       (read-buffer "Name of indirect buffer: " (current-buffer)))
 	   t)))
-  (let ((pop-up-windows t))
-    (clone-indirect-buffer newname display-flag norecord)))
+  ;; For compatibility, don't display the buffer if display-flag is nil.
+  (let ((buffer (clone-indirect-buffer newname nil norecord)))
+    (when display-flag
+      (switch-to-buffer-other-window buffer norecord))))
 
 
 ;;; Handling of Backspace and Delete keys.

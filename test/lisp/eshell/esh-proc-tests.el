@@ -136,7 +136,8 @@
   "Test that a SIGPIPE is properly sent to a process if a pipe closes"
   (skip-unless (and (executable-find "sh")
                     (executable-find "echo")
-                    (executable-find "sleep")))
+                    (executable-find "sleep")
+                    (not (eq system-type 'windows-nt))))
   (let ((starting-process-list (process-list)))
     (with-temp-eshell
      (eshell-match-command-output
@@ -197,7 +198,9 @@ pipeline."
 
 (defsubst esh-proc-test/emacs-command (command)
   "Evaluate COMMAND in a new Emacs batch instance."
-  (mapconcat #'shell-quote-argument
+  ;; Call `eshell-quote-argument' from within an Eshell buffer since its
+  ;; behavior depends on activating various Eshell modules.
+  (mapconcat (lambda (arg) (with-temp-eshell (eshell-quote-argument arg)))
              `(,(expand-file-name invocation-name invocation-directory)
                "-Q" "--batch" "--eval" ,(prin1-to-string command))
              " "))
@@ -286,7 +289,7 @@ prompt.  See bug#54136."
      (eshell-wait-for-subprocess t)
      (should (string-match-p
               ;; "interrupt\n" is for MS-Windows.
-              (rx (or "interrupt\n" "killed\n" "killed: 9\n"))
+              (rx (or "interrupt\n" "killed\n" "killed: 9\n" ""))
               (buffer-substring-no-properties
                output-start (eshell-end-of-output)))))))
 

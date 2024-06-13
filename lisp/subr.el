@@ -5082,8 +5082,7 @@ of that nature."
        (unwind-protect
            (progn
              ,@body)
-         (when (or (not ,modified)
-                   (eq ,modified 'autosaved))
+         (when (memq ,modified '(nil autosaved))
            (restore-buffer-modified-p ,modified))))))
 
 (defmacro with-output-to-string (&rest body)
@@ -5701,7 +5700,7 @@ Unless optional argument INPLACE is non-nil, return a new string."
            (if (multibyte-string-p string)
                (> (max fromchar tochar) 127)
              (> tochar 255)))
-      ;; Avoid quadratic behaviour from resizing replacement.
+      ;; Avoid quadratic behavior from resizing replacement.
       (let ((res (string-replace (string fromchar) (string tochar) string)))
         (unless (eq res string)
           ;; Mend properties broken by the replacement.

@@ -4399,6 +4399,8 @@ extern void adjust_after_insert (ptrdiff_t, ptrdiff_t, ptrdiff_t,
 				 ptrdiff_t, ptrdiff_t);
 extern void adjust_markers_for_delete (ptrdiff_t, ptrdiff_t,
 				       ptrdiff_t, ptrdiff_t);
+extern void adjust_markers_for_insert (ptrdiff_t, ptrdiff_t,
+				       ptrdiff_t, ptrdiff_t, bool);
 extern void adjust_markers_bytepos (ptrdiff_t, ptrdiff_t,
 				    ptrdiff_t, ptrdiff_t, int);
 extern void replace_range (ptrdiff_t, ptrdiff_t, Lisp_Object, bool, bool,
@@ -4508,7 +4510,7 @@ flush_stack_call_func (void (*func) (void *arg), void *arg)
   /* Work around GCC sibling call optimization making
      '__builtin_unwind_init' ineffective (bug#65727).
      See <https://gcc.gnu.org/bugzilla/show_bug.cgi?id=115132>.  */
-#if defined __GNUC__ && !defined __clang__
+#if defined __GNUC__ && !defined __clang__ && !defined __OBJC__
   asm ("");
 #endif
 }

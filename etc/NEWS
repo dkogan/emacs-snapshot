@@ -126,6 +126,13 @@ to your init:
 
     (advice-add 'completion-at-point :after #'minibuffer-hide-completions)
 
+** The default process filter was rewritten in native code.
+The round-trip through the Lisp function
+'internal-default-process-filter' is skipped when the process filter is
+the default one.  It's reimplemented in native code, reducing GC churn.
+
+To undo the change, set 'fast-read-process-output' to nil.
+
 
 * Changes in Emacs 30.1
 
@@ -181,6 +188,29 @@ This user option controls outline visibility in the output buffer of
 ---
 *** 'C-h m' ('describe-mode') uses outlining by default.
 Set 'describe-mode-outline' to nil to get back the old behavior.
+
+*** 'C-h k' ('describe-key') shows Unicode name.
+For keybindings which produce single characters via translation or input
+methods, 'C-h k' now shows the Unicode name of the produced character in
+addition to the character itself, e.g.
+
+'C-h k C-x 8 E' =>
+
+    € 'EURO SIGN' (translated from C-x 8 E)
+
+*** 'C-h b' ('describe-bindings') shows Unicode names.
+For keybindings which produce single characters via translation (such as
+those using the 'C-x 8' or 'A-' prefix, or 'dead-acute', 'dead-grave',
+etc), the Unicode names will now be shown in addition to the character
+itself, i.e.
+
+    A-!			¡	INVERTED EXCLAMATION MARK
+    A-$			¤	CURRENCY SIGN
+
+and so on.
+
+** Emacs now comes with Org v9.7.
+See the file "etc/ORG-NEWS" for user-visible changes in Org.
 
 ** Outline mode
 
@@ -258,6 +288,11 @@ When this minor mode is enabled, buttons representing modifier keys
 are displayed along the tool bar.
 
 +++
+** New user option 'tool-bar-always-show-default'.
+When non-nil, the tool bar at the top of a frame does not show buffer
+local customization of the tool bar.  The default value is nil.
+
++++
 ** "d" in the mode line now indicates that the window is dedicated.
 Windows have always been able to be dedicated to a specific buffer;
 see 'window-dedicated-p'.  Now the mode line indicates the dedicated
@@ -322,6 +357,14 @@ right-aligned to is controlled by the new user option
 'mode-line-right-align-edge'.
 
 ** Windows
+
++++
+*** New action alist entry 'some-window' for 'display-buffer'.
+It specifies which window 'display-buffer-use-some-window' should prefer.
+For example, when 'display-buffer-base-action' is customized to
+'(nil . ((some-window . mru)))', then a buffer will be displayed
+in the same most recently used window from consecutive calls of
+'display-buffer' (in a configuration with more than two windows).
 
 +++
 *** New action alist entry 'category' for 'display-buffer'.
@@ -484,6 +527,13 @@ When visiting a script that invokes 'env -S INTERPRETER ARGS...' in
 its shebang line, Emacs will now skip over 'env -S' and deduce the
 major mode based on the interpreter after 'env -S'.
 
++++
+** New function 'sqlite-execute-batch'.
+This function lets the user execute multiple SQL statements in one go.
+It is useful, for example, when a Lisp program needs to evaluate an
+entire SQL file.
+
+** The default value of 'read-process-output-max' was increased to 65536.
 
 * Editing Changes in Emacs 30.1
 
@@ -532,11 +582,12 @@ function call.
 
 +++
 ** Emacs now has better support for touchscreen devices.
-On systems that understand them (at present X, Android, and PGTK), many
-touch screen gestures are now implemented and translated into mouse or
-gesture events, and support for tapping tool bar buttons and opening
-menus has been written.  Countless packages, such as Dired and Custom
-have been adjusted to better understand touch screen input.
+On systems that understand them (at present X, Android, PGTK, and
+MS-Windows), many touch screen gestures are now implemented and
+translated into mouse or gesture events, and support for tapping tool
+bar buttons and opening menus has been written.  Countless packages,
+such as Dired and Custom have been adjusted to better understand touch
+screen input.
 
 ---
 ** On X, Emacs now supports input methods which perform "string conversion".
@@ -947,6 +998,13 @@ command, which will give write permission for owners of newly-created
 files and deny read permission for users who are not members of the
 file's group.  See the Info node "(coreutils) File permissions" for
 more information on this notation.
+
+---
+*** Performance improvements for interactive output in Eshell.
+Interactive output in Eshell should now be significantly faster,
+especially for built-in commands that can print large amounts of output
+(e.g. "cat").  In addition, these commands can now update the display
+periodically to show their progress.
 
 +++
 *** New special reference type '#<marker POSITION BUFFER>'.
@@ -1393,6 +1451,11 @@ Controls for which packages Emacs runs extra build commands when
 installing directly from the package VCS repository.
 
 ---
+*** New command 'package-vc-log-incoming'.
+This commands displays incoming changes for a VC package without
+modifying the current checkout.
+
+---
 *** New command to start an inferior Emacs loading only specific packages.
 The new command 'package-isolate' will start a new Emacs process, as
 a sub-process of Emacs where you invoke the command, in a way that
@@ -1614,9 +1677,9 @@ fit on fewer lines without negatively impacting readability.
 CPerl mode fontifies subroutine signatures like variable declarations
 which makes them visually distinct from subroutine prototypes.
 
-*** Syntax of Perl up to version 5.38 is supported.
+*** Syntax of Perl up to version 5.40 is supported.
 CPerl mode supports the new keywords for exception handling and the
-object oriented syntax which were added in Perl 5.36 and 5.38.
+object oriented syntax which were added in Perl 5.36, 5.38 and 5.40.
 
 *** New user option 'cperl-fontify-trailer'.
 This user option takes the values 'perl-code' or 'comment' and treats
@@ -1629,6 +1692,11 @@ comment, like Perl mode does.
 This command sets the indentation style for the current buffer.  To
 change the default style, either use the user option with the same name
 or use the command 'cperl-set-style'.
+
+*** New minor mode cperl-extra-paired-delimiters-mode
+Perl 5.36 and newer allows using more than 200 non-ASCII paired
+delimiters for quote-like constructs, eg. "q«text»".  Use this minor
+mode in buffers where this feature is activated.
 
 *** Commands using the Perl info page are obsolete.
 The Perl documentation in info format is no longer distributed with
@@ -1870,7 +1938,8 @@ chat buffers use by default.
 ---
 *** New user option 'Buffer-menu-group-by'.
 It controls how buffers are divided into groups that are displayed with
-headings using Outline minor mode.
+headings using Outline minor mode.  Using commands that mark buffers
+on the outline heading line will mark all buffers in the outline.
 
 +++
 *** New command 'Buffer-menu-toggle-internal'.
@@ -1914,17 +1983,22 @@ the functionality of 'after-change-functions':
 An optional major mode based on the tree-sitter library for editing
 HTML files.
 
----
++++
 *** New major mode 'heex-ts-mode'.
 A major mode based on the tree-sitter library for editing HEEx files.
 
----
++++
 *** New major mode 'elixir-ts-mode'.
 A major mode based on the tree-sitter library for editing Elixir files.
 
----
++++
 *** New major mode 'lua-ts-mode'.
 A major mode based on the tree-sitter library for editing Lua files.
+
++++
+*** New major mode 'php-ts-mode'.
+A major mode based on the tree-sitter library for editing PHP files.
+
 
 ** Minibuffer and Completions
 
@@ -1982,6 +2056,13 @@ To revert to the previous behavior, set the (also new) variable
 'async-shell-command-mode' to 'shell-mode'.  Any hooks or mode-specific
 variables used should be adapted appropriately.
 
++++
+** New package Window-Tool-Bar.
+This provides a new minor mode, 'window-tool-bar-mode'.  When this minor
+mode is enabled, a tool bar is displayed at the top of a window.  To
+conserve space, no tool bar is shown if 'tool-bar-map' is nil.  The
+global minor mode 'global-window-tool-bar-mode' enables this minor mode
+in all buffers.
 
 * Incompatible Lisp Changes in Emacs 30.1
 
@@ -2157,6 +2238,16 @@ completion candidate.
 * Lisp Changes in Emacs 30.1
 
 +++
+** New hook 'hack-dir-local-get-variables-functions'.
+This can be used to provide support for other directory-local settings
+beside '.dir-locals.el'.
+
++++
+** 'auto-coding-functions' can know the name of the file.
+The functions on this hook can now find the name of the file to
+which the text belongs by consulting the variable 'auto-coding-file-name'.
+
++++
 ** New user option 'compilation-safety' to control safety of native code.
 It's now possible to control how safe is the code generated by native
 compilation, by customizing this user option.  It is also possible to
@@ -2177,6 +2268,11 @@ For named functions, it just returns the name and otherwise
 it returns a short "unique" string that identifies the function.
 In either case, the string is propertized so clicking on it gives
 further details.
+
++++
+** New function 'char-to-name'.
+This is a convenience function to return the Unicode name of a char (if
+it has one).
 
 ** New function 'cl-type-of'.
 This function is like 'type-of' except that it sometimes returns

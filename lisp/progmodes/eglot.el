@@ -1514,7 +1514,12 @@ Each function is passed the server as an argument")
 This docstring appeases checkdoc, that's all."
   (let* ((default-directory (project-root project))
          (nickname (project-name project))
-         (readable-name (format "EGLOT (%s/%s)" nickname managed-modes))
+         (readable-name
+          (progn
+            (unless (file-exists-p default-directory)
+              ;; could happen because of bug#70724 or just because
+              (eglot--error "Project '%s' is gone!" nickname))
+            (format "EGLOT (%s/%s)" nickname managed-modes)))
          server-info
          (contact (if (functionp contact) (funcall contact) contact))
          (initargs

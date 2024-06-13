@@ -1851,6 +1851,7 @@ adjust_frame_glyphs (struct frame *f)
       eassert (FRAME_INITIAL_P (f)
 	       || noninteractive
 	       || !initialized
+	       || !f->terminal->name /* frame is being deleted */
 	       || (f->current_matrix
 		   && f->current_matrix->nrows > 0
 		   && f->current_matrix->rows
@@ -2643,7 +2644,7 @@ build_frame_matrix_from_leaf_window (struct glyph_matrix *frame_matrix, struct w
 #ifdef GLYPH_DEBUG
 	  /* Window row window_y must be a slice of frame row
 	     frame_y.  */
-	  eassert (delayed_size_change
+	  eassert (frame_size_change_delayed (XFRAME (w->frame))
 		   || glyph_row_slice_p (window_row, frame_row));
 
 	  /* If rows are in sync, we don't have to copy glyphs because
@@ -3150,7 +3151,7 @@ window_to_frame_vpos (struct window *w, int vpos)
   eassert (!FRAME_WINDOW_P (XFRAME (w->frame)));
   eassert (vpos >= 0 && vpos <= w->desired_matrix->nrows);
   vpos += WINDOW_TOP_EDGE_LINE (w);
-  eassert (delayed_size_change
+  eassert (frame_size_change_delayed (XFRAME (w->frame))
 	   || (vpos >= 0 && vpos <= FRAME_TOTAL_LINES (XFRAME (w->frame))));
   return vpos;
 }
@@ -5263,6 +5264,11 @@ update_frame_line (struct frame *f, int vpos, bool updating_menu_p)
   bool colored_spaces_p = (FACE_FROM_ID (f, DEFAULT_FACE_ID)->background
 			   != FACE_TTY_DEFAULT_BG_COLOR);
 
+  /* This should never happen, but evidently sometimes does if one
+     resizes the frame quickly enough.  Prevent aborts in cmcheckmagic.  */
+  if (vpos >= FRAME_TOTAL_LINES (f))
+    return;
+
   if (colored_spaces_p)
     write_spaces_p = 1;
 
@@ -6081,13 +6087,13 @@ change_frame_size (struct frame *f, int new_width, int new_height,
     change_frame_size_1 (f, new_width, new_height, pretend, delay, safe);
 }
 
-/* Return non-zero if we delayed size-changes and haven't handled them
-   yet, which means we cannot be sure about the exact dimensions of our
-   frames.  */
+/* Return non-zero if we delayed size-changes of frame F and haven't
+   handled them yet, which means we cannot be sure about the exact
+   dimensions of our frames.  */
 bool
-frame_size_change_delayed (void)
+frame_size_change_delayed (struct frame *f)
 {
-  return delayed_size_change;
+  return (delayed_size_change || f->new_size_p);
 }
 
 /***********************************************************************

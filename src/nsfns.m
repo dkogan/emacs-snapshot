@@ -690,11 +690,15 @@ ns_change_tab_bar_height (struct frame *f, int height)
   SET_FRAME_GARBAGED (f);
 }
 
+#ifdef NS_IMPL_COCOA
+
 void
 ns_make_frame_key_window (struct frame *f)
 {
   [[FRAME_NS_VIEW (f) window] makeKeyWindow];
 }
+
+#endif /* NS_IMPL_COCOA */
 
 /* tabbar support */
 static void
