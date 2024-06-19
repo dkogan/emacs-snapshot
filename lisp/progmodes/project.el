@@ -1,7 +1,7 @@
 ;;; project.el --- Operations on the current project  -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2015-2024 Free Software Foundation, Inc.
-;; Version: 0.11.0
+;; Version: 0.11.1
 ;; Package-Requires: ((emacs "26.1") (xref "1.7.0"))
 
 ;; This is a GNU ELPA :core package.  Avoid functionality that is not
@@ -714,10 +714,16 @@ See `project-vc-extra-root-markers' for the marker value format.")
                 (mapcar
                  (lambda (module)
                    (when (file-directory-p module)
-                     (project--vc-list-files
-                      (concat default-directory module)
-                      backend
-                      extra-ignores)))
+                     (let ((sub-files
+                            (project--vc-list-files
+                             (concat default-directory module)
+                             backend
+                             extra-ignores)))
+                       (if project-files-relative-names
+                           (mapcar (lambda (file)
+                                     (concat (file-name-as-directory module) file))
+                                   sub-files)
+                         sub-files))))
                  submodules)))
            (setq files
                  (apply #'nconc files sub-files))))

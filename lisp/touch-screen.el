@@ -1751,6 +1751,7 @@ functions undertaking event management themselves to call
 
 (put 'mouse-drag-region 'ignored-mouse-command t)
 
+;;;###autoload
 (defun touch-screen-translate-touch (prompt)
   "Translate touch screen events into a sequence of mouse events.
 PROMPT is the prompt string given to `read-key-sequence', or nil
@@ -2065,9 +2066,9 @@ Must be called from a command bound to a `touchscreen-hold' or
 `touchscreen-drag' event."
   (let* ((tool touch-screen-current-tool)
          (current-what (nth 4 tool)))
-    ;; Signal an error if no hold or drag is in progress.
-    (when (and (not (eq current-what 'hold)
-                    (eq current-what 'drag)))
+    ;; Signal an error if no hold and no drag is in progress.
+    (when (and (not (eq current-what 'hold))
+               (not (eq current-what 'drag)))
       (error "Calling `touch-screen-inhibit-drag' outside hold or drag"))
     ;; Now set the fourth element of tool to `command-inhibit'.
     (setcar (nthcdr 3 tool) 'command-inhibit)))

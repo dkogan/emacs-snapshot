@@ -76,6 +76,9 @@
 (declare-function treesit-parser-included-ranges "treesit.c")
 (declare-function treesit-parser-list "treesit.c")
 (declare-function treesit-parser-language "treesit.c")
+(declare-function treesit-search-forward "treesit.c")
+(declare-function treesit-node-prev-sibling "treesit.c")
+(declare-function treesit-node-first-child-for-pos "treesit.c")
 
 ;;; Install treesitter language parsers
 (defvar php-ts-mode--language-source-alist
@@ -130,7 +133,7 @@ If nil the default one is used to run the embedded webserver or
 inferior PHP process."
   :tag "PHP Init file"
   :version "30.1"
-  :type 'file)
+  :type '(choice (const :tag "Default init file" nil) file))
 
 (defcustom php-ts-mode-ws-hostname "localhost"
   "The hostname that will be served by the PHP built-in webserver.
@@ -146,23 +149,23 @@ See `https://www.php.net/manual/en/features.commandline.webserver.php'."
 If nil `php-ts-mode-run-php-webserver' will ask you for the port number."
   :tag "PHP built-in web server port"
   :version "30.1"
-  :type 'integer
-  :safe 'integerp)
+  :type '(choice (const :tag "Ask which port to use" nil) integer)
+  :safe 'integer-or-null-p)
 
 (defcustom php-ts-mode-ws-document-root nil
   "The root of the documents that the PHP built-in webserver will serve.
 If nil `php-ts-mode-run-php-webserver' will ask you for the document root."
   :tag "PHP built-in web server document root"
   :version "30.1"
-  :type 'directory)
+  :type '(choice (const :tag "Ask for document root" nil) directory))
 
 (defcustom php-ts-mode-ws-workers nil
   "The number of workers the PHP built-in webserver will fork.
 Useful for testing code against multiple simultaneous requests."
   :tag "PHP built-in number of workers"
   :version "30.1"
-  :type 'integer
-  :safe 'integerp)
+  :type '(choice (const :tag "No workers" nil) integer)
+  :safe 'integer-or-null-p)
 
 (defcustom php-ts-mode-inferior-php-buffer "*PHP*"
   "Name of the inferior PHP buffer."
@@ -202,7 +205,7 @@ symbol."
 (defcustom php-ts-mode-indent-style 'psr2
   "Style used for indentation.
 The selected style could be one of:
-`PSR-2/PSR-12' - use PSR standards (PSR-2, PSR-12), thi is the default.
+`PSR-2/PSR-12' - use PSR standards (PSR-2, PSR-12), this is the default.
 `PEAR' - use coding styles preferred for PEAR code and modules.
 `Drupal' - use coding styles preferred for working with Drupal projects.
 `WordPress' - use coding styles preferred for working with WordPress projects.
@@ -239,7 +242,7 @@ Calls REPORT-FN directly."
     (kill-process php-ts-mode--flymake-process))
   (let ((source (current-buffer))
         (diagnostics-pattern (eval-when-compile
-                               (rx bol (? "PHP ") ;; every dignostic line start with PHP
+                               (rx bol (? "PHP ") ;; every diagnostic line start with PHP
                                    (group (or "Fatal" "Parse")) ;; 1: type
                                    " error:" (+ (syntax whitespace))
                                    (group (+? nonl)) ;; 2: msg
@@ -369,7 +372,7 @@ To set the default indent style globally, use
 
 `php-ts-mode' use five parsers, this function returns, for the
 current buffer, the ranges covered by each parser.
-Usefull for debugging."
+Useful for debugging."
   (let ((ranges)
         (parsers (treesit-parser-list nil nil t)))
     (if (not parsers)
@@ -441,7 +444,7 @@ PARENT is its parent."
               (line-end-position))))))
 
 (defun php-ts-mode--js-css-tag-bol (node _parent &rest _)
-  "Find the first non-space caracters of html tags <script> or <style>.
+  "Find the first non-space characters of html tags <script> or <style>.
 
 If NODE is nil return `line-beginning-position'.  PARENT is ignored.
 NODE is the node to match and PARENT is its parent."
@@ -452,7 +455,7 @@ NODE is the node to match and PARENT is its parent."
       (re-search-backward "<script>\\|<style>" nil t))))
 
 (defun php-ts-mode--parent-eol (_node parent &rest _)
-  "Find the last non-space caracters of the PARENT of the current NODE.
+  "Find the last non-space characters of the PARENT of the current NODE.
 
 NODE is the node to match and PARENT is its parent."
   (save-excursion
@@ -494,7 +497,7 @@ characters of the current line."
             (if (search-forward "</html>" end-html t 1)
                 0
               (+ (point) php-ts-mode-indent-offset))))
-      ;; forse è meglio usare bol, leggi la documentazione!!!
+      ;; Maybe it's better to use bol, read the documentation!!!
       (treesit-node-start parent))))
 
 (defun php-ts-mode--array-element-heuristic (_node parent _bol &rest _)
@@ -523,7 +526,7 @@ characters of the current line."
   "Return the start of the first child of a sibling of PARENT.
 
 If the fist sibling of PARENT and the first child of the sibling are
-on the same line return the start position of the firt child of the
+on the same line return the start position of the first child of the
 sibling.  Otherwise return the start of the first sibling.
 PARENT is NODE's parent, BOL is the beginning of non-whitespace
 characters of the current line."
@@ -1268,7 +1271,7 @@ Depends on `c-ts-common-comment-setup'."
     (require 'html-ts-mode)
     ;; For embed html
 
-    ;; phpdoc is a local parser, don't create a parser fot it
+    ;; phpdoc is a local parser, don't create a parser for it
     (treesit-parser-create 'html)
     (treesit-parser-create 'css)
     (treesit-parser-create 'javascript)
@@ -1464,7 +1467,7 @@ for PORT, HOSTNAME, DOCUMENT-ROOT and ROUTER-SCRIPT."
 (derived-mode-add-parents 'php-ts-mode '(php-mode))
 
 (defun php-ts-mode--webserver-read-args (&optional type)
-  "Helper for php-ts-mode-run-php-webserver.
+  "Helper for `php-ts-mode-run-php-webserver'.
 The optional TYPE can be the symbol \"port\", \"hostname\", \"document-root\" or
 \"router-script\", otherwise it requires all of them."
   (let ((ask-port (lambda ()
@@ -1474,11 +1477,15 @@ The optional TYPE can be the symbol \"port\", \"hostname\", \"document-root\" or
         (ask-document-root (lambda ()
                              (expand-file-name
                               (read-directory-name "Document root: "
-                                                   (file-name-directory (buffer-file-name))))))
+                                                   (file-name-directory
+                                                    (or (buffer-file-name)
+                                                        default-directory))))))
         (ask-router-script (lambda ()
                              (expand-file-name
                               (read-file-name "Router script: "
-                                              (file-name-directory (buffer-file-name)))))))
+                                              (file-name-directory
+                                               (or (buffer-file-name)
+                                                   default-directory)))))))
     (cl-case type
       (port (funcall ask-port))
       (hostname (funcall ask-hostname))
@@ -1510,7 +1517,7 @@ The optional TYPE can be the symbol \"port\", \"hostname\", \"document-root\" or
 (defun run-php (&optional cmd config)
   "Run an PHP interpreter as a inferior process.
 
-Argumens CMD an CONFIG, default to `php-ts-mode-php-executable'
+Arguments CMD an CONFIG, default to `php-ts-mode-php-executable'
 and `php-ts-mode-php-config' respectively, control which PHP interpreter is run.
 Prompt for CMD if `php-ts-mode-php-executable' is nil.
 Optional CONFIG, if supplied, is the php.ini file to use."

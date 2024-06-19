@@ -926,11 +926,11 @@ handle_one_android_event (struct android_display_info *dpyinfo,
 	    XSETFRAME (inev.ie.frame_or_window, f);
 	  }
 
-      if (f && FRAME_OUTPUT_DATA (f)->need_cursor_updates)
-	{
-	  w = XWINDOW (f->selected_window);
-	  android_set_preeditarea (w, w->cursor.x, w->cursor.y);
-	}
+	if (f && FRAME_OUTPUT_DATA (f)->need_cursor_updates)
+	  {
+	    w = XWINDOW (f->selected_window);
+	    android_set_preeditarea (w, w->cursor.x, w->cursor.y);
+	  }
       }
 
       goto OTHER;
@@ -5230,11 +5230,11 @@ android_text_to_string (JNIEnv *env, char *buffer, ptrdiff_t n,
          surrogate pairs.
 
          The hack used by Emacs is to simply replace each multibyte
-         character that doesn't fit in a jchar with the NULL
-         character.  */
+         character that doesn't fit in a jchar with the Unicode
+         replacement character.  */
 
       if (encoded >= 65536)
-	encoded = 0;
+	encoded = 0xfffd;
 
       utf16[index++] = encoded;
       buffer += BYTES_BY_CHAR_HEAD (*buffer);
