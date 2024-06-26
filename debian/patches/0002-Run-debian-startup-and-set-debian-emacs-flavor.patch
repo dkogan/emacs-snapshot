@@ -14,7 +14,7 @@ Emacs runs debian-startup and sets debian-emacs-flavor.
  1 file changed, 14 insertions(+), 4 deletions(-)
 
 diff --git a/lisp/startup.el b/lisp/startup.el
-index 1ffdf52..f2463cd 100644
+index f18795a..3d30a74 100644
 --- a/lisp/startup.el
 +++ b/lisp/startup.el
 @@ -441,6 +441,10 @@ Warning Warning!!!  Pure space overflow    !!!Warning Warning
