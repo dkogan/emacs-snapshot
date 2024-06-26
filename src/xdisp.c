@@ -5549,6 +5549,7 @@ setup_for_ellipsis (struct it *it, int len)
 static Lisp_Object
 find_display_property (Lisp_Object disp, Lisp_Object prop)
 {
+  Lisp_Object elem;
   if (NILP (disp))
     return Qnil;
   /* We have a vector of display specs.  */
@@ -5556,11 +5557,11 @@ find_display_property (Lisp_Object disp, Lisp_Object prop)
     {
       for (ptrdiff_t i = 0; i < ASIZE (disp); i++)
 	{
-	  Lisp_Object elem = AREF (disp, i);
+	  elem = AREF (disp, i);
 	  if (CONSP (elem)
 	      && CONSP (XCDR (elem))
 	      && EQ (XCAR (elem), prop))
-	    return XCAR (XCDR (elem));
+	    goto found;
 	}
       return Qnil;
     }
@@ -5570,11 +5571,11 @@ find_display_property (Lisp_Object disp, Lisp_Object prop)
     {
       while (!NILP (disp))
 	{
-	  Lisp_Object elem = XCAR (disp);
+	  elem = XCAR (disp);
 	  if (CONSP (elem)
 	      && CONSP (XCDR (elem))
 	      && EQ (XCAR (elem), prop))
-	    return XCAR (XCDR (elem));
+	    goto found;
 
 	  /* Check that we have a proper list before going to the next
 	     element.  */
@@ -5589,9 +5590,20 @@ find_display_property (Lisp_Object disp, Lisp_Object prop)
   else if (CONSP (disp)
 	   && CONSP (XCDR (disp))
 	   && EQ (XCAR (disp), prop))
-    return XCAR (XCDR (disp));
+    {
+      elem = disp;
+      goto found;
+    }
+
+  return Qnil;
+
+ found:
+  /* If the property value is a list of one element, just return the
+     CAR. */
+  if (NILP (XCDR (XCDR (elem))))
+    return XCAR (XCDR (elem));
   else
-    return Qnil;
+    return XCDR (elem);
 }
 
 static Lisp_Object
@@ -7288,6 +7300,7 @@ pop_it (struct it *it)
   it->bidi_p = p->bidi_p;
   it->paragraph_embedding = p->paragraph_embedding;
   it->from_disp_prop_p = p->from_disp_prop_p;
+  it->align_visually_p = false;
   if (it->bidi_p)
     {
       bidi_pop_it (&it->bidi_it);
@@ -24488,12 +24501,14 @@ static void
 handle_line_prefix (struct it *it)
 {
   Lisp_Object prefix;
+  bool wrap_prop = false;
 
   if (it->continuation_lines_width > 0)
     {
       prefix = get_line_prefix_it_property (it, Qwrap_prefix);
       if (NILP (prefix))
 	prefix = Vwrap_prefix;
+      wrap_prop = true;
     }
   else
     {
@@ -24508,6 +24523,11 @@ handle_line_prefix (struct it *it)
 	 iterator stack overflows.  So, don't wrap the prefix.  */
       it->line_wrap = TRUNCATE;
       it->avoid_cursor_p = true;
+      /* Interpreting :align-to relative to the beginning of the logical
+         line effectively renders this feature unusable, so we make an
+         exception for this use of :align-to.  */
+      if (wrap_prop && CONSP (prefix) && EQ (XCAR (prefix), Qspace))
+	it->align_visually_p = true;
     }
 }
 
@@ -28045,7 +28065,18 @@ store_mode_line_string (const char *string, Lisp_Object lisp_string,
 
   if (string != NULL)
     {
-      len = strnlen (string, precision <= 0 ? SIZE_MAX : precision);
+#if defined HAVE_ANDROID && !defined ANDROID_STUBIFY	\
+  && __ANDROID_API__ < 22
+      /* Circumvent a bug in memchr preventing strnlen from returning
+	 valid values when a large limit is specified.
+
+         https://issuetracker.google.com/issues/37020957 */
+      if (precision <= 0 || ((uintptr_t) string
+			     > (UINTPTR_MAX - precision)))
+	len = strlen (string);
+      else
+#endif /* HAVE_ANDROID && !ANDROID_STUBIFY && __ANDROID_API__ < 22 */
+	len = strnlen (string, precision <= 0 ? SIZE_MAX : precision);
       lisp_string = make_string (string, len);
       if (NILP (props))
 	props = mode_line_string_face_prop;
@@ -31972,7 +32003,9 @@ produce_stretch_glyph (struct it *it)
 	   && calc_pixel_width_or_height (&tem, it, prop, font, true,
 					  &align_to))
     {
-      int x = it->current_x + it->continuation_lines_width;
+      int x = it->current_x + (it->align_visually_p
+			       ? 0
+			       : it->continuation_lines_width);
       int x0 = x;
       /* Adjust for line numbers, if needed.   */
       if (!NILP (Vdisplay_line_numbers) && it->line_number_produced_p)

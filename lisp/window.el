@@ -9171,9 +9171,14 @@ Return the buffer switched to."
         (pop-to-buffer buffer norecord)))
      (t
       (when switch-to-buffer-obey-display-actions
-        (let ((selected-window (selected-window)))
+        (let* ((selected-window (selected-window))
+	       (old-window-buffer (window-buffer selected-window)))
           (pop-to-buffer-same-window buffer norecord)
-          (when (eq (selected-window) selected-window)
+	  ;; Do not ask for setting start and point when showing the
+	  ;; same buffer in the old selected window (Bug#71616).
+          (when (and (eq (selected-window) selected-window)
+		     (not (eq (window-buffer selected-window)
+			      old-window-buffer)))
             (setq set-window-start-and-point t))))
 
       (when set-window-start-and-point
@@ -9305,6 +9310,9 @@ to deactivate this overriding action."
     (when echofun
       (add-hook 'prefix-command-echo-keystrokes-functions echofun))
     (setq switch-to-buffer-obey-display-actions t)
+    (unless (listp (car display-buffer-overriding-action))
+      (setcar display-buffer-overriding-action
+              (list (car display-buffer-overriding-action))))
     (push action (car display-buffer-overriding-action))
     exitfun))
 
