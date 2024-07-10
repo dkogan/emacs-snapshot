@@ -28,6 +28,7 @@ along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.  */
 #include <sys/stat.h>
 #include <sys/file.h>
 #include <errno.h>
+#include <locale.h>
 #include <math.h>
 #include <stat-time.h>
 #include "lisp.h"
@@ -55,11 +56,6 @@ along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.  */
 #endif
 
 #include <unistd.h>
-
-#ifdef HAVE_SETLOCALE
-#include <locale.h>
-#endif /* HAVE_SETLOCALE */
-
 #include <fcntl.h>
 
 #if !defined HAVE_ANDROID || defined ANDROID_STUBIFY	\
@@ -1887,7 +1883,7 @@ maybe_swap_for_eln (bool no_native, Lisp_Object *filename, int *fd,
 		return;
 	      Vdelayed_warnings_list
 		= Fcons (list2
-			 (Qcomp,
+			 (Qnative_compiler,
 			  CALLN (Fformat,
 				 build_string ("Cannot look up .eln file "
 					       "for %s because no source "
@@ -5029,8 +5025,8 @@ it defaults to the value of `obarray'.  */)
     {
       if (longhand)
 	{
-	  tem = intern_driver (make_specified_string (longhand, longhand_chars,
-						      longhand_bytes, true),
+	  tem = intern_driver (make_multibyte_string (longhand, longhand_chars,
+						      longhand_bytes),
 			       obarray, tem);
 	  xfree (longhand);
 	}

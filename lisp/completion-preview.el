@@ -491,7 +491,7 @@ point, otherwise hide it."
          (str (concat pre com (nth ind all))))
     (completion-preview-active-mode -1)
     (goto-char end)
-    (insert (substring-no-properties aft))
+    (insert-and-inherit (substring-no-properties aft))
     (when (functionp efn) (funcall efn str 'finished))))
 
 (defun completion-preview-partial-insert (fun &rest args)
@@ -506,23 +506,27 @@ Beyond moving point, FUN should not modify the current buffer."
   (let* ((end (completion-preview--get 'completion-preview-end))
          (aft (completion-preview--get 'after-string))
          (eoc (+ end (length aft))))
-    ;; Partially insert current completion candidate.
-    (atomic-change-group
-      (let ((change-group (prepare-change-group))
-            ;; Keep region active, if it is already.  This allows
-            ;; commands such as `completion-preview-insert-word' to
-            ;; interact correctly with `shift-select-mode'.
-            (deactivate-mark nil))
-        (save-excursion
-          (goto-char end)
-          ;; Temporarily insert the full completion candidate.
-          (insert (substring-no-properties aft)))
-        ;; Set point to the end of the prefix that we want to keep.
-        (apply fun args)
-        ;; Delete the rest.
-        (delete-region (min (max end (point)) eoc) eoc)
-        ;; Combine into one change group
-        (undo-amalgamate-change-group change-group)))
+    ;; Keep region active, if it is already.  This lets commands that
+    ;; call this function interact correctly with `shift-select-mode'.
+    (let ((deactivate-mark nil))
+      ;; Partially insert current completion candidate.
+      (catch 'abort-atomic-change
+        (atomic-change-group
+          (let ((change-group (prepare-change-group)))
+            (save-excursion
+              (goto-char end)
+              ;; Temporarily insert the full completion candidate.
+              (insert-and-inherit (substring-no-properties aft)))
+            ;; Set point to the end of the prefix that we want to keep.
+            (apply fun args)
+            (unless (< end (point))
+              ;; Point didn't advance into the completion, so abort change
+              ;; to avoid littering `buffer-undo-list' with a nop entry.
+              (throw 'abort-atomic-change nil))
+            ;; Delete the rest.
+            (delete-region (min (point) eoc) eoc)
+            ;; Combine into one change group.
+            (undo-amalgamate-change-group change-group)))))
     ;; Cleanup.
     (cond
      ;; If we kept the entire completion candidate, call :exit-function.
@@ -612,7 +616,7 @@ completions list."
           (completion-preview--inhibit-update)
           (completion-at-point))
       ;; Otherwise, insert the common prefix and update the preview.
-      (insert ins)
+      (insert-and-inherit ins)
       (let ((suf (nth cur all))
             (pos (point)))
         (if (or (string-empty-p suf) (null suf))
