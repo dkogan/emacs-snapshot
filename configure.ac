@@ -1032,7 +1032,7 @@ Please verify that the path to the SDK build tools you specified is correct])
   fi
 
   AC_PATH_PROGS([D8], [d8], [], "${SDK_BUILD_TOOLS}:$PATH")
-  if test "D8" = ""; then
+  if test "$D8" = ""; then
     AC_MSG_ERROR([The Android dexer was not found.
 Please verify that the path to the SDK build tools you specified is correct])
   fi
@@ -1611,30 +1611,6 @@ AC_DEFUN([gl_TYPE_OFF64_T],
   [HAVE_OFF64_T=1
    AC_SUBST([HAVE_OFF64_T])])
 
-# `strnlen' cannot accept nlen greater than the size of the object S
-# on Android 2.2 and earlier.
-m4_define([ORIGINAL_AC_FUNC_STRNLEN], m4_defn([AC_FUNC_STRNLEN]))
-AC_DEFUN([AC_FUNC_STRNLEN], [
-AC_REQUIRE([AC_USE_SYSTEM_EXTENSIONS])dnl
-AC_REQUIRE([AC_CANONICAL_HOST])dnl
-AC_CACHE_CHECK([for strnlen capable of accepting large limits],
-  [emacs_cv_func_strnlen_working],
-  [AC_RUN_IFELSE([AC_LANG_PROGRAM([AC_INCLUDES_DEFAULT], [[
-  volatile size_t (*strnlen_pointer) (const char *s, size_t) = &strnlen;
-  if ((*strnlen_pointer) ("", -1) != 0)
-    return 1;
-  return 0;
-]])],[emacs_cv_func_strnlen_working=yes],
-     [emacs_cv_func_strnlen_working=no],
-     [# Guess no on Android 21 and earlier, yes elsewhere.
-      AS_IF([test -n "$ANDROID_SDK" && test "$ANDROID_SDK" -lt 22],
-        [emacs_cv_func_strnlen_working=no],
-	[emacs_cv_func_strnlen_working='guessing yes'])])])
-AS_IF([test "$emacs_cv_func_strnlen_working" != "no"],
-  [ORIGINAL_AC_FUNC_STRNLEN],
-  [ac_cv_func_strnlen_working=no
-   AC_LIBOBJ([strnlen])])])
-
 # Initialize gnulib right after choosing the compiler.
 dnl Amongst other things, this sets AR and ARFLAGS.
 gl_EARLY
@@ -1821,7 +1797,6 @@ AS_IF([test $gl_gcc_warnings = no],
   nw="$nw -Wcast-align=strict"      # Emacs is tricky with pointers.
   nw="$nw -Wduplicated-branches"    # Too many false alarms
   nw="$nw -Wformat-overflow=2"      # False alarms due to GCC bug 110333
-  nw="$nw -Wsystem-headers"         # Don't let system headers trigger warnings
   nw="$nw -Woverlength-strings"     # Not a problem these days
   nw="$nw -Wvla"                    # Emacs uses <vla.h>.
   nw="$nw -Wunused-const-variable=2" # lisp.h declares const objects.
@@ -2093,7 +2068,7 @@ AC_CACHE_CHECK([for 'find' args to delete a file],
   [if touch conftest.tmp && find conftest.tmp -delete 2>/dev/null &&
       test ! -f conftest.tmp
    then emacs_cv_find_delete="-delete"
-   else emacs_cv_find_delete="-exec rm -f {} ';'"
+   else emacs_cv_find_delete="-exec rm -f {} +"
    fi])
 FIND_DELETE=$emacs_cv_find_delete
 AC_SUBST([FIND_DELETE])
