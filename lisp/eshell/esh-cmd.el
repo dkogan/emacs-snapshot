@@ -104,7 +104,6 @@
 (require 'esh-arg)
 (require 'esh-proc)
 (require 'esh-module)
-(require 'esh-io)
 (require 'esh-ext)
 
 (require 'eldoc)
@@ -240,16 +239,6 @@ return non-nil if the command is complex."
   :version "24.1"		       ; removed eshell-cmd-initialize
   :type 'hook)
 
-(defcustom eshell-deferrable-commands
-  '(eshell-named-command
-    eshell-lisp-command
-    eshell-process-identity)
-  "A list of functions which might return an asynchronous process.
-If they return a process object, execution of the calling Eshell
-command will wait for completion (in the background) before finishing
-the command."
-  :type '(repeat function))
-
 (defcustom eshell-subcommand-bindings
   '((eshell-in-subcommand-p t)
     (eshell-in-pipeline-p nil)
@@ -286,8 +275,19 @@ Each element is of the form (FORM PROCESSES), as with
 Has the value `first', `last' for the first/last commands in the pipeline,
 otherwise t.")
 (defvar eshell-in-subcommand-p nil)
+
 (defvar eshell-last-arguments nil)
 (defvar eshell-last-command-name nil)
+(defvar-local eshell-last-command-status 0
+  "The exit code from the last command.  0 if successful.")
+(defvar-local eshell-last-command-result nil
+  "The result of the last command.  Not related to success.")
+
+(defvar eshell-deferrable-commands '(eshell-deferrable)
+  "A list of functions which might return a deferrable process.
+If they return a process object (or list thereof), execution of the
+calling Eshell command will wait for completion (in the background)
+before finishing the command.")
 
 (defvar eshell-allow-commands t
   "If non-nil, allow evaluating command forms (including Lisp forms).
@@ -426,7 +426,7 @@ command hooks should be run before and after the command."
                   (error "Empty command before `&'"))
               (setq cmd (eshell-parse-pipeline cmd))
               (unless eshell-in-pipeline-p
-                (setq cmd `(eshell-trap-errors ,cmd)))
+                (setq cmd `(eshell-do-command ,cmd)))
               ;; Copy I/O handles so each full statement can manipulate
               ;; them if they like.  Steal the handles for the last
               ;; command (first in our reversed list); we won't use the
@@ -522,7 +522,6 @@ the second is ignored."
 	`(eshell-commands ,(cadr (cadr arg)) ,silent))
     arg))
 
-(defvar eshell-last-command-status)     ;Define in esh-io.el.
 (defvar eshell--local-vars nil
   "List of locally bound vars that should take precedence over env-vars.")
 
@@ -565,7 +564,7 @@ function."
   ;; statement.
   (unless (memq (car test) '(eshell-convert eshell-escape-arg))
     (setq test
-	  `(progn ,test
+	  `(progn (eshell-deferrable ,test)
                   (eshell-exit-success-p))))
 
   ;; should we reverse the sense of the test?  This depends
@@ -614,7 +613,13 @@ must be implemented via rewriting, rather than as a function."
 	   `(eshell-protect
              ,(eshell-invokify-arg (car (last terms)) t))))))
 
-(defvar eshell-last-command-result)     ;Defined in esh-io.el.
+(defun eshell-set-exit-info (status &optional result)
+  "Set the exit status and result for the last command.
+STATUS is the process exit code (zero, if the command completed
+successfully).  RESULT is the value of the last command."
+  (when status
+    (setq eshell-last-command-status status))
+  (setq eshell-last-command-result result))
 
 (defun eshell-exit-success-p ()
   "Return non-nil if the last command was successful.
@@ -776,7 +781,7 @@ returning it as (:eshell-background . PROCESSES)."
 
 (defvar eshell-this-command-hook nil)
 
-(defmacro eshell-trap-errors (object)
+(defmacro eshell-do-command (object)
   "Trap any errors that occur, so they are not entirely fatal.
 Also, the variable `eshell-this-command-hook' is available for the
 duration of OBJECT's evaluation.  Note that functions should be added
@@ -787,11 +792,19 @@ this grossness will be made to disappear by using `call/cc'..."
   `(eshell-condition-case err
        (let ((eshell-this-command-hook '(ignore)))
          (unwind-protect
-             ,object
+             (eshell-deferrable ,object)
            (mapc #'funcall eshell-this-command-hook)))
      (error
       (eshell-errorn (error-message-string err))
-      (eshell-close-handles 1))))
+      (eshell-set-exit-info 1)
+      (eshell-close-handles))))
+
+(define-obsolete-function-alias 'eshell-trap-errors #'eshell-do-command "31.1")
+
+(defalias 'eshell-deferrable 'identity
+  "A wrapper to mark a particular form as potentially deferrable.
+If the wrapped form returns a process (or list thereof), Eshell will
+wait for completion in the background for the process(es) to complete.")
 
 (defmacro eshell-with-copied-handles (object &optional steal-p)
   "Duplicate current I/O handles, so OBJECT works with its own copy.
@@ -810,27 +823,12 @@ current ones (see `eshell-duplicate-handles')."
      (eshell-protect-handles eshell-current-handles)
      ,object))
 
-(defun eshell--unmark-deferrable (command)
-  "If COMMAND is (or ends with) a deferrable command, unmark it as such.
-This changes COMMAND in-place by converting function calls listed
-in `eshell-deferrable-commands' to their non-deferrable forms so
-that Eshell doesn't erroneously allow deferring it.  For example,
-`eshell-named-command' becomes `eshell-named-command*'."
-  (let ((cmd command))
-    (when (memq (car cmd) '(let progn))
-      (setq cmd (car (last cmd))))
-    (when (memq (car cmd) eshell-deferrable-commands)
-      (setcar cmd (intern-soft
-		   (concat (symbol-name (car cmd)) "*"))))
-    command))
-
 (defmacro eshell-do-pipelines (pipeline &optional notfirst)
   "Execute the commands in PIPELINE, connecting each to one another.
 Returns a list of the processes in the pipeline.
 
 This macro calls itself recursively, with NOTFIRST non-nil."
   (when (setq pipeline (cadr pipeline))
-    (eshell--unmark-deferrable (car pipeline))
     `(eshell-with-copied-handles
       (let ((next-procs
              ,(when (cdr pipeline)
@@ -860,8 +858,6 @@ first command invocation in the pipeline (usually t or nil).
 This is used on systems where async subprocesses are not
 supported."
   (when (setq pipeline (cadr pipeline))
-    ;; FIXME: is deferrable significant here?
-    (eshell--unmark-deferrable (car pipeline))
     `(prog1
          (eshell-with-copied-handles
           (progn
@@ -879,14 +875,13 @@ supported."
        ,(when (cdr pipeline)
           `(eshell-do-pipelines-synchronously (quote ,(cdr pipeline)))))))
 
-(defalias 'eshell-process-identity 'identity)
+(define-obsolete-function-alias 'eshell-process-identity #'identity "31.1")
 
 (defmacro eshell-execute-pipeline (pipeline)
   "Execute the commands in PIPELINE, connecting each to one another."
-  `(eshell-process-identity
-    ,(if eshell-supports-asynchronous-processes
-         `(remove nil (eshell-do-pipelines ,pipeline))
-       `(eshell-do-pipelines-synchronously ,pipeline))))
+  (if eshell-supports-asynchronous-processes
+      `(remove nil (eshell-do-pipelines ,pipeline))
+    `(eshell-do-pipelines-synchronously ,pipeline)))
 
 (defmacro eshell-as-subcommand (command)
   "Execute COMMAND as a subcommand.
@@ -951,7 +946,7 @@ A command can be invoked directly if all of the following are true:
 
 * The command is of the form
   (eshell-with-copied-handles
-   (eshell-trap-errors (eshell-named-command NAME [ARGS])) _).
+   (eshell-do-command (eshell-named-command NAME [ARGS])) _).
 
 * NAME is a string referring to an alias function and isn't a
   complex command (see `eshell-complex-commands').
@@ -959,7 +954,7 @@ A command can be invoked directly if all of the following are true:
 * Any subcommands in ARGS can also be invoked directly."
   (pcase command
     (`(eshell-with-copied-handles
-       (eshell-trap-errors (eshell-named-command ,name . ,args))
+       (eshell-do-command (eshell-named-command ,name . ,args))
        ,_)
      (and name (stringp name)
 	  (not (member name eshell-complex-commands))
@@ -1360,7 +1355,8 @@ COMMAND may result in an alias being executed, or a plain command."
         (eshell-plain-command eshell-last-command-name
                               eshell-last-arguments))))
 
-(defalias 'eshell-named-command* 'eshell-named-command)
+(define-obsolete-function-alias 'eshell-named-command* #'eshell-named-command
+  "31.1")
 
 (defun eshell-find-alias-function (name)
   "Check whether a function called `eshell/NAME' exists."
@@ -1429,10 +1425,12 @@ case."
      ;; command status to some non-zero value to indicate an error; to
      ;; match GNU/Linux, we use 141, which the numeric value of
      ;; SIGPIPE on GNU/Linux (13) with the high bit (2^7) set.
-     (setq eshell-last-command-status 141)
+     (when (memq eshell-in-pipeline-p '(nil last))
+       (eshell-set-exit-info 141))
      nil)
     (error
-     (setq eshell-last-command-status 1)
+     (when (memq eshell-in-pipeline-p '(nil last))
+       (eshell-set-exit-info 1))
      (let ((msg (error-message-string err)))
        (if (and (not form-p)
                 (string-match "^Wrong number of arguments" msg)
@@ -1511,8 +1509,9 @@ a string naming a Lisp function."
   (unless eshell-allow-commands
     (signal 'eshell-commands-forbidden '(lisp)))
   (catch 'eshell-external               ; deferred to an external command
-    (setq eshell-last-command-status 0
-          eshell-last-arguments args)
+    (when (memq eshell-in-pipeline-p '(nil last))
+      (eshell-set-exit-info 0))
+    (setq eshell-last-arguments args)
     (let* ((eshell-ensure-newline-p t)
            (command-form-p (functionp object))
            (result
@@ -1547,18 +1546,21 @@ a string naming a Lisp function."
               (eshell-eval* #'eshell-print-maybe-n
                             #'eshell-error-maybe-n
                             object))))
-      (eshell-close-handles
-       ;; If `eshell-lisp-form-nil-is-failure' is non-nil, Lisp forms
-       ;; that succeeded but have a nil result should have an exit
-       ;; status of 2.
-       (when (and eshell-lisp-form-nil-is-failure
-                  (not command-form-p)
-                  (= eshell-last-command-status 0)
-                  (not result))
-         2)
-       (list 'quote result)))))
+      (when (memq eshell-in-pipeline-p '(nil last))
+        (eshell-set-exit-info
+         ;; If `eshell-lisp-form-nil-is-failure' is non-nil, Lisp forms
+         ;; that succeeded but have a nil result should have an exit
+         ;; status of 2.
+         (when (and eshell-lisp-form-nil-is-failure
+                    (not command-form-p)
+                    (= eshell-last-command-status 0)
+                    (not result))
+           2)
+         result))
+      (eshell-close-handles))))
 
-(defalias 'eshell-lisp-command* #'eshell-lisp-command)
+(define-obsolete-function-alias 'eshell-lisp-command* #'eshell-lisp-command
+  "31.1")
 
 (provide 'esh-cmd)
 

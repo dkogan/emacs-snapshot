@@ -11513,7 +11513,7 @@ even with @sc{xover} by registering the @code{Xref} lines of all
 articles you actually read, but if you kill the articles, or just mark
 them as read without reading them, Gnus will not get a chance to snoop
 the @code{Xref} lines out of these articles, and will be unable to use
-the cross reference mechanism.
+the cross-reference mechanism.
 
 @cindex LIST overview.fmt
 @cindex overview.fmt
@@ -19842,7 +19842,8 @@ may ask:
 @table @dfn
 @item If I read an article while plugged, do they get entered into the Agent?
 
-@strong{No}.  If you want this behavior, add
+Yes, because of the default value of
+@code{gnus-agent-eagerly-store-articles}.  An alternative is to add
 @code{gnus-agent-fetch-selected-article} to
 @code{gnus-select-article-hook}.
 

@@ -1840,7 +1840,7 @@ struct Lisp_Bool_Vector
     /* HEADER.SIZE is the vector's size field.  It doesn't have the real size,
        just the subtype information.  */
     union vectorlike_header header;
-    /* This is the size in bits.  */
+    /* The size in bits; at most BOOL_VECTOR_LENGTH_MAX.  */
     EMACS_INT size;
     /* The actual bits, packed into bytes.
        Zeros fill out the last word if needed.
@@ -1868,20 +1868,32 @@ enum
     word_size = sizeof (Lisp_Object)
   };
 
+/* A bool vector's length must be a fixnum for XFIXNUM (Flength (...)).
+   Also, it is limited object size, which must fit in both ptrdiff_t and
+   size_t including header overhead and trailing alignment.  */
+#define BOOL_VECTOR_LENGTH_MAX \
+  min (MOST_POSITIVE_FIXNUM, \
+       ((INT_MULTIPLY_OVERFLOW (min (PTRDIFF_MAX, SIZE_MAX) - bool_header_size,\
+				(EMACS_INT) BOOL_VECTOR_BITS_PER_CHAR) \
+	 ? EMACS_INT_MAX \
+	 : ((min (PTRDIFF_MAX, SIZE_MAX) - bool_header_size) \
+	    * (EMACS_INT) BOOL_VECTOR_BITS_PER_CHAR)) \
+	- (BITS_PER_BITS_WORD - 1)))
+
 /* The number of data words and bytes in a bool vector with SIZE bits.  */
 
 INLINE EMACS_INT
 bool_vector_words (EMACS_INT size)
 {
   eassume (0 <= size && size <= EMACS_INT_MAX - (BITS_PER_BITS_WORD - 1));
-  return (size + BITS_PER_BITS_WORD - 1) / BITS_PER_BITS_WORD;
+  return (size + (BITS_PER_BITS_WORD - 1)) / BITS_PER_BITS_WORD;
 }
 
 INLINE EMACS_INT
 bool_vector_bytes (EMACS_INT size)
 {
   eassume (0 <= size && size <= EMACS_INT_MAX - (BITS_PER_BITS_WORD - 1));
-  return (size + BOOL_VECTOR_BITS_PER_CHAR - 1) / BOOL_VECTOR_BITS_PER_CHAR;
+  return (size + (BOOL_VECTOR_BITS_PER_CHAR - 1)) / BOOL_VECTOR_BITS_PER_CHAR;
 }
 
 INLINE bits_word
@@ -4578,6 +4590,7 @@ list4i (intmax_t a, intmax_t b, intmax_t c, intmax_t d)
   return list4 (make_int (a), make_int (b), make_int (c), make_int (d));
 }
 
+extern Lisp_Object make_clear_bool_vector (EMACS_INT, bool);
 extern Lisp_Object make_uninit_bool_vector (EMACS_INT);
 extern Lisp_Object bool_vector_fill (Lisp_Object, Lisp_Object);
 extern AVOID string_overflow (void);
