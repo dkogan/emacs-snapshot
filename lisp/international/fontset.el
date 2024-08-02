@@ -209,8 +209,7 @@
 	(bopomofo #x3105)
 	(kanbun #x319D)
 	(han #x2e90 #x2f00 #x3010 #x3200 #x3300 #x3400 #x31c0 #x4e10
-             #x5B57 #xfe30 #xf900
-             #x1f210 #x20000 #x2a700 #x2b740 #x2b820 #x2ceb0 #x2f804)
+             #x5B57 #xfe30 #xf900)
 	(yi #xA288)
         (syloti-nagri #xA807 #xA823 #xA82C)
         (rejang #xA930 #xA947 #xA95F)
@@ -700,10 +699,11 @@
 	  (nil . "JISX0213.2004-1")
 	  ,(font-spec :registry "iso10646-1" :lang 'ja)
 	  ,(font-spec :registry "iso10646-1" :lang 'zh)
-          ;; This is required, as otherwise many TrueType fonts with
-          ;; CJK characters but no corresponding ``design language''
-          ;; declaration can't be found.
-          ,(font-spec :registry "iso10646-1" :script 'han))
+          ;; This is required on Android, as otherwise many TrueType
+          ;; fonts with CJK characters but no corresponding ``design
+          ;; language'' declaration can't be found.
+          ,@(and (featurep 'android)
+                 (list (font-spec :registry "iso10646-1" :script 'han))))
 
      (cjk-misc (nil . "GB2312.1980-0")
 	       (nil . "JISX0208*")
