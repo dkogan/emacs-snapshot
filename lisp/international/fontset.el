@@ -88,6 +88,7 @@
 	("iso10646-1$" . (unicode-bmp . nil))
 	("iso10646.indian-1" . (unicode-bmp . nil))
 	("unicode-bmp" . (unicode-bmp . nil))
+        ("unicode-sip" . (unicode-sip . nil)) ; used by w32font.c
 	("abobe-symbol" . symbol)
 	("sisheng_cwnn" . chinese-sisheng)
 	("mulearabic-0" . arabic-digit)
@@ -208,8 +209,7 @@
 	(kana #x304B)
 	(bopomofo #x3105)
 	(kanbun #x319D)
-	(han #x2e90 #x2f00 #x3010 #x3200 #x3300 #x3400 #x31c0 #x4e10
-             #x5B57 #xfe30 #xf900)
+	(han #x2e90 #x2f00 #x3200 #x3300 #x3400 #x4e10 #x5B57 #xfe30 #xf900)
 	(yi #xA288)
         (syloti-nagri #xA807 #xA823 #xA82C)
         (rejang #xA930 #xA947 #xA95F)

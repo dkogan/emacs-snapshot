@@ -7064,7 +7064,7 @@ ns_create_font_panel_buttons (id target, SEL select, SEL cancel_action)
 - (NSRect) firstRectForCharacterRange: (NSRange) range
 			  actualRange: (nullable NSRangePointer) actualRange
 {
-  return NSZeroRect;
+  return [self firstRectForCharacterRange: range];
 }
 
 #endif /* NS_IMPL_COCOA */
@@ -8073,6 +8073,8 @@ ns_in_echo_area (void)
 #ifdef NS_IMPL_COCOA
   old_title = 0;
   maximizing_resize = NO;
+  /* Restore to default before macOS 14 (bug#72440).  */
+  [self setClipsToBounds: YES];
 #endif
 
 #if defined (NS_IMPL_COCOA) && MAC_OS_X_VERSION_MIN_REQUIRED >= 101400
