@@ -75,7 +75,6 @@ default:
   cache:
     key: ${CI_COMMIT_SHA}
     paths: []
-    policy: pull-push
   # These will be saved for followup builds.
   artifacts:
     expire_in: 24 hrs
@@ -101,6 +100,8 @@ default:
 
 .build-template:
   needs: []
+  cache:
+    policy: push
   rules:
     - if: '$CI_PIPELINE_SOURCE == "web"'
       when: always
@@ -131,6 +132,8 @@ default:
     - docker push ${CI_REGISTRY_IMAGE}:${target}-${BUILD_TAG}
 
 .test-template:
+  cache:
+    policy: pull
   artifacts:
     name: ${test_name}
     public: true
