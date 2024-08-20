@@ -74,6 +74,12 @@ that the actual killing or burying of the buffer is done by the caller.
 With this option set, 'quit-restore-window' will delete its window more
 aggressively rather than switching to some other buffer in it.
 
+** Tab Bars and Tab Lines
+
+---
+*** New abnormal hook 'tab-bar-auto-width-functions'.
+This hook allows you to control which tab-bar tabs are auto-resized.
+
 
 * Editing Changes in Emacs 31.1
 
@@ -143,6 +149,17 @@ Advanced" node in the EWW manual.
 *** You can now customize the image zoom levels to cycle through.
 By customizing 'shr-image-zoom-levels', you can change the list of zoom
 levels that SHR cycles through when calling 'shr-zoom-image'.
+
+** EWW
+
+---
+*** EWW now enables 'visual-wrap-prefix-mode' when 'shr-fill-text' is nil.
+By default, 'shr-fill-text' is t, and EWW fills the text according to
+the width of the window.  If you customize 'shr-fill-text' to nil, EWW
+will now automatically turn on 'visual-wrap-prefix-mode' in addition to
+'visual-line-mode', so that long lines are wrapped at word boundaries
+near window edge and the continuation lines are indented using prefixes
+computed from surrounding context.
 
 ** Go-ts mode
 
@@ -257,6 +274,16 @@ language A.
 If supplied, 'string-pixel-width' will use any face remappings from
 BUFFER when computing the string's width.
 
++++
+** 'date-to-time' now defaults to local time.
+The function now assumes local time instead of Universal Time when
+its argument lacks explicit time zone information.  This has been the
+de-facto behavior since Emacs 24 although documentation said otherwise.
+Also, the fallback on 'timezone-make-date-arpa-standard' has been
+removed because its supported date styles can be handled by
+'parse-time-string'.  To restore the previously documented behavior,
+specify "+0000" or "Z" as the time zone in the argument.
+
 
 * Changes in Emacs 31.1 on Non-Free Operating Systems
 
@@ -264,7 +291,7 @@ BUFFER when computing the string's width.
 ** Process execution has been optimized on Android.
 The run-time performance of subprocesses on recent Android releases,
 where a userspace executable loader is required, has been optimized on
-systems featuring GNU/Linux 3.5.0 and above.
+systems featuring Linux 3.5.0 and above.
 
 
 ----------------------------------------------------------------------
