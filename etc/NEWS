@@ -65,14 +65,21 @@ window used already has a 'quit-restore' parameter.  Its presence gives
 operations more intuitively.
 
 +++
-*** 'quit-restore-window' now handles the values 'killing' and 'burying'
-for its BURY-OR-KILL argument just like 'kill' and 'bury' but assumes
+*** 'quit-restore-window' handles new values for BURY-OR-KILL argument.
+The values 'killing' and 'burying' are like 'kill' and 'bury' but assume
 that the actual killing or burying of the buffer is done by the caller.
 
 +++
 *** New option 'quit-restore-window-no-switch'.
 With this option set, 'quit-restore-window' will delete its window more
 aggressively rather than switching to some other buffer in it.
+
+** Frames
+
++++
+*** New function 'frame-deletable-p'.
+Calling this function before 'delete-frame' is useful to avoid that the
+latter throws an error when the argument frame cannot be deleted.
 
 ** Tab Bars and Tab Lines
 
@@ -150,6 +157,16 @@ Advanced" node in the EWW manual.
 By customizing 'shr-image-zoom-levels', you can change the list of zoom
 levels that SHR cycles through when calling 'shr-zoom-image'.
 
+** SHR
+
+---
+*** New user option 'shr-fill-text'.
+When 'shr-fill-text' is non-nil (the default), SHR will fill text
+according to the width of the window.  If you customize it to nil, SHR
+will leave the text as-is; in that case, EWW will automatically enable
+'visual-line-mode' when displaying a page so that long lines are
+visually wrapped at word boundaries.
+
 ** EWW
 
 ---
@@ -226,6 +243,15 @@ The host name for Kubernetes connections can be of kind
 [CONTAINER.]POD[%NAMESPACE], in order to specify the namespace to be
 used.  This overrides the setiing in 'tramp-kubernetes-namespace', if
 any.
+
+** Diff
+
+---
+*** New command 'diff-kill-ring-save'
+This command copies to the 'kill-ring' a region of text modified
+according to diffs in the current buffer, but without applying the diffs
+to the original text.  If the selected range extends a hunk, the
+commands attempts to look up and copy the text in-between the hunks.
 
 
 * New Modes and Packages in Emacs 31.1
