@@ -190,7 +190,6 @@
 
 (ert-deftest treesit-indirect-buffer ()
   "Tests for indirect buffers."
-  :tags (if (getenv "EMACS_EMBA_CI") '(:unstable))
   (skip-unless (treesit-language-available-p 'json))
   (let ((base (get-buffer-create "*treesit test*"))
         parser indirect)
@@ -199,12 +198,14 @@
           (with-current-buffer base
             (setq indirect (clone-indirect-buffer "*treesit test 1*" nil)))
           (with-current-buffer indirect
-            (setq parser (treesit-parser-create 'json)))
-          ;; 1. Parser created in the indirect buffer should be
-          ;; actually be created in the base buffer.
+            (setq parser (treesit-parser-create 'json))
+            (should (equal (list parser) (treesit-parser-list))))
+          ;; 1. Parser created in the indirect buffer should not appear
+          ;; in the base buffer.
           (with-current-buffer base
-            (should (equal (list parser)
+            (should (equal nil
                            (treesit-parser-list)))
+            (treesit-parser-create 'json)
             (insert "[1,2,3]"))
           ;; Change in the base buffer should be reflected in the
           ;; indirect buffer.
