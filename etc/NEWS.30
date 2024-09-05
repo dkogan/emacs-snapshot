@@ -1017,6 +1017,16 @@ behavior, set user option 'vc-annotate-use-short-revision' to nil.
 *** New user option 'vc-git-file-name-changes-switches'.
 It allows tweaking the thresholds for rename and copy detection.
 
+---
+*** VC Directory buffers now display the upstream branch in Git repositories.
+The "upstream branch" is the branch from which 'vc-pull' fetches changes
+by default.  In Git terms, the upstream branch of branch B is determined
+by configuration variables 'branch.B.remote' and 'branch.B.merge'.
+
+When these configuration variables are set for the current branch, the
+VC Directory buffer will show the corresponding upstream branch under
+the "Tracking" header.
+
 ** Diff mode
 
 ---
@@ -1092,7 +1102,7 @@ in size.
 
 +++
 *** 'dired-listing-switches' handles connection-local values if exist.
-This allows to customize different switches for different remote machines.
+This allows customizing different switches for different remote machines.
 
 ** Ediff
 
@@ -1405,6 +1415,16 @@ manual "(tramp) Improving performance of asynchronous remote processes".
 *** Direct asynchronous processes use 'tramp-remote-path'.
 When a direct asynchronous process is invoked, it uses 'tramp-remote-path'
 for setting the remote 'PATH' environment variable.
+
+** SHR
+
+---
+*** New user option 'shr-fill-text'.
+When 'shr-fill-text' is non-nil (the default), SHR will fill text
+according to the width of the window.  If you customize it to nil, SHR
+will leave the text as-is; in that case, EWW will automatically enable
+'visual-line-mode' when displaying a page so that long lines are
+visually wrapped at word boundaries.
 
 ** EWW
 
