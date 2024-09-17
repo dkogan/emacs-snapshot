@@ -167,7 +167,7 @@ lifetime, i.e., its \"age\" when it will be purged."
               bn (buffer-name buf)
               delay (if bts (round (float-time (time-subtract tm bts))) 0)
               cbld (clean-buffer-list-delay bn))
-        (message "[%s] `%s' [%s %d]" ts bn delay cbld)
+        (message "[%s] `%s' [%d %d]" ts bn delay cbld)
         (unless (or (cl-find bn clean-buffer-list-kill-never-regexps
                              :test (lambda (bn re)
                                      (if (functionp re)
@@ -179,7 +179,8 @@ lifetime, i.e., its \"age\" when it will be purged."
                     (and (buffer-file-name buf) (buffer-modified-p buf))
                     (get-buffer-window buf 'visible)
                     (< delay cbld))
-          (message "[%s] killing `%s'" ts bn)
+          (message "[%s] killing `%s' (last displayed %s ago)" ts bn
+                   (format-seconds "%Y, %D, %H, %M, %z%S" delay))
           (kill-buffer buf))))))
 
 ;;; midnight hook

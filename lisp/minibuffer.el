@@ -1119,8 +1119,10 @@ and DOC describes the way this style of completion works.")
     widget))
 
 (defconst completion--styles-type
-  `(repeat :tag "insert a new menu to add more styles"
-           (choice :convert-widget completion--update-styles-options)))
+  '(repeat :tag "insert a new menu to add more styles"
+           (single-or-list
+            (choice :convert-widget completion--update-styles-options)
+            (repeat :tag "Variable overrides" (group variable sexp)))))
 
 (defconst completion--cycling-threshold-type
   '(choice (const :tag "No cycling" nil)
@@ -1154,7 +1156,7 @@ This allows repeating the same style with different configurations.
 Note that `completion-category-overrides' may override these
 styles for specific categories, such as files, buffers, etc."
   :type completion--styles-type
-  :version "23.1")
+  :version "31.1")
 
 (defvar completion-category-defaults
   '((buffer (styles . (basic substring)))
@@ -1205,7 +1207,7 @@ completing buffer and file names, respectively.
 
 If a property in a category is specified by this variable, it
 overrides the default specified in `completion-category-defaults'."
-  :version "25.1"
+  :version "31.1"
   :type `(alist :key-type (choice :tag "Category"
 				  (const buffer)
                                   (const file)
@@ -3895,7 +3897,7 @@ If non-nil, partial-completion allows any string of characters to occur
 at the beginning of a completion alternative, as if a wildcard such as
 \"*\" was present at the beginning of the minibuffer text.  This makes
 partial-completion behave more like the substring completion style."
-  :version "30.1"
+  :version "31.1"
   :type 'boolean)
 
 (defun completion-pcm--string->pattern (string &optional point)
@@ -4418,18 +4420,21 @@ the same set of elements."
                      (unique (or (and (eq prefix t) (setq prefix fixed))
                                  (and (stringp prefix)
                                       (eq t (try-completion prefix comps))))))
-                ;; if the common prefix is unique, it also is a common
-                ;; suffix, so we should add it for `prefix' elements
-                (unless (or (and (eq elem 'prefix) (not unique))
-                            (equal prefix ""))
-                  (push prefix res))
                 ;; If there's only one completion, `elem' is not useful
                 ;; any more: it can only match the empty string.
                 ;; FIXME: in some cases, it may be necessary to turn an
                 ;; `any' into a `star' because the surrounding context has
                 ;; changed such that string->pattern wouldn't add an `any'
                 ;; here any more.
-                (unless unique
+                (if unique
+                    ;; If the common prefix is unique, it also is a common
+                    ;; suffix, so we should add it for `prefix' elements.
+                    (push prefix res)
+                  ;; `prefix' only wants to include the fixed part before the
+                  ;; wildcard, not the result of growing that fixed part.
+                  (when (eq elem 'prefix)
+                    (setq prefix fixed))
+                  (push prefix res)
                   (push elem res)
                   ;; Extract common suffix additionally to common prefix.
                   ;; Don't do it for `any' since it could lead to a merged
