@@ -1469,21 +1469,24 @@ system is determined by `shell-command-guess-open'."
     (when (and (memq system-type '(windows-nt))
                (equal command "start"))
       (setq command "open"))
-    (when command
-      (dolist (file files)
+    (if command
         (cond
-         ((memq system-type '(gnu/linux))
-          (call-process command nil 0 nil file))
          ((memq system-type '(ms-dos))
-          (shell-command (concat command " " (shell-quote-argument file))))
+          (dolist (file files)
+            (shell-command (concat command " " (shell-quote-argument file)))))
          ((memq system-type '(windows-nt))
-          (w32-shell-execute command (convert-standard-filename file)))
+          (dolist (file files)
+            (w32-shell-execute command (convert-standard-filename file))))
          ((memq system-type '(cygwin))
-          (call-process command nil nil nil file))
+          (dolist (file files)
+            (call-process command nil nil nil file)))
          ((memq system-type '(darwin))
-          (start-process (concat command " " file) nil command file))
+          (dolist (file files)
+            (start-process (concat command " " file) nil command file)))
          (t
-          (error "Open not supported on this system")))))))
+          (dolist (file files)
+            (call-process command nil 0 nil file))))
+      (error "Open not supported on this system"))))
 
 
 ;;; Commands that delete or redisplay part of the dired buffer

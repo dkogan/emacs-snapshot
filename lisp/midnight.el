@@ -1,6 +1,6 @@
 ;;; midnight.el --- run something every midnight, e.g., kill old buffers  -*- lexical-binding:t -*-
 
-;; Copyright (C) 1998, 2001-2024 Free Software Foundation, Inc.
+;; Copyright (C) 1998-2024 Free Software Foundation, Inc.
 
 ;; Author: Sam Steingold <sds@gnu.org>
 ;; Created: 1998-05-18
@@ -23,7 +23,7 @@
 
 ;;; Commentary:
 
-;; To use the file, put (require 'midnight) into your .emacs.  Then, at
+;; To use the file, put (midnight-mode) into your .emacs.  Then, at
 ;; midnight, Emacs will run the normal hook `midnight-hook'.  You can
 ;; put whatever you like there, say, `calendar'; by default there is
 ;; only one function there - `clean-buffer-list'.  It will kill the
@@ -52,12 +52,12 @@ the time when it is run.")
   "Non-nil means run `midnight-hook' at midnight."
   :global t
   :initialize #'custom-initialize-default
-  ;; Disable first, since the ':initialize' function above already
-  ;; starts the timer when the mode is turned on for the first time,
-  ;; via setting 'midnight-delay', which calls 'midnight-delay-set',
-  ;; which starts the timer.
-  (when (timerp midnight-timer) (cancel-timer midnight-timer))
-  (if midnight-mode (timer-activate midnight-timer)))
+  ;; Call `midnight-delay-set' again because it takes care of starting
+  ;; the timer if the mode is on.  The ':initialize' function above
+  ;; (which ends up calling `midnight-delay-set') did not know yet if
+  ;; the mode was on or not.
+  (defvar midnight-delay)
+  (midnight-delay-set 'midnight-delay midnight-delay))
 
 ;;; clean-buffer-list stuff
 
@@ -207,9 +207,11 @@ to its second argument TM."
              "Invalid argument to `midnight-delay-set': `%s'")
   (set symb tm)
   (when (timerp midnight-timer) (cancel-timer midnight-timer))
-  (setq midnight-timer
-        (run-at-time (if (numberp tm) (+ (midnight-next) tm) tm)
-                     midnight-period #'run-hooks 'midnight-hook)))
+  ;; Only start the timer if the mode is turned on.
+  (when midnight-mode
+    (setq midnight-timer
+          (run-at-time (if (numberp tm) (+ (midnight-next) tm) tm)
+                       midnight-period #'run-hooks 'midnight-hook))))
 
 (defcustom midnight-delay 3600
   "The number of seconds after the midnight when the `midnight-timer' is run.
