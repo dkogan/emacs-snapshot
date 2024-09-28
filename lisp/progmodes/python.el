@@ -294,7 +294,15 @@
 (autoload 'help-function-arglist "help-fns")
 
 ;;;###autoload
-(add-to-list 'auto-mode-alist (cons (purecopy "\\.py[iw]?\\'") 'python-mode))
+(defconst python--auto-mode-alist-regexp
+  (rx "." (or "py"
+              "pth"                     ; Python Path Configuration File
+              "pyi"                     ; Python Stub File (PEP 484)
+              "pyw")                    ; MS-Windows specific extension
+      eos))
+
+;;;###autoload
+(add-to-list 'auto-mode-alist (cons python--auto-mode-alist-regexp 'python-mode))
 ;;;###autoload
 (add-to-list 'interpreter-mode-alist (cons (purecopy "python[0-9.]*") 'python-mode))
 
@@ -304,14 +312,17 @@
   :version "24.3"
   :link '(emacs-commentary-link "python"))
 
-(defcustom python-interpreter "python"
+(defcustom python-interpreter
+  (cond ((executable-find "python3") "python3")
+        ((executable-find "python") "python")
+        (t "python3"))
   "Python interpreter for noninteractive use.
 Some Python interpreters also require changes to
 `python-interpreter-args'.
 
 To customize the Python interpreter for interactive use, modify
 `python-shell-interpreter' instead."
-  :version "29.1"
+  :version "31.1"
   :type 'string)
 
 (defcustom python-interpreter-args ""
@@ -7208,7 +7219,7 @@ implementations: `python-mode' and `python-ts-mode'."
     (when python-indent-guess-indent-offset
       (python-indent-guess-indent-offset))
 
-    (add-to-list 'auto-mode-alist '("\\.py[iw]?\\'" . python-ts-mode))
+    (add-to-list 'auto-mode-alist '(python--auto-mode-alist-regexp . python-ts-mode))
     (add-to-list 'interpreter-mode-alist '("python[0-9.]*" . python-ts-mode))))
 
 (derived-mode-add-parents 'python-ts-mode '(python-mode))
