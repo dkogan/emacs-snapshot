@@ -5396,15 +5396,18 @@ FORM is used to provide location, `bytecomp--cus-function' and
                             :underline :overline :strike-through :box
                             :inverse-video :stipple :font
                             ;; FIXME: obsolete keywords, warn about them too?
-                            ;; `:reverse-video' is very rare.
                             :bold           ; :bold t   = :weight bold
                             :italic         ; :italic t = :slant italic
-                            :reverse-video  ; alias for :inverse-video
                             ))
               (when (eq (car-safe val) 'quote)
                 (bytecomp--cus-warn
                  (list val atts sp spec)
                  "Value for face attribute `%s' should not be quoted" attr)))
+             ((eq attr :reverse-video)
+              (bytecomp--cus-warn
+               (list atts sp spec)
+               (concat "Face attribute `:reverse-video' has been removed;"
+                       " use `:inverse-video' instead")))
              (t
               (bytecomp--cus-warn
                (list atts sp spec)
@@ -5464,7 +5467,13 @@ FORM is used to provide location, `bytecomp--cus-function' and
       (when (and name
                  byte-compile-current-file  ; only when compiling a whole file
 		 (eq fun 'custom-declare-group))
-	(setq byte-compile-current-group name))))
+        (setq byte-compile-current-group name))
+
+      ;; Check :local
+      (when-let ((val (and (eq fun 'custom-declare-variable)
+                           (plist-get keyword-args :local)))
+                 (_ (not (member val '(t 'permanent 'permanent-only)))))
+        (bytecomp--cus-warn form ":local keyword does not accept %S" val))))
 
   (byte-compile-normal-call form))
 

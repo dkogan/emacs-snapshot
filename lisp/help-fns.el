@@ -206,9 +206,12 @@ type specifier when available."
         ,@(when completions-detailed
             '((affixation-function . help--symbol-completion-table-affixation)))
         (category . symbol-help))
-    (when help-enable-completion-autoload
+    (when (and help-enable-completion-autoload
+               (memq action '(nil t lambda)))
       (let ((prefixes (radix-tree-prefixes (help-definition-prefixes) string)))
-        (help--load-prefixes prefixes)))
+        ;; Don't load FOO.el during `test-completion' of `FOO-'.
+        (unless (and (eq action 'lambda) (assoc string prefixes))
+          (help--load-prefixes prefixes))))
     (let ((prefix-completions
            (and help-enable-completion-autoload
                 (mapcar #'intern (all-completions string definition-prefixes)))))
@@ -262,6 +265,23 @@ interactive command."
                   fn))
     (list fn)))
 
+(declare-function project-combine-directories "project" (&rest lists))
+
+(cl-defmethod xref-backend-references ((_backend (eql 'elisp)) identifier
+                                       &context (major-mode help-mode))
+  (mapcan
+   (lambda (dir)
+     (message "Searching %s..." dir)
+     (redisplay)
+     (prog1
+         (xref-references-in-directory identifier dir)
+       (message "Searching %s... done" dir)))
+   (project-combine-directories (elisp-load-path-roots))))
+
+(defun help-fns--setup-xref-backend ()
+  (add-hook 'xref-backend-functions #'elisp--xref-backend nil t)
+  (setq-local semantic-symref-filepattern-alist '((help-mode "*.el"))))
+
 ;;;###autoload
 (defun describe-function (function)
   "Display the full documentation of FUNCTION (a symbol).
@@ -295,6 +315,8 @@ handling of autoloaded functions."
         (princ " is ")
         (describe-function-1 function)
         (with-current-buffer standard-output
+          (help-fns--setup-xref-backend)
+
           ;; Return the text we displayed.
           (buffer-string))))))
 
@@ -1510,6 +1532,7 @@ it is displayed along with the global value."
                     (delete-char 1)))))
 
 	    (with-current-buffer standard-output
+              (help-fns--setup-xref-backend)
 	      ;; Return the text we displayed.
 	      (buffer-string))))))))
 

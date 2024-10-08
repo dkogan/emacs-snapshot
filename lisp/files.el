@@ -144,8 +144,8 @@ the default for a new file created there by you.
 This variable is relevant only if `backup-by-copying' is nil."
   :version "24.1"
   :type 'boolean
+  :local 'permanent-only
   :group 'backup)
-(put 'backup-by-copying-when-mismatch 'permanent-local t)
 
 (defcustom backup-by-copying-when-privileged-mismatch 200
   "Non-nil means create backups by copying to preserve a privileged owner.
@@ -178,9 +178,8 @@ use `kill-buffer-query-functions'."
   :type '(choice (const :tag "Never" nil)
                  (const :tag "On Emacs exit" t)
                  (const :tag "Whenever save-some-buffers is called" always))
+  :local 'permanent
   :group 'backup)
-(make-variable-buffer-local 'buffer-offer-save)
-(put 'buffer-offer-save 'permanent-local t)
 
 (defcustom find-file-existing-other-name t
   "Non-nil means find a file under alternative names, in existing buffers.
@@ -2998,6 +2997,9 @@ since only a single case-insensitive search through the alist is made."
      ("\\.scm\\.[0-9]*\\'" . scheme-mode)
      ("\\.[ckz]?sh\\'\\|\\.shar\\'\\|/\\.z?profile\\'" . sh-mode)
      ("\\.bash\\'" . sh-mode)
+     ;; Bash builtin 'fc' creates a temp file named "bash-fc.XXXXXX"
+     ;; to edit shell commands from its history list.
+     ("/bash-fc\\.[0-9A-Za-z]\\{6\\}\\'" . sh-mode)
      ("/PKGBUILD\\'" . sh-mode)
      ("\\(/\\|\\`\\)\\.\\(bash_\\(profile\\|history\\|log\\(in\\|out\\)\\)\\|z?log\\(in\\|out\\)\\)\\'" . sh-mode)
      ("\\(/\\|\\`\\)\\.\\(shrc\\|zshrc\\|m?kshrc\\|bashrc\\|t?cshrc\\|esrc\\)\\'" . sh-mode)
@@ -6147,7 +6149,13 @@ Before and after saving the buffer, this function runs
 (defvar save-some-buffers--switch-window-callback nil)
 
 (defvar save-some-buffers-action-alist
-  `((?\C-r
+  `((?\M-~ ,(lambda (buf)
+              (with-current-buffer buf
+                (set-buffer-modified-p nil))
+              ;; Return t so we don't ask about BUF again.
+              t)
+           ,(purecopy "skip this buffer and mark it unmodified"))
+    (?\C-r
      ,(lambda (buf)
         (if (not enable-recursive-minibuffers)
             (progn (display-buffer buf)
@@ -6254,7 +6262,8 @@ in variables (rather than in buffers).")
 
 (defun save-some-buffers (&optional arg pred)
   "Save some modified file-visiting buffers.  Asks user about each one.
-You can answer \\`y' or \\`SPC' to save, \\`n' or \\`DEL' not to save, \\`C-r'
+You can answer \\`y' or \\`SPC' to save, \\`n' or \\`DEL' not to save,
+\\`M-~' not to save and also mark the buffer as unmodified, \\`C-r'
 to look at the buffer in question with `view-buffer' before
 deciding, \\`d' to view the differences using
 `diff-buffer-with-file', \\`!' to save the buffer and all remaining

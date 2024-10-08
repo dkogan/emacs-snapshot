@@ -481,6 +481,9 @@ Terminate @code{save-some-buffers} without any more saving.
 @item .
 Save this buffer, then exit @code{save-some-buffers} without even asking
 about other buffers.
+@item M-~
+Don't save this buffer, and also mark it as unmodified.
+This is like the @code{not-modified} command (@pxref{Save Commands}).
 @item C-r
 View the buffer that you are currently being asked about.  When you exit
 View mode, you get back to @code{save-some-buffers}, which asks the
@@ -1702,6 +1705,14 @@ confirm you really want to revert and kill the hunk.  You can customize
 @item C-c @key{RET} a
 Apply all the hunks in the buffer (@code{diff-apply-buffer}).  If the
 diffs were applied successfully, save the changed buffers.
+
+@findex diff-delete-other-hunks
+@item C-c @key{RET} n
+Delete hunks other than the current one.  If the region is active, this
+command deletes the hunks the region overlaps; otherwise it deletes all
+hunks other than the current hunk.  This command does not work in a
+narrowed buffer because deleting hunks safely requires access to the
+parts of the buffer where the hunks' file names are specified.
 
 @findex diff-refine-hunk
 @item C-c C-b

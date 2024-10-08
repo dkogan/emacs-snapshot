@@ -233,23 +233,6 @@
 ;; `python-imenu-format-parent-item-jump-label-function' variables for
 ;; changing the way labels are formatted in the tree version.
 
-;; If you used python-mode.el you may miss auto-indentation when
-;; inserting newlines.  To achieve the same behavior you have two
-;; options:
-
-;; 1) Enable the minor-mode `electric-indent-mode' (enabled by
-;;    default) and use RET.  If this mode is disabled use
-;;    `newline-and-indent', bound to C-j.
-
-;; 2) Add the following hook in your .emacs:
-
-;; (add-hook 'python-mode-hook
-;;   (lambda ()
-;;     (define-key python-mode-map "\C-m" 'newline-and-indent)))
-
-;; I'd recommend the first one since you'll get the same behavior for
-;; all modes out-of-the-box.
-
 ;; Flymake: A Flymake backend, using the pyflakes program by default,
 ;; is provided.  You can also use flake8 or pylint by customizing
 ;; `python-flymake-command'.
@@ -295,10 +278,12 @@
 
 ;;;###autoload
 (defconst python--auto-mode-alist-regexp
-  (rx "." (or "py"
-              "pth"                     ; Python Path Configuration File
-              "pyi"                     ; Python Stub File (PEP 484)
-              "pyw")                    ; MS-Windows specific extension
+  (rx (or
+       (seq "." (or "py"
+                    "pth"               ; Python Path Configuration File
+                    "pyi"               ; Python Stub File (PEP 484)
+                    "pyw"))             ; MS-Windows specific extension
+       (seq "/" (or "SConstruct" "SConscript"))) ; SCons Build Files
       eos))
 
 ;;;###autoload
@@ -313,8 +298,7 @@
   :link '(emacs-commentary-link "python"))
 
 (defcustom python-interpreter
-  (cond ((executable-find "python3") "python3")
-        ((executable-find "python") "python")
+  (cond ((executable-find "python") "python")
         (t "python3"))
   "Python interpreter for noninteractive use.
 Some Python interpreters also require changes to
@@ -333,115 +317,113 @@ To customize the Python interpreter for interactive use, modify
 
 ;;; Bindings
 
-(defvar python-mode-map
-  (let ((map (make-sparse-keymap)))
-    ;; Movement
-    (define-key map [remap backward-sentence] #'python-nav-backward-block)
-    (define-key map [remap forward-sentence] #'python-nav-forward-block)
-    (define-key map [remap backward-up-list] #'python-nav-backward-up-list)
-    (define-key map [remap up-list] #'python-nav-up-list)
-    (define-key map [remap mark-defun] #'python-mark-defun)
-    (define-key map "\C-c\C-j" #'imenu)
-    ;; Indent specific
-    (define-key map "\177" #'python-indent-dedent-line-backspace)
-    (define-key map (kbd "<backtab>") #'python-indent-dedent-line)
-    (define-key map "\C-c<" #'python-indent-shift-left)
-    (define-key map "\C-c>" #'python-indent-shift-right)
-    ;; Skeletons
-    (define-key map "\C-c\C-tc" #'python-skeleton-class)
-    (define-key map "\C-c\C-td" #'python-skeleton-def)
-    (define-key map "\C-c\C-tf" #'python-skeleton-for)
-    (define-key map "\C-c\C-ti" #'python-skeleton-if)
-    (define-key map "\C-c\C-tm" #'python-skeleton-import)
-    (define-key map "\C-c\C-tt" #'python-skeleton-try)
-    (define-key map "\C-c\C-tw" #'python-skeleton-while)
-    ;; Shell interaction
-    (define-key map "\C-c\C-p" #'run-python)
-    (define-key map "\C-c\C-s" #'python-shell-send-string)
-    (define-key map "\C-c\C-e" #'python-shell-send-statement)
-    (define-key map "\C-c\C-r" #'python-shell-send-region)
-    (define-key map "\C-\M-x"  #'python-shell-send-defun)
-    (define-key map "\C-c\C-b" #'python-shell-send-block)
-    (define-key map "\C-c\C-c" #'python-shell-send-buffer)
-    (define-key map "\C-c\C-l" #'python-shell-send-file)
-    (define-key map "\C-c\C-z" #'python-shell-switch-to-shell)
-    ;; Some util commands
-    (define-key map "\C-c\C-v" #'python-check)
-    (define-key map "\C-c\C-f" #'python-eldoc-at-point)
-    (define-key map "\C-c\C-d" #'python-describe-at-point)
-    ;; Import management
-    (define-key map "\C-c\C-ia" #'python-add-import)
-    (define-key map "\C-c\C-if" #'python-fix-imports)
-    (define-key map "\C-c\C-ir" #'python-remove-import)
-    (define-key map "\C-c\C-is" #'python-sort-imports)
-    ;; Utilities
-    (substitute-key-definition #'complete-symbol #'completion-at-point
-                               map global-map)
-    (easy-menu-define python-menu map "Python Mode menu"
-      '("Python"
-        :help "Python-specific Features"
-        ["Shift region left" python-indent-shift-left :active mark-active
-         :help "Shift region left by a single indentation step"]
-        ["Shift region right" python-indent-shift-right :active mark-active
-         :help "Shift region right by a single indentation step"]
-        "-"
-        ["Start of def/class" beginning-of-defun
-         :help "Go to start of outermost definition around point"]
-        ["End of def/class" end-of-defun
-         :help "Go to end of definition around point"]
-        ["Mark def/class" mark-defun
-         :help "Mark outermost definition around point"]
-        ["Jump to def/class" imenu
-         :help "Jump to a class or function definition"]
-        "--"
-        ("Skeletons")
-        "---"
-        ["Start interpreter" run-python
-         :help "Run inferior Python process in a separate buffer"]
-        ["Switch to shell" python-shell-switch-to-shell
-         :help "Switch to running inferior Python process"]
-        ["Eval string" python-shell-send-string
-         :help "Eval string in inferior Python session"]
-        ["Eval block" python-shell-send-block
-         :help "Eval block in inferior Python session"]
-        ["Eval buffer" python-shell-send-buffer
-         :help "Eval buffer in inferior Python session"]
-        ["Eval statement" python-shell-send-statement
-         :help "Eval statement in inferior Python session"]
-        ["Eval region" python-shell-send-region
-         :help "Eval region in inferior Python session"]
-        ["Eval defun" python-shell-send-defun
-         :help "Eval defun in inferior Python session"]
-        ["Eval file" python-shell-send-file
-         :help "Eval file in inferior Python session"]
-        ["Debugger" pdb :help "Run pdb under GUD"]
-        "----"
-        ["Check file" python-check
-         :help "Check file for errors"]
-        ["Help on symbol" python-eldoc-at-point
-         :help "Get help on symbol at point"]
-        ["Complete symbol" completion-at-point
-         :help "Complete symbol before point"]
-        "-----"
-        ["Add import" python-add-import
-         :help "Add an import statement to the top of this buffer"]
-        ["Remove import" python-remove-import
-         :help "Remove an import statement from the top of this buffer"]
-        ["Sort imports" python-sort-imports
-         :help "Sort the import statements at the top of this buffer"]
-        ["Fix imports" python-fix-imports
-         :help "Add missing imports and remove unused ones from the current buffer"]
-        "-----"
-        ("Toggle..."
-         ["Subword Mode" subword-mode
-          :style toggle :selected subword-mode
-          :help "Toggle subword movement and editing mode"])
-        ))
-    map)
-  "Keymap for `python-mode'.")
+(defvar-keymap python-mode-map
+  :doc "Keymap for `python-mode'."
+  ;; Movement
+  "<remap> <backward-sentence>" #'python-nav-backward-block
+  "<remap> <forward-sentence>"  #'python-nav-forward-block
+  "<remap> <backward-up-list>"  #'python-nav-backward-up-list
+  "<remap> <up-list>"           #'python-nav-up-list
+  "<remap> <mark-defun>"        #'python-mark-defun
+  "C-c C-j"     #'imenu
+  ;; Indent specific
+  "DEL"         #'python-indent-dedent-line-backspace
+  "<backtab>"   #'python-indent-dedent-line
+  "C-c <"       #'python-indent-shift-left
+  "C-c >"       #'python-indent-shift-right
+  ;; Skeletons
+  "C-c C-t c"   #'python-skeleton-class
+  "C-c C-t d"   #'python-skeleton-def
+  "C-c C-t f"   #'python-skeleton-for
+  "C-c C-t i"   #'python-skeleton-if
+  "C-c C-t m"   #'python-skeleton-import
+  "C-c C-t t"   #'python-skeleton-try
+  "C-c C-t w"   #'python-skeleton-while
+  ;; Shell interaction
+  "C-c C-p"     #'run-python
+  "C-c C-s"     #'python-shell-send-string
+  "C-c C-e"     #'python-shell-send-statement
+  "C-c C-r"     #'python-shell-send-region
+  "C-M-x"       #'python-shell-send-defun
+  "C-c C-b"     #'python-shell-send-block
+  "C-c C-c"     #'python-shell-send-buffer
+  "C-c C-l"     #'python-shell-send-file
+  "C-c C-z"     #'python-shell-switch-to-shell
+  ;; Some util commands
+  "C-c C-v"     #'python-check
+  "C-c C-f"     #'python-eldoc-at-point
+  "C-c C-d"     #'python-describe-at-point
+  ;; Import management
+  "C-c C-i a"   #'python-add-import
+  "C-c C-i f"   #'python-fix-imports
+  "C-c C-i r"   #'python-remove-import
+  "C-c C-i s"   #'python-sort-imports
+  ;; Utilities
+  "<remap> <complete-symbol>" #'completion-at-point)
+
+(easy-menu-define python-menu python-mode-map
+  "Menu used for ´python-mode'."
+  '("Python"
+    :help "Python-specific Features"
+    ["Shift region left" python-indent-shift-left :active mark-active
+     :help "Shift region left by a single indentation step"]
+    ["Shift region right" python-indent-shift-right :active mark-active
+     :help "Shift region right by a single indentation step"]
+    "-----"
+    ["Start of def/class" beginning-of-defun
+     :help "Go to start of outermost definition around point"]
+    ["End of def/class" end-of-defun
+     :help "Go to end of definition around point"]
+    ["Mark def/class" mark-defun
+     :help "Mark outermost definition around point"]
+    ["Jump to def/class" imenu
+     :help "Jump to a class or function definition"]
+    "-----"
+    ("Skeletons")
+    "-----"
+    ["Start interpreter" run-python
+     :help "Run inferior Python process in a separate buffer"]
+    ["Switch to shell" python-shell-switch-to-shell
+     :help "Switch to running inferior Python process"]
+    ["Eval string" python-shell-send-string
+     :help "Eval string in inferior Python session"]
+    ["Eval block" python-shell-send-block
+     :help "Eval block in inferior Python session"]
+    ["Eval buffer" python-shell-send-buffer
+     :help "Eval buffer in inferior Python session"]
+    ["Eval statement" python-shell-send-statement
+     :help "Eval statement in inferior Python session"]
+    ["Eval region" python-shell-send-region
+     :help "Eval region in inferior Python session"]
+    ["Eval defun" python-shell-send-defun
+     :help "Eval defun in inferior Python session"]
+    ["Eval file" python-shell-send-file
+     :help "Eval file in inferior Python session"]
+    ["Debugger" pdb :help "Run pdb under GUD"]
+    "-----"
+    ["Check file" python-check
+     :help "Check file for errors"]
+    ["Help on symbol" python-eldoc-at-point
+     :help "Get help on symbol at point"]
+    ["Complete symbol" completion-at-point
+     :help "Complete symbol before point"]
+    "-----"
+    ["Add import" python-add-import
+     :help "Add an import statement to the top of this buffer"]
+    ["Remove import" python-remove-import
+     :help "Remove an import statement from the top of this buffer"]
+    ["Sort imports" python-sort-imports
+     :help "Sort the import statements at the top of this buffer"]
+    ["Fix imports" python-fix-imports
+     :help "Add missing imports and remove unused ones from the current buffer"]
+    "-----"
+    ("Toggle..."
+     ["Subword Mode" subword-mode
+      :style toggle :selected subword-mode
+      :help "Toggle subword movement and editing mode"])))
 
 (defvar python-ts-mode-map (copy-keymap python-mode-map)
-  "Keymap for `(copy-keymap python-mode-map)'.")
+  "Keymap for `python-ts-mode'.")
 
 
 ;;; Python specialized rx
@@ -2739,8 +2721,7 @@ position, else returns nil."
   :safe 'stringp)
 
 (defcustom python-shell-interpreter
-  (cond ((executable-find "python3") "python3")
-        ((executable-find "python") "python")
+  (cond ((executable-find "python") "python")
         (t "python3"))
   "Python interpreter for interactive use.
 
@@ -2748,7 +2729,7 @@ Some Python interpreters also require changes to
 `python-shell-interpreter-args'.  In particular, setting
 `python-shell-interpreter' to \"ipython3\" requires setting
 `python-shell-interpreter-args' to \"--simple-prompt\"."
-  :version "28.1"
+  :version "31.1"
   :type 'string)
 
 (defcustom python-shell-internal-buffer-name "Python Internal"
@@ -5574,10 +5555,8 @@ def __FFAP_get_module_path(objstr):
   "Buffer name used for check commands."
   :type 'string)
 
-(defvar python-check-custom-command nil
+(defvar-local python-check-custom-command nil
   "Internal use.")
-;; XXX: Avoid `defvar-local' for compat with Emacs<24.3
-(make-variable-buffer-local 'python-check-custom-command)
 
 (defun python-check (command)
   "Check a Python file (default current buffer's file).
@@ -7092,6 +7071,11 @@ implementations: `python-mode' and `python-ts-mode'."
               `((?: . ,(lambda ()
                          (and (zerop (car (syntax-ppss)))
                               (python-info-statement-starts-block-p)
+                              ;; Heuristic: assume walrus operator :=
+                              ;; when colon is preceded by space.
+                              (save-excursion
+                                (goto-char (- (point) 2))
+                                (looking-at (rx (not space) ":")))
                               'after)))))
 
   ;; Add """ ... """ pairing to electric-pair-mode.
@@ -7210,6 +7194,20 @@ implementations: `python-mode' and `python-ts-mode'."
                                               "_definition"))
     (setq-local treesit-defun-name-function
                 #'python--treesit-defun-name)
+
+    (setq-local treesit-sentence-type-regexp
+                (regexp-opt '("statement"
+                              "clause")))
+
+    (setq-local treesit-sexp-type-regexp
+                (regexp-opt '("expression"
+                              "string"
+                              "call"
+                              "operator"
+                              "identifier"
+                              "integer"
+                              "float")))
+
     (treesit-major-mode-setup)
 
     (setq-local syntax-propertize-function #'python--treesit-syntax-propertize)
@@ -7219,7 +7217,7 @@ implementations: `python-mode' and `python-ts-mode'."
     (when python-indent-guess-indent-offset
       (python-indent-guess-indent-offset))
 
-    (add-to-list 'auto-mode-alist '(python--auto-mode-alist-regexp . python-ts-mode))
+    (add-to-list 'auto-mode-alist (cons python--auto-mode-alist-regexp  'python-ts-mode))
     (add-to-list 'interpreter-mode-alist '("python[0-9.]*" . python-ts-mode))))
 
 (derived-mode-add-parents 'python-ts-mode '(python-mode))
