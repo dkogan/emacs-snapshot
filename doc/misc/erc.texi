@@ -411,8 +411,9 @@ Kill current input line using @code{erc-bol} followed by @code{kill-line}.
 One way to add functionality to ERC is to customize which of its many
 modules are loaded.
 
-There is a spiffy customize interface, which may be reached by typing
-@kbd{M-x customize-option @key{RET} erc-modules @key{RET}}.  When
+You can do this by typing @kbd{C-h v erc-modules @key{RET}} and clicking
+@samp{customize} near the bottom of the resulting help buffer, where it
+says ``You can @emph{customize} this variable.''  When
 removing a module outside of Customize, you may wish to ensure it's
 disabled by invoking its associated minor-mode toggle with a
 nonpositive prefix argument, for example, @kbd{C-u - M-x
@@ -1324,11 +1325,14 @@ settings (@pxref{Sample configuration via Customize}).
 ;;; My ERC configuration -*- lexical-binding: t -*-
 
 (use-package erc
-  :custom
+  :config
   ;; Prefer SASL to NickServ, colorize nicknames, and show side panels
-  ;; with joined channels and members.
-  (erc-modules (append '(sasl nicks bufbar nickbar scrolltobottom)
-                       erc-modules))
+  ;; with joined channels and members
+  (setopt erc-modules
+          (seq-union '(sasl nicks bufbar nickbar scrolltobottom)
+                     erc-modules))
+
+  :custom
   ;; Protect me from accidentally sending excess lines.
   (erc-inhibit-multiline-input t)
   (erc-send-whitespace-lines t)
@@ -1911,8 +1915,8 @@ interactve contexts covered by the option
 @lisp
 (defun my-erc-interactive-display-buffer (buffer action)
   "Pop to BUFFER when running \\[erc-tls], clicking a link, etc."
-  (when-let ((alist (cdr action))
-             (found (alist-get 'erc-interactive-display alist)))
+  (when-let* ((alist (cdr action))
+              (found (alist-get 'erc-interactive-display alist)))
     (if (eq found 'erc-tls)
         (pop-to-buffer-same-window buffer action)
       (pop-to-buffer buffer action))))

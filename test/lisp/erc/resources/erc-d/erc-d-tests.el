@@ -248,8 +248,36 @@
                   'decode))
       (should-not (erc-d-i-message.compat ours))
       (should (equal (erc-d-i-message.command-args ours) '("#chàn")))
-      (should (equal (erc-d-i-message.contents ours) ""))
+      (should (equal (erc-d-i-message.contents ours) "#chàn"))
       (should (equal (erc-d-i-message.tags ours) '((foo . "çedilla")))))))
+
+(ert-deftest erc-d-i--parse-message/privmsg ()
+  (dolist (raw '(":Bob!~bob@gnu.org PRIVMSG #chan :one two"
+                 ":Bob!~bob@gnu.org PRIVMSG #chan one"
+                 ":Bob!~bob@gnu.org PRIVMSG #chan : "
+                 ":Bob!~bob@gnu.org PRIVMSG #chan :"
+                 "@account=bob :Bob!~bob@gnu.org PRIVMSG #chan one"
+                 "@foo=bar;baz :Bob!~bob@gnu.org PRIVMSG #chan :one"))
+    (dolist (slot '(unparsed
+                    sender
+                    command
+                    command-args
+                    contents
+                    tags))
+      (let ((ours (erc-d-i--parse-message raw))
+            (orig (erc-d-tests--parse-message-upstream raw)))
+        (ert-info ((format "slot: `%s', orig: %S, ours: %S"
+                           slot orig ours))
+          (if (eq slot 'tags)
+              (should (equal (erc-response.tags orig)
+                             (mapcar (pcase-lambda (`(,key . ,value))
+                                       (if value
+                                           (list (symbol-name key) value)
+                                         (list (symbol-name key))))
+                                     (reverse (erc-d-i-message.tags ours)))))
+            (should
+             (equal (cl-struct-slot-value 'erc-d-i-message slot ours)
+                    (cl-struct-slot-value 'erc-response slot orig)))))))))
 
 (ert-deftest erc-d-i--unescape-tag-value ()
   (should (equal (erc-d-i--unescape-tag-value
@@ -290,23 +318,23 @@
             m (erc-d-i--parse-message input))
       (ert-info ("Parses tags correctly")
         (setq ours (erc-d-i-message.tags m))
-        (if-let ((tags (assoc-default 'tags atoms)))
+        (if-let* ((tags (assoc-default 'tags atoms)))
             (pcase-dolist (`(,key . ,value) ours)
               (should (string= (cdr (assq key tags)) (or value ""))))
           (should-not ours)))
       (ert-info ("Parses verbs correctly")
         (setq ours (erc-d-i-message.command m))
-        (if-let ((verbs (assoc-default 'verb atoms)))
+        (if-let* ((verbs (assoc-default 'verb atoms)))
             (should (string= (downcase verbs) (downcase ours)))
           (should (string-empty-p ours))))
       (ert-info ("Parses sources correctly")
         (setq ours (erc-d-i-message.sender m))
-        (if-let ((source (assoc-default 'source atoms)))
+        (if-let* ((source (assoc-default 'source atoms)))
             (should (string= source ours))
           (should (string-empty-p ours))))
       (ert-info ("Parses params correctly")
         (setq ours (erc-d-i-message.command-args m))
-        (if-let ((params (assoc-default 'params atoms)))
+        (if-let* ((params (assoc-default 'params atoms)))
             (should (equal ours params))
           (should-not ours))))))
 

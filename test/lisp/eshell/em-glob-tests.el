@@ -74,7 +74,13 @@ component ending in \"symlink\" is treated as a symbolic link."
       ;; Ensure the default expansion splices the glob.
       (eshell-command-result-equal "funcall list *.el" '("a.el" "b.el"))
       (eshell-command-result-equal "funcall list *.txt" '("c.txt"))
-      (eshell-command-result-equal "funcall list *.no" '("*.no")))))
+      ;; When splitting, no-matches cases also return a list containing
+      ;; the original non-matching glob.
+      (eshell-command-result-equal "funcall list *.no" '("*.no"))
+      (when (eshell-tests-remote-accessible-p)
+        (let ((remote (file-remote-p ert-remote-temporary-file-directory)))
+          (eshell-command-result-equal (format "funcall list %s~/a.el" remote)
+                                       `(,(format "%s~/a.el" remote))))))))
 
 (ert-deftest em-glob-test/expand/no-splice-results ()
   "Test that globs are treated as lists when
@@ -85,9 +91,13 @@ component ending in \"symlink\" is treated as a symbolic link."
       ;; Ensure the default expansion splices the glob.
       (eshell-command-result-equal "funcall list *.el" '(("a.el" "b.el")))
       (eshell-command-result-equal "funcall list *.txt" '(("c.txt")))
-      ;; The no-matches case is special here: the glob is just the
+      ;; The no-matches cases are special here: the glob is just the
       ;; string, not the list of results.
-      (eshell-command-result-equal "funcall list *.no" '("*.no")))))
+      (eshell-command-result-equal "funcall list *.no" '("*.no"))
+      (when (eshell-tests-remote-accessible-p)
+        (let ((remote (file-remote-p ert-remote-temporary-file-directory)))
+          (eshell-command-result-equal (format "funcall list %s~/a.el" remote)
+                                       `(,(format "%s~/a.el" remote))))))))
 
 (ert-deftest em-glob-test/expand/explicitly-splice-results ()
   "Test explicitly splicing globs works the same no matter the
@@ -306,5 +316,16 @@ value of `eshell-glob-splice-results'."
          (eshell-error-if-no-glob t))
     (should (equal (eshell-extended-glob (format "%s~/file.txt" remote))
                    (format "%s~/file.txt" remote)))))
+
+;; Compatibility tests
+
+
+(ert-deftest em-glob-test/test-command-without-pred ()
+  "Test that the \"[\" command works when `eshell-pred' is disabled."
+  (skip-unless (executable-find "["))
+  (let ((eshell-modules-list (remq 'eshell-pred eshell-modules-list)))
+    (with-temp-eshell
+      (eshell-match-command-output "[ foo = foo ]" "\\`\\'")
+      (should (= eshell-last-command-status 0)))))
 
 ;; em-glob-tests.el ends here

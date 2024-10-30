@@ -90,6 +90,10 @@
 That is to say, the first time during an Emacs session."
   :type 'hook)
 
+(defcustom eshell-after-initialize-hook nil
+  "A hook that gets run after an Eshell session has been fully initialized."
+  :type 'hook)
+
 (defcustom eshell-exit-hook nil
   "A hook that is run whenever `eshell' is exited.
 This hook is only run if exiting actually kills the buffer."
@@ -406,7 +410,7 @@ and the hook `eshell-exit-hook'."
   (when eshell-first-time-p
     (setq eshell-first-time-p nil)
     (run-hooks 'eshell-first-time-mode-hook))
-
+  (run-hooks 'eshell-after-initialize-hook)
   (run-hooks 'eshell-post-command-hook))
 
 (put 'eshell-mode 'mode-class 'special)
@@ -530,8 +534,7 @@ Putting this function on `eshell-pre-command-hook' will mimic Plan 9's
 (defun eshell-interactive-print (string)
   "Print STRING to the eshell display buffer."
   (when string
-    (eshell--mark-as-output 0 (length string) string)
-    (eshell-interactive-filter nil string)))
+    (eshell-interactive-output-filter nil string)))
 
 (defsubst eshell-begin-on-new-line ()
   "This function outputs a newline if not at beginning of line."
@@ -685,7 +688,7 @@ newline."
 (custom-add-option 'eshell-input-filter-functions 'eshell-kill-new)
 
 (defun eshell-interactive-filter (buffer string)
-  "Send output (STRING) to the interactive display, using BUFFER.
+  "Send STRING to the interactive display, using BUFFER.
 This is done after all necessary filtering has been done."
   (unless buffer
     (setq buffer (current-buffer)))
@@ -724,6 +727,17 @@ This is done after all necessary filtering has been done."
           (narrow-to-region obeg oend)
           (goto-char opoint)
           (eshell-run-output-filters))))))
+
+(defun eshell-interactive-output-filter (buffer string)
+  "Send STRING to the interactive display as command output, using BUFFER.
+This is like `eshell-interactive-filter', but marks the inserted string
+as command output (see `eshell--mark-as-output')."
+  (let ((eshell-output-filter-functions
+         (cons (lambda ()
+                 (eshell--mark-as-output eshell-last-output-start
+                                         eshell-last-output-end))
+               eshell-output-filter-functions)))
+    (eshell-interactive-filter buffer string)))
 
 (defun eshell-run-output-filters ()
   "Run the `eshell-output-filter-functions' on the current output."

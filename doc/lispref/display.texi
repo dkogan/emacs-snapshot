@@ -2769,7 +2769,7 @@ Draw a box with lines of width 1, in the foreground color.
 Draw a box with lines of width 1, in color @var{color}.
 
 @item @code{(:line-width (@var{vwidth} . @var{hwidth}) :color @var{color} :style @var{style})}
-You can explicitly specify all aspects of the box with a plist on this
+You can explicitly specify all aspects of the box with a plist of this
 form.  Any element in this plist can be omitted.
 
 The values of @var{vwidth} and @var{hwidth} specify respectively the
@@ -4027,11 +4027,13 @@ in the range @var{from} and @var{to} (inclusive).
 @var{characters} may be a charset symbol (@pxref{Character Sets}).  In
 that case, use @var{font-spec} for all the characters in the charset.
 
+@vindex use-default-font-for-symbols
 @var{characters} may be a script symbol (@pxref{Character Properties,
 char-script-table}).  In that case, use @var{font-spec} for all the
 characters belonging to the script.  See also
 @code{use-default-font-for-symbols}, which affects font selection
-when @var{fontset} is @code{symbol}.
+when @var{characters} specify or belong to the @code{symbol} script
+(which includes symbol and punctuation characters).
 
 @var{characters} may be @code{nil}, which means to use @var{font-spec}
 for any character in @var{fontset} for which no font-spec is

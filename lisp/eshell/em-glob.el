@@ -141,7 +141,7 @@ This mimics the behavior of zsh if non-nil, but bash if nil."
   (when (boundp 'eshell-special-chars-outside-quoting)
     (setq-local eshell-special-chars-outside-quoting
 	 (append eshell-glob-chars-list eshell-special-chars-outside-quoting)))
-  (add-hook 'eshell-parse-argument-hook 'eshell-parse-glob-chars t t)
+  (add-hook 'eshell-parse-argument-hook 'eshell-parse-glob-chars 90 t)
   (add-hook 'eshell-pre-rewrite-command-hook
 	    'eshell-no-command-globbing nil t))
 
@@ -165,24 +165,8 @@ The character is not advanced for ordinary globbing characters, so
 that other function may have a chance to override the globbing
 interpretation."
   (when (memq (char-after) eshell-glob-chars-list)
-    (if (not (memq (char-after) '(?\( ?\[)))
-	(ignore (eshell-add-glob-modifier))
-      (let ((here (point)))
-	(forward-char)
-	(let* ((delim (char-before))
-	       (end (eshell-find-delimiter
-		     delim (if (eq delim ?\[) ?\] ?\)))))
-	  (if (not end)
-              (throw 'eshell-incomplete (char-to-string delim))
-	    (if (and (eshell-using-module 'eshell-pred)
-		     (eshell-arg-delimiter (1+ end)))
-		(ignore (goto-char here))
-	      (eshell-add-glob-modifier)
-	      (prog1
-		  (buffer-substring-no-properties (1- (point)) (1+ end))
-		(goto-char (1+ end))))))))))
+    (ignore (eshell-add-glob-modifier))))
 
-(defvar eshell-glob-chars-regexp nil)
 (defvar eshell-glob-matches)
 (defvar message-shown)
 
@@ -190,11 +174,12 @@ interpretation."
   '(("**/" . recurse)
     ("***/" . recurse-symlink)))
 
+(defvar eshell-glob-chars-regexp nil)
 (defsubst eshell-glob-chars-regexp ()
   "Return the lazily-created value for `eshell-glob-chars-regexp'."
   (or eshell-glob-chars-regexp
       (setq-local eshell-glob-chars-regexp
-		  (format "[%s]+" (apply 'string eshell-glob-chars-list)))))
+                  (rx-to-string `(+ (any ,@eshell-glob-chars-list)) t))))
 
 (defun eshell-glob-regexp (pattern)
   "Convert glob-pattern PATTERN to a regular expression.
@@ -244,7 +229,10 @@ resulting regular expression."
 
 (defun eshell-glob-p (pattern)
   "Return non-nil if PATTERN has any special glob characters."
-  (string-match (eshell-glob-chars-regexp) pattern))
+  ;; "~" is an infix globbing character, so one at the start of a glob
+  ;; must be a literal.
+  (let ((start (if (string-prefix-p "~" pattern) 1 0)))
+    (string-match (eshell-glob-chars-regexp) pattern start)))
 
 (defun eshell-glob-convert-1 (glob &optional last)
   "Convert a GLOB matching a single element of a file name to regexps.
@@ -306,8 +294,8 @@ The result is a list of three elements:
         (setq start-dir (pop globs))
       (setq start-dir (file-name-as-directory ".")))
     (while globs
-      (if-let ((recurse (cdr (assoc (car globs)
-                                    eshell-glob-recursive-alist))))
+      (if-let* ((recurse (cdr (assoc (car globs)
+                                     eshell-glob-recursive-alist))))
           (if last-saw-recursion
               (setcar result recurse)
             (push recurse result)
@@ -348,7 +336,7 @@ regular expressions, and these cannot support the above constructs."
         ;; always be sure if the "~" is a home directory reference or
         ;; part of a glob (e.g. if the argument was assembled from
         ;; variables).
-        glob
+        (if eshell-glob-splice-results (list glob) glob)
       (unwind-protect
           (apply #'eshell-glob-entries globs)
         (if message-shown
