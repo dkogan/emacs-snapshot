@@ -2128,7 +2128,7 @@ dump_marker (struct dump_context *ctx, const struct Lisp_Marker *marker)
 static dump_off
 dump_interval_node (struct dump_context *ctx, struct itree_node *node)
 {
-#if CHECK_STRUCTS && !defined (HASH_itree_node_50DE304F13)
+#if CHECK_STRUCTS && !defined (HASH_itree_node_03626AFCA9)
 # error "itree_node changed. See CHECK_STRUCTS comment in config.h."
 #endif
   struct itree_node out;
@@ -4853,11 +4853,14 @@ struct dump_memory_map_heap_control_block
 static void
 dump_mm_heap_cb_release (struct dump_memory_map_heap_control_block *cb)
 {
-  eassert (cb->refcount > 0);
-  if (--cb->refcount == 0)
+  if (cb)
     {
-      free (cb->mem);
-      free (cb);
+      eassert (cb->refcount > 0);
+      if (--cb->refcount == 0)
+	{
+	  free (cb->mem);
+	  free (cb);
+	}
     }
 }
 
