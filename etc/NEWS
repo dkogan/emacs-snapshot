@@ -154,6 +154,12 @@ that the actual killing or burying of the buffer is done by the caller.
 With this option set, 'quit-restore-window' will delete its window more
 aggressively rather than switching to some other buffer in it.
 
+---
+*** The user option 'display-comint-buffer-action' has been removed.
+It has been obsolete since Emacs 30.1.  Use '(category . comint)' instead.
+Another user option 'display-tex-shell-buffer-action' has been removed too
+for which you can use '(category . tex-shell)'.
+
 ** Frames
 
 +++
@@ -781,6 +787,19 @@ removing packages.
 When invoked with a prefix argument, 'package-install-selected-packages'
 will not prompt the user for confirmation before installing packages.
 
+** Xref
+
+---
+*** Xref commands that jump to some location use 'display-buffer'.
+The commands that jump to some location use 'display-buffer' and specify
+the category 'xref-jump'.  As a result, you can customize how the
+destination window is chosen using 'display-buffer-alist'.  Example:
+
+  (setq display-buffer-alist '(((category . xref-jump)
+                                (display-buffer-reuse-window
+                                 display-buffer-use-some-window)
+                                (some-window . mru))))
+
 
 * New Modes and Packages in Emacs 31.1
 
@@ -933,6 +952,13 @@ provide a ':columns' spec, so that the number of columns and their
 widths can be determined.  Columns widths can be set explicitly, or they
 will be calculated based on the window width.
 
++++
+** New symbol property 'repeat-continue-only' for 'repeat-mode'.
+A command with this symbol property whose value is a list of repeat
+maps will not activate the repeat map in 'repeat-mode'.  It will only
+continue the already activated repeating sequence.  Also 'defvar-keymap'
+supports a new keyword ':continue-only' with a list of commands that
+only continue the active repeating sequence.
 
 
 * Changes in Emacs 31.1 on Non-Free Operating Systems
