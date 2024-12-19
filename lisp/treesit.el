@@ -39,61 +39,69 @@
 
 ;;; Function declarations
 
-(declare-function treesit-language-available-p "treesit.c")
-(declare-function treesit-language-version "treesit.c")
+(defmacro treesit-declare-unavailable-functions ()
+  "Declare C functions and variables defined in treesit.c.
 
-(declare-function treesit-parser-p "treesit.c")
-(declare-function treesit-node-p "treesit.c")
-(declare-function treesit-compiled-query-p "treesit.c")
-(declare-function treesit-query-p "treesit.c")
-(declare-function treesit-query-language "treesit.c")
+This macro is only needed when a file needs to be able to byte-compile
+in a Emacs not built with tree-sitter library."
+  '(progn
+     (declare-function treesit-language-available-p "treesit.c")
+     (declare-function treesit-language-version "treesit.c")
 
-(declare-function treesit-node-parser "treesit.c")
+     (declare-function treesit-parser-p "treesit.c")
+     (declare-function treesit-node-p "treesit.c")
+     (declare-function treesit-compiled-query-p "treesit.c")
+     (declare-function treesit-query-p "treesit.c")
+     (declare-function treesit-query-language "treesit.c")
 
-(declare-function treesit-parser-create "treesit.c")
-(declare-function treesit-parser-delete "treesit.c")
-(declare-function treesit-parser-list "treesit.c")
-(declare-function treesit-parser-buffer "treesit.c")
-(declare-function treesit-parser-language "treesit.c")
-(declare-function treesit-parser-tag "treesit.c")
+     (declare-function treesit-node-parser "treesit.c")
 
-(declare-function treesit-parser-root-node "treesit.c")
+     (declare-function treesit-parser-create "treesit.c")
+     (declare-function treesit-parser-delete "treesit.c")
+     (declare-function treesit-parser-list "treesit.c")
+     (declare-function treesit-parser-buffer "treesit.c")
+     (declare-function treesit-parser-language "treesit.c")
+     (declare-function treesit-parser-tag "treesit.c")
 
-(declare-function treesit-parser-set-included-ranges "treesit.c")
-(declare-function treesit-parser-included-ranges "treesit.c")
-(declare-function treesit-parser-changed-ranges "treesit.c")
-(declare-function treesit-parser-add-notifier "treesit.c")
+     (declare-function treesit-parser-root-node "treesit.c")
 
-(declare-function treesit-node-type "treesit.c")
-(declare-function treesit-node-start "treesit.c")
-(declare-function treesit-node-end "treesit.c")
-(declare-function treesit-node-string "treesit.c")
-(declare-function treesit-node-parent "treesit.c")
-(declare-function treesit-node-child "treesit.c")
-(declare-function treesit-node-check "treesit.c")
-(declare-function treesit-node-field-name-for-child "treesit.c")
-(declare-function treesit-node-child-count "treesit.c")
-(declare-function treesit-node-child-by-field-name "treesit.c")
-(declare-function treesit-node-next-sibling "treesit.c")
-(declare-function treesit-node-prev-sibling "treesit.c")
-(declare-function treesit-node-first-child-for-pos "treesit.c")
-(declare-function treesit-node-descendant-for-range "treesit.c")
-(declare-function treesit-node-eq "treesit.c")
+     (declare-function treesit-parser-set-included-ranges "treesit.c")
+     (declare-function treesit-parser-included-ranges "treesit.c")
+     (declare-function treesit-parser-changed-ranges "treesit.c")
+     (declare-function treesit-parser-add-notifier "treesit.c")
 
-(declare-function treesit-pattern-expand "treesit.c")
-(declare-function treesit-query-expand "treesit.c")
-(declare-function treesit-query-compile "treesit.c")
-(declare-function treesit-query-capture "treesit.c")
+     (declare-function treesit-node-type "treesit.c")
+     (declare-function treesit-node-start "treesit.c")
+     (declare-function treesit-node-end "treesit.c")
+     (declare-function treesit-node-string "treesit.c")
+     (declare-function treesit-node-parent "treesit.c")
+     (declare-function treesit-node-child "treesit.c")
+     (declare-function treesit-node-check "treesit.c")
+     (declare-function treesit-node-field-name-for-child "treesit.c")
+     (declare-function treesit-node-child-count "treesit.c")
+     (declare-function treesit-node-child-by-field-name "treesit.c")
+     (declare-function treesit-node-next-sibling "treesit.c")
+     (declare-function treesit-node-prev-sibling "treesit.c")
+     (declare-function treesit-node-first-child-for-pos "treesit.c")
+     (declare-function treesit-node-descendant-for-range "treesit.c")
+     (declare-function treesit-node-eq "treesit.c")
 
-(declare-function treesit-search-subtree "treesit.c")
-(declare-function treesit-search-forward "treesit.c")
-(declare-function treesit-induce-sparse-tree "treesit.c")
-(declare-function treesit-subtree-stat "treesit.c")
-(declare-function treesit-node-match-p "treesit.c")
+     (declare-function treesit-pattern-expand "treesit.c")
+     (declare-function treesit-query-expand "treesit.c")
+     (declare-function treesit-query-compile "treesit.c")
+     (declare-function treesit-query-capture "treesit.c")
 
-(declare-function treesit-available-p "treesit.c")
+     (declare-function treesit-search-subtree "treesit.c")
+     (declare-function treesit-search-forward "treesit.c")
+     (declare-function treesit-induce-sparse-tree "treesit.c")
+     (declare-function treesit-subtree-stat "treesit.c")
+     (declare-function treesit-node-match-p "treesit.c")
 
-(defvar treesit-thing-settings)
+     (declare-function treesit-available-p "treesit.c")
+
+     (defvar treesit-thing-settings)))
+
+(treesit-declare-unavailable-functions)
 
 ;;; Custom options
 
@@ -2358,6 +2366,25 @@ delimits medium sized statements in the source code.  It is,
 however, smaller in scope than sentences.  This is used by
 `treesit-forward-sexp' and friends.")
 
+(defun treesit-forward-list (&optional arg)
+  "Move forward across a list.
+What constitutes a list is determined by `sexp-list' in
+`treesit-thing-settings' that usually defines
+parentheses-like expressions.
+
+Unlike `forward-sexp', this command moves only across a list,
+but not across atoms (such as symbols or words) inside the list.
+
+This command is the tree-sitter variant of `forward-list'.  But since
+`forward-list' has no \"forward-list-function\" like there is
+`forward-sexp-function' for `forward-sexp', this command
+can be used on its own.
+
+ARG is described in the docstring of `forward-list'."
+  (interactive "^p")
+  (let ((treesit-sexp-type-regexp 'sexp-list))
+    (treesit-forward-sexp arg)))
+
 (defun treesit-forward-sexp (&optional arg)
   "Tree-sitter implementation for `forward-sexp-function'.
 
@@ -2371,12 +2398,18 @@ signal `scan-error' like `forward-sexp' does.  If point is already
 at top-level, return nil without moving point.
 
 What constitutes as text and source code sexp is determined
-by `text' and `sexp' in `treesit-thing-settings'."
+by `text' and `sexp' in `treesit-thing-settings'.
+
+There is an alternative implementation in `treesit-forward-sexp-list'
+that uses `sexp-list' in `treesit-thing-settings' to move only
+across lists, whereas uses `forward-sexp-default-function' to move
+across atoms (such as symbols or words) inside the list."
   (interactive "^p")
   (let ((arg (or arg 1))
         (pred (or treesit-sexp-type-regexp 'sexp))
         (node-at-point
-         (treesit-node-at (point) (treesit-language-at (point)))))
+         (when (null treesit-sexp-type-regexp)
+           (treesit-node-at (point) (treesit-language-at (point))))))
     (or (when (and node-at-point
                    ;; Make sure point is strictly inside node.
                    (< (treesit-node-start node-at-point)
@@ -2399,6 +2432,60 @@ by `text' and `sexp' in `treesit-thing-settings'."
           (signal 'scan-error (list "No more sexp to move across"
                                     (treesit-node-start boundary)
                                     (treesit-node-end boundary)))))))
+
+(defun treesit-forward-sexp-list (&optional arg)
+  "Alternative tree-sitter implementation for `forward-sexp-function'.
+
+Whereas `treesit-forward-sexp' moves across both lists and atoms
+using `sexp' in `treesit-thing-settings', this function uses
+`sexp-list' in `treesit-thing-settings' to move only across lists.
+But to move across atoms (such as symbols or words) inside the list
+it uses `forward-sexp-default-function' as long as it doesn't go
+outside of the boundaries of the current list.
+
+ARG is described in the docstring of `forward-sexp-function'."
+  (interactive "^p")
+  (let* ((arg (or arg 1))
+         (pred 'sexp-list)
+         (default-pos
+          (condition-case _
+              (save-excursion
+                (forward-sexp-default-function arg)
+                (point))
+            (scan-error nil)))
+         (default-pos (unless (eq (point) default-pos) default-pos))
+         (sibling-pos
+          (when default-pos
+            (save-excursion
+              (and (if (> arg 0)
+                       (treesit-end-of-thing pred (abs arg) 'restricted)
+                     (treesit-beginning-of-thing pred (abs arg) 'restricted))
+                   (point)))))
+         (sibling (when sibling-pos
+                    (if (> arg 0)
+                        (treesit-thing-prev sibling-pos pred)
+                      (treesit-thing-next sibling-pos pred))))
+         (sibling (when (and sibling
+                             (if (> arg 0)
+                                 (<= (point) (treesit-node-start sibling))
+                               (>= (point) (treesit-node-end sibling))))
+                    sibling))
+         (current-thing (when default-pos
+                          (treesit-thing-at (point) pred t))))
+
+    ;; 'forward-sexp-default-function' should not go out of the current thing,
+    ;; neither go inside the next thing or go over the next thing
+    (or (when (and default-pos
+                   (or (null current-thing)
+                       (if (> arg 0)
+                           (< default-pos (treesit-node-end current-thing))
+                         (> default-pos (treesit-node-start current-thing))))
+                   (or (null sibling)
+                       (if (> arg 0)
+                           (<= default-pos (treesit-node-start sibling))
+                         (>= default-pos (treesit-node-end sibling)))))
+          (goto-char default-pos))
+        (treesit-forward-list arg))))
 
 (defun treesit-transpose-sexps (&optional arg)
   "Tree-sitter `transpose-sexps' function.
@@ -2849,7 +2936,9 @@ function is called recursively."
           (if (eq tactic 'restricted)
               (setq pos (funcall
                          advance
-                         (cond ((and (null next) (null prev)) parent)
+                         (cond ((and (null next) (null prev)
+                                     (not (eq thing 'sexp-list)))
+                                parent)
                                ((> arg 0) next)
                                (t prev))))
             ;; For `nested', it's a bit more work:
@@ -3245,6 +3334,9 @@ before calling this function."
   (when (treesit-thing-defined-p 'sexp nil)
     (setq-local forward-sexp-function #'treesit-forward-sexp)
     (setq-local transpose-sexps-function #'treesit-transpose-sexps))
+
+  (when (treesit-thing-defined-p 'sexp-list nil)
+    (setq-local forward-sexp-function #'treesit-forward-sexp-list))
 
   (when (treesit-thing-defined-p 'sentence nil)
     (setq-local forward-sentence-function #'treesit-forward-sentence))

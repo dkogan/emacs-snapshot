@@ -33,22 +33,10 @@
 
 (require 'comint)
 (require 'treesit)
+(treesit-declare-unavailable-functions)
 
 (eval-when-compile
   (require 'rx))
-
-(declare-function treesit-induce-sparse-tree "treesit.c")
-(declare-function treesit-node-child-by-field-name "treesit.c")
-(declare-function treesit-node-child-count "treesit.c")
-(declare-function treesit-node-eq "treesit.c")
-(declare-function treesit-node-first-child-for-pos "treesit.c")
-(declare-function treesit-node-parent "treesit.c")
-(declare-function treesit-node-prev-sibling "treesit.c")
-(declare-function treesit-node-start "treesit.c")
-(declare-function treesit-node-end "treesit.c")
-(declare-function treesit-node-type "treesit.c")
-(declare-function treesit-parser-create "treesit.c")
-(declare-function treesit-search-subtree "treesit.c")
 
 (defgroup lua-ts nil
   "Major mode for editing Lua files."
@@ -165,11 +153,11 @@ values of OVERRIDE."
                (string-match "\\`--" node-text))
       (treesit-fontify-with-override node-start
                                      delimiter-end
-                                     font-lock-comment-delimiter-face
+                                     'font-lock-comment-delimiter-face
                                      override))
     (treesit-fontify-with-override (max delimiter-end start)
                                    (min node-end end)
-                                   font-lock-comment-face
+                                   'font-lock-comment-face
                                    override)))
 
 (defvar lua-ts--font-lock-settings

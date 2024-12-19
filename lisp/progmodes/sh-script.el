@@ -149,8 +149,7 @@
   (require 'subr-x))
 (require 'executable)
 (require 'treesit)
-
-(declare-function treesit-parser-create "treesit.c")
+(treesit-declare-unavailable-functions)
 
 (autoload 'comint-completion-at-point "comint")
 (autoload 'comint-filename-completion "comint")
@@ -1129,9 +1128,9 @@ subshells can nest."
   (let ((q (nth 3 state)))
     (if q
         (if (characterp q)
-            (if (eq q ?\`) 'sh-quoted-exec font-lock-string-face)
+            (if (eq q ?\`) 'sh-quoted-exec 'font-lock-string-face)
           'sh-heredoc)
-      font-lock-comment-face)))
+      'font-lock-comment-face)))
 
 (defgroup sh-indentation nil
   "Variables controlling indentation in shell scripts.

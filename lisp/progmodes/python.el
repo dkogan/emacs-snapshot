@@ -259,19 +259,11 @@
 (require 'compat)
 (require 'project nil 'noerror)
 (require 'seq)
+(treesit-declare-unavailable-functions)
 
 ;; Avoid compiler warnings
 (defvar compilation-error-regexp-alist)
 (defvar outline-heading-end-regexp)
-
-(declare-function treesit-parser-create "treesit.c")
-(declare-function treesit-induce-sparse-tree "treesit.c")
-(declare-function treesit-node-child-by-field-name "treesit.c")
-(declare-function treesit-node-type "treesit.c")
-(declare-function treesit-node-start "treesit.c")
-(declare-function treesit-node-end "treesit.c")
-(declare-function treesit-node-parent "treesit.c")
-(declare-function treesit-node-prev-sibling "treesit.c")
 
 (autoload 'comint-mode "comint")
 (autoload 'help-function-arglist "help-fns")
@@ -577,9 +569,9 @@ The type returned can be `comment', `string' or `paren'."
   "Return syntactic face given STATE."
   (if (nth 3 state)
       (if (python-info-docstring-p state)
-          font-lock-doc-face
-        font-lock-string-face)
-    font-lock-comment-face))
+          'font-lock-doc-face
+        'font-lock-string-face)
+    'font-lock-comment-face))
 
 (defconst python--f-string-start-regexp
   (rx bow
@@ -631,7 +623,10 @@ the {...} holes that appear within f-strings."
               (forward-char 1)          ;Just skip over {{
             (let ((beg (match-beginning 0))
                   (end (condition-case nil
-                           (progn (up-list 1) (min send (point)))
+                           (let ((forward-sexp-function)
+                                 (parse-sexp-ignore-comments))
+                             (up-list 1)
+                             (min send (point)))
                          (scan-error send))))
               (goto-char end)
               (put-text-property beg end 'face nil))))
@@ -1113,7 +1108,8 @@ fontified."
          (ignore-interpolation (not
                                 (seq-some
                                  (lambda (feats) (memq 'string-interpolation feats))
-                                 (seq-take treesit-font-lock-feature-list treesit-font-lock-level))))
+                                 (seq-take treesit-font-lock-feature-list
+                                           (treesit--compute-font-lock-level treesit-font-lock-level)))))
          ;; If interpolation is enabled, highlight only
          ;; string_start/string_content/string_end children.  Do not
          ;; touch interpolation node that can occur inside of the
@@ -7078,11 +7074,10 @@ implementations: `python-mode' and `python-ts-mode'."
               `((?: . ,(lambda ()
                          (and (zerop (car (syntax-ppss)))
                               (python-info-statement-starts-block-p)
-                              ;; Heuristic: assume walrus operator :=
-                              ;; when colon is preceded by space.
+                              ;; Heuristic for walrus operator :=
                               (save-excursion
                                 (goto-char (- (point) 2))
-                                (looking-at (rx (not space) ":")))
+                                (looking-at (rx (not space) ":" eol)))
                               'after)))))
 
   ;; Add """ ... """ pairing to electric-pair-mode.
@@ -7149,7 +7144,8 @@ implementations: `python-mode' and `python-ts-mode'."
       (defvar grep-files-aliases)
       (defvar grep-find-ignored-directories)
       (cl-pushnew '("py" . "*.py") grep-files-aliases :test #'equal)
-      (dolist (dir '(".tox" ".venv" ".mypy_cache" ".ruff_cache"))
+      (dolist (dir '(".mypy_cache" ".pytest_cache" ".ropeproject"
+                     ".ruff_cache" ".tox" ".venv"))
         (cl-pushnew dir grep-find-ignored-directories))))
 
   (setq-local prettify-symbols-alist python-prettify-symbols-alist)
