@@ -2663,8 +2663,7 @@ read_char (int commandflag, Lisp_Object map,
 	swallow_events (false);		/* May clear input_pending.  */
 
       /* Redisplay if no pending input.  */
-      while (!(input_pending
-	       && (input_was_pending || !redisplay_dont_pause)))
+      while (!(input_pending && input_was_pending))
 	{
 	  input_was_pending = input_pending;
 	  if (help_echo_showing_p && !BASE_EQ (selected_window, minibuf_window))
@@ -5415,7 +5414,7 @@ static const char *const lispy_kana_keys[] =
 
 /* You'll notice that this table is arranged to be conveniently
    indexed by X Windows keysym values.  */
-#ifdef HAVE_NS
+#if defined HAVE_NS || !defined HAVE_WINDOW_SYSTEM
 /* FIXME: Why are we using X11 keysym values for NS?  */
 static
 #endif

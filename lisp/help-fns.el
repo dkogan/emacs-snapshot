@@ -1594,6 +1594,8 @@ it is displayed along with the global value."
                 (prin1-to-string (nth 1 var)))))
       (set (nth 0 var) (read str)))))
 
+(autoload 'shortdoc-help-fns-examples-function "shortdoc")
+
 (defun help-fns--run-describe-functions (functions &rest args)
   (with-current-buffer standard-output
     (unless (bolp)
@@ -1717,7 +1719,7 @@ variable.\n")))
       (insert "This variable is obsolete")
       (if (nth 2 obsolete)
           (insert (format " since %s" (nth 2 obsolete))))
-      (insert (cond ((stringp use) (concat "; " use))
+      (insert (cond ((stringp use) (substitute-command-keys (concat "; " use)))
 		    (use (format-message "; use `%s' instead."
                                          (car obsolete)))
 		    (t "."))
