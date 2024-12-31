@@ -25,7 +25,7 @@
 ;;; Tree-sitter language versions
 ;;
 ;; c-ts-mode is known to work with the following languages and version:
-;; - tree-sitter-c: v0.23.4
+;; - tree-sitter-c: v0.23.4-1-g3aa2995
 ;;
 ;; c++-ts-mode is known to work with the following languages and version:
 ;; - tree-sitter-cpp: v0.23.4-1-gf41b4f6
@@ -1170,7 +1170,18 @@ if `c-ts-mode-emacs-sources-support' is non-nil."
                     "initializer_list"
                     "subscript_designator"
                     "subscript_range_designator"
-                    "string_literal")
+                    "string_literal"
+                    "system_lib_string"
+                    ;; C++
+                    "template_parameter_list"
+                    "structured_binding_declarator"
+                    "template_argument_list"
+                    "condition_clause"
+                    "subscript_argument_list"
+                    "requirement_seq"
+                    "requires_parameter_list"
+                    "lambda_capture_specifier"
+                    "fold_expression")
                   'symbols))
     ;; compound_statement makes us jump over too big units
     ;; of code, so skip that one, and include the other

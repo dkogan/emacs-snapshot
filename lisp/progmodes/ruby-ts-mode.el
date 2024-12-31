@@ -22,6 +22,15 @@
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.
 
+;;; Tree-sitter language versions
+;;
+;; ruby-ts-mode is known to work with the following languages and version:
+;; - tree-sitter-ruby: v0.23.1
+;;
+;; We try our best to make builtin modes work with latest grammar
+;; versions, so a more recent grammar version has a good chance to work.
+;; Send us a bug report if it doesn't.
+
 ;;; Commentary:
 
 ;; This file defines ruby-ts-mode which is a major mode for editing
@@ -1052,6 +1061,9 @@ leading double colon is not added."
                              ;; Method calls with name ending with ? or !.
                              ((call method: (identifier) @ident)
                               (:match "[?!]\\'" @ident))
+                             ;; Method definitions for the above.
+                             ((method name: (identifier) @ident)
+                              (:match "[?!]\\'" @ident))
                              ;; Backtick method redefinition.
                              ((operator "`" @backtick))
                              ;; TODO: Stop at interpolations.
@@ -1119,6 +1131,12 @@ leading double colon is not added."
                   "argument_list"))
       (equal (treesit-node-type (treesit-node-child node 0))
              "(")))
+
+(defun ruby-ts--sexp-list-p (node)
+  ;; Distinguish between the named `unless' node and the
+  ;; node with the same value of type.
+  (when (treesit-node-check node 'named)
+    (ruby-ts--sexp-p node)))
 
 (defvar-keymap ruby-ts-mode-map
   :doc "Keymap used in Ruby mode"
@@ -1235,7 +1253,7 @@ leading double colon is not added."
                            "array"
                            "hash")
                           eol)
-                         #'ruby-ts--sexp-p))
+                         #'ruby-ts--sexp-list-p))
                  (text ,(lambda (node)
                           (or (member (treesit-node-type node)
                                       '("comment" "string_content" "heredoc_content"))

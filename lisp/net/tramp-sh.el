@@ -3150,8 +3150,6 @@ will be used."
 		      (when filter
 			(set-process-filter p filter))
 		      (process-put p 'remote-command orig-command)
-		      (tramp-set-connection-property
-		       p "remote-command" orig-command)
 		      ;; Set query flag and process marker for this
 		      ;; process.  We ignore errors, because the
 		      ;; process could have finished already.
@@ -3278,8 +3276,7 @@ will be used."
               (setq ret (tramp-send-command-and-check
 			 v (format
 			    "cd %s && %s"
-			    (tramp-unquote-shell-quote-argument localname)
-			    command)
+			    (tramp-shell-quote-argument localname) command)
 			 t t t))
 	    (unless (natnump ret) (setq ret 1))
 	    ;; We should add the output anyway.
@@ -5675,7 +5672,7 @@ Nonexistent directories are removed from spec."
        (dolist (cmd
 		;; Prefer GNU ls on *BSD and macOS.
                 (if (tramp-check-remote-uname vec tramp-bsd-unames)
-		    '( "gls" "ls" "gnuls") '("ls" "gnuls" "gls")))
+		    '("gls" "ls" "gnuls") '("ls" "gnuls" "gls")))
 	 (let ((dl (tramp-get-remote-path vec))
 	       result)
 	   (while (and dl (setq result (tramp-find-executable vec cmd dl t t)))
