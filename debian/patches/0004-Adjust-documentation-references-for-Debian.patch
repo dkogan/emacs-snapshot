@@ -11,7 +11,7 @@ appropriate, etc.
  1 file changed, 5 insertions(+)
 
 diff --git a/etc/NEWS b/etc/NEWS
-index 847cc39..c963f96 100644
+index 85213cb..817ff1b 100644
 --- a/etc/NEWS
 +++ b/etc/NEWS
 @@ -21,6 +21,11 @@ Temporary note:
