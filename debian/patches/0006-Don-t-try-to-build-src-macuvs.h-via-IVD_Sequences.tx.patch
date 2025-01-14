@@ -9,7 +9,7 @@ over the licensing.
  1 file changed, 1 insertion(+), 6 deletions(-)
 
 diff --git a/admin/unidata/Makefile.in b/admin/unidata/Makefile.in
-index a5fd927..12c1acd 100644
+index 223d3fe..440ce5f 100644
 --- a/admin/unidata/Makefile.in
 +++ b/admin/unidata/Makefile.in
 @@ -43,7 +43,7 @@ unifiles = $(addprefix ${unidir}/,$(sort $(shell sed -n 's/^[ \t][ \t]*${lparen}

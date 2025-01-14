@@ -28,7 +28,7 @@ Status: new
  4 files changed, 33 insertions(+), 39 deletions(-)
 
 diff --git a/Makefile.in b/Makefile.in
-index 30a762e..e742817 100644
+index 342bec1..c8e624e 100644
 --- a/Makefile.in
 +++ b/Makefile.in
 @@ -174,7 +174,9 @@ man1dir=$(mandir)/man1
@@ -118,7 +118,7 @@ index 30a762e..e742817 100644
  
  $(UNINSTALL_DOC):
 diff --git a/configure.ac b/configure.ac
-index bfef9cd..0c435cd 100644
+index f78997e..ec27433 100644
 --- a/configure.ac
 +++ b/configure.ac
 @@ -7874,11 +7874,10 @@ ARCH_INDEPENDENT_CONFIG_FILES([$srcdir/doc/man/emacs.1])
@@ -152,7 +152,7 @@ index bfef9cd..0c435cd 100644
    dnl then a directory etc/refcards is created in the build directory,
    dnl which is probably harmless, but confusing (in out-of-tree builds).
 diff --git a/doc/misc/Makefile.in b/doc/misc/Makefile.in
-index 4e2cd64..4d72bea 100644
+index 95c8a92..ce85c0a 100644
 --- a/doc/misc/Makefile.in
 +++ b/doc/misc/Makefile.in
 @@ -84,6 +84,12 @@ INFO_INSTALL = $(INFO_COMMON) $(DOCMISC_W32)
@@ -169,7 +169,7 @@ index 4e2cd64..4d72bea 100644
  ## This is discouraged because the .texi files it generates
  ## are not as well formatted as handwritten ones.
 diff --git a/lisp/help.el b/lisp/help.el
-index 9f692e1..f8c8e04 100644
+index 053403a..2d963ef 100644
 --- a/lisp/help.el
 +++ b/lisp/help.el
 @@ -523,6 +523,14 @@ If that doesn't give a function, return nil."
