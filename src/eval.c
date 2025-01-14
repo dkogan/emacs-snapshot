@@ -1,6 +1,6 @@
 /* Evaluator for GNU Emacs Lisp interpreter.
 
-Copyright (C) 1985-1987, 1993-1995, 1999-2024 Free Software Foundation,
+Copyright (C) 1985-1987, 1993-1995, 1999-2025 Free Software Foundation,
 Inc.
 
 This file is part of GNU Emacs.
@@ -1169,7 +1169,7 @@ is not displayed.  */)
 				       xstrdup (SSDATA (message)));
   record_unwind_protect_ptr (with_delayed_message_cancel, timer);
 
-  Lisp_Object result = CALLN (Ffuncall, function);
+  Lisp_Object result = calln (function);
 
   return unbind_to (count, result);
 }
@@ -1991,6 +1991,9 @@ signal_error (const char *s, Lisp_Object arg)
 
   xsignal (Qerror, Fcons (build_string (s), arg));
 }
+
+/* Simplified version of 'define-error' that works with pure
+   objects.  */
 
 void
 define_error (Lisp_Object name, const char *message, Lisp_Object parent)

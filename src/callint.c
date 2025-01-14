@@ -1,5 +1,5 @@
 /* Call a Lisp function interactively.
-   Copyright (C) 1985-1986, 1993-1995, 1997, 2000-2024 Free Software
+   Copyright (C) 1985-1986, 1993-1995, 1997, 2000-2025 Free Software
    Foundation, Inc.
 
 This file is part of GNU Emacs.
@@ -228,7 +228,7 @@ static Lisp_Object
 read_file_name (Lisp_Object default_filename, Lisp_Object mustmatch,
 		Lisp_Object initial, Lisp_Object predicate)
 {
-  return CALLN (Ffuncall, Qread_file_name,
+  return calln (Qread_file_name,
 		callint_message, Qnil, default_filename,
 		mustmatch, initial, predicate);
 }

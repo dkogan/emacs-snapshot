@@ -1,6 +1,6 @@
 ;;; mpc.el --- A client for the Music Player Daemon   -*- lexical-binding: t -*-
 
-;; Copyright (C) 2006-2024 Free Software Foundation, Inc.
+;; Copyright (C) 2006-2025 Free Software Foundation, Inc.
 
 ;; Author: Stefan Monnier <monnier@iro.umontreal.ca>
 ;; Keywords: multimedia
@@ -310,13 +310,15 @@ PORT defaults to 6600 and HOST defaults to localhost."
 (defconst mpc--proc-alist-to-alists-starters '(file directory))
 
 (defun mpc--proc-alist-to-alists (alist)
+  ;; ALIST is assumed to contain a flattened sequence of sequences,
+  ;; of the form (file . ..) ..filedata.. (directory . ..) ..dirdata..
+  ;; See bug#41493.
   (cl-assert (or (null alist)
               (memq (caar alist) mpc--proc-alist-to-alists-starters)))
-  (let ((starter (caar alist))
-        (alists ())
+  (let ((alists ())
         tmp)
     (dolist (pair alist)
-      (when (eq (car pair) starter)
+      (when (memq (car pair) mpc--proc-alist-to-alists-starters)
         (if tmp (push (nreverse tmp) alists))
         (setq tmp ()))
       (push pair tmp))
@@ -638,15 +640,15 @@ The songs are returned as alists."
                  (mpc-proc-buf-to-alists
                   (mpc-proc-cmd (list "search" "any" value))))
                 ((eq tag 'Directory)
-                 (let ((pairs
-                        (mpc-proc-buf-to-alist
+                 (let ((entries
+                        (mpc-proc-buf-to-alists
                          (mpc-proc-cmd (list "listallinfo" value)))))
-                   (mpc--proc-alist-to-alists
-                    ;; Strip away the `directory' entries.
-                    (delq nil (mapcar (lambda (pair)
-                                        (if (eq (car pair) 'directory)
-                                            nil pair))
-                                      pairs)))))
+                   ;; Strip away the `directory' entries because our callers
+                   ;; currently don't know what to do with them.
+                   (delq nil (mapcar (lambda (entry)
+                                       (if (eq (caar entry) 'directory)
+                                           nil entry))
+                                     entries))))
                 ((string-match "|" (symbol-name tag))
                  (add-to-list 'mpc--find-memoize-union-tags tag)
                  (let ((tag1 (intern (substring (symbol-name tag)
@@ -2836,7 +2838,7 @@ will be used.  See `mpc-format' for the definition of FORMAT-SPEC."
 
 (defcustom mpc-notifications-body
   '("%{Artist}" "%{AlbumArtist}" "Unknown Artist")
-  "List of FORMAT-SPEC used in the notification body.
+  "List of FORMAT-SPECs used in the notification body.
 
 The first element in the list that expands to a non-empty string
 will be used.  See `mpc-format' for the definition of FORMAT-SPEC."

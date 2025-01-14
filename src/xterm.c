@@ -1,6 +1,6 @@
 /* X Communication module for terminals which understand the X protocol.
 
-Copyright (C) 1989, 1993-2024 Free Software Foundation, Inc.
+Copyright (C) 1989, 1993-2025 Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -15465,7 +15465,7 @@ xt_action_hook (Widget widget, XtPointer client_data, String action_name,
 
   if (scroll_bar_p
       && strcmp (action_name, end_action) == 0
-      && WINDOWP (window_being_scrolled))
+      && WINDOW_LIVE_P (window_being_scrolled))
     {
       struct window *w;
       struct scroll_bar *bar;

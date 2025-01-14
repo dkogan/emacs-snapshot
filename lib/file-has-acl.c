@@ -1,6 +1,6 @@
 /* Test whether a file has a nontrivial ACL.  -*- coding: utf-8 -*-
 
-   Copyright (C) 2002-2003, 2005-2024 Free Software Foundation, Inc.
+   Copyright (C) 2002-2003, 2005-2025 Free Software Foundation, Inc.
 
    This program is free software: you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -55,6 +55,12 @@ static char const UNKNOWN_SECURITY_CONTEXT[] = "?";
 # include <arpa/inet.h>
 # include <sys/xattr.h>
 # include <linux/xattr.h>
+# ifndef XATTR_NAME_SMACK
+#  define XATTR_NAME_SMACK "security.SMACK64"
+# endif
+# ifndef XATTR_NAME_SELINUX
+#  define XATTR_NAME_SELINUX "security.selinux"
+# endif
 # ifndef XATTR_NAME_NFSV4_ACL
 #  define XATTR_NAME_NFSV4_ACL "system.nfs4_acl"
 # endif

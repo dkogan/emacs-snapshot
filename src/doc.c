@@ -1,6 +1,6 @@
 /* Record indices of function doc strings stored in a file. -*- coding: utf-8 -*-
 
-Copyright (C) 1985-1986, 1993-1995, 1997-2024 Free Software Foundation,
+Copyright (C) 1985-1986, 1993-1995, 1997-2025 Free Software Foundation,
 Inc.
 
 This file is part of GNU Emacs.
@@ -479,7 +479,10 @@ store_function_docstring (Lisp_Object obj, EMACS_INT offset)
     fun = XCDR (fun);
   /* Lisp_Subrs have a slot for it.  */
   if (SUBRP (fun))
-    XSUBR (fun)->doc = offset;
+    {
+      XSUBR (fun)->doc = offset;
+      eassert (XSUBR (fun)->doc >= 0);
+    }
   else if (CLOSUREP (fun))
     {
       /* This bytecode object must have a slot for the docstring, since

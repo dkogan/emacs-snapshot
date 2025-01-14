@@ -1,6 +1,6 @@
 ;;; android-win.el --- terminal set up for Android  -*- lexical-binding:t -*-
 
-;; Copyright (C) 2023-2024 Free Software Foundation, Inc.
+;; Copyright (C) 2023-2025 Free Software Foundation, Inc.
 
 ;; Author: FSF
 ;; Keywords: terminals, i18n, android
@@ -42,6 +42,7 @@
 (add-to-list 'display-format-alist '(".*" . android))
 
 (declare-function android-get-connection "androidfns.c")
+(declare-function x-handle-args "common-win" (args))
 
 ;; Window system initialization.  This is extremely simple because all
 ;; initialization is done in android_term_init.

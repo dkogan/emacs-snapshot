@@ -1,6 +1,6 @@
 ;;; ediff-util.el --- the core commands and utilities of ediff  -*- lexical-binding:t -*-
 
-;; Copyright (C) 1994-2024 Free Software Foundation, Inc.
+;; Copyright (C) 1994-2025 Free Software Foundation, Inc.
 
 ;; Author: Michael Kifer <kifer@cs.stonybrook.edu>
 ;; Package: ediff
@@ -219,12 +219,11 @@ to invocation.")
   ;; where this hook could prevent kill-emacs from shutting down Emacs,
   ;; because user interaction is not possible (e.g., in a daemon), or
   ;; if deleting these files signals an error.
-  (ignore-errors
-    (let ((inhibit-interaction t))
-      (dolist (b (buffer-list))
+  (let ((inhibit-interaction t))
+    (dolist (b ediff-session-registry)
+      (ignore-errors
         (with-current-buffer b
-          (when (eq major-mode 'ediff-mode)
-            (ediff-delete-temp-files)))))))
+          (ediff-delete-temp-files))))))
 
 ;;; Setup functions
 

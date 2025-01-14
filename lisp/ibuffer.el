@@ -1,6 +1,6 @@
 ;;; ibuffer.el --- operate on buffers like dired  -*- lexical-binding:t -*-
 
-;; Copyright (C) 2000-2024 Free Software Foundation, Inc.
+;; Copyright (C) 2000-2025 Free Software Foundation, Inc.
 
 ;; Author: Colin Walters <walters@verbum.org>
 ;; Maintainer: John Paul Wallington <jpw@gnu.org>
@@ -774,6 +774,9 @@ directory, like `default-directory'."
 
 (defvar-keymap ibuffer-mode-header-map
   "<mouse-1>"      #'ibuffer-do-sort-by-major-mode)
+
+(defvar-keymap ibuffer-recency-header-map
+  "<mouse-1>"      #'ibuffer-do-sort-by-recency)
 
 (defvar-keymap ibuffer-mode-filter-group-map
   "<mouse-1>"      #'ibuffer-mouse-toggle-mark
@@ -1720,6 +1723,13 @@ If point is on a group name, this function operates on that group."
 		  total)))
        (format "%.0f" total))))
   (format "%s" (buffer-size)))
+
+(define-ibuffer-column recency
+  (:inline t :summarizer ignore :header-mouse-map ibuffer-recency-header-map)
+  (if-let* ((time (buffer-local-value 'buffer-display-time buffer)))
+      (format "%s ago" (seconds-to-string
+                        (float-time (time-since time)) t t))
+    "never"))
 
 (define-ibuffer-column mode
   (:inline t

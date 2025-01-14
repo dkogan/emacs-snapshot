@@ -1,6 +1,6 @@
 ;;; startup.el --- process Emacs shell arguments  -*- lexical-binding: t -*-
 
-;; Copyright (C) 1985-1986, 1992, 1994-2024 Free Software Foundation,
+;; Copyright (C) 1985-1986, 1992, 1994-2025 Free Software Foundation,
 ;; Inc.
 
 ;; Maintainer: emacs-devel@gnu.org
@@ -777,6 +777,9 @@ It is the default value of the variable `top-level'."
     (let ((old-face-font-rescale-alist face-font-rescale-alist))
       (unwind-protect
 	  (command-line)
+
+        (when (featurep 'native-compile)
+          (startup--update-eln-cache))
 
 	;; Do this again, in case .emacs defined more abbreviations.
 	(if default-directory

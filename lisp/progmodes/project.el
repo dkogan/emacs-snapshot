@@ -1,6 +1,6 @@
 ;;; project.el --- Operations on the current project  -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2015-2024 Free Software Foundation, Inc.
+;; Copyright (C) 2015-2025 Free Software Foundation, Inc.
 ;; Version: 0.11.1
 ;; Package-Requires: ((emacs "26.1") (xref "1.7.0"))
 
@@ -858,7 +858,9 @@ DIRS must contain directory names."
 (cl-defmethod project-buffers ((project (head vc)))
   (let* ((root (expand-file-name (file-name-as-directory (project-root project))))
          (modules (unless (or (project--vc-merge-submodules-p root)
-                              (project--submodule-p root))
+                              (condition-case nil
+                                  (project--submodule-p root)
+                                (file-missing nil)))
                     (mapcar
                      (lambda (m) (format "%s%s/" root m))
                      (project--git-submodules))))

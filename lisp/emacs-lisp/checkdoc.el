@@ -1,6 +1,6 @@
 ;;; checkdoc.el --- check documentation strings for style requirements  -*- lexical-binding:t -*-
 
-;; Copyright (C) 1997-2024 Free Software Foundation, Inc.
+;; Copyright (C) 1997-2025 Free Software Foundation, Inc.
 
 ;; Author: Eric M. Ludlam <zappo@gnu.org>
 ;; Old-Version: 0.6.2
@@ -487,10 +487,10 @@ this to anything but t is likely to be counter-productive.")
     ("yanks" . "yank")
     )
   "Alist of common words in the wrong voice and what should be used instead.
-Set `checkdoc-verb-check-experimental-flag' to nil to avoid this costly
-and experimental check.  Do not modify this list without setting
-the value of `checkdoc-common-verbs-regexp' to nil which cause it to
-be re-created.")
+Set `checkdoc-verb-check-experimental-flag' to a non-nil value to enable
+this experimental check.  Do not modify this list without setting the
+value of `checkdoc-common-verbs-regexp' to nil, which causes it to be
+re-created.")
 
 (defvar checkdoc-syntax-table
   (let ((st (make-syntax-table emacs-lisp-mode-syntax-table)))

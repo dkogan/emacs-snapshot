@@ -1,6 +1,6 @@
 ;;; em-ls.el --- implementation of ls in Lisp  -*- lexical-binding:t -*-
 
-;; Copyright (C) 1999-2024 Free Software Foundation, Inc.
+;; Copyright (C) 1999-2025 Free Software Foundation, Inc.
 
 ;; Author: John Wiegley <johnw@gnu.org>
 
@@ -329,7 +329,7 @@ instead."
   "An alias version of `eshell-do-ls'."
   (eshell-with-buffered-print
     (let ((insert-func #'eshell-buffered-print)
-          (error-func #'eshell-error))
+          (error-func (lambda (s) (eshell-error s) (eshell-set-exit-info 2))))
       (apply 'eshell-do-ls args))))
 
 (put 'eshell/ls 'eshell-no-numeric-conversions t)

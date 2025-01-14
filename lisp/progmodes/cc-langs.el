@@ -1,6 +1,6 @@
 ;;; cc-langs.el --- language specific settings for CC Mode -*- lexical-binding: t; coding: utf-8 -*-
 
-;; Copyright (C) 1985, 1987, 1992-2024 Free Software Foundation, Inc.
+;; Copyright (C) 1985, 1987, 1992-2025 Free Software Foundation, Inc.
 
 ;; Authors:    2002- Alan Mackenzie
 ;;             1998- Martin Stjernholm
@@ -2384,6 +2384,7 @@ fontified with the keyword face and not the type face."
   c    '("const" "restrict" "volatile")
   c++  '("const" "noexcept" "volatile")
   objc '("const" "volatile")
+  java '("final")
   t    (append (c-lang-const c-no-type-kwds)
 	       (c-lang-const c-type-modifier-prefix-kwds)))
 
@@ -2635,7 +2636,8 @@ will be handled."
 (c-lang-defconst c-no-type-kwds
   "Keywords which remove the need to specify a type in declarations"
   t nil
-  c++ '("auto"))
+  c++  '("auto")
+  java '("var"))
 
 (c-lang-defconst c-no-type-key
   ;; Regexp matching an entry from `c-no-type-kwds'

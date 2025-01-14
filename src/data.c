@@ -1,5 +1,5 @@
 /* Primitive operations on Lisp data types for GNU Emacs Lisp interpreter.
-   Copyright (C) 1985-1986, 1988, 1993-1995, 1997-2024 Free Software
+   Copyright (C) 1985-1986, 1988, 1993-1995, 1997-2025 Free Software
    Foundation, Inc.
 
 This file is part of GNU Emacs.
@@ -911,7 +911,7 @@ signal a `cyclic-function-indirection' error.  */)
   if (!NILP (Vnative_comp_enable_subr_trampolines)
       && SUBRP (function)
       && !NATIVE_COMP_FUNCTIONP (function))
-    CALLN (Ffuncall, Qcomp_subr_trampoline_install, symbol);
+    calln (Qcomp_subr_trampoline_install, symbol);
 #endif
 
   set_symbol_function (symbol, definition);
@@ -1910,7 +1910,7 @@ notify_variable_watchers (Lisp_Object symbol,
           funcall_subr (XSUBR (watcher), ARRAYELTS (args), args);
         }
       else
-        CALLN (Ffuncall, watcher, symbol, newval, operation, where);
+        calln (watcher, symbol, newval, operation, where);
     }
 
   unbind_to (count, Qnil);

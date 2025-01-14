@@ -1,5 +1,5 @@
 @c This is part of the Emacs manual.
-@c Copyright (C) 1985--1987, 1993--1995, 1997, 1999--2024 Free Software
+@c Copyright (C) 1985--1987, 1993--1995, 1997, 1999--2025 Free Software
 @c Foundation, Inc.
 @c See file emacs.texi for copying conditions.
 @node Files
@@ -996,6 +996,7 @@ File Shadowing is not available on MS Windows.
 @node Time Stamps
 @subsection Updating Time Stamps Automatically
 @cindex time stamps
+@cindex timestamps
 @cindex modification dates
 @cindex last modified time
 

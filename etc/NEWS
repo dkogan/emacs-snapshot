@@ -1,6 +1,6 @@
 GNU Emacs NEWS -- history of user-visible changes.
 
-Copyright (C) 2022-2024 Free Software Foundation, Inc.
+Copyright (C) 2022-2025 Free Software Foundation, Inc.
 See the end of the file for license conditions.
 
 Please send Emacs bug reports to 'bug-gnu-emacs@gnu.org'.
@@ -34,11 +34,15 @@ incorrectly in rare cases.
 
 * Startup Changes in Emacs 31.1
 
-** When run inside xterm, 'xterm-mouse-mode' is turned on by default.
-This means that the mouse will work by default inside xterm terminals.
-If your terminal does not behave properly with xterm mouse tracking
-enabled, you can disable mouse tracking by putting '(xterm-mouse-mode
--1)' in your init file.
+** In compatible terminals, 'xterm-mouse-mode' is turned on by default.
+For these terminals the mouse will work by default.  A compatible
+terminal is one that supports Emacs seting and getting the OS selection
+data (a.k.a. the clipboard) and mouse button and motion events.  With
+xterm-mouse-mode enabled, you must use Emacs keybindings to copy to the
+OS selection instead of terminal-specific keybindings.
+
+You can keep the old behavior by putting `(xterm-mouse-mode -1)' in your
+init file.
 
 
 * Changes in Emacs 31.1
@@ -149,6 +153,16 @@ the "*Completions*" buffer is hidden.
 
 ** Windows
 
+*** New functions to modify window layout.
+Several functions to modify the window layout have been added:
+'rotate-window-layout-clockwise'
+'rotate-window-layout-anticlockwise'
+'flip-window-layout-vertically'
+'flip-window-layout-horizontally'
+'transpose-window-layout'
+'rotate-windows'
+'rotate-windows-back'
+
 +++
 *** New hook 'window-deletable-functions'.
 This abnormal hook gives its client a way to save a window from getting
@@ -159,6 +173,13 @@ deleted implicitly by functions like 'kill-buffer', 'bury-buffer' and
 *** New user option 'kill-buffer-quit-windows'.
 This option has 'kill-buffer' call 'quit-restore-window' to handle the
 further destiny of any window showing the buffer to be killed.
+
++++
+*** 'split-window' can optionally resurrect deleted windows.
+A new argument REFER of 'split-window' makes it possible to, instead of
+making a new window object, reuse an existing, deleted one.  This can be
+used to preserve the identity of windows when swapping or transposing
+them.
 
 +++
 *** New window parameter 'quit-restore-prev'.
@@ -256,12 +277,12 @@ The Tifinagh script is used to write the Berber languages.
 *** New input methods for Northern Iroquoian languages.
 Input methods are now implemented for Haudenosaunee languages in the
 Northern Iroquoian language family: 'mohawk-postfix' (Mohawk
-[Kanien’kéha / Onkwehonwehnéha]), 'oneida-postfix' (Oneida [Onʌyota:ká:
-/ Ukwehuwehnéha]), 'cayuga-postfix' (Cayuga [Gayogo̱ho:nǫhnéha:ˀ]),
-'onondaga-postfix' (Onondaga [Onųdaʔgegáʔ]), and 'seneca-postfix'
-(Seneca [Onödowá’ga:’]).  Additionally, there is a general-purpose
-'haudenosaunee-postfix' input method to facilitate writing in the
-orthographies of the five languages simultaneously.
+[Kanien’kéha / Onkwehonwehnéha]), 'oneida-postfix' (Oneida
+[Onʌyote’a·ká· / Ukwehuwehnéha]), 'cayuga-postfix' (Cayuga
+[Gayogo̱ho:nǫhnéha:ˀ]), 'onondaga-postfix' (Onondaga [Onųdaʔgegáʔ]), and
+'seneca-postfix' (Seneca [Onödowá’ga:’]).  Additionally, there is a
+general-purpose 'haudenosaunee-postfix' input method to facilitate
+writing in the orthographies of the five languages simultaneously.
 
 ---
 ** 'visual-wrap-prefix-mode' now supports variable-pitch fonts.
@@ -311,8 +332,20 @@ modal editing packages.
 
 * Changes in Specialized Modes and Packages in Emacs 31.1
 
+---
+** Ibuffer
+*** New column 'recency' in Ibuffer display.
+The variable 'ibuffer-formats' configures the Ibuffer formats.  Add
+'recency' to the format to display the column.
+
 ** Smerge
 *** New command 'smerge-extend' extends a conflict over surrounding lines.
+
+** Image Dired
+
+*** 'image-dired-show-all-from-dir' takes the same first argument as 'dired'.
+This allows passing a string with wildcards, or a cons cell where the
+first element is a list and the rest is a list of files.
 
 ** Browse URL
 
@@ -327,18 +360,16 @@ a web browser to load them.  For example, it could be used like this:
 For better integration with the Qutebrowser, set
 'browse-url(-secondary)-browser-function' to 'browse-url-qutebrowser'.
 
-*** Support for the Conkeror web browser has been removed.
-It has been obsolete since Emacs 28.1.
-
-*** Support for gnome-moz-remote has been removed.
-It has been obsolete since Emacs 25.1.
-
 *** New GTK-native launch mode
 For better Wayland support, the pgtk toolkit exposes a new
 'x-gtk-launch-uri' browse-url handler and uses it by default when URLs
 are browsed from a PGTK frame.  For other frames, we fall back to the
 default URL launch function.  This change allows us to properly raise
 browser windows under Wayland using the xdg_activation_v1 protocol.
+
+*** Removed support for some obsolete web browsers.
+Conkeror (obsolete since Emacs 28.1), gnome-moz-remote (obsolete since
+Emacs 25.1), and gnudoit (obsolete since Emacs 25.1).
 
 ** CL-Lib
 
@@ -545,6 +576,10 @@ package of the current buffer.  It is bound to 'C-c C-t p' in 'go-ts-mode'.
 
 The 'go-ts-mode-build-tags' user option is available to set a list of
 build tags for the test commands.
+
+The 'go-ts-mode-test-flags' user option is available to set a list of
+additional flags to pass to the go test command line.
+
 
 ** C-ts mode
 
@@ -771,8 +806,30 @@ toggle.
 ** BibTeX mode
 
 ---
+*** New user options facilitate customization of BibTeX and biblatex entries.
+Entry definitions via the user options 'bibtex-BibTeX-aux-entry-alist',
+'bibtex-biblatex-aux-entry-alist', 'bibtex-BibTeX-aux-opt-alist', and
+'bibtex-biblatex-aux-opt-alist' take precedence over
+'bibtex-BibTeX-entry-alist' and 'bibtex-biblatex-entry-alist'.
+These user options now support the definition of aliases that inherit
+the definition of another entry.
+
+---
+*** 'bibtex-user-optional-fields' has been renamed to 'bibtex-aux-opt-alist'.
+The old name is an obsolete alias.
+
+---
+*** 'bibtex-include-OPTkey' is now obsolete and its default is nil.
+Use 'bibtex-aux-opt-alist' instead.
+
+---
 *** New user option 'bibtex-entry-ask-for-key'.
 When enabled, 'bibtex-entry' asks for a key.
+
+---
+*** 'bibtex-string-file-path' and 'bibtex-file-path' are lists of directories.
+For backward compatibility, considered obsolete, these user options
+may still be strings with colon separated lists of directories.
 
 ** Midnight mode
 
@@ -995,15 +1052,15 @@ override flag by 'treesit-font-lock-setting-query',
 'treesit-font-lock-setting-feature', 'treesit-font-lock-setting-enable',
 and 'treesit-font-lock-setting-override'.
 
-*** New treesit thing 'sexp-list'.
+*** New treesit thing 'list'.
 Unlike the existing thing 'sexp' that defines both lists and atoms,
-'sexp-list' defines only lists to be navigated by 'forward-sexp'.
-The new function 'treesit-forward-sexp-list' uses 'sexp-list'
+'list' defines only lists to be navigated by 'forward-sexp'.
+The new function 'treesit-forward-sexp-list' uses 'list'
 to move across lists.  But to move across atoms inside the list
 it uses 'forward-sexp-default-function'.
 
-*** New tree-sitter based functions for moving by sexp-lists.
-If a major mode defines 'sexp-list' in 'treesit-thing-settings',
+*** New tree-sitter based functions for moving by lists.
+If a major mode defines 'list' in 'treesit-thing-settings',
 tree-sitter setup for these modes sets 'forward-list-function' to
 'treesit-forward-list', 'up-list-function' to 'treesit-up-list', and
 'down-list-function' to 'treesit-down-list'.  This enables the
@@ -1107,6 +1164,13 @@ It offers a more concise way to create a completion table with metadata.
 
 +++
 ** 'all-completions' and 'unintern' no longer support old calling conventions.
+
++++
+** New symbol property 'definition-type' used by 'find-function' and friends.
+Macros that define an object in a way that makes the object's name and
+the macro call site defining the object hard to associate can put the
+property 'definition-type' on the object's name to provide instructions
+for finding the definition.
 
 
 * Changes in Emacs 31.1 on Non-Free Operating Systems

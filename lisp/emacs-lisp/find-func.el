@@ -1,6 +1,6 @@
 ;;; find-func.el --- find the definition of the Emacs Lisp function near point  -*- lexical-binding:t -*-
 
-;; Copyright (C) 1997, 1999, 2001-2024 Free Software Foundation, Inc.
+;; Copyright (C) 1997, 1999, 2001-2025 Free Software Foundation, Inc.
 
 ;; Author: Jens Petersen <petersen@kurims.kyoto-u.ac.jp>
 ;; Keywords: emacs-lisp, functions, variables
@@ -400,9 +400,12 @@ See `find-library' for more details."
 Visit the library in a buffer, and return a cons cell (BUFFER . POSITION),
 or just (BUFFER . nil) if the definition can't be found in the file.
 
-If TYPE is nil, look for a function definition.
-Otherwise, TYPE specifies the kind of definition,
-and it is interpreted via `find-function-regexp-alist'.
+If TYPE is nil, look for a function definition,
+otherwise, TYPE specifies the kind of definition.
+If SYMBOL has a property `definition-type',
+the property value is used instead of TYPE.
+TYPE is interpreted via `find-function-regexp-alist'.
+
 The search is done in the source for library LIBRARY."
   (if (null library)
       (error "Don't know where `%s' is defined" symbol))
@@ -410,6 +413,8 @@ The search is done in the source for library LIBRARY."
   ;; that defines something else.
   (while (and (symbolp symbol) (get symbol 'definition-name))
     (setq symbol (get symbol 'definition-name)))
+  (setq type (or (get symbol 'definition-type)
+                 type))
   (if (string-match "\\`src/\\(.*\\.\\(c\\|m\\)\\)\\'" library)
       (find-function-C-source symbol (match-string 1 library) type)
     (when (string-match "\\.el\\(c\\)\\'" library)

@@ -1,6 +1,6 @@
 ;;; dired.el --- directory-browsing commands -*- lexical-binding: t -*-
 
-;; Copyright (C) 1985-1986, 1992-1997, 2000-2024 Free Software
+;; Copyright (C) 1985-1986, 1992-1997, 2000-2025 Free Software
 ;; Foundation, Inc.
 
 ;; Author: Sebastian Kremer <sk@thp.uni-koeln.de>
@@ -5268,6 +5268,7 @@ Interactively with prefix argument, read FILE-NAME."
 (declare-function Man-getpage-in-background "man" (topic))
 (defvar Man-support-remote-systems) ; from man.el
 (defvar manual-program) ; from man.el
+(declare-function tool-bar--image-expression "tool-bar" (icon))
 
 (defun dired-do-man ()
   "In Dired, run `man' on this file."

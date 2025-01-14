@@ -1,6 +1,6 @@
 ;;; calendar.el --- calendar functions  -*- lexical-binding:t -*-
 
-;; Copyright (C) 1988-1995, 1997, 2000-2024 Free Software Foundation,
+;; Copyright (C) 1988-1995, 1997, 2000-2025 Free Software Foundation,
 ;; Inc.
 
 ;; Author: Edward M. Reingold <reingold@cs.uiuc.edu>
@@ -2354,7 +2354,8 @@ returned is (month year)."
                        (completion-table-with-metadata
                         (completion-table-case-fold
                          (append month-array nil))
-                        `((category . calendar-month)))
+                        `((category . calendar-month)
+                          (display-sort-function . identity)))
                        nil t nil nil defmon)
                       (calendar-make-alist month-array 1) t)))
          (defday (calendar-extract-day default-date))

@@ -1,6 +1,6 @@
 ;;; elixir-ts-mode.el --- Major mode for Elixir with tree-sitter support -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2022-2024 Free Software Foundation, Inc.
+;; Copyright (C) 2022-2025 Free Software Foundation, Inc.
 
 ;; Author: Wilhelm H Kirschbaum <wkirschbaum@gmail.com>
 ;; Created: November 2022
@@ -397,11 +397,9 @@
              (binary_operator
               left: (call target: (identifier) @font-lock-function-name-face))))))
 
-   ;; A function definition like "def _foo" is valid, but we should
-   ;; not apply the comment-face unless its a non-function identifier, so
-   ;; the comment matches has to be after the function matches.
    :language 'elixir
    :feature 'elixir-comment
+   :override t
    '((comment) @font-lock-comment-face
      ((identifier) @font-lock-comment-face
       (:match "^_[a-z]\\|^_$" @font-lock-comment-face)))

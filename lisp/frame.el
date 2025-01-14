@@ -1,6 +1,6 @@
 ;;; frame.el --- multi-frame management independent of window systems  -*- lexical-binding:t -*-
 
-;; Copyright (C) 1993-1994, 1996-1997, 2000-2024 Free Software
+;; Copyright (C) 1993-1994, 1996-1997, 2000-2025 Free Software
 ;; Foundation, Inc.
 
 ;; Maintainer: emacs-devel@gnu.org
@@ -1505,13 +1505,6 @@ FRAME defaults to the selected frame."
   (setq frame (window-normalize-frame frame))
   (let ((edges (frame-edges frame 'outer-edges)))
     (- (nth 3 edges) (nth 1 edges))))
-
-(defun frame-at (x y)
-  "Return frame containing pixel position X, Y."
-  (cl-loop for frame in (frame-list-z-order)
-           as (x0 y0 x1 y1) = (frame-edges frame)
-           when (and (<= x0 x (1- x1)) (<= y0 y (1- y1)))
-           return frame))
 
 (declare-function x-list-fonts "xfaces.c"
                   (pattern &optional face frame maximum width))

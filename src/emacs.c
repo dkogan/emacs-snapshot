@@ -1,6 +1,6 @@
 /* Fully extensible Emacs, running on Unix, intended for GNU.
 
-Copyright (C) 1985-1987, 1993-1995, 1997-1999, 2001-2024 Free Software
+Copyright (C) 1985-1987, 1993-1995, 1997-1999, 2001-2025 Free Software
 Foundation, Inc.
 
 This file is part of GNU Emacs.
@@ -1419,7 +1419,18 @@ android_emacs_init (int argc, char **argv, char *dump_file)
 
 #ifdef HAVE_PDUMPER
   if (attempt_load_pdump)
-    initial_emacs_executable = load_pdump (argc, argv, dump_file);
+    {
+      initial_emacs_executable = load_pdump (argc, argv, dump_file);
+#ifdef WINDOWSNT
+  /* Reinitialize the codepage for file names, needed to decode
+     non-ASCII file names during startup.  This is needed because
+     loading the pdumper file above assigns to those variables values
+     from the dump stage, which might be incorrect, if dumping was done
+     on a different system.  */
+      if (dumped_with_pdumper_p ())
+	w32_init_file_name_codepage ();
+#endif
+    }
 #else
   ptrdiff_t bufsize;
   initial_emacs_executable = find_emacs_executable (argv[0], &bufsize);

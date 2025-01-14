@@ -1,6 +1,6 @@
 ;;; eww.el --- Emacs Web Wowser  -*- lexical-binding:t -*-
 
-;; Copyright (C) 2013-2024 Free Software Foundation, Inc.
+;; Copyright (C) 2013-2025 Free Software Foundation, Inc.
 
 ;; Author: Lars Magne Ingebrigtsen <larsi@gnus.org>
 ;; Keywords: html
@@ -1422,6 +1422,7 @@ within text input fields."
 (declare-function imagep "image.c")
 (defvar text-scale-mode)
 (defvar text-scale-mode-amount)
+(defvar image-scaling-factor)
 (defun eww--rescale-images ()
   (let ((scaling (if text-scale-mode
                      (+ 1 (* text-scale-mode-amount 0.1))

@@ -1,6 +1,6 @@
 ;;; shr.el --- Simple HTML Renderer -*- lexical-binding: t -*-
 
-;; Copyright (C) 2010-2024 Free Software Foundation, Inc.
+;; Copyright (C) 2010-2025 Free Software Foundation, Inc.
 
 ;; Author: Lars Magne Ingebrigtsen <larsi@gnus.org>
 ;; Keywords: html
@@ -1276,6 +1276,7 @@ not, `imagemagick' is preferred if it's present."
       nil
     'imagemagick))
 
+(defvar image-scaling-factor)
 (defun shr-rescale-image (data content-type width height
                                &optional max-width max-height)
   "Rescale DATA, if too big, to fit the current buffer.

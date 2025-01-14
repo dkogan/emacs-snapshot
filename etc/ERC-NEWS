@@ -1,6 +1,6 @@
 ERC NEWS
 
-Copyright (C) 2006-2024 Free Software Foundation, Inc.
+Copyright (C) 2006-2025 Free Software Foundation, Inc.
 See the end of the file for license conditions.
 
 Please send ERC bug reports to 'bug-gnu-emacs@gnu.org',
@@ -95,6 +95,11 @@ should wrap its return value in 'erc-normalize-port'.
 Although this has always been the case, string values are now more
 likely to be seen because ERC no longer coerces service names to port
 numbers.
+
+*** The 'spelling' module makes better use of Flyspell's API.
+As a consequence, the library functions 'erc-spelling-flyspell-verify'
+and 'erc-spelling-unhighlight-word' are now unused and have been marked
+obsolete.
 
 
 * Changes in ERC 5.6

@@ -1,6 +1,6 @@
 @c -*- mode: texinfo; coding: utf-8 -*-
 @c This is part of the GNU Emacs Lisp Reference Manual.
-@c Copyright (C) 1990--1993, 1995, 1998--1999, 2001--2024 Free Software
+@c Copyright (C) 1990--1993, 1995, 1998--1999, 2001--2025 Free Software
 @c Foundation, Inc.
 @c See the file elisp.texi for copying conditions.
 @node Tips
@@ -226,6 +226,10 @@ The macro should receive the name to be
 defined as the first argument.  That will help various tools find the
 definition automatically.  Avoid constructing the names in the macro
 itself, since that would confuse these tools.
+If your macro cannot be written in this style, the macro can still
+help these tools find the defining call by putting the property
+@code{definition-name} or @code{definition-type} on the name.
+@xref{Standard Properties}.
 
 @item
 In some other systems there is a convention of choosing variable names
@@ -1057,7 +1061,7 @@ explains these conventions, starting with an example:
 @group
 ;;; foo.el --- Support for the Foo programming language  -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2010-2024 Your Name
+;; Copyright (C) 2010-2025 Your Name
 @end group
 
 ;; Author: Your Name <yourname@@example.com>

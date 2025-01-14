@@ -1,6 +1,6 @@
 ;;; flymake.el --- A universal on-the-fly syntax checker  -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2003-2024 Free Software Foundation, Inc.
+;; Copyright (C) 2003-2025 Free Software Foundation, Inc.
 
 ;; Author: Pavel Kobyakov <pk_at_work@yahoo.com>
 ;; Maintainer: Spencer Baugh <sbaugh@janestreet.com>
@@ -1236,7 +1236,7 @@ If MESSAGE-PREFIX, echo a message using that prefix."
 (defun flymake--disable-backend (backend &optional explanation)
   "Disable BACKEND because EXPLANATION.
 If it is running also stop it."
-  (flymake-log :warning "Disabling backend %s because %s" backend explanation)
+  (flymake-log :warning "Disabling backend %s because %S" backend explanation)
   (flymake--with-backend-state backend state
     (setf (flymake--state-running state) nil
           (flymake--state-disabled state) explanation
