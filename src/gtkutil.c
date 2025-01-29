@@ -1424,13 +1424,9 @@ xg_set_widget_bg (struct frame *f, GtkWidget *w, unsigned long pixel)
   xbg.blue |= xbg.blue << 8;
 #endif
     {
-      const char format[] = "* { background-color: #%02x%02x%02x; }";
-      /* The format is always longer than the resulting string.  */
-      char buffer[sizeof format];
-      int n = snprintf(buffer, sizeof buffer, format,
-                       xbg.red >> 8, xbg.green >> 8, xbg.blue >> 8);
-      eassert (n > 0);
-      eassert (n < sizeof buffer);
+      static char const format[] = "* { background-color: #%02x%02x%02x; }";
+      char buffer[sizeof format + 3 * INT_STRLEN_BOUND (xbg.red)];
+      sprintf (buffer, format, xbg.red >> 8, xbg.green >> 8, xbg.blue >> 8);
       GtkCssProvider *provider = gtk_css_provider_new ();
       gtk_css_provider_load_from_data (provider, buffer, -1, NULL);
       gtk_style_context_add_provider (gtk_widget_get_style_context(w),
@@ -1883,6 +1879,12 @@ xg_free_frame_widgets (struct frame *f)
                              TB_INFO_KEY);
       if (tbinfo)
         xfree (tbinfo);
+
+      if (x->toolbar_widget && !x->toolbar_is_packed)
+	{
+	  gtk_widget_destroy (x->toolbar_widget);
+	  x->toolbar_widget = NULL;
+	}
 
       /* x_free_frame_resources should have taken care of it */
 #ifndef HAVE_PGTK
@@ -5505,7 +5507,7 @@ find_rtl_image (struct frame *f, Lisp_Object image, Lisp_Object rtl)
       Lisp_Object rtl_image = PROP (TOOL_BAR_ITEM_IMAGES);
       if (!NILP (file = file_for_image (rtl_image)))
         {
-          file = call1 (Qfile_name_sans_extension,
+          file = calln (Qfile_name_sans_extension,
 			Ffile_name_nondirectory (file));
           if (! NILP (Fequal (file, rtl_name)))
             {
@@ -5919,7 +5921,7 @@ update_frame_tool_bar (struct frame *f)
 
       specified_file = file_for_image (image);
       if (!NILP (specified_file) && !NILP (Ffboundp (Qx_gtk_map_stock)))
-        stock = call1 (Qx_gtk_map_stock, specified_file);
+        stock = calln (Qx_gtk_map_stock, specified_file);
 
       if (CONSP (stock))
         {
@@ -6116,8 +6118,7 @@ free_frame_tool_bar (struct frame *f)
       else
         gtk_widget_destroy (x->toolbar_widget);
 
-      x->toolbar_widget = 0;
-      x->toolbar_widget = 0;
+      x->toolbar_widget = NULL;
       x->toolbar_is_packed = false;
       FRAME_TOOLBAR_TOP_HEIGHT (f) = FRAME_TOOLBAR_BOTTOM_HEIGHT (f) = 0;
       FRAME_TOOLBAR_LEFT_WIDTH (f) = FRAME_TOOLBAR_RIGHT_WIDTH (f) = 0;

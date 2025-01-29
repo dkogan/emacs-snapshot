@@ -1478,7 +1478,7 @@ usage: (dbus-message-internal &rest REST)  */)
 	     bus or an unknown name, we regard it as broadcast message
 	     due to backward compatibility.  */
 	  if (dbus_bus_name_has_owner (connection, SSDATA (service), NULL))
-	    uname = call2 (Qdbus_get_name_owner, bus, service);
+	    uname = calln (Qdbus_get_name_owner, bus, service);
 	  else
 	    uname = Qnil;
 
@@ -1970,10 +1970,9 @@ syms_of_dbusbind (void)
   {
 #ifdef DBUS_VERSION
     int major, minor, micro;
-    char s[sizeof ".." + 3 * INT_STRLEN_BOUND (int)];
     dbus_get_version (&major, &minor, &micro);
     Vdbus_runtime_version
-      = make_formatted_string (s, "%d.%d.%d", major, minor, micro);
+      = make_formatted_string ("%d.%d.%d", major, minor, micro);
 #else
     Vdbus_runtime_version = Qnil;
 #endif

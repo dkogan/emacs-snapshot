@@ -669,7 +669,7 @@ malloc_warning (const char *str)
 void
 display_malloc_warning (void)
 {
-  call3 (Qdisplay_warning,
+  calln (Qdisplay_warning,
 	 Qalloc,
 	 build_string (pending_malloc_warning),
 	 QCemergency);
@@ -2542,19 +2542,23 @@ make_uninit_multibyte_string (EMACS_INT nchars, EMACS_INT nbytes)
   return make_clear_multibyte_string (nchars, nbytes, false);
 }
 
-/* Print arguments to BUF according to a FORMAT, then return
-   a Lisp_String initialized with the data from BUF.  */
+/* Return a Lisp_String according to a doprnt-style FORMAT and args.  */
 
 Lisp_Object
-make_formatted_string (char *buf, const char *format, ...)
+make_formatted_string (const char *format, ...)
 {
+  char buf[MAX_ALLOCA];
+  char *cstr = buf;
+  ptrdiff_t bufsize = sizeof buf;
   va_list ap;
-  int length;
 
   va_start (ap, format);
-  length = vsprintf (buf, format, ap);
+  ptrdiff_t length = evxprintf (&cstr, &bufsize, buf, -1, format, ap);
   va_end (ap);
-  return make_string (buf, length);
+  Lisp_Object ret = make_string (cstr, length);
+  if (cstr != buf)
+    xfree (cstr);
+  return ret;
 }
 
 /* Pin a unibyte string in place so that it won't move during GC.  */
@@ -7383,7 +7387,8 @@ process_mark_stack (ptrdiff_t base_sp)
 	    break;
 	  }
 
-	case_Lisp_Int:
+	case Lisp_Int0:
+	case Lisp_Int1:
 	  break;
 
 	default:
@@ -7437,7 +7442,8 @@ survives_gc_p (Lisp_Object obj)
 
   switch (XTYPE (obj))
     {
-    case_Lisp_Int:
+    case Lisp_Int0:
+    case Lisp_Int1:
       survives_p = true;
       break;
 
@@ -7794,7 +7800,7 @@ respective remote host.  */)
     = Ffind_file_name_handler (BVAR (current_buffer, directory),
 			       Qmemory_info);
   if (!NILP (handler))
-    return call1 (handler, Qmemory_info);
+    return calln (handler, Qmemory_info);
 
 #if defined HAVE_LINUX_SYSINFO
   struct sysinfo si;
