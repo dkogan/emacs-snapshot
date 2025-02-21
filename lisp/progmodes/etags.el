@@ -44,7 +44,7 @@ invoke `visit-tags-table', which is the only reliable way of
 setting the value of this variable, whether buffer-local or global.
 Use the `etags' program to make a tags table file.")
 ;; Make M-x set-variable tags-file-name like M-x visit-tags-table.
-;;;###autoload (put 'tags-file-name 'variable-interactive (purecopy "fVisit tags table: "))
+;;;###autoload (put 'tags-file-name 'variable-interactive "fVisit tags table: ")
 ;;;###autoload (put 'tags-file-name 'safe-local-variable 'stringp)
 
 (defgroup etags nil "Tags tables."
@@ -73,7 +73,7 @@ Use the `etags' program to make a tags table file."
 
 ;;;###autoload
 (defcustom tags-compression-info-list
-  (purecopy '("" ".Z" ".bz2" ".gz" ".xz" ".tgz"))
+  '("" ".Z" ".bz2" ".gz" ".xz" ".tgz")
   "List of extensions tried by etags when `auto-compression-mode' is on.
 An empty string means search the non-compressed file."
   :version "24.1"			; added xz
@@ -445,6 +445,10 @@ Returns non-nil if it is a valid table."
 	(set-buffer (get-file-buffer file))
         (or verify-tags-table-function (tags-table-mode))
 	(unless (or (verify-visited-file-modtime (current-buffer))
+                    ;; 'verify-visited-file-modtime' return non-nil if
+                    ;; the tags table file was meanwhile deleted.  Avoid
+                    ;; asking the question below again if so.
+                    (not (file-exists-p file))
 		    ;; Decide whether to revert the file.
 		    ;; revert-without-query can say to revert
 		    ;; or the user can say to revert.

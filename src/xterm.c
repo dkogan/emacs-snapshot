@@ -27512,7 +27512,7 @@ x_calc_absolute_position (struct frame *f)
 
   /* Treat negative positions as relative to the leftmost bottommost
      position that fits on the screen.  */
-  if ((flags & XNegative) && (f->left_pos <= 0))
+  if (flags & XNegative)
     {
       int width = FRAME_PIXEL_WIDTH (f);
 
@@ -27539,7 +27539,7 @@ x_calc_absolute_position (struct frame *f)
 
     }
 
-  if ((flags & YNegative) && (f->top_pos <= 0))
+  if (flags & YNegative)
     {
       int height = FRAME_PIXEL_HEIGHT (f);
 
@@ -30591,7 +30591,9 @@ x_term_init (Lisp_Object display_name, char *xrm_option, char *resource_name)
 
   block_input ();
 
+#ifdef USE_GTK
   bool was_initialized = x_initialized;
+#endif /* USE_GTK */
   if (!x_initialized)
     {
       x_initialize ();
@@ -32587,7 +32589,7 @@ syms_of_xterm (void)
   DEFSYM (Qwheel_right, "wheel-right");
 
 #ifdef USE_GTK
-  xg_default_icon_file = build_pure_c_string ("icons/hicolor/scalable/apps/emacs.svg");
+  xg_default_icon_file = build_string ("icons/hicolor/scalable/apps/emacs.svg");
   staticpro (&xg_default_icon_file);
 
   DEFSYM (Qx_gtk_map_stock, "x-gtk-map-stock");
@@ -32736,7 +32738,7 @@ If set to a non-float value, there will be no wait at all.  */);
 
   DEFVAR_LISP ("x-keysym-table", Vx_keysym_table,
     doc: /* Hash table of character codes indexed by X keysym codes.  */);
-  Vx_keysym_table = make_hash_table (&hashtest_eql, 900, Weak_None, false);
+  Vx_keysym_table = make_hash_table (&hashtest_eql, 900, Weak_None);
 
   DEFVAR_BOOL ("x-frame-normalize-before-maximize",
 	       x_frame_normalize_before_maximize,

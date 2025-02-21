@@ -177,7 +177,7 @@ changes."
 (defvar next-error-highlight-timer nil)
 
 (defvar next-error-overlay-arrow-position nil)
-(put 'next-error-overlay-arrow-position 'overlay-arrow-string (purecopy "=>"))
+(put 'next-error-overlay-arrow-position 'overlay-arrow-string "=>")
 (add-to-list 'overlay-arrow-variable-list 'next-error-overlay-arrow-position)
 
 (defvar next-error-last-buffer nil
@@ -4272,7 +4272,7 @@ which is defined in the `warnings' library.\n")
 Maximum length of the history list is determined by the value
 of `history-length', which see.")
 
-(defvar shell-command-switch (purecopy "-c")
+(defvar shell-command-switch "-c"
   "Switch used to have the shell execute its command line argument.")
 
 (defvar shell-command-default-error-buffer nil
@@ -6947,7 +6947,7 @@ START and END specify the portion of the current buffer to be copied."
       (save-excursion
 	(insert-buffer-substring oldbuf start end)))))
 
-(define-error 'mark-inactive (purecopy "The mark is not active now"))
+(define-error 'mark-inactive "The mark is not active now")
 
 (defvar activate-mark-hook nil
   "Hook run when the mark becomes active.
@@ -9263,9 +9263,9 @@ if long lines are truncated."
   (message "Word wrapping %s"
 	   (if word-wrap "enabled" "disabled")))
 
-(defvar overwrite-mode-textual (purecopy " Ovwrt")
+(defvar overwrite-mode-textual " Ovwrt"
   "The string displayed in the mode line when in overwrite mode.")
-(defvar overwrite-mode-binary (purecopy " Bin Ovwrt")
+(defvar overwrite-mode-binary " Bin Ovwrt"
   "The string displayed in the mode line when in binary overwrite mode.")
 
 (define-minor-mode overwrite-mode
@@ -9622,11 +9622,11 @@ More precisely, a char with closeparen syntax is self-inserted.")
 	     ;; Verify an even number of quoting characters precede the close.
              ;; FIXME: Also check if this parenthesis closes a comment as
              ;; can happen in Pascal and SML.
-	     (= 1 (logand 1 (- (point)
-			       (save-excursion
-				 (forward-char -1)
-				 (skip-syntax-backward "/\\")
-				 (point))))))
+	     (oddp (- (point)
+		      (save-excursion
+			(forward-char -1)
+			(skip-syntax-backward "/\\")
+			(point)))))
     (funcall blink-paren-function)))
 
 (put 'blink-paren-post-self-insert-function 'priority 100)
@@ -11249,7 +11249,9 @@ too short to have a dst element.
           (when initial-scratch-message
             (insert (substitute-command-keys initial-scratch-message))
             (set-buffer-modified-p nil))
-          (funcall initial-major-mode))
+          (funcall initial-major-mode)
+          (when (eq initial-major-mode 'lisp-interaction-mode)
+            (setq-local trusted-content :all)))
         scratch)))
 
 (defun scratch-buffer ()

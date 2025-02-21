@@ -106,11 +106,11 @@ reference any object.  (This is not the same thing as holding the symbol
 a value cell that is void results in an error, such as @samp{Symbol's
 value as variable is void}.
 
-  Because each symbol has separate value and function cells, variables
-names and function names do not conflict.  For example, the symbol
-@code{buffer-file-name} has a value (the name of the file being
-visited in the current buffer) as well as a function definition (a
-primitive function that returns the name of the file):
+  Because each symbol has separate value and function cells, the names
+of variables and functions do not conflict.  For example, the symbol
+@code{buffer-file-name} has a value (the name of the file being visited
+in the current buffer) as well as a function definition (a primitive
+function that returns the name of the file):
 
 @example
 buffer-file-name
@@ -606,8 +606,7 @@ If the value is non-@code{nil}, the named function is considered to be
 pure (@pxref{What Is a Function}).  Calls with constant arguments can
 be evaluated at compile time.  This may shift run time errors to
 compile time.  This property is normally added to a function with
-@code{declare} (@pxref{Declare Form}).  Not to be confused with pure
-storage (@pxref{Pure Storage}).
+@code{declare} (@pxref{Declare Form}).
 
 @item risky-local-variable
 If the value is non-@code{nil}, the named variable is considered risky

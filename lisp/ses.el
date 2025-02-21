@@ -4011,7 +4011,7 @@ Use `math-format-value' as a printer for Calc objects."
     (unless reorient-x
       (setq result (mapcar #'nreverse result)))
     (when transpose
-      (let ((ret (mapcar (lambda (x) (list x)) (pop result))) iter)
+      (let ((ret (mapcar #'list (pop result))) iter)
 	(while result
 	  (setq iter ret)
 	  (dolist (elt (pop result))
@@ -4105,7 +4105,7 @@ printer otherwise."
 	value ; Too large for field, anyway.
       (setq half (make-string (/ width 2) fill))
       (concat half value half
-	      (if (> (% width 2) 0) (char-to-string fill))))))
+	      (if (oddp width) (char-to-string fill))))))
 
 (defun ses-center-span (value &optional fill printer)
   "Print VALUE, centered within the span that starts in the current column

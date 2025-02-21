@@ -176,7 +176,7 @@ pair.
 
 \(fn [VARIABLE VALUE]...)"
   (declare (debug setq))
-  (unless (zerop (mod (length pairs) 2))
+  (unless (evenp (length pairs))
     (error "PAIRS must have an even number of variable/value members"))
   (let ((expr nil))
     (while pairs
@@ -217,7 +217,7 @@ in order to restore the state of the local variables set via this macro.
 
 \(fn [VARIABLE VALUE]...)"
   (declare (debug setq))
-  (unless (zerop (mod (length pairs) 2))
+  (unless (evenp (length pairs))
     (error "PAIRS must have an even number of variable/value members"))
   `(prog1
        (buffer-local-set-state--get ',pairs)
@@ -550,6 +550,34 @@ was called."
            (compiler-macro (lambda (_) `(= 0 ,number))))
   (= 0 number))
 
+(defun plusp (number)
+  "Return t if NUMBER is positive."
+  (declare (ftype (function (number) boolean))
+           (side-effect-free t)
+           (compiler-macro (lambda (_) `(> ,number 0))))
+  (> number 0))
+
+(defun minusp (number)
+  "Return t if NUMBER is negative."
+  (declare (ftype (function (number) boolean))
+           (side-effect-free t)
+           (compiler-macro (lambda (_) `(< ,number 0))))
+  (< number 0))
+
+(defun oddp (integer)
+  "Return t if INTEGER is odd."
+  (declare (ftype (function (integer) boolean))
+           (pure t) (side-effect-free t)
+           (compiler-macro (lambda (_) `(not (eq (% ,integer 2) 0)))))
+  (not (eq (% integer 2) 0)))
+
+(defun evenp (integer)
+  "Return t if INTEGER is even."
+  (declare (ftype (function (integer) boolean))
+           (pure t) (side-effect-free t)
+           (compiler-macro (lambda (_) `(eq (% ,integer 2) 0))))
+  (eq (% integer 2) 0))
+
 (defun fixnump (object)
   "Return t if OBJECT is a fixnum."
   (declare (ftype (function (t) boolean))
@@ -580,7 +608,7 @@ treatment of negative COUNT provided by this function."
                (format-message "avoid `lsh'; use `ash' instead")
                form '(suspicious lsh) t form)))
            (side-effect-free t))
-  (when (and (< value 0) (< count 0))
+  (when (and (minusp value) (minusp count))
     (when (< value most-negative-fixnum)
       (signal 'args-out-of-range (list value count)))
     (setq value (logand (ash value -1) most-positive-fixnum))
@@ -590,9 +618,6 @@ treatment of negative COUNT provided by this function."
 
 ;;;; List functions.
 
-;; Note: `internal--compiler-macro-cXXr' was copied from
-;; `cl--compiler-macro-cXXr' in cl-macs.el.  If you amend either one,
-;; you may want to amend the other, too.
 (defun internal--compiler-macro-cXXr (form x)
   (let* ((head (car form))
          (n (symbol-name head))
@@ -609,142 +634,170 @@ treatment of negative COUNT provided by this function."
 
 (defun caar (x)
   "Return the car of the car of X."
-  (declare (compiler-macro internal--compiler-macro-cXXr))
+  (declare (side-effect-free t)
+           (compiler-macro internal--compiler-macro-cXXr))
   (car (car x)))
 
 (defun cadr (x)
   "Return the car of the cdr of X."
-  (declare (compiler-macro internal--compiler-macro-cXXr))
+  (declare (side-effect-free t)
+           (compiler-macro internal--compiler-macro-cXXr))
   (car (cdr x)))
 
 (defun cdar (x)
   "Return the cdr of the car of X."
-  (declare (compiler-macro internal--compiler-macro-cXXr))
+  (declare (side-effect-free t)
+           (compiler-macro internal--compiler-macro-cXXr))
   (cdr (car x)))
 
 (defun cddr (x)
   "Return the cdr of the cdr of X."
-  (declare (compiler-macro internal--compiler-macro-cXXr))
+  (declare (side-effect-free t)
+           (compiler-macro internal--compiler-macro-cXXr))
   (cdr (cdr x)))
 
 (defun caaar (x)
   "Return the `car' of the `car' of the `car' of X."
-  (declare (compiler-macro internal--compiler-macro-cXXr))
+  (declare (side-effect-free t)
+           (compiler-macro internal--compiler-macro-cXXr))
   (car (car (car x))))
 
 (defun caadr (x)
   "Return the `car' of the `car' of the `cdr' of X."
-  (declare (compiler-macro internal--compiler-macro-cXXr))
+  (declare (side-effect-free t)
+           (compiler-macro internal--compiler-macro-cXXr))
   (car (car (cdr x))))
 
 (defun cadar (x)
   "Return the `car' of the `cdr' of the `car' of X."
-  (declare (compiler-macro internal--compiler-macro-cXXr))
+  (declare (side-effect-free t)
+           (compiler-macro internal--compiler-macro-cXXr))
   (car (cdr (car x))))
 
 (defun caddr (x)
   "Return the `car' of the `cdr' of the `cdr' of X."
-  (declare (compiler-macro internal--compiler-macro-cXXr))
+  (declare (side-effect-free t)
+           (compiler-macro internal--compiler-macro-cXXr))
   (car (cdr (cdr x))))
 
 (defun cdaar (x)
   "Return the `cdr' of the `car' of the `car' of X."
-  (declare (compiler-macro internal--compiler-macro-cXXr))
+  (declare (side-effect-free t)
+           (compiler-macro internal--compiler-macro-cXXr))
   (cdr (car (car x))))
 
 (defun cdadr (x)
   "Return the `cdr' of the `car' of the `cdr' of X."
-  (declare (compiler-macro internal--compiler-macro-cXXr))
+  (declare (side-effect-free t)
+           (compiler-macro internal--compiler-macro-cXXr))
   (cdr (car (cdr x))))
 
 (defun cddar (x)
   "Return the `cdr' of the `cdr' of the `car' of X."
-  (declare (compiler-macro internal--compiler-macro-cXXr))
+  (declare (side-effect-free t)
+           (compiler-macro internal--compiler-macro-cXXr))
   (cdr (cdr (car x))))
 
 (defun cdddr (x)
   "Return the `cdr' of the `cdr' of the `cdr' of X."
-  (declare (compiler-macro internal--compiler-macro-cXXr))
+  (declare (side-effect-free t)
+           (compiler-macro internal--compiler-macro-cXXr))
   (cdr (cdr (cdr x))))
 
 (defun caaaar (x)
   "Return the `car' of the `car' of the `car' of the `car' of X."
-  (declare (compiler-macro internal--compiler-macro-cXXr))
+  (declare (side-effect-free t)
+           (compiler-macro internal--compiler-macro-cXXr))
   (car (car (car (car x)))))
 
 (defun caaadr (x)
   "Return the `car' of the `car' of the `car' of the `cdr' of X."
-  (declare (compiler-macro internal--compiler-macro-cXXr))
+  (declare (side-effect-free t)
+           (compiler-macro internal--compiler-macro-cXXr))
   (car (car (car (cdr x)))))
 
 (defun caadar (x)
   "Return the `car' of the `car' of the `cdr' of the `car' of X."
-  (declare (compiler-macro internal--compiler-macro-cXXr))
+  (declare (side-effect-free t)
+           (compiler-macro internal--compiler-macro-cXXr))
   (car (car (cdr (car x)))))
 
 (defun caaddr (x)
   "Return the `car' of the `car' of the `cdr' of the `cdr' of X."
-  (declare (compiler-macro internal--compiler-macro-cXXr))
+  (declare (side-effect-free t)
+           (compiler-macro internal--compiler-macro-cXXr))
   (car (car (cdr (cdr x)))))
 
 (defun cadaar (x)
   "Return the `car' of the `cdr' of the `car' of the `car' of X."
-  (declare (compiler-macro internal--compiler-macro-cXXr))
+  (declare (side-effect-free t)
+           (compiler-macro internal--compiler-macro-cXXr))
   (car (cdr (car (car x)))))
 
 (defun cadadr (x)
   "Return the `car' of the `cdr' of the `car' of the `cdr' of X."
-  (declare (compiler-macro internal--compiler-macro-cXXr))
+  (declare (side-effect-free t)
+           (compiler-macro internal--compiler-macro-cXXr))
   (car (cdr (car (cdr x)))))
 
 (defun caddar (x)
   "Return the `car' of the `cdr' of the `cdr' of the `car' of X."
-  (declare (compiler-macro internal--compiler-macro-cXXr))
+  (declare (side-effect-free t)
+           (compiler-macro internal--compiler-macro-cXXr))
   (car (cdr (cdr (car x)))))
 
 (defun cadddr (x)
   "Return the `car' of the `cdr' of the `cdr' of the `cdr' of X."
-  (declare (compiler-macro internal--compiler-macro-cXXr))
+  (declare (side-effect-free t)
+           (compiler-macro internal--compiler-macro-cXXr))
   (car (cdr (cdr (cdr x)))))
 
 (defun cdaaar (x)
   "Return the `cdr' of the `car' of the `car' of the `car' of X."
-  (declare (compiler-macro internal--compiler-macro-cXXr))
+  (declare (side-effect-free t)
+           (compiler-macro internal--compiler-macro-cXXr))
   (cdr (car (car (car x)))))
 
 (defun cdaadr (x)
   "Return the `cdr' of the `car' of the `car' of the `cdr' of X."
-  (declare (compiler-macro internal--compiler-macro-cXXr))
+  (declare (side-effect-free t)
+           (compiler-macro internal--compiler-macro-cXXr))
   (cdr (car (car (cdr x)))))
 
 (defun cdadar (x)
   "Return the `cdr' of the `car' of the `cdr' of the `car' of X."
-  (declare (compiler-macro internal--compiler-macro-cXXr))
+  (declare (side-effect-free t)
+           (compiler-macro internal--compiler-macro-cXXr))
   (cdr (car (cdr (car x)))))
 
 (defun cdaddr (x)
   "Return the `cdr' of the `car' of the `cdr' of the `cdr' of X."
-  (declare (compiler-macro internal--compiler-macro-cXXr))
+  (declare (side-effect-free t)
+           (compiler-macro internal--compiler-macro-cXXr))
   (cdr (car (cdr (cdr x)))))
 
 (defun cddaar (x)
   "Return the `cdr' of the `cdr' of the `car' of the `car' of X."
-  (declare (compiler-macro internal--compiler-macro-cXXr))
+  (declare (side-effect-free t)
+           (compiler-macro internal--compiler-macro-cXXr))
   (cdr (cdr (car (car x)))))
 
 (defun cddadr (x)
   "Return the `cdr' of the `cdr' of the `car' of the `cdr' of X."
-  (declare (compiler-macro internal--compiler-macro-cXXr))
+  (declare (side-effect-free t)
+           (compiler-macro internal--compiler-macro-cXXr))
   (cdr (cdr (car (cdr x)))))
 
 (defun cdddar (x)
   "Return the `cdr' of the `cdr' of the `cdr' of the `car' of X."
-  (declare (compiler-macro internal--compiler-macro-cXXr))
+  (declare (side-effect-free t)
+           (compiler-macro internal--compiler-macro-cXXr))
   (cdr (cdr (cdr (car x)))))
 
 (defun cddddr (x)
   "Return the `cdr' of the `cdr' of the `cdr' of the `cdr' of X."
-  (declare (compiler-macro internal--compiler-macro-cXXr))
+  (declare (side-effect-free t)
+           (compiler-macro internal--compiler-macro-cXXr))
   (cdr (cdr (cdr (cdr x)))))
 
 (defun last (list &optional n)
@@ -779,7 +832,7 @@ If N is omitted or nil, remove the last element."
     (or n (setq n 1))
     (and (< n m)
 	 (progn
-	   (if (> n 0) (setcdr (nthcdr (- (1- m) n) list) nil))
+	   (if (plusp n) (setcdr (nthcdr (- (1- m) n) list) nil))
 	   list))))
 
 (defun delete-dups (list)
@@ -852,7 +905,7 @@ of course, also replace TO with a slightly larger value
     (or inc (setq inc 1))
     (when (zerop inc) (error "The increment can not be zero"))
     (let (seq (n 0) (next from))
-      (if (> inc 0)
+      (if (plusp inc)
           (while (<= next to)
             (setq seq (cons next seq)
                   n (1+ n)
@@ -2038,6 +2091,10 @@ instead; it will indirectly limit the specpdl stack size as well.")
 
 (define-obsolete-function-alias 'fetch-bytecode #'ignore "30.1")
 
+(define-obsolete-function-alias 'purecopy #'identity "31.1")
+
+(make-obsolete-variable 'pure-bytes-used "no longer used." "31.1")
+
 
 ;;;; Alternate names for functions - these are not being phased out.
 
@@ -2506,7 +2563,7 @@ HISTORY-VAR cannot refer to a lexical variable."
     (when (and (listp history)
 	       (or keep-all
 		   (not (stringp newelt))
-		   (> (length newelt) 0))
+		   (plusp (length newelt)))
 	       (or keep-all
 		   (not (equal (car history) newelt))))
       (if history-delete-duplicates
@@ -3391,7 +3448,7 @@ only unbound fallback disabled is downcasing of the last event."
                                                              nil nil t)))
                  (key (aref keys 0)))
             (if (and (> (length keys) 1)
-                     (memq key '(mode-line header-line
+                     (memq key '(mode-line header-line tab-line
                                  left-fringe right-fringe)))
                 (aref keys 1)
               key)))
@@ -3543,13 +3600,15 @@ causes it to evaluate `help-form' and display the result."
     char))
 
 (defun sit-for (seconds &optional nodisp)
-  "Redisplay, then wait for SECONDS seconds.  Stop when input is available.
+  "Redisplay, then wait for SECONDS seconds; stop when input is available.
 SECONDS may be a floating-point value.
 \(On operating systems that do not support waiting for fractions of a
 second, floating-point values are rounded down to the nearest integer.)
 
-If optional arg NODISP is t, don't redisplay, just wait for input.
-Redisplay does not happen if input is available before it starts.
+If there's pending input, return nil immediately without redisplaying
+and without waiting.
+If optional arg NODISP is t, don't redisplay, just wait for input (but
+still return nil immediately if there's pending input).
 
 Value is t if waited the full time with no input arriving, and nil otherwise."
   ;; This used to be implemented in C until the following discussion:
@@ -3726,7 +3785,7 @@ There is no need to explicitly add `help-char' to CHARS;
                      (set-text-conversion-style text-conversion-style))
                    (read-from-minibuffer prompt nil map nil (or history t))))
          (char
-          (if (> (length result) 0)
+          (if (plusp (length result))
               ;; We have a string (with one character), so return the first one.
               (elt result 0)
             ;; The default value is RET.
@@ -5672,7 +5731,7 @@ Modifies the match data; use `save-match-data' if necessary."
 			 (setq this (substring this 0 tem)))))
 
 		;; Trimming could make it empty; check again.
-		(when (or keep-nulls (> (length this) 0))
+		(when (or keep-nulls (plusp (length this)))
 		  (push this list)))))))
 
     (while (and (string-match rexp string
@@ -5749,7 +5808,7 @@ Unless optional argument INPLACE is non-nil, return a new string."
         res)
     (let ((i (length string))
 	  (newstr (if inplace string (copy-sequence string))))
-      (while (> i 0)
+      (while (plusp i)
         (setq i (1- i))
         (if (eq (aref newstr i) fromchar)
 	    (aset newstr i tochar)))
@@ -5969,7 +6028,7 @@ See also `with-eval-after-load'."
   ;; evaluating it now).
   (let* ((regexp-or-feature
 	  (if (stringp file)
-              (setq file (purecopy (load-history-regexp file)))
+              (setq file (load-history-regexp file))
             file))
 	 (elt (assoc regexp-or-feature after-load-alist))
          (func
@@ -6222,7 +6281,7 @@ backwards ARG times if negative."
   (interactive "^p")
   (if (natnump arg)
       (re-search-forward "[ \t]+\\|\n" nil 'move arg)
-    (while (< arg 0)
+    (while (minusp arg)
       (if (re-search-backward "[ \t]+\\|\n" nil 'move)
 	  (or (eq (char-after (match-beginning 0)) ?\n)
 	      (skip-chars-backward " \t")))
@@ -6239,7 +6298,7 @@ backwards ARG times if negative."
   (interactive "^p")
   (if (natnump arg)
       (re-search-forward "\\(\\sw\\|\\s_\\)+" nil 'move arg)
-    (while (< arg 0)
+    (while (minusp arg)
       (if (re-search-backward "\\(\\sw\\|\\s_\\)+" nil 'move)
 	  (skip-syntax-backward "w_"))
       (setq arg (1+ arg)))))
@@ -6252,11 +6311,11 @@ With prefix argument ARG, do it ARG times if positive, or move
 backwards ARG times if negative."
   (interactive "^p")
   (or arg (setq arg 1))
-  (while (< arg 0)
+  (while (minusp arg)
     (skip-syntax-backward
      (char-to-string (char-syntax (char-before))))
     (setq arg (1+ arg)))
-  (while (> arg 0)
+  (while (plusp arg)
     (skip-syntax-forward (char-to-string (char-syntax (char-after))))
     (setq arg (1- arg))))
 
@@ -6808,7 +6867,7 @@ NEW-MESSAGE, if non-nil, sets a new message for the reporter."
                (if suffix
                    (aset parameters 6 suffix)
                  (setq suffix (or (aref parameters 6) "")))
-               (if (> percentage 0)
+               (if (plusp percentage)
                    (message "%s%d%% %s" text percentage suffix)
                  (message "%s %s" text suffix)))))
 	  ;; Pulsing indicator
@@ -7039,9 +7098,9 @@ turn is higher than (1 -2), which is higher than (1 -3)."
    ;; l1 null and l2 null         ==> l1 length = l2 length
    ((and (null l1) (null l2)) nil)
    ;; l1 not null and l2 null     ==> l1 length > l2 length
-   (l1 (< (version-list-not-zero l1) 0))
+   (l1 (minusp (version-list-not-zero l1)))
    ;; l1 null and l2 not null     ==> l2 length > l1 length
-   (t  (< 0 (version-list-not-zero l2)))))
+   (t  (plusp (version-list-not-zero l2)))))
 
 
 (defun version-list-= (l1 l2)
@@ -7135,7 +7194,7 @@ Also, \"-GIT\", \"-CVS\" and \"-NNN\" are treated as snapshot versions."
 
 (defvar package--builtin-versions
   ;; Mostly populated by loaddefs.el.
-  (purecopy `((emacs . ,(version-to-list emacs-version))))
+  `((emacs . ,(version-to-list emacs-version)))
   "Alist giving the version of each versioned builtin package.
 I.e. each element of the list is of the form (NAME . VERSION) where
 NAME is the package name as a symbol, and VERSION is its version

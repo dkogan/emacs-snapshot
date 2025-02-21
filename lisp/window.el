@@ -1003,6 +1003,7 @@ and may be called only if no window on SIDE exists yet."
 	 ;; window and not make a new parent window unless needed.
 	 (window-combination-resize 'side)
 	 (window-combination-limit nil)
+	 (ignore-window-parameters t)
 	 (window (split-window-no-error next-to nil on-side))
          (alist (if (assq 'dedicated alist)
                     alist
@@ -5224,7 +5225,12 @@ buffer by itself."
 	(cond
 	 ((window-minibuffer-p window))
 	 (kill-buffer-quit-windows
-	  (quit-restore-window window 'killing))
+	  ;; Try to preserve the current buffer set up by 'kill-buffer'
+	  ;; before running the hooks on 'kill-buffer-hook' (Bug#75949).
+	  (let ((current-buffer (current-buffer)))
+	    (quit-restore-window window 'killing)
+	    (when (buffer-live-p current-buffer)
+	      (set-buffer current-buffer))))
 	 (t
 	  (let ((dedicated-side (eq (window-dedicated-p window) 'side)))
             (when (or dedicated-side (not (window--delete window t 'kill)))
@@ -5644,6 +5650,7 @@ changed by this function."
        ;; frame's root window, split the frame's main window instead
        ;; (Bug#73627).
        ((and (eq window (frame-root-window frame))
+	     (not ignore-window-parameters)
 	     (window-with-parameter 'window-side nil frame))
 	(throw 'done (split-window (window-main-window frame)
 				   size side pixelwise refer)))
@@ -6304,8 +6311,7 @@ specific buffers."
             ,@(when next-buffers
                 `((next-buffers
                    . ,(if writable
-                          (mapcar (lambda (buffer) (buffer-name buffer))
-                                  next-buffers)
+                          (mapcar #'buffer-name next-buffers)
                         next-buffers))))
             ,@(when prev-buffers
                 `((prev-buffers
@@ -7389,20 +7395,64 @@ hold:
 		      (* 2 (max window-min-height
 				(if mode-line-format 2 1))))))))))
 
+(defcustom split-window-preferred-direction 'vertical
+  "The first direction tried when Emacs needs to split a window.
+This variable controls in which order `split-window-sensibly' will try to
+split the window.  That order specially matters when both dimensions of
+the frame are long enough to be split according to
+`split-width-threshold' and `split-height-threshold'.  If this is set to
+`vertical' (the default), `split-window-sensibly' tries to split
+vertically first and then horizontally.  If set to `horizontal' it does
+the opposite.  If set to `longest', the first direction tried
+depends on the frame shape: in landscape orientation it will be like
+`horizontal', but in portrait it will be like `vertical'.  Basically,
+the longest of the two dimension is split first.
+
+If both `split-width-threshold' and `split-height-threshold' cannot be
+satisfied, it will fallback to split vertically.
+
+See `split-window-preferred-function' for more control of the splitting
+strategy."
+  :type '(radio
+          (const :tag "Try to split vertically first"
+                 vertical)
+          (const :tag "Try to split horizontally first"
+                 horizontal)
+          (const :tag "Try to split along the longest edge first"
+                 longest))
+  :version "31.1"
+  :group 'windows)
+
+(defun window--try-vertical-split (window)
+  "Helper function for `split-window-sensibly'"
+  (when (window-splittable-p window)
+    (with-selected-window window
+      (split-window-below))))
+
+(defun window--try-horizontal-split (window)
+  "Helper function for `split-window-sensibly'"
+  (when (window-splittable-p window t)
+    (with-selected-window window
+      (split-window-right))))
+
 (defun split-window-sensibly (&optional window)
   "Split WINDOW in a way suitable for `display-buffer'.
-WINDOW defaults to the currently selected window.
-If `split-height-threshold' specifies an integer, WINDOW is at
-least `split-height-threshold' lines tall and can be split
-vertically, split WINDOW into two windows one above the other and
-return the lower window.  Otherwise, if `split-width-threshold'
-specifies an integer, WINDOW is at least `split-width-threshold'
-columns wide and can be split horizontally, split WINDOW into two
-windows side by side and return the window on the right.  If this
-can't be done either and WINDOW is the only window on its frame,
-try to split WINDOW vertically disregarding any value specified
-by `split-height-threshold'.  If that succeeds, return the lower
-window.  Return nil otherwise.
+The variable `split-window-preferred-direction' prescribes an order of
+directions in which Emacs should try to split WINDOW.  If that order
+mandates starting with a vertical split, and `split-height-threshold'
+specifies an integer that is at least as large a WINDOW's height, split
+WINDOW into two windows one below the other and return the lower one.
+If that order mandates starting with a horizontal split, and
+`split-width-threshold' specifies an integer that is at least as large
+as WINDOW's width, split WINDOW into two windows side by side and return
+the one on the right.
+
+In either case, if the first attempt to split WINDOW fails, try to split
+the window in the other direction in the same manner as described above.
+If that attempt fails too, and WINDOW is the only window on its frame,
+try splitting WINDOW into two windows, one below the other, disregarding
+the value of `split-height-threshold' and return the window on the
+bottom.
 
 By default `display-buffer' routines call this function to split
 the largest or least recently used window.  To change the default
@@ -7422,14 +7472,14 @@ Have a look at the function `window-splittable-p' if you want to
 know how `split-window-sensibly' determines whether WINDOW can be
 split."
   (let ((window (or window (selected-window))))
-    (or (and (window-splittable-p window)
-	     ;; Split window vertically.
-	     (with-selected-window window
-	       (split-window-below)))
-	(and (window-splittable-p window t)
-	     ;; Split window horizontally.
-	     (with-selected-window window
-	       (split-window-right)))
+    (or (if (or
+             (eql split-window-preferred-direction 'horizontal)
+             (and (eql split-window-preferred-direction 'longest)
+                  (> (frame-width) (frame-height))))
+            (or (window--try-horizontal-split window)
+                (window--try-vertical-split window))
+          (or (window--try-vertical-split window)
+              (window--try-horizontal-split window)))
 	(and
          ;; If WINDOW is the only usable window on its frame (it is
          ;; the only one or, not being the only one, all the other
@@ -7447,10 +7497,8 @@ split."
                                 frame nil 'nomini)
               t)))
 	 (not (window-minibuffer-p window))
-	 (let ((split-height-threshold 0))
-	   (when (window-splittable-p window)
-	     (with-selected-window window
-	       (split-window-below))))))))
+         (let ((split-height-threshold 0))
+           (window--try-vertical-split window))))))
 
 (defun window--try-to-split-window (window &optional alist)
   "Try to split WINDOW.

@@ -2761,8 +2761,7 @@ since only regular expressions have distinguished subexpressions.  */)
   newpoint = sub_start + SCHARS (newtext);
 
   /* Replace the old text with the new in the cleanest possible way.  */
-  replace_range (sub_start, sub_end, newtext, 1, 0, 1, true, true);
-  signal_after_change (sub_start, sub_end - sub_start, SCHARS (newtext));
+  replace_range (sub_start, sub_end, newtext, true, false, true, true);
 
   if (case_action == all_caps)
     Fupcase_region (make_fixnum (search_regs.start[sub]),
@@ -3454,19 +3453,19 @@ syms_of_search (void)
   DEFSYM (Qinvalid_regexp, "invalid-regexp");
 
   Fput (Qsearch_failed, Qerror_conditions,
-	pure_list (Qsearch_failed, Qerror));
+	list (Qsearch_failed, Qerror));
   Fput (Qsearch_failed, Qerror_message,
-	build_pure_c_string ("Search failed"));
+	build_string ("Search failed"));
 
   Fput (Quser_search_failed, Qerror_conditions,
-	pure_list (Quser_search_failed, Quser_error, Qsearch_failed, Qerror));
+	list (Quser_search_failed, Quser_error, Qsearch_failed, Qerror));
   Fput (Quser_search_failed, Qerror_message,
-        build_pure_c_string ("Search failed"));
+        build_string ("Search failed"));
 
   Fput (Qinvalid_regexp, Qerror_conditions,
-	pure_list (Qinvalid_regexp, Qerror));
+	list (Qinvalid_regexp, Qerror));
   Fput (Qinvalid_regexp, Qerror_message,
-	build_pure_c_string ("Invalid regexp"));
+	build_string ("Invalid regexp"));
 
   re_match_object = Qnil;
   staticpro (&re_match_object);

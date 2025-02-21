@@ -1704,8 +1704,8 @@ writable (Bug#44631)."
             (set-file-modes directory #o500)
             (should (byte-compile-file input-file))
             (should (file-regular-p output-file))
-            (should (cl-plusp (file-attribute-size
-                               (file-attributes output-file)))))
+            (should (plusp (file-attribute-size
+                            (file-attributes output-file)))))
         ;; Allow the directory to be deleted.
         (set-file-modes directory #o777)))))
 
@@ -1736,6 +1736,12 @@ mountpoint (Bug#44631)."
               (set-file-modes input-file #o400)
               (set-file-modes output-file #o200)
               (set-file-modes directory #o500)
+              (skip-unless
+               (zerop (call-process
+                       bwrap nil nil nil
+                       "--ro-bind" "/" "/"
+                       "--bind" unquoted-file unquoted-file
+                       "true")))
               (with-temp-buffer
                 (let ((status (call-process
                                bwrap nil t nil
@@ -1751,8 +1757,8 @@ mountpoint (Bug#44631)."
                     (ert-fail `((status . ,status)
                                 (output . ,(buffer-string)))))))
               (should (file-regular-p output-file))
-              (should (cl-plusp (file-attribute-size
-                                 (file-attributes output-file)))))
+              (should (plusp (file-attribute-size
+                              (file-attributes output-file)))))
           ;; Allow the directory to be deleted.
           (set-file-modes directory #o777))))))
 
@@ -1766,8 +1772,8 @@ mountpoint (Bug#44631)."
                      nil "test.el" nil nil nil 'excl)
       (should (byte-compile-file "test.el"))
       (should (file-regular-p "test.elc"))
-      (should (cl-plusp (file-attribute-size
-                         (file-attributes "test.elc")))))))
+      (should (plusp (file-attribute-size
+                      (file-attributes "test.elc")))))))
 
 (defun bytecomp-tests--get-vars ()
   (list (ignore-errors (symbol-value 'bytecomp-tests--var1))

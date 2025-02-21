@@ -357,7 +357,7 @@ The string is used in `tramp-methods'.")
                 (tramp-remote-shell-login   ("-l"))
                 (tramp-remote-shell-args    ("-c"))
                 (tramp-copy-program         "pscp")
-                (tramp-copy-args            (("-l" "%u") ("-P" "%p") ("-scp")
+                (tramp-copy-args            (("-l" "%u") ("-P" "%p") ("-scp") ("%c")
 					     ("-p" "%k") ("-q") ("-r")))
                 (tramp-copy-keep-date       t)
                 (tramp-copy-recursive       t)))
@@ -375,7 +375,7 @@ The string is used in `tramp-methods'.")
                 (tramp-remote-shell-login   ("-l"))
                 (tramp-remote-shell-args    ("-c"))
                 (tramp-copy-program         "pscp")
-                (tramp-copy-args            (("-l" "%u") ("-P" "%p") ("-sftp")
+                (tramp-copy-args            (("-l" "%u") ("-P" "%p") ("-sftp") ("%c")
 					     ("-p" "%k")))
                 (tramp-copy-keep-date       t)))
 
@@ -2485,7 +2485,7 @@ The method used must be an out-of-band method."
       ;; Compose copy command.
       (setq options
 	    (format-spec
-	     (tramp-ssh-controlmaster-options v)
+	     (tramp-ssh-or-plink-options v)
 	     (format-spec-make
 	      ?t (tramp-get-connection-property
 		  (tramp-get-connection-process v) "temp-file" "")))
@@ -3898,13 +3898,14 @@ Fall back to normal file name handler if no Tramp handler exists."
 	         (concat remote-prefix file)
 	         (when file1 (concat remote-prefix file1)))))
 	  (setq string (replace-match "" nil nil string))
-	  ;; Usually, we would add an Emacs event now.  Unfortunately,
-	  ;; `unread-command-events' does not accept several events at
-	  ;; once.  Therefore, we apply the handler directly.
-	  (when (member (cl-caadr object) events)
+          ;; Add an Emacs event now.
+	  ;; `insert-special-event' exists since Emacs 31.
+	  (when (member (caadr object) events)
 	    (tramp-compat-funcall
-	     (lookup-key special-event-map [file-notify])
-	     `(file-notify ,object file-notify-callback))))))
+                (if (fboundp 'insert-special-event)
+                    'insert-special-event
+	          (lookup-key special-event-map [file-notify]))
+	      `(file-notify ,object file-notify-callback))))))
 
     ;; Save rest of the string.
     (while (string-match (rx bol "\n") string)
@@ -3934,13 +3935,14 @@ Fall back to normal file name handler if no Tramp handler exists."
 	      (or (match-string 2 line)
 		  (file-name-nondirectory
 		   (process-get proc 'tramp-watch-name))))))
-	;; Usually, we would add an Emacs event now.  Unfortunately,
-	;; `unread-command-events' does not accept several events at
-	;; once.  Therefore, we apply the handler directly.
-	(when (member (cl-caadr object) events)
+        ;; Add an Emacs event now.
+	;; `insert-special-event' exists since Emacs 31.
+	(when (member (caadr object) events)
 	  (tramp-compat-funcall
-	   (lookup-key special-event-map [file-notify])
-	   `(file-notify ,object file-notify-callback)))))))
+              (if (fboundp 'insert-special-event)
+                  'insert-special-event
+	        (lookup-key special-event-map [file-notify]))
+	    `(file-notify ,object file-notify-callback)))))))
 
 (defun tramp-sh-handle-file-system-info (filename)
   "Like `file-system-info' for Tramp files."
@@ -4090,44 +4092,23 @@ Returns the absolute file name of PROGNAME, if found, and nil otherwise.
 
 This function expects to be in the right *tramp* buffer."
   (with-current-buffer (tramp-get-connection-buffer vec)
-    (let (result)
-      ;; Check whether the executable is in $PATH.  "which(1)" does not
-      ;; report always a correct error code; therefore we check the
-      ;; number of words it returns.  "SunOS 5.10" (and maybe "SunOS
-      ;; 5.11") have problems with this command, we disable the call
-      ;; therefore.
-      (unless (or ignore-path (tramp-check-remote-uname vec tramp-sunos-unames))
-	(tramp-send-command vec (format "which \\%s | wc -w" progname))
-	(goto-char (point-min))
-	(if (looking-at-p (rx bol (* blank) "1" eol))
-	    (setq result (concat "\\" progname))))
-      (unless result
-	(when ignore-tilde
-	  ;; Remove all ~/foo directories from dirlist.
-	  (let (newdl d)
-	    (while dirlist
-	      (setq d (car dirlist)
-		    dirlist (cdr dirlist))
-	      (unless (char-equal ?~ (aref d 0))
-		(setq newdl (cons d newdl))))
-	    (setq dirlist (nreverse newdl))))
-	(tramp-send-command
-	 vec
-	 (format (concat "while read d; "
-			 "do if test -x $d/%s && test -f $d/%s; "
-			 "then echo tramp_executable $d/%s; "
-			 "break; fi; done <<'%s'\n"
-			 "%s\n%s")
-		 progname progname progname
-		 tramp-end-of-heredoc
-		 (string-join dirlist "\n")
-		 tramp-end-of-heredoc))
-	(goto-char (point-max))
-	(when (search-backward "tramp_executable " nil t)
-	  (skip-chars-forward "^ ")
-	  (skip-chars-forward " ")
-	  (setq result (buffer-substring (point) (line-end-position)))))
-    result)))
+    (unless ignore-path
+      (setq dirlist (cons "$PATH" dirlist)))
+    (when ignore-tilde
+      ;; Remove all ~/foo directories from dirlist.
+      (let (newdl d)
+	(while dirlist
+	  (setq d (car dirlist)
+		dirlist (cdr dirlist))
+	  (unless (char-equal ?~ (aref d 0))
+	    (setq newdl (cons d newdl))))
+	(setq dirlist (nreverse newdl))))
+    (tramp-send-command
+     vec (format "%s type -P %s 2>%s"
+		 (if dirlist (concat "PATH=" (string-join dirlist ":")) "")
+		 progname (tramp-get-remote-null-device vec)))
+    (unless (zerop (buffer-size))
+      (string-trim (buffer-string)))))
 
 ;; On hydra.nixos.org, the $PATH environment variable is too long to
 ;; send it.  This is likely not due to PATH_MAX, but PIPE_BUF.  We
@@ -4149,18 +4130,24 @@ variable PATH."
       ;; Use a temporary file.  We cannot use `write-region' because
       ;; setting the remote path happens in the early connection
       ;; handshake, and not all external tools are determined yet.
-      (setq command (concat command "\n")
-	    tmpfile (tramp-make-tramp-temp-file vec))
-      (while (not (string-empty-p command))
-	(setq chunksize (min (length command) (/ pipe-buf 2))
-	      chunk (substring command 0 chunksize)
-	      command (substring command chunksize))
-	(tramp-send-command vec (format
-				 "printf \"%%b\" \"$*\" %s >>%s"
-				 (tramp-shell-quote-argument chunk)
-				 (tramp-shell-quote-argument tmpfile))))
-      (tramp-send-command vec (format ". %s" tmpfile))
-      (tramp-send-command vec (format "rm -f %s" tmpfile)))))
+      ;; Furthermore, we know that the COMMAND is too long, due to a
+      ;; very long remote-path.  Set it temporarily to something
+      ;; short.
+      (with-tramp-saved-connection-property (tramp-get-process vec) "remote-path"
+	(tramp-set-connection-property
+	 (tramp-get-process vec) "remote-path" '("/bin" "/usr/bin"))
+	(setq command (concat command "\n")
+	      tmpfile (tramp-make-tramp-temp-file vec))
+	(while (not (string-empty-p command))
+	  (setq chunksize (min (length command) (/ pipe-buf 2))
+		chunk (substring command 0 chunksize)
+		command (substring command chunksize))
+	  (tramp-send-command vec (format
+				   "printf \"%%b\" \"$*\" %s >>%s"
+				   (tramp-shell-quote-argument chunk)
+				   (tramp-shell-quote-argument tmpfile))))
+	(tramp-send-command vec (format ". %s" tmpfile))
+	(tramp-send-command vec (format "rm -f %s" tmpfile))))))
 
 ;; ------------------------------------------------------------
 ;; -- Communication with external shell --
@@ -4895,41 +4882,60 @@ Goes through the list `tramp-inline-compress-commands'."
     (zerop
      (tramp-call-process vec "ssh" nil nil nil "-G" "-o" option "0.0.0.1"))))
 
-(defun tramp-ssh-controlmaster-options (vec)
-  "Return the Control* arguments of the local ssh."
+(defun tramp-plink-option-exists-p (vec option)
+  "Check, whether local plink OPTION is applicable."
+  ;; We don't want to cache it persistently.
+  (with-tramp-connection-property nil option
+    ;; "plink" with valid options returns "plink: no valid host name
+    ;; provided".  We xcheck for this error message."
+    (with-temp-buffer
+      (tramp-call-process vec "plink" nil t nil option)
+      (not
+       (string-match-p
+	(rx (| (: "plink: unknown option \"" (literal option) "\"" )
+	       (: "plink: option \"" (literal option)
+		  "\" not available in this tool" )))
+	(buffer-string))))))
+
+(defun tramp-ssh-or-plink-options (vec)
+  "Return additional arguments of the local ssh or plink."
   (cond
    ;; No options to be computed.
-   ((or (null tramp-use-connection-share)
-	(null (assoc "%c" (tramp-get-method-parameter vec 'tramp-login-args))))
-    "")
+   ((null (assoc "%c" (tramp-get-method-parameter vec 'tramp-login-args))) "")
 
-   ;; Use plink option.
+   ;; Use plink options.
    ((string-match-p
      (rx "plink" (? ".exe") eol)
      (tramp-get-method-parameter vec 'tramp-login-program))
-    (if (eq tramp-use-connection-share 'suppress)
-	"-noshare" "-share"))
+    (concat
+     (if (eq tramp-use-connection-share 'suppress)
+	 "-noshare" "-share")
+     ;; Since PuTTY 0.82.
+     (when (tramp-plink-option-exists-p vec "-legacy-stdio-prompts")
+       " -legacy-stdio-prompts")))
 
    ;; There is already a value to be used.
    ((and (eq tramp-use-connection-share t)
          (stringp tramp-ssh-controlmaster-options))
     tramp-ssh-controlmaster-options)
 
-   ;; We can't auto-compute the options.
-   ((ignore-errors
-      (not (tramp-ssh-option-exists-p vec "ControlMaster=auto")))
-    "")
+   ;; Use ssh options.
+   (tramp-use-connection-share
+    ;; We can't auto-compute the options.
+    (if (ignore-errors
+	  (not (tramp-ssh-option-exists-p vec "ControlMaster=auto")))
+	""
 
-   ;; Determine the options.
-   (t (ignore-errors
-        ;; ControlMaster and ControlPath options are introduced in OpenSSH 3.9.
-        (concat
-         "-o ControlMaster="
-         (if (eq tramp-use-connection-share 'suppress)
+      ;; Determine the options.
+      (ignore-errors
+	;; ControlMaster and ControlPath options are introduced in OpenSSH 3.9.
+	(concat
+	 "-o ControlMaster="
+	 (if (eq tramp-use-connection-share 'suppress)
              "no" "auto")
 
-         " -o ControlPath="
-         (if (eq tramp-use-connection-share 'suppress)
+	 " -o ControlPath="
+	 (if (eq tramp-use-connection-share 'suppress)
              "none"
            ;; Hashed tokens are introduced in OpenSSH 6.7.  On macOS
            ;; we cannot use an absolute file name, it is too long.
@@ -4943,10 +4949,10 @@ Goes through the list `tramp-inline-compress-commands'."
 	      (or small-temporary-file-directory
 		  tramp-compat-temporary-file-directory))))
 
-         ;; ControlPersist option is introduced in OpenSSH 5.6.
+	 ;; ControlPersist option is introduced in OpenSSH 5.6.
 	 (when (and (not (eq tramp-use-connection-share 'suppress))
                     (tramp-ssh-option-exists-p vec "ControlPersist=no"))
-	   " -o ControlPersist=no"))))))
+	   " -o ControlPersist=no")))))))
 
 (defun tramp-scp-strict-file-name-checking (vec)
   "Return the strict file name checking argument of the local scp."
@@ -5162,9 +5168,9 @@ connection if a previous connection has died for some reason."
 	      (let* ((current-host tramp-system-name)
 		     (target-alist (tramp-compute-multi-hops vec))
 		     (previous-hop tramp-null-hop)
-		     ;; We will apply `tramp-ssh-controlmaster-options'
+		     ;; We will apply `tramp-ssh-or-plink-options'
 		     ;; only for the first hop.
-		     (options (tramp-ssh-controlmaster-options vec))
+		     (options (tramp-ssh-or-plink-options vec))
 		     (process-connection-type tramp-process-connection-type)
 		     (process-adaptive-read-buffering nil)
 		     ;; There are unfortunate settings for "cmdproxy"
@@ -5548,50 +5554,48 @@ Nonexistent directories are removed from spec."
   (with-current-buffer (tramp-get-connection-buffer vec)
     ;; Expand connection-local variables.
     (tramp-set-connection-local-variables vec)
-    (with-tramp-connection-property
-	;; When `tramp-own-remote-path' is in `tramp-remote-path', we
-	;; cache the result for the session only.  Otherwise, the
-	;; result is cached persistently.
-	(if (memq 'tramp-own-remote-path tramp-remote-path)
-	    (tramp-get-process vec) vec)
-	"remote-path"
+    (with-tramp-connection-property (tramp-get-process vec) "remote-path"
       (let* ((remote-path (copy-tree tramp-remote-path))
 	     (elt1 (memq 'tramp-default-remote-path remote-path))
 	     (elt2 (memq 'tramp-own-remote-path remote-path))
 	     (default-remote-path
-	       (when elt1
-		 (or
-		  (tramp-send-command-and-read
-		   vec
-                   (format
-                    "echo \\\"`getconf PATH 2>%s`\\\""
-                    (tramp-get-remote-null-device vec))
-                   'noerror)
-		  ;; Default if "getconf" is not available.
-		  (progn
-		    (tramp-message
-		     vec 3
-		     "`getconf PATH' not successful, using default value \"%s\"."
-		     "/bin:/usr/bin")
-		    "/bin:/usr/bin"))))
+	      (when elt1
+		(or
+		 (with-tramp-connection-property
+		     (tramp-get-process vec) "default-remote-path"
+		   (tramp-send-command-and-read
+		    vec
+                    (format
+                     "echo \\\"`getconf PATH 2>%s`\\\""
+                     (tramp-get-remote-null-device vec))
+                    'noerror))
+		 ;; Default if "getconf" is not available.
+		 (progn
+		   (tramp-message
+		    vec 3
+		    "`getconf PATH' not successful, using default value \"%s\"."
+		    "/bin:/usr/bin")
+		   "/bin:/usr/bin"))))
 	     (own-remote-path
 	      ;; The login shell could return more than just the $PATH
 	      ;; string.  So we use `tramp-end-of-heredoc' as marker.
 	      (when elt2
 		(or
-		 (tramp-send-command-and-read
-		  vec
-		  (format
-		   "%s %s %s 'echo %s \\\"$PATH\\\"'"
-		   (tramp-get-method-parameter vec 'tramp-remote-shell)
-		   (string-join
-		    (tramp-get-method-parameter vec 'tramp-remote-shell-login)
-		    " ")
-		   (string-join
-		    (tramp-get-method-parameter vec 'tramp-remote-shell-args)
-		    " ")
-		   (tramp-shell-quote-argument tramp-end-of-heredoc))
-		  'noerror (rx (literal tramp-end-of-heredoc)))
+		 (with-tramp-connection-property
+		     (tramp-get-process vec) "own-remote-path"
+		   (tramp-send-command-and-read
+		    vec
+		    (format
+		     "%s %s %s 'echo %s \\\"$PATH\\\"'"
+		     (tramp-get-method-parameter vec 'tramp-remote-shell)
+		     (string-join
+		      (tramp-get-method-parameter vec 'tramp-remote-shell-login)
+		      " ")
+		     (string-join
+		      (tramp-get-method-parameter vec 'tramp-remote-shell-args)
+		      " ")
+		     (tramp-shell-quote-argument tramp-end-of-heredoc))
+		    'noerror (rx (literal tramp-end-of-heredoc))))
 		 (progn
 		   (tramp-warning
 		    vec "Could not retrieve `tramp-own-remote-path'")

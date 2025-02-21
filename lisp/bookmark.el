@@ -165,6 +165,10 @@ This includes the annotations column.")
 You can toggle whether files are shown with \\<bookmark-bmenu-mode-map>\\[bookmark-bmenu-toggle-filenames]."
   :type 'natnum)
 
+(defcustom bookmark-bmenu-type-column-width 8
+  "Column width for bookmark type in a buffer listing bookmarks."
+  :type 'natnum
+  :version "31.1")
 
 (defcustom bookmark-bmenu-toggle-filenames t
   "Non-nil means show filenames when listing bookmarks.
@@ -599,7 +603,7 @@ from other commands that pass in the bookmark name, so
 `completing-read' never gets a chance to set `bookmark-history'."
   `(or
     (called-interactively-p 'interactive)
-    (setq bookmark-history (cons ,string bookmark-history))))
+    (add-to-history 'bookmark-history ,string)))
 
 (defvar bookmark-make-record-function 'bookmark-make-record-default
   "A function that should be called to create a bookmark record.
@@ -1582,6 +1586,8 @@ confirmation."
   (when (or no-confirm
             (yes-or-no-p "Permanently delete all bookmarks? "))
     (bookmark-maybe-load-default-file)
+    (dolist (bm bookmark-alist)
+      (bookmark--remove-fringe-mark bm))
     (setq bookmark-alist-modification-count
           (+ bookmark-alist-modification-count (length bookmark-alist)))
     (setq bookmark-alist nil)
@@ -2061,7 +2067,7 @@ At any time you may use \\[revert-buffer] to go back to sorting by creation orde
         `[("" 1) ;; Space to add "*" for bookmark with annotation
           ("Bookmark Name"
            ,bookmark-bmenu-file-column bookmark-bmenu--name-predicate)
-          ("Type" 8 bookmark-bmenu--type-predicate)
+          ("Type" ,bookmark-bmenu-type-column-width bookmark-bmenu--type-predicate)
           ,@(if bookmark-bmenu-toggle-filenames
                 '(("File" 0 bookmark-bmenu--file-predicate)))])
   (setq tabulated-list-padding bookmark-bmenu-marks-width)
@@ -2560,37 +2566,37 @@ strings returned are not."
 ;;;###autoload
 (defvar menu-bar-bookmark-map
   (let ((map (make-sparse-keymap "Bookmark functions")))
-    (bindings--define-key map [load]
+    (define-key map [load]
       '(menu-item "Load a Bookmark File..." bookmark-load
 		  :help "Load bookmarks from a bookmark file)"))
-    (bindings--define-key map [write]
+    (define-key map [write]
       '(menu-item "Save Bookmarks As..." bookmark-write
 		  :help "Write bookmarks to a file (reading the file name with the minibuffer)"))
-    (bindings--define-key map [save]
+    (define-key map [save]
       '(menu-item "Save Bookmarks" bookmark-save
 		  :help "Save currently defined bookmarks"))
-    (bindings--define-key map [edit]
+    (define-key map [edit]
       '(menu-item "Edit Bookmark List" bookmark-bmenu-list
 		  :help "Display a list of existing bookmarks"))
-    (bindings--define-key map [delete]
+    (define-key map [delete]
       '(menu-item "Delete Bookmark..." bookmark-delete
 		  :help "Delete a bookmark from the bookmark list"))
-    (bindings--define-key map [delete-all]
+    (define-key map [delete-all]
       '(menu-item "Delete all Bookmarks..." bookmark-delete-all
 		  :help "Delete all bookmarks from the bookmark list"))
-    (bindings--define-key map [rename]
+    (define-key map [rename]
       '(menu-item "Rename Bookmark..." bookmark-rename
 		  :help "Change the name of a bookmark"))
-    (bindings--define-key map [locate]
+    (define-key map [locate]
       '(menu-item "Insert Location..." bookmark-locate
 		  :help "Insert the name of the file associated with a bookmark"))
-    (bindings--define-key map [insert]
+    (define-key map [insert]
       '(menu-item "Insert Contents..." bookmark-insert
 		  :help "Insert the text of the file pointed to by a bookmark"))
-    (bindings--define-key map [set]
+    (define-key map [set]
       '(menu-item "Set Bookmark..." bookmark-set
 		  :help "Set a bookmark named inside a file."))
-    (bindings--define-key map [jump]
+    (define-key map [jump]
       '(menu-item "Jump to Bookmark..." bookmark-jump
 		  :help "Jump to a bookmark (a point in some file)"))
     map))

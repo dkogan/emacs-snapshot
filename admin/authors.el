@@ -97,6 +97,7 @@ files.")
     ("Earl Hyatt" "Earl" "ej32u@protonmail\\.com")
     ("Ed L. Cashin" "Ed L Cashin")
     ("Edward M. Reingold" "Ed\\(ward\\( M\\)?\\)? Reingold" "Reingold Edward M")
+    ("Elías Gabriel Pérez" "eg642616@gmail\\.com") ; bug#76319
     ("Emilio C. Lopes" "Emilio Lopes")
     ("Eric M. Ludlam" "Eric Ludlam")
     ("Eric S. Raymond" "Eric Raymond")
@@ -264,6 +265,7 @@ files.")
     ;; There are other Stefans.
 ;;;    ("Stefan Monnier" "Stefan")
     (nil "ssnnoo")
+    ("Stephane Marks" "shipmints@gmail\\.com")
     ("Steven L. Baur" "SL Baur" "Steven L Baur")
     ("Stewart M. Clamen" "Stewart Clamen")
     (nil "StrawberryTea" "look@strawberrytea\\.xyz")
@@ -278,7 +280,7 @@ files.")
     ("Thomas Dye" "Tom Dye")
     ("Thomas Horsley" "Tom Horsley")	; FIXME ?
     ("Thomas Wurgler" "Tom Wurgler")
-    (nil "thuna\\.cing@gmail\\.com")
+    ("Umut Tuna Akgül" "thuna\\.cing@gmail\\.com")
     ("Toby Cubitt" "Toby S\\. Cubitt")
     ("Tomohiko Morioka" "MORIOKA Tomohiko")
     ("Torbjörn Axelsson" "Torbjvrn Axelsson")
@@ -377,7 +379,6 @@ If REALNAME is nil, ignore that author.")
     "nnmaildir\\.el"
     "nnil\\.el"
     "b2m\\.c"
-    "unexhp9k800\\.c"
     "emacsclient\\.1"
     "check-doc-strings")
   "List of regexps matching files for which the FSF doesn't need papers.")
@@ -655,6 +656,7 @@ Changes to files matching one of the regexps in this list are not listed.")
     "if-11.cc"
     "if-11.res"
     "java/org/gnu/emacs/EmacsWindowAttachmentManager.java"
+    "lisp/gnus/gnus-nocem.el"
     "lisp/gnus/legacy-gnus-agent.el"
     "legacy-gnus-agent.el"
     "admin/coccinelle/xsave.cocci"

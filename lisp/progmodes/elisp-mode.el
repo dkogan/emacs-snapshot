@@ -503,11 +503,7 @@ use of `macroexpand-all' as a way to find the \"underlying raw code\".")
                              var))
                       vars))))))
 
-(defvar elisp--local-variables-completion-table
-  ;; Use `defvar' rather than `defconst' since defconst would purecopy this
-  ;; value, which would doubly fail: it would fail because purecopy can't
-  ;; handle the recursive bytecode object, and it would fail because it would
-  ;; move `lastpos' and `lastvars' to pure space where they'd be immutable!
+(defconst elisp--local-variables-completion-table
   (let ((lastpos nil) (lastvars nil))
     (letrec ((hookfun (lambda ()
                         (setq lastpos nil)
@@ -1344,8 +1340,7 @@ Semicolons start comments.
 
 \\{lisp-interaction-mode-map}"
   :abbrev-table nil
-  (setq-local lexical-binding t)
-  (setq-local trusted-content :all))
+  (setq-local lexical-binding t))
 
 ;;; Emacs Lisp Byte-Code mode
 
@@ -2013,7 +2008,7 @@ ARGS is the argument list of function SYM."
                          (and (string-match-p "\\.\\.\\.\\'"
                                               (substring args 1 (1- (length args))))
                               (= (length (remove "..." args-lst)) 2)
-                              (> index 1) (eq (logand index 1) 1)))
+                              (> index 1) (oddp index)))
                      (setq index 0))
 		    (t
 		     (setq index (1- index))))))

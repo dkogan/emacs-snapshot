@@ -830,7 +830,7 @@ Select the window used, if it has been made."
       (select-window window))))
 
 
-;;;###autoload (put 'info 'info-file (purecopy "emacs"))
+;;;###autoload (put 'info 'info-file "emacs")
 ;;;###autoload
 (defun info (&optional file-or-node buffer)
   "Enter Info, the documentation browser.
@@ -3987,7 +3987,7 @@ with a list of packages that contain all specified keywords."
      (require 'finder)
      (list
       (completing-read-multiple
-       "Keywords (separated by comma): "
+       "Keywords: "
        (mapcar #'symbol-name (mapcar #'car (append finder-known-keywords
                                                    (finder-unknown-keywords))))
        nil t))))
@@ -4678,7 +4678,6 @@ Advanced commands:
     ("java" . "ccmode") ("idl" . "ccmode") ("pike" . "ccmode")
     ("skeleton" . "autotype") ("auto-insert" . "autotype")
     ("copyright" . "autotype") ("executable" . "autotype")
-    ("time-stamp" . "autotype")
     ("tempo" . "autotype") ("hippie-expand" . "autotype")
     ("cvs" . "pcl-cvs") ("ada" . "ada-mode") "calc"
     ("calcAlg" . "calc") ("calcDigit" . "calc") ("calcVar" . "calc")
@@ -4755,7 +4754,7 @@ in the first element of the returned list (which is treated specially in
 	      (cdr where))
       where)))
 
-;;;###autoload (put 'Info-goto-emacs-command-node 'info-file (purecopy "emacs"))
+;;;###autoload (put 'Info-goto-emacs-command-node 'info-file "emacs")
 ;;;###autoload
 (defun Info-goto-emacs-command-node (command)
   "Go to the Info node in the Emacs manual for command COMMAND.
@@ -4797,7 +4796,7 @@ COMMAND must be a symbol or string."
 			 (if (> num-matches 2) "them" "it")))))
       (error "Couldn't find documentation for %s" command))))
 
-;;;###autoload (put 'Info-goto-emacs-key-command-node 'info-file (purecopy "emacs"))
+;;;###autoload (put 'Info-goto-emacs-key-command-node 'info-file "emacs")
 ;;;###autoload
 (defun Info-goto-emacs-key-command-node (key)
   "Go to the node in the Emacs manual which describes the command bound to KEY.

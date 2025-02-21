@@ -395,7 +395,7 @@ Do not call this in the scope of `with-help-window'."
 
 (defalias 'help #'help-for-help)
 (make-help-screen help-for-help
-  (purecopy "Type a help option: [abcCdefFgiIkKlLmnprstvw.] C-[cdefmnoptw] or ?")
+  "Type a help option: [abcCdefFgiIkKlLmnprstvw.] C-[cdefmnoptw] or ?"
   (concat
    "(Type "
    (help--key-description-fontified (kbd "<PageDown>"))
@@ -2309,7 +2309,7 @@ the same names as used in the original source code, when possible."
             (dolist (arg arglist)
               (unless (and (symbolp arg)
                            (let ((name (symbol-name arg)))
-                             (if (eq (aref name 0) ?&)
+                             (if (and (> (length name) 0) (eq (aref name 0) ?&))
                                  (memq arg '(&rest &optional))
                                (not (string-search "." name)))))
                 (setq valid nil)))

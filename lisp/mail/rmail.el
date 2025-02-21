@@ -152,7 +152,7 @@ its character representation and its display representation.")
   :group 'rmail)
 
 ;;;###autoload
-(defcustom rmail-file-name (purecopy "~/RMAIL")
+(defcustom rmail-file-name "~/RMAIL"
   "Name of user's primary mail file."
   :type 'string
   :group 'rmail
@@ -160,7 +160,6 @@ its character representation and its display representation.")
 
 ;;;###autoload
 (defcustom rmail-spool-directory
-  (purecopy
   (cond ((file-exists-p "/var/mail")
 	 ;; SVR4 and recent BSD are said to use this.
 	 ;; Rather than trying to know precisely which systems use it,
@@ -169,7 +168,7 @@ its character representation and its display representation.")
 	;; Many GNU/Linux systems use this name.
 	((file-exists-p "/var/spool/mail") "/var/spool/mail/")
 	((memq system-type '(hpux usg-unix-v)) "/usr/mail/")
-	(t "/usr/spool/mail/")))
+        (t "/usr/spool/mail/"))
   "Name of directory used by system mailer for delivering new mail.
 Its name should end with a slash."
   :initialize #'custom-initialize-delay
@@ -316,7 +315,6 @@ Setting this variable has an effect only before reading a mail."
 
 ;;;###autoload
 (defcustom rmail-ignored-headers
-  (purecopy
   (concat "^via:\\|^mail-from:\\|^origin:\\|^references:\\|^sender:"
 	  "\\|^status:\\|^received:\\|^x400-originator:\\|^x400-recipients:"
 	  "\\|^x400-received:\\|^x400-mts-identifier:\\|^x400-content-type:"
@@ -336,7 +334,7 @@ Setting this variable has an effect only before reading a mail."
 	  "\\|^Received-SPF:"
 	  "\\|^Authentication-Results:"
 	  "\\|^resent-face:\\|^resent-x.*:\\|^resent-organization:\\|^resent-openpgp:"
-	  "\\|^x-.*:"))
+          "\\|^x-.*:")
   "Regexp to match header fields that Rmail should normally hide.
 \(See also `rmail-nonignored-headers', which overrides this regexp.)
 This variable is used for reformatting the message header,
@@ -385,7 +383,7 @@ If nil, display all header fields except those matched by
   :version "29.1")
 
 ;;;###autoload
-(defcustom rmail-highlighted-headers (purecopy "^From:\\|^Subject:")
+(defcustom rmail-highlighted-headers "^From:\\|^Subject:"
   "Regexp to match Header fields that Rmail should normally highlight.
 A value of nil means don't highlight.  Uses the face `rmail-highlight'."
   :type '(choice regexp (const :tag "None" nil))
@@ -436,12 +434,12 @@ the frame where you have the RMAIL buffer displayed."
   :group 'rmail-reply)
 
 ;;;###autoload
-(defcustom rmail-secondary-file-directory (purecopy "~/")
+(defcustom rmail-secondary-file-directory "~/"
   "Directory for additional secondary Rmail files."
   :type 'directory
   :group 'rmail-files)
 ;;;###autoload
-(defcustom rmail-secondary-file-regexp (purecopy "\\.xmail\\'")
+(defcustom rmail-secondary-file-regexp "\\.xmail\\'"
   "Regexp for which files are secondary Rmail files."
   :type 'regexp
   :group 'rmail-files)
@@ -527,22 +525,27 @@ Examples:
 (defvar rmail-reply-prefix "Re: "
   "String to prepend to Subject line when replying to a message.")
 
-;; Note: this is matched with case-fold-search bound to t.
-(defcustom rmail-re-abbrevs
-  "\\(RE\\|رد\\|回复\\|回覆\\|SV\\|Antw\\|VS\\|REF\\|AW\\|ΑΠ\\|ΣΧΕΤ\\|השב\\|Vá\\|R\\|RIF\\|BLS\\|RES\\|Odp\\|YNT\\|ATB\\)"
-  "Regexp with localized \"Re:\" abbreviations in various languages."
-  :version "28.1"
-  :type 'regexp)
+(defvar rmail-reply-regexp nil ;; set by `rmail-re-abbrevs
+  "Regexp to delete from Subject line before inserting `rmail-reply-prefix'.")
 
 ;; Some mailers use "Re(2):" or "Re^2:" or "Re: Re:" or "Re[2]:".
 ;; This pattern should catch all the common variants.
 ;; rms: I deleted the change to delete tags in square brackets
 ;; because they mess up RT tags.
-(defvar rmail-reply-regexp
-  (concat "\\`\\("
-          rmail-re-abbrevs
-          "\\(([0-9]+)\\|\\[[0-9]+\\]\\|\\^[0-9]+\\)?\u00a0*[:：] *\\)*")
-  "Regexp to delete from Subject line before inserting `rmail-reply-prefix'.")
+;; Note: this is matched with case-fold-search bound to t.
+(defcustom rmail-re-abbrevs
+  (concat "\\("
+          (string-join mail-re-regexps "\\|")
+          "\\)")
+  "Regexp with localized \"Re\" abbreviations in various languages.
+Matching is done case-insensitively.
+Initialized from `mail-re-regexps', which is easier to customize."
+  :set-after '(mail-re-regexps)
+  :set (lambda (sym val)
+         (custom-set-default sym val)
+         (setq rmail-reply-regexp (mail--wrap-re-regexp val)))
+  :type 'regexp
+  :version "31.1")
 
 (defcustom rmail-display-summary nil
   "If non-nil, Rmail always displays the summary buffer."

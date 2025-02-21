@@ -380,7 +380,7 @@ BODY is the test body."
    (let ((is-odd (lambda (node)
                    (let ((string (treesit-node-text node)))
                      (and (eq 1 (length string))
-                          (cl-oddp (string-to-number string)))))))
+                          (oddp (string-to-number string)))))))
      (cl-loop for cursor = (treesit-node-child array 0)
               then (treesit-search-forward cursor `("number" . ,is-odd)
                                            nil t)
@@ -410,6 +410,27 @@ BODY is the test body."
    ;; If everything works, this should not hang.
    (let ((missing-bracket (treesit-node-child array -1)))
      (treesit-search-forward missing-bracket "" t))))
+
+;;; Indent
+
+(ert-deftest treesit-test-simple-indent-add-rules ()
+  "Test `treesit-add-simple-indent-rules'."
+  (let ((treesit-simple-indent-rules
+         (copy-tree '((c (a a a) (b b b) (c c c))))))
+    (treesit-simple-indent-add-rules 'c '((d d d)))
+    (should (equal treesit-simple-indent-rules
+                   '((c (d d d) (a a a) (b b b) (c c c)))))
+    (treesit-simple-indent-add-rules 'c '((e e e)) :after)
+    (should (equal treesit-simple-indent-rules
+                   '((c (d d d) (a a a) (b b b) (c c c) (e e e)))))
+    (treesit-simple-indent-add-rules 'c '((f f f)) :after '(b b b))
+    (should (equal treesit-simple-indent-rules
+                   '((c (d d d) (a a a) (b b b) (f f f)
+                        (c c c) (e e e)))))
+    (treesit-simple-indent-add-rules 'c '((g g g)) :before '(b b b))
+    (should (equal treesit-simple-indent-rules
+                   '((c (d d d) (a a a) (g g g)
+                        (b b b) (f f f) (c c c) (e e e)))))))
 
 ;;; Query
 

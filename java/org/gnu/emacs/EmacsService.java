@@ -54,6 +54,7 @@ import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
 
+import android.content.ActivityNotFoundException;
 import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.ContentResolver;
@@ -937,11 +938,11 @@ public final class EmacsService extends Service
   }
 
   public void
-  updateCursorAnchorInfo (EmacsWindow window, float x,
+  updateCursorAnchorInfo (final EmacsWindow window, float x,
 			  float y, float yBaseline,
 			  float yBottom)
   {
-    CursorAnchorInfo info;
+    final CursorAnchorInfo info;
     CursorAnchorInfo.Builder builder;
     Matrix matrix;
     int[] offsets;
@@ -963,9 +964,14 @@ public final class EmacsService extends Service
       Log.d (TAG, ("updateCursorAnchorInfo: " + x + " " + y
 		   + " " + yBaseline + "-" + yBottom));
 
-    icBeginSynchronous ();
-    window.view.imManager.updateCursorAnchorInfo (window.view, info);
-    icEndSynchronous ();
+    EmacsService.SERVICE.runOnUiThread (new Runnable () {
+	@Override
+	public void
+	run ()
+	{
+	  window.view.imManager.updateCursorAnchorInfo (window.view, info);
+	}
+    });
   }
 
 
@@ -2092,7 +2098,15 @@ public final class EmacsService extends Service
 
 	  /* Now request these permissions.  */
 
-	  activity.startActivity (intent);
+	  try
+	    {
+	      activity.startActivity (intent);
+	    }
+	  catch (ActivityNotFoundException exception)
+	    {
+	      Log.w (TAG, "Failed to request storage access permissions: ");
+	      exception.printStackTrace ();
+	    }
 	}
       };
 

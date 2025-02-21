@@ -68,10 +68,10 @@
 
 ;; Some properties are handled special:
 ;;
-;; - Properties which start with a space, like " process-name", are
-;;   not saved in the file `tramp-persistency-file-name', although
-;;   being connection properties related to a `tramp-file-name'
-;;   structure.
+;; - Ephemeral properties which start with a space, like
+;;   " process-name", are not saved in the file
+;;   `tramp-persistency-file-name', although being connection
+;;   properties related to a `tramp-file-name' structure.
 ;;
 ;; - Reusable properties, which should not be saved, are kept in the
 ;;   process key retrieved by `tramp-get-process' (the main connection
@@ -79,6 +79,7 @@
 ;;   recomputation when a new asynchronous process is created by
 ;;   `make-process'.  Examples are "unsafe-temporary-file",
 ;;   "remote-path", "device" (tramp-adb.el) or "share" (tramp-gvfs.el).
+;;   FIXME: Shall they be converted to ephemeral connection properties?
 
 ;;; Code:
 
@@ -97,8 +98,11 @@
 Every entry has the form (REGEXP PROPERTY VALUE).  The regexp
 matches remote file names.  It can be nil.  PROPERTY is a string,
 and VALUE the corresponding value.  They are used, if there is no
-matching entry for PROPERTY in `tramp-cache-data'.  For more
-details see the info pages."
+matching entry for PROPERTY in `tramp-cache-data'.
+
+PROPERTY can also be a string representing a parameter in
+`tramp-methods'.  For more details see the Info node `(tramp) Predefined
+connection information'."
   :group 'tramp
   :version "24.4"
   :type '(repeat (list (choice :tag "File Name regexp" regexp (const nil))
@@ -478,8 +482,10 @@ used to cache connection properties of the local machine."
 	  (hash (tramp-get-hash-table key))
 	  (cached (and (hash-table-p hash)
 		       (gethash ,property hash tramp-cache-undefined))))
+     (tramp-message key 7 "Saved %s %s" ,property cached)
      (unwind-protect (progn ,@body)
        ;; Reset PROPERTY.  Recompute hash, it could have been flushed.
+       (tramp-message key 7 "Restored %s %s" ,property cached)
        (setq hash (tramp-get-hash-table key))
        (if (not (eq cached tramp-cache-undefined))
 	   (puthash ,property cached hash)
@@ -496,9 +502,13 @@ PROPERTIES is a list of file properties (strings)."
 	   (mapcar
 	    (lambda (property)
 	      (cons property (gethash property hash tramp-cache-undefined)))
-	    ,properties)))
+	    ,properties))
+	  ;; Avoid superfluous debug buffers during host name completion.
+	  (tramp-verbose (if minibuffer-completing-file-name 0 tramp-verbose)))
+     (tramp-message key 7 "Saved %s" values)
      (unwind-protect (progn ,@body)
        ;; Reset PROPERTIES.  Recompute hash, it could have been flushed.
+       (tramp-message key 7 "Restored %s" values)
        (setq hash (tramp-get-hash-table key))
        (dolist (value values)
 	 (if (not (eq (cdr value) tramp-cache-undefined))

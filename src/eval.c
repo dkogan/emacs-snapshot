@@ -817,8 +817,6 @@ value.  */)
   XSYMBOL (symbol)->u.s.declared_special = true;
   if (!NILP (doc))
     {
-      if (!NILP (Vpurify_flag))
-	doc = Fpurecopy (doc);
       Fput (symbol, Qvariable_documentation, doc);
     }
   LOADHIST_ATTACH (symbol);
@@ -967,8 +965,6 @@ More specifically, behaves like (defconst SYM 'INITVALUE DOCSTRING).  */)
   CHECK_SYMBOL (sym);
   Lisp_Object tem = initvalue;
   Finternal__define_uninitialized_variable (sym, docstring);
-  if (!NILP (Vpurify_flag))
-    tem = Fpurecopy (tem);
   Fset_default (sym, tem);      /* FIXME: set-default-toplevel-value? */
   Fput (sym, Qrisky_local_variable, Qt); /* FIXME: Why?  */
   return sym;
@@ -1482,7 +1478,7 @@ Lisp_Object
 internal_lisp_condition_case (Lisp_Object var, Lisp_Object bodyform,
 			      Lisp_Object handlers)
 {
-  struct handler *volatile oldhandlerlist = handlerlist;
+  struct handler *oldhandlerlist = handlerlist;
 
   /* The number of non-success handlers, plus 1 for a sentinel.  */
   ptrdiff_t clausenb = 1;
@@ -1547,12 +1543,11 @@ internal_lisp_condition_case (Lisp_Object var, Lisp_Object bodyform,
       if (!CONSP (condition))
 	condition = list1 (condition);
       struct handler *c = push_handler (condition, CONDITION_CASE);
-      Lisp_Object volatile *clauses_volatile = clauses;
       if (sys_setjmp (c->jmp))
 	{
 	  var = var_volatile;
 	  val = handlerlist->val;
-	  Lisp_Object volatile *chosen_clause = clauses_volatile;
+	  Lisp_Object volatile *chosen_clause = clauses;
 	  struct handler *oldh = oldhandlerlist;
 	  for (struct handler *h = handlerlist->next; h != oldh; h = h->next)
 	    chosen_clause++;
@@ -1992,8 +1987,7 @@ signal_error (const char *s, Lisp_Object arg)
   xsignal (Qerror, Fcons (build_string (s), arg));
 }
 
-/* Simplified version of 'define-error' that works with pure
-   objects.  */
+/* Simplified version of 'define-error'.  */
 
 void
 define_error (Lisp_Object name, const char *message, Lisp_Object parent)
@@ -2004,8 +1998,8 @@ define_error (Lisp_Object name, const char *message, Lisp_Object parent)
   eassert (CONSP (parent_conditions));
   eassert (!NILP (Fmemq (parent, parent_conditions)));
   eassert (NILP (Fmemq (name, parent_conditions)));
-  Fput (name, Qerror_conditions, pure_cons (name, parent_conditions));
-  Fput (name, Qerror_message, build_pure_c_string (message));
+  Fput (name, Qerror_conditions, Fcons (name, parent_conditions));
+  Fput (name, Qerror_message, build_string (message));
 }
 
 /* Use this for arithmetic overflow, e.g., when an integer result is
@@ -2321,12 +2315,6 @@ this does nothing and returns nil.  */)
       && !AUTOLOADP (XSYMBOL (function)->u.s.function))
     return Qnil;
 
-  if (!NILP (Vpurify_flag) && BASE_EQ (docstring, make_fixnum (0)))
-    /* `read1' in lread.c has found the docstring starting with "\
-       and assumed the docstring will be provided by Snarf-documentation, so it
-       passed us 0 instead.  But that leads to accidental sharing in purecopy's
-       hash-consing, so we use a (hopefully) unique integer instead.  */
-    docstring = make_ufixnum (XHASH (function));
   return Fdefalias (function,
 		    list5 (Qautoload, file, docstring, interactive, type),
 		    Qnil);
@@ -4480,7 +4468,7 @@ alist of active lexical bindings.  */);
      also use something like Fcons (Qnil, Qnil), but json.c treats any
      cons cell as error data, so use an uninterned symbol instead.  */
   Qcatch_all_memory_full
-    = Fmake_symbol (build_pure_c_string ("catch-all-memory-full"));
+    = Fmake_symbol (build_string ("catch-all-memory-full"));
 
   staticpro (&list_of_t);
   list_of_t = list1 (Qt);

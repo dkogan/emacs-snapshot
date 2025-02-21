@@ -2534,10 +2534,7 @@ Fall back to normal file name handler if no Tramp file name handler exists."
 			  ;; We flush connection properties
 			  ;; " process-name" and " process-buffer",
 			  ;; because the operations shall be applied
-			  ;; in the main connection process.  In order
-			  ;; to avoid superfluous debug buffers during
-			  ;; host name completion, we adapt
-			  ;; `tramp-verbose'.
+			  ;; in the main connection process.
 			  ;; If `non-essential' is non-nil, Tramp shall
 		          ;; not open a new connection.
 		          ;; If Tramp detects that it shouldn't continue
@@ -2548,11 +2545,8 @@ Fall back to normal file name handler if no Tramp file name handler exists."
 		          ;; In both cases, we try the default handler then.
 			  (with-tramp-saved-connection-properties
 			      v '(" process-name" " process-buffer")
-			    (let ((tramp-verbose
-				   (if minibuffer-completing-file-name
-				       0 tramp-verbose)))
-			      (tramp-flush-connection-property v " process-name")
-			      (tramp-flush-connection-property v " process-buffer"))
+			    (tramp-flush-connection-property v " process-name")
+			    (tramp-flush-connection-property v " process-buffer")
 		            (setq result
 				  (catch 'non-essential
 			            (catch 'suppress
@@ -7208,5 +7202,11 @@ If VEC is `tramp-null-hop', return local null device."
 ;;
 ;; * Implement user and host name completion for multi-hops.  Some
 ;;   methods in tramp-container.el have it already.
+;;
+;; * Make it configurable, which environment variables are set in
+;;   direct async processes.
+;;
+;; * Pass working dir for direct async processes, for example for
+;;   container methods.
 
 ;;; tramp.el ends here
