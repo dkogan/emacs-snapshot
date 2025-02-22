@@ -556,10 +556,6 @@ override_dh_auto_install: $(autogen_install_files)
 	  test -f $(pkgdir_bin_common)/usr/bin/emacs-*
 	  rm $(pkgdir_bin_common)/usr/bin/{emacs,emacs-*}
 
-	  # Set up movemail.
-	  chown root:mail $(pkgdir_bin_common)/$(movemail_bin)
-	  chmod g+s $(pkgdir_bin_common)/$(movemail_bin)
-
 	  # Set up alternatives.
 	  alternatives=`ls $(pkgdir_bin_common)/usr/bin | xargs` && \
 	    set -x && \
