@@ -28,7 +28,7 @@ Status: new
  4 files changed, 33 insertions(+), 39 deletions(-)
 
 diff --git a/Makefile.in b/Makefile.in
-index 57cfcfd..d794764 100644
+index ca6d991..07fc536 100644
 --- a/Makefile.in
 +++ b/Makefile.in
 @@ -174,7 +174,9 @@ man1dir=$(mandir)/man1
@@ -118,10 +118,10 @@ index 57cfcfd..d794764 100644
  
  $(UNINSTALL_DOC):
 diff --git a/configure.ac b/configure.ac
-index 6b4d3ee..5129071 100644
+index 4a7f326..bf44fa7 100644
 --- a/configure.ac
 +++ b/configure.ac
-@@ -7640,11 +7640,10 @@ ARCH_INDEPENDENT_CONFIG_FILES([$srcdir/doc/man/emacs.1])
+@@ -7697,11 +7697,10 @@ ARCH_INDEPENDENT_CONFIG_FILES([$srcdir/doc/man/emacs.1])
  
  AC_CONFIG_FILES([lib/Makefile lib-src/Makefile oldXMenu/Makefile src/Makefile
                   lwlib/Makefile nextstep/Makefile nt/Makefile])
@@ -135,7 +135,7 @@ index 6b4d3ee..5129071 100644
  
  dnl The test/ directory is missing if './make-dist --no-tests' was used.
  opt_makefile=test/Makefile
-@@ -7716,15 +7715,6 @@ if test "$XCONFIGURE" != "android"; then
+@@ -7773,15 +7772,6 @@ if test "$XCONFIGURE" != "android"; then
    fi
    ])
  
@@ -169,7 +169,7 @@ index 95c8a92..ce85c0a 100644
  ## This is discouraged because the .texi files it generates
  ## are not as well formatted as handwritten ones.
 diff --git a/lisp/help.el b/lisp/help.el
-index 91e0366..c04be55 100644
+index 835e47f..b5473c4 100644
 --- a/lisp/help.el
 +++ b/lisp/help.el
 @@ -523,6 +523,14 @@ If that doesn't give a function, return nil."
