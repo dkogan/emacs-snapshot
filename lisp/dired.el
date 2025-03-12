@@ -1996,7 +1996,7 @@ Overlays could be added when some user options are enabled, e.g.,
                     (i 0))
                 (put-text-property opoint end 'invisible 'dired-hide-details-detail)
                 (while (re-search-forward "[^ ]+" end t)
-                  (when (member (cl-incf i) dired-hide-details-preserved-columns)
+                  (when (member (incf i) dired-hide-details-preserved-columns)
                     (put-text-property opoint (point) 'invisible nil))
                   (setq opoint (point)))))
             (let ((beg (point)) (end (save-excursion
@@ -2439,7 +2439,6 @@ Do so according to the former subdir alist OLD-SUBDIR-ALIST."
   "?"       #'dired-summary
   "DEL"     #'dired-unmark-backward
   "<remap> <undo>"             #'dired-undo
-  "<remap> <advertised-undo>"  #'dired-undo
   "<remap> <vc-next-action>"   #'dired-vc-next-action
   ;; thumbnail manipulation (image-dired)
   "C-t d"   #'image-dired-display-thumbs
@@ -2947,7 +2946,7 @@ is controlled by `dired-movement-style'."
       (unless (dired-between-files)
         ;; Has moved to a non-empty line.  This movement does
         ;; make sense.
-        (cl-decf arg moving-down))
+        (decf arg moving-down))
       (setq old-position (point)))))
 
 (defun dired-previous-line (arg)
@@ -3026,9 +3025,6 @@ directory in another window."
                 (concat "File no longer exists; type \\<dired-mode-map>"
                         "\\[revert-buffer] to update Dired buffer")))))))
 
-;; Force C-m keybinding rather than `f' or `e' in the mode doc:
-(define-obsolete-function-alias 'dired-advertised-find-file
-  #'dired-find-file "23.2")
 (defun dired-find-file ()
   "In Dired, visit the file or directory named on this line."
   (interactive nil dired-mode)

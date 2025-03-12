@@ -345,7 +345,13 @@ the window configuration (i.e. how the frames are partitioned
 into windows) so that the changes can be \"undone\" using the
 command `winner-undo'.  By default this one is bound to the key
 sequence \\`C-c <left>'.  If you change your mind (while undoing),
-you can press \\`C-c <right>' (calling `winner-redo')."
+you can press \\`C-c <right>' (calling `winner-redo').
+
+If you use `tab-bar-mode', consider using `tab-bar-history-mode', as
+`winner-mode' is unaware of tab switching, and might turn the window
+configuration of the current tab to another's (old) window
+configuration.  `tab-bar-history-mode' provides tab-specific window
+configuration history avoiding this problem."
   :global t
   (if winner-mode
       (progn
@@ -381,7 +387,7 @@ In other words, \"undo\" changes in window configuration."
  	(setq winner-pending-undo-ring (winner-ring (selected-frame)))
  	(setq winner-undo-counter 0)
  	(setq winner-undone-data (list (winner-win-data))))
-      (cl-incf winner-undo-counter)	; starting at 1
+      (incf winner-undo-counter)	; starting at 1
       (when (and (winner-undo-this)
  		 (not (window-minibuffer-p)))
  	(message "Winner undo (%d / %d)"

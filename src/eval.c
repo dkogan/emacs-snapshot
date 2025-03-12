@@ -918,7 +918,7 @@ usage: (defvar SYMBOL &optional INITVALUE DOCSTRING)  */)
 
 DEFUN ("defvar-1", Fdefvar_1, Sdefvar_1, 2, 3, 0,
        doc: /* Like `defvar' but as a function.
-More specifically behaves like (defvar SYM 'INITVALUE DOCSTRING).  */)
+More specifically behaves like (defvar SYM \\='INITVALUE DOCSTRING).  */)
   (Lisp_Object sym, Lisp_Object initvalue, Lisp_Object docstring)
 {
   return defvar (sym, initvalue, docstring, false);
@@ -959,7 +959,7 @@ usage: (defconst SYMBOL INITVALUE [DOCSTRING])  */)
 
 DEFUN ("defconst-1", Fdefconst_1, Sdefconst_1, 2, 3, 0,
        doc: /* Like `defconst' but as a function.
-More specifically, behaves like (defconst SYM 'INITVALUE DOCSTRING).  */)
+More specifically, behaves like (defconst SYM \\='INITVALUE DOCSTRING).  */)
   (Lisp_Object sym, Lisp_Object initvalue, Lisp_Object docstring)
 {
   CHECK_SYMBOL (sym);
@@ -1915,7 +1915,6 @@ signal_or_quit (Lisp_Object error_symbol, Lisp_Object data, bool continuable)
 	break;
     }
 
-  bool debugger_called = false;
   if (/* Don't run the debugger for a memory-full error.
 	 (There is no room in memory to do that!)  */
       !oom
@@ -1929,7 +1928,7 @@ signal_or_quit (Lisp_Object error_symbol, Lisp_Object data, bool continuable)
 	     if requested".  */
 	  || EQ (clause, Qerror)))
     {
-      debugger_called
+      bool debugger_called
 	= maybe_call_debugger (conditions, error);
       /* We can't return values to code which signaled an error, but we
 	 can continue code which has signaled a quit.  */
@@ -2390,7 +2389,7 @@ it defines a macro.  */)
     {
       /* Avoid landing here recursively while outputting the
 	 backtrace from the error.  */
-      gflags.will_dump_ = false;
+      gflags.will_dump = false;
       error ("Attempt to autoload %s while preparing to dump",
 	     SDATA (SYMBOL_NAME (funname)));
     }

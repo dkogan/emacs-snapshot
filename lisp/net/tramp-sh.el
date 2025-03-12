@@ -4091,24 +4091,23 @@ only in DIRLIST.
 Returns the absolute file name of PROGNAME, if found, and nil otherwise.
 
 This function expects to be in the right *tramp* buffer."
-  (with-current-buffer (tramp-get-connection-buffer vec)
-    (unless ignore-path
-      (setq dirlist (cons "$PATH" dirlist)))
-    (when ignore-tilde
-      ;; Remove all ~/foo directories from dirlist.
-      (let (newdl d)
-	(while dirlist
-	  (setq d (car dirlist)
-		dirlist (cdr dirlist))
-	  (unless (char-equal ?~ (aref d 0))
-	    (setq newdl (cons d newdl))))
-	(setq dirlist (nreverse newdl))))
-    (tramp-send-command
-     vec (format "%s type -P %s 2>%s"
-		 (if dirlist (concat "PATH=" (string-join dirlist ":")) "")
-		 progname (tramp-get-remote-null-device vec)))
-    (unless (zerop (buffer-size))
-      (string-trim (buffer-string)))))
+  (unless ignore-path
+    (setq dirlist (cons "$PATH" dirlist)))
+  (when ignore-tilde
+    ;; Remove all ~/foo directories from dirlist.
+    (let (newdl d)
+      (while dirlist
+	(setq d (car dirlist)
+	      dirlist (cdr dirlist))
+	(unless (char-equal ?~ (aref d 0))
+	  (setq newdl (cons d newdl))))
+      (setq dirlist (nreverse newdl))))
+  (when (tramp-send-command-and-check
+         vec (format "(unalias %s; %s command -pv %s)"
+                     progname
+                     (if dirlist (concat "PATH=" (string-join dirlist ":")) "")
+                     progname))
+    (string-trim (tramp-get-buffer-string (tramp-get-connection-buffer vec)))))
 
 ;; On hydra.nixos.org, the $PATH environment variable is too long to
 ;; send it.  This is likely not due to PATH_MAX, but PIPE_BUF.  We
@@ -4952,7 +4951,10 @@ Goes through the list `tramp-inline-compress-commands'."
 	 ;; ControlPersist option is introduced in OpenSSH 5.6.
 	 (when (and (not (eq tramp-use-connection-share 'suppress))
                     (tramp-ssh-option-exists-p vec "ControlPersist=no"))
-	   " -o ControlPersist=no")))))))
+	   " -o ControlPersist=no")))))
+
+   ;; Return a string, whatsoever.
+   (t "")))
 
 (defun tramp-scp-strict-file-name-checking (vec)
   "Return the strict file name checking argument of the local scp."

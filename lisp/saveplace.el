@@ -62,9 +62,10 @@ when the place in that buffer was recorded.
 
 This alist is saved between Emacs sessions.")
 
-(defcustom save-place-file (locate-user-emacs-file "places" ".emacs-places")
+(defcustom save-place-file
+  (locate-user-emacs-file '("places.eld" "places") ".emacs-places")
   "Name of the file that records `save-place-alist' value."
-  :version "24.4"                       ; added locate-user-emacs-file
+  :version "31.1"
   :type 'file)
 
 (defcustom save-place-version-control nil
@@ -234,8 +235,7 @@ If `save-place-mode' is enabled, set the timer, otherwise cancel the timer."
 
 (defcustom save-place-autosave-interval nil
   "The interval between auto saves of buffer places.
-If set to nil, disables timer-based auto saving.
-Use `setopt' or Customize commands to set this option."
+If set to nil, disables timer-based auto saving."
   :type '(choice (const :tag "Disabled" nil)
                  (integer :tag "Seconds"))
   :version "31.1"
@@ -401,7 +401,8 @@ may have changed) back to `save-place-alist'."
                t))))
 	(condition-case nil
 	    ;; Don't use write-file; we don't want this buffer to visit it.
-            (write-region (point-min) (point-max) file)
+            (write-region (point-min) (point-max) file nil
+			  (unless (called-interactively-p 'interactive) 'quiet))
 	  (file-error (message "Saving places: can't write %s" file)))))))
 
 (defun save-places-to-alist ()

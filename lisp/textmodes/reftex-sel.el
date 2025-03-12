@@ -244,7 +244,7 @@ During a selection process, these are the local bindings.
     ;; Walk the docstruct and insert the appropriate stuff
     (while (setq cell (pop all))
 
-      (cl-incf index)
+      (incf index)
       (setq from (point))
 
       (cond
@@ -314,7 +314,7 @@ During a selection process, these are the local bindings.
                    (or show-commented (null comment)))
 
           ;; Yes we want this one
-          (cl-incf cnt)
+          (incf cnt)
           (setq prev-inserted cell)
 ;         (if (eq offset 'attention) (setq offset cell))
 
@@ -705,8 +705,8 @@ Cycle in reverse order if optional argument REVERSE is non-nil."
             (setq sep (nth 2 c))
             (overlay-put (nth 1 c) 'before-string
                          (if sep
-                             (format "*%c%d* " sep (cl-decf cnt))
-                           (format "*%d*  " (cl-decf cnt)))))
+                             (format "*%c%d* " sep (decf cnt))
+                           (format "*%d*  " (decf cnt)))))
           reftex-select-marked)
     (message "Entry no longer marked")))
 

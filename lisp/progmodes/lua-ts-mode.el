@@ -791,40 +791,39 @@ Calls REPORT-FN directly."
                 (rx (or "function_declaration" "function_definition")))
     (setq-local treesit-thing-settings
                 `((lua
-                   (function ,(rx (or "function_declaration"
-                                      "function_definition")))
-                   (keyword ,(regexp-opt lua-ts--keywords
-                                         'symbols))
-                   (loop-statement ,(rx (or "do_statement"
-                                            "for_statement"
-                                            "repeat_statement"
-                                            "while_statement")))
+                   (function (or "function_declaration"
+                                 "function_definition"))
+                   (keyword ,(regexp-opt lua-ts--keywords 'symbols))
+                   (loop-statement (or "do_statement"
+                                       "for_statement"
+                                       "repeat_statement"
+                                       "while_statement"))
                    (sentence (or function
                                  loop-statement
-                                 ,(rx (or "assignment_statement"
-                                          "comment"
-                                          "field"
-                                          "function_call"
-                                          "if_statement"
-                                          "return_statement"
-                                          "variable_declaration"))))
+                                 comment
+                                 "assignment_statement"
+                                 "field"
+                                 "function_call"
+                                 "if_statement"
+                                 "return_statement"
+                                 "variable_declaration"))
                    (sexp (or function
                              keyword
                              loop-statement
-                             ,(rx (or "arguments"
-                                      "break_statement"
-                                      "expression_list"
-                                      "false"
-                                      "identifier"
-                                      "nil"
-                                      "number"
-                                      "parameters"
-                                      "parenthesized_expression"
-                                      "string"
-                                      "table_constructor"
-                                      "true"
-                                      "vararg_expression"))))
-                   (text "comment"))))
+                             "arguments"
+                             "parameters"
+                             "parenthesized_expression"
+                             "string"
+                             "table_constructor"))
+                   (list (or function
+                             loop-statement
+                             "arguments"
+                             "parameters"
+                             "table_constructor"
+                             "parenthesized_expression"
+                             ,(rx bos "if_statement" eos)))
+                   (text (or comment "string"))
+                   (comment ,(rx bos "comment" eos)))))
 
     ;; Imenu/Outline/Which-function.
     (setq-local treesit-simple-imenu-settings

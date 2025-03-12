@@ -172,27 +172,34 @@ get_frame_param (struct frame *frame, Lisp_Object prop)
 }
 
 
-/* Return 1 if `frame-inhibit-implied-resize' is non-nil or fullscreen
-   state of frame F would be affected by a vertical (horizontal if
-   HORIZONTAL is true) resize.  PARAMETER is the symbol of the frame
-   parameter that is changed.  */
+/* Return true if 'frame-inhibit-implied-resize' is non-nil or
+   fullscreen state of frame F would be affected by a vertical
+   (horizontal if HORIZONTAL is true) resize.  PARAMETER is the symbol
+   of the frame parameter about to be changed.
+
+   If 'frame-inhibit-implied-resize' equals 'force', unconditionally
+   return true (Bug#76275).  Otherwise, return nil if F has not been
+   made yet and (on GTK) its tool bar has not been resized at least
+   once.  Together these should ensure that F always gets its requested
+   initial size.  */
 bool
 frame_inhibit_resize (struct frame *f, bool horizontal, Lisp_Object parameter)
 {
   Lisp_Object fullscreen = get_frame_param (f, Qfullscreen);
 
-  return (f->after_make_frame
+  return (EQ (frame_inhibit_implied_resize, Qforce)
+	  || (f->after_make_frame
 #ifdef USE_GTK
-	  && f->tool_bar_resized
+	      && f->tool_bar_resized
 #endif
-	  && (EQ (frame_inhibit_implied_resize, Qt)
-	      || (CONSP (frame_inhibit_implied_resize)
-		  && !NILP (Fmemq (parameter, frame_inhibit_implied_resize)))
-	      || (horizontal
-		  && !NILP (fullscreen) && !EQ (fullscreen, Qfullheight))
-	      || (!horizontal
-		  && !NILP (fullscreen) && !EQ (fullscreen, Qfullwidth))
-	      || FRAME_TERMCAP_P (f) || FRAME_MSDOS_P (f)));
+	      && (EQ (frame_inhibit_implied_resize, Qt)
+		  || (CONSP (frame_inhibit_implied_resize)
+		      && !NILP (Fmemq (parameter, frame_inhibit_implied_resize)))
+		  || (horizontal
+		      && !NILP (fullscreen) && !EQ (fullscreen, Qfullheight))
+		  || (!horizontal
+		      && !NILP (fullscreen) && !EQ (fullscreen, Qfullwidth))
+		  || FRAME_TERMCAP_P (f) || FRAME_MSDOS_P (f))));
 }
 
 
@@ -206,7 +213,7 @@ set_menu_bar_lines (struct frame *f, Lisp_Object value, Lisp_Object oldval)
   /* Menu bars on child frames don't work on all platforms, which is
      the reason why prepare_menu_bar does not update_menu_bar for
      child frames (info from Martin Rudalics).  This could be
-     implemented in ttys, but it's probaly not worth it.  */
+     implemented in ttys, but it's probably not worth it.  */
   if (is_tty_child_frame (f))
     {
       FRAME_MENU_BAR_LINES (f) = 0;
@@ -1482,17 +1489,43 @@ get_future_frame_param (Lisp_Object parameter,
 #endif
 
 int
-tty_child_pos_param (struct frame *child, Lisp_Object key,
-		     Lisp_Object params, int dflt)
+tty_child_pos_param (struct frame *f, Lisp_Object key,
+		     Lisp_Object params, int pos, int size)
 {
+  struct frame *p = XFRAME (f->parent_frame);
   Lisp_Object val = Fassq (key, params);
+
   if (CONSP (val))
     {
       val = XCDR (val);
-      if (FIXNUMP (val))
-	return XFIXNUM (val);
+
+      if (EQ (val, Qminus))
+	pos = (EQ (key, Qtop)
+	       ? p->pixel_height - size
+	       : p->pixel_width - size);
+      else if (TYPE_RANGED_FIXNUMP (int, val))
+	{
+	  pos = XFIXNUM (val);
+
+	  if (pos < 0)
+	    /* Handle negative value. */
+	    pos = (EQ (key, Qtop)
+		   ? p->pixel_height - size + pos
+		   : p->pixel_width - size + pos);
+	}
+      else if (CONSP (val) && EQ (XCAR (val), Qplus)
+	       && CONSP (XCDR (val))
+	       && TYPE_RANGED_FIXNUMP (int, XCAR (XCDR (val))))
+	pos = XFIXNUM (XCAR (XCDR (val)));
+      else if (CONSP (val) && EQ (XCAR (val), Qminus)
+	       && CONSP (XCDR (val))
+	       && RANGED_FIXNUMP (-INT_MAX, XCAR (XCDR (val)), INT_MAX))
+	pos = (EQ (key, Qtop)
+	       ? p->pixel_height - size - XFIXNUM (XCAR (XCDR (val)))
+	       : p->pixel_width - size - XFIXNUM (XCAR (XCDR (val))));
     }
-  return dflt;
+
+  return pos;
 }
 
 int
@@ -1539,10 +1572,10 @@ static void
 tty_child_frame_rect (struct frame *f, Lisp_Object params,
 		      int *x, int *y, int *w, int *h)
 {
-  *x = tty_child_pos_param (f, Qleft, params, 0);
-  *y = tty_child_pos_param (f, Qtop, params, 0);
   *w = tty_child_size_param (f, Qwidth, params, FRAME_TOTAL_COLS (f));
   *h = tty_child_size_param (f, Qheight, params, FRAME_TOTAL_LINES (f));
+  *x = tty_child_pos_param (f, Qleft, params, 0, *w);
+  *y = tty_child_pos_param (f, Qtop, params, 0, *h);
 }
 
 #endif /* !HAVE_ANDROID */
@@ -1681,10 +1714,6 @@ affects all frames on the same terminal device.  */)
 
   f->left_pos = x;
   f->top_pos = y;
-  store_in_alist (&parms, Qleft, make_fixnum (x));
-  store_in_alist (&parms, Qtop, make_fixnum (y));
-  store_in_alist (&parms, Qwidth, make_fixnum (width));
-  store_in_alist (&parms, Qheight, make_fixnum (height));
 
   store_in_alist (&parms, Qtty_type, build_string (t->display_info.tty->type));
   store_in_alist (&parms, Qtty,
@@ -1863,7 +1892,7 @@ do_switch_frame (Lisp_Object frame, int track, int for_deletion, Lisp_Object nor
 
   /* After setting `selected_frame`, we're temporarily in an inconsistent
      state where (selected-window) != (frame-selected-window).  Until this
-     invariant is restored we should be very careful not to run ELisp code.
+     invariant is restored we should be very careful not to run any Lisp.
      (bug#58343)  */
   selected_frame = frame;
 
@@ -2749,17 +2778,19 @@ delete_frame (Lisp_Object frame, Lisp_Object force)
 	  struct frame *f1 = XFRAME (frame1);
 
 	  /* Set frame_on_same_kboard to frame1 if it is on the same
-	     keyboard.  Set frame_with_minibuf to frame1 if it also
-	     has a minibuffer.  Leave the loop immediately if frame1
-	     is also minibuffer-only.
+	     keyboard and is not a tooltip frame.  Set
+	     frame_with_minibuf to frame1 if it also has a minibuffer.
+	     Leave the loop immediately if frame1 is also
+	     minibuffer-only.
 
-	     Emacs 26 does _not_ set frame_on_same_kboard here when it
-	     finds a minibuffer-only frame and subsequently fails to
+	     Emacs 26 did _not_ set frame_on_same_kboard here when it
+	     found a minibuffer-only frame, and subsequently failed to
 	     set default_minibuffer_frame below.  Not a great deal and
-	     never noticed since make_frame_without_minibuffer creates
-	     a new minibuffer frame in that case (which can be a minor
-	     annoyance though).  To consider for Emacs 26.3.  */
-	  if (kb == FRAME_KBOARD (f1))
+	     never noticed since make_frame_without_minibuffer created a
+	     new minibuffer frame in that case (which can be a minor
+	     annoyance though).  */
+	  if (!FRAME_TOOLTIP_P (f1)
+	      && kb == FRAME_KBOARD (f1))
 	    {
 	      frame_on_same_kboard = frame1;
 	      if (FRAME_HAS_MINIBUF_P (f1))
@@ -3942,8 +3973,11 @@ list, but are otherwise ignored.  */)
 
       if (is_tty_child_frame (f))
 	{
-	  int x = tty_child_pos_param (f, Qleft, params, f->left_pos);
-	  int y = tty_child_pos_param (f, Qtop, params, f->top_pos);
+	  int w = tty_child_size_param (f, Qwidth, params, f->total_cols);
+	  int h = tty_child_size_param (f, Qheight, params, f->total_lines);
+	  int x = tty_child_pos_param (f, Qleft, params, f->left_pos, w);
+	  int y = tty_child_pos_param (f, Qtop, params, f->top_pos, h);
+
 	  if (x != f->left_pos || y != f->top_pos)
 	    {
 	      f->left_pos = x;
@@ -3951,8 +3985,6 @@ list, but are otherwise ignored.  */)
 	      SET_FRAME_GARBAGED (root_frame (f));
 	    }
 
-	  int w = tty_child_size_param (f, Qwidth, params, f->total_cols);
-	  int h = tty_child_size_param (f, Qheight, params, f->total_lines);
 	  if (w != f->total_cols || h != f->total_lines)
 	    change_frame_size (f, w, h, false, false, false);
 
@@ -4383,6 +4415,10 @@ struct frame_parm_table {
   int sym;
 };
 
+/* If you're adding a new frame parameter here, consider if it makes sense
+   for the user to customize it via `initial-frame-alist' and the like.
+   If it does, add it to `frame--special-parameters' in frame.el, in order
+   to provide completion in the Customize UI for the new parameter.  */
 static const struct frame_parm_table frame_parms[] =
 {
   {"auto-raise",		SYMBOL_INDEX (Qauto_raise)},
@@ -6849,6 +6885,7 @@ syms_of_frame (void)
   DEFSYM (Qmake_invisible, "make-invisible");
   DEFSYM (Quse_frame_synchronization, "use-frame-synchronization");
   DEFSYM (Qfont_parameter, "font-parameter");
+  DEFSYM (Qforce, "force");
 
   for (int i = 0; i < ARRAYELTS (frame_parms); i++)
     {
@@ -7102,18 +7139,28 @@ a non-nil value in your init file.  */);
 
   DEFVAR_LISP ("frame-inhibit-implied-resize", frame_inhibit_implied_resize,
 	       doc: /* Whether frames should be resized implicitly.
-If this option is nil, setting font, menu bar, tool bar, tab bar, internal
-borders, fringes or scroll bars of a specific frame may resize the frame
-in order to preserve the number of columns or lines it displays.  If
-this option is t, no such resizing is done.  Note that the size of
-fullscreen and maximized frames, the height of fullheight frames and the
-width of fullwidth frames never change implicitly.
+If this option is nil, setting font, menu bar, tool bar, tab bar,
+internal borders, fringes or scroll bars of a specific frame may resize
+the frame in order to preserve the number of columns or lines it
+displays.
+
+If this option is t, no such resizing happens once Emacs has agreed with
+the window manager on the final initial size of a frame.  That size will
+have taken into account the size of the text area requested by the user
+and the size of all decorations initially present on the frame.
+
+If this is the symbol `force', no implicit resizing happens even before
+a frame has obtained its final initial size.  As a consequence, the
+initial frame size may not necessarily be the one requested by the user.
+This value can be useful with tiling window managers where the initial
+size of a frame is determined by external means.
 
 The value of this option can be also a list of frame parameters.  In
-this case, resizing is inhibited when changing a parameter that
-appears in that list.  The parameters currently handled by this option
-include `font', `font-backend', `internal-border-width',
-`menu-bar-lines', `tool-bar-lines' and `tab-bar-lines'.
+this case, resizing is inhibited once a frame has obtained its final
+initial size when changing a parameter that appears in that list.  The
+parameters currently handled by this option include `font',
+`font-backend', `internal-border-width', `menu-bar-lines',
+`tool-bar-lines' and `tab-bar-lines'.
 
 Changing any of the parameters `scroll-bar-width', `scroll-bar-height',
 `vertical-scroll-bars', `horizontal-scroll-bars', `left-fringe' and
@@ -7132,9 +7179,11 @@ adding/removing a tool bar or tab bar does not change the frame
 height.  Otherwise it's t which means the frame size never changes
 implicitly when there's no window system support.
 
-Note that when a frame is not large enough to accommodate a change of
-any of the parameters listed above, Emacs may try to enlarge the frame
-even if this option is non-nil.  */);
+Note that the size of fullscreen and maximized frames, the height of
+fullheight frames and the width of fullwidth frames never change
+implicitly.  Note also that when a frame is not large enough to
+accommodate a change of any of the parameters listed above, Emacs may
+try to enlarge the frame even if this option is non-nil.  */);
 #if defined (HAVE_WINDOW_SYSTEM) && !defined (HAVE_ANDROID)
 #if defined (USE_GTK) || defined (HAVE_NS)
   frame_inhibit_implied_resize = list1 (Qtab_bar_lines);

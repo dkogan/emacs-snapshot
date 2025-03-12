@@ -242,6 +242,7 @@ This includes variable references and calls to functions such as `car'."
   "Compile `cond' clauses to a jump table implementation (using a hash-table)."
   :version "26.1"
   :type 'boolean)
+(make-obsolete-variable 'byte-compile-cond-use-jump-table nil "31.1")
 
 (defvar byte-compile-dynamic nil
   "Formerly used to compile function bodies so they load lazily.
@@ -2051,7 +2052,7 @@ also be compiled."
                         (not (member source (dir-locals--all-files directory)))
                         ;; File is requested to be ignored
                         (not (string-match-p ignore-files-regexp source)))
-                   (progn (cl-incf
+                   (progn (incf
                            (pcase (byte-recompile-file source force arg)
                              ('no-byte-compile skip-count)
                              ('t file-count)

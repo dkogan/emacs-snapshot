@@ -7,9 +7,15 @@
 ;; Maintainer: Michael Albinus <michael.albinus@gmx.de>
 ;; Keywords: comm, processes
 ;; Package: tramp
+;; Version: 0
+;; Package-Requires: ()
+;; Package-Type: multi
+;; URL: https://www.gnu.org/software/tramp/
 
-;; This is a GNU ELPA :core package.  Avoid functionality that is not
+;; This is also a GNU ELPA package.  Avoid functionality that is not
 ;; compatible with the version of Emacs recorded in trampver.el.
+;; Version and Package-Requires are place holders.  They are updated
+;; when the GNU ELPA package is released.
 
 ;; This file is part of GNU Emacs.
 
@@ -120,9 +126,8 @@
   :version "22.1"
   :link '(info-link :tag "Tramp manual" "(tramp) Top"))
 
-;; Maybe we need once a real Tramp mode, with key bindings etc.
 ;;;###autoload
-(defvar tramp-mode t
+(defvar tramp-mode (fboundp 'make-process) ; Disable on MS-DOS.
   "Whether Tramp is enabled.
 If it is set to nil, all remote file names are used literally.  Don't
 set it manually, use `inhibit-remote-files' or `without-remote-files'

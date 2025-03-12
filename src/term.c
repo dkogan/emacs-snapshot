@@ -750,19 +750,13 @@ encode_terminal_code (struct glyph *src, int src_len,
 /* An implementation of write_glyphs for termcap frames. */
 
 static void
-tty_write_glyphs (struct frame *f, struct glyph *string, int len)
+tty_write_glyphs_1 (struct frame *f, struct glyph *string, int len)
 {
   struct tty_display_info *tty = FRAME_TTY (f);
   tty_turn_off_insert (tty);
   tty_hide_cursor (tty);
 
-  /* Don't dare write in last column of bottom line, if Auto-Wrap,
-     since that would scroll the whole frame on some terminals.  */
-  if (AutoWrap (tty)
-      && curY (tty) + 1 == FRAME_TOTAL_LINES (f)
-      && (curX (tty) + len) == FRAME_COLS (f))
-    len --;
-  if (len <= 0)
+  if (len == 0)
     return;
 
   cmplus (tty, len);
@@ -966,6 +960,30 @@ tty_insert_glyphs (struct frame *f, struct glyph *start, int len)
     }
 
   cmcheckmagic (tty);
+}
+
+static void
+tty_write_glyphs (struct frame *f, struct glyph *string, int len)
+{
+  struct tty_display_info *tty = FRAME_TTY (f);
+  /* Don't dare write in last column of bottom line, if Auto-Wrap,
+     since that would scroll the whole frame on some terminals.  */
+  if (AutoWrap (tty)
+      && curY (tty) + 1 == FRAME_TOTAL_LINES (f)
+      && curX (tty) + len == FRAME_COLS (f)
+      && curX (tty) < FRAME_COLS (f) - 1
+      && len > 0)
+    {
+      /* Write glyphs except the first. */
+      int old_x = curX (tty), old_y = curY (tty);
+      tty_write_glyphs_1 (f, string + 1, len - 1);
+
+      /* Insert the first glyph, shifting the rest right.  */
+      cmgoto (tty, old_y, old_x);
+      tty_insert_glyphs (f, string, 1);
+    }
+  else
+    tty_write_glyphs_1 (f, string, len);
 }
 
 /* An implementation of delete_glyphs for termcap frames. */
@@ -2673,7 +2691,7 @@ tty_frame_at (int x, int y, int *cx, int *cy)
 }
 
 DEFUN ("tty-frame-at", Ftty_frame_at, Stty_frame_at, 2, 2, 0,
-       doc : /* Return tty frame containing absolute pixel position (X, Y).
+       doc: /* Return tty frame containing absolute pixel position (X, Y).
 Value is nil if no frame found.  Otherwise it is a list (FRAME CX CY),
 where FRAME is the frame containing (X, Y) and CX and CY are X and Y
 relative to FRAME.  */)
@@ -3678,7 +3696,7 @@ tty_menu_help_callback (char const *help_string, int pane, int item)
   /* (menu-item MENU-NAME PANE-NUMBER)  */
   menu_object = list3 (Qmenu_item, pane_name, make_fixnum (pane));
   show_help_echo (help_string ? build_string (help_string) : Qnil,
- 		  Qnil, menu_object, make_fixnum (item));
+		  Qnil, menu_object, make_fixnum (item));
 }
 
 struct tty_pop_down_menu
@@ -4077,7 +4095,8 @@ create_tty_output (struct frame *f)
   f->output_data.tty = t;
 }
 
-/* Delete frame F's face cache, and its tty-dependent part.  */
+/* Delete frame F's face cache, and its tty-dependent part.  This is
+   installed as a delete_frame_hook.  */
 
 static void
 tty_free_frame_resources (struct frame *f)
@@ -4085,6 +4104,11 @@ tty_free_frame_resources (struct frame *f)
   eassert (FRAME_TERMCAP_P (f));
   free_frame_faces (f);
   xfree (f->output_data.tty);
+
+  /* Deleting a child frame means we have to thoroughly redisplay its
+     root frame to make sure the child disappears from the display.  */
+  if (FRAME_PARENT_FRAME (f))
+    SET_FRAME_GARBAGED (root_frame (f));
 }
 
 #elif defined MSDOS

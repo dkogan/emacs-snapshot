@@ -79,9 +79,10 @@ option."
                  (const :tag "Off" nil)
                  (function :tag "Custom function")))
 
-(defcustom nsm-settings-file (locate-user-emacs-file "network-security.data")
+(defcustom nsm-settings-file
+  (locate-user-emacs-file '("network-security.eld" "network-security.data"))
   "The file the security manager settings will be stored in."
-  :version "25.1"
+  :version "31.1"
   :type 'file)
 
 (defcustom nsm-save-host-names nil
@@ -417,7 +418,7 @@ were rampant use of small subgroup prime or composite number for DHE by
 many servers, and thus allowed themselves to be vulnerable to
 backdoors[1].  Given the difficulty in validating Diffie-Hellman
 parameters, major browser vendors had started to remove DHE since
-2016[2].  In 2020, the so-called Racoon Attack was discovered, a
+2016[2].  In 2020, the so-called Raccoon Attack was discovered, a
 server-side vulnerability that exploits a side-channel to get the shared
 secret key[3].
 

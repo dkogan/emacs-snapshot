@@ -2087,7 +2087,7 @@ key, a click, or a menu-item"))
       '(menu-item "Look Up Key in User Manual..." Info-goto-emacs-key-command-node
                   :help "Display manual section that describes a key"))
     (define-key menu [lookup-subject-in-elisp-manual]
-      '(menu-item "Look Up Subject in ELisp Manual..." elisp-index-search
+      '(menu-item "Look Up Subject in Elisp Manual..." elisp-index-search
                   :help "Find description of a subject in Emacs Lisp manual"))
     (define-key menu [lookup-subject-in-emacs-manual]
       '(menu-item "Look Up Subject in User Manual..." emacs-index-search
@@ -2900,24 +2900,27 @@ returns nil."
         (menu-bar (menu-bar-keymap))
         prev-key
         prev-column
+        keys-seen
         found)
     (catch 'done
       (map-keymap
        (lambda (key binding)
-         (when (> column x-position)
-           (setq found t)
-           (throw 'done nil))
-         (setq prev-key key)
-         (pcase binding
-           ((or `(,(and (pred stringp) name) . ,_) ;Simple menu item.
-                `(menu-item ,name ,_cmd            ;Extended menu item.
-                            . ,(and props
-                                    (guard (let ((visible
-                                                  (plist-get props :visible)))
-                                             (or (null visible)
-                                                 (eval visible)))))))
-            (setq prev-column column
-                  column (+ column (length name) 1)))))
+         (unless (memq key keys-seen)
+           (push key keys-seen)
+           (when (> column x-position)
+             (setq found t)
+             (throw 'done nil))
+           (setq prev-key key)
+           (pcase binding
+             ((or `(,(and (pred stringp) name) . ,_) ;Simple menu item.
+                  `(menu-item ,name ,_cmd            ;Extended menu item.
+                              . ,(and props
+                                      (guard (let ((visible
+                                                    (plist-get props :visible)))
+                                               (or (null visible)
+                                                   (eval visible)))))))
+              (setq prev-column column
+                    column (+ column (length name) 1))))))
        menu-bar)
       ;; Check the last menu item.
       (when (> column x-position)

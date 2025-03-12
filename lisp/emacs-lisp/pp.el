@@ -208,7 +208,14 @@ it inserts and pretty-prints that arg at point."
                       (while
                           (progn
                             (funcall avoid-unbreakable)
-                            (not (zerop (skip-chars-backward " \t({[',.")))))
+                            (let ((pos (point)))
+                              (skip-chars-backward " \t({[',.")
+                              (while (and (memq (char-after) '(?\. ?\{))
+                                          (not (memq (char-before)
+                                                     '(nil ?\n ?\) \" ?\]))))
+                                ;; `.' and `{' within symbols?  (Bug#76715)
+                                (forward-char 1))
+                              (not (eql pos (point))))))
                       (if (bolp)
                           ;; The sexp already starts on its own line.
                           (progn (goto-char beg) nil)
@@ -592,7 +599,7 @@ the bounds of a region containing Lisp code to pretty-print."
         (pp--insert-lisp (car sexp)))
       (pop sexp))
     (pop edebug)
-    (cl-decf indent))
+    (decf indent))
   (when (stringp (car sexp))
     (insert "\n")
     (prin1 (pop sexp) (current-buffer)))

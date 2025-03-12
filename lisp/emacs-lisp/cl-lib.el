@@ -105,29 +105,27 @@ a future Emacs interpreter will be able to use it.")
 ;; can safely be used in init files.
 
 ;;;###autoload
-(defmacro cl-incf (place &optional x)
+(defalias 'cl-incf #'incf
   "Increment PLACE by X (1 by default).
 PLACE may be a symbol, or any generalized variable allowed by `setf'.
 The return value is the incremented value of PLACE.
 
 If X is specified, it should be an expression that should
-evaluate to a number."
-  (declare (debug (place &optional form)))
-  (if (symbolp place)
-      (list 'setq place (if x (list '+ place x) (list '1+ place)))
-    (list 'cl-callf '+ place (or x 1))))
+evaluate to a number.
 
-(defmacro cl-decf (place &optional x)
+This macro is considered deprecated in favor of the built-in macro
+`incf' that was added in Emacs 31.1.")
+
+(defalias 'cl-decf #'decf
   "Decrement PLACE by X (1 by default).
 PLACE may be a symbol, or any generalized variable allowed by `setf'.
 The return value is the decremented value of PLACE.
 
 If X is specified, it should be an expression that should
-evaluate to a number."
-  (declare (debug cl-incf))
-  (if (symbolp place)
-      (list 'setq place (if x (list '- place x) (list '1- place)))
-    (list 'cl-callf '- place (or x 1))))
+evaluate to a number.
+
+This macro is considered deprecated in favor of the built-in macro
+`decf' that was added in Emacs 31.1.")
 
 (defmacro cl-pushnew (x place &rest keys)
   "Add X to the list stored in PLACE unless X is already in the list.
@@ -164,9 +162,9 @@ to an element already in the list stored in PLACE.
 		  val))
 
 (defun cl--set-substring (str start end val)
-  (if end (if (< end 0) (cl-incf end (length str)))
+  (if end (if (< end 0) (incf end (length str)))
     (setq end (length str)))
-  (if (< start 0) (cl-incf start (length str)))
+  (if (< start 0) (incf start (length str)))
   (concat (and (> start 0) (substring str 0 start))
 	  val
 	  (and (< end (length str)) (substring str end))))
@@ -286,7 +284,7 @@ This function is considered deprecated in favor of the built-in function
   "Return t if INTEGER is odd.
 
 This function is considered deprecated in favor of the built-in function
-`evenp' that was added in Emacs 31.1.")
+`oddp' that was added in Emacs 31.1.")
 
 (defalias 'cl-evenp #'evenp
   "Return t if INTEGER is even.
@@ -364,7 +362,7 @@ Call `cl-float-limits' to set this.")
 
 (declare-function cl--mapcar-many "cl-extra" (cl-func cl-seqs &optional acc))
 
-(defun cl-mapcar (cl-func cl-x &rest cl-rest)
+(defun cl-mapcar (func x &rest rest)
   "Apply FUNCTION to each element of SEQ, and make a list of the results.
 If there are several SEQs, FUNCTION is called with that many arguments,
 and mapping stops as soon as the shortest list runs out.  With just one
@@ -372,14 +370,14 @@ SEQ, this is like `mapcar'.  With several, it is like the Common Lisp
 `mapcar' function extended to arbitrary sequence types.
 \n(fn FUNCTION SEQ...)"
   (declare (important-return-value t))
-  (if cl-rest
-      (if (or (cdr cl-rest) (nlistp cl-x) (nlistp (car cl-rest)))
-	  (cl--mapcar-many cl-func (cons cl-x cl-rest) 'accumulate)
-	(let ((cl-res nil) (cl-y (car cl-rest)))
-	  (while (and cl-x cl-y)
-	    (push (funcall cl-func (pop cl-x) (pop cl-y)) cl-res))
-	  (nreverse cl-res)))
-    (mapcar cl-func cl-x)))
+  (if rest
+      (if (or (cdr rest) (nlistp x) (nlistp (car rest)))
+          (cl--mapcar-many func (cons x rest) 'accumulate)
+        (let ((res nil) (y (car rest)))
+          (while (and x y)
+            (push (funcall func (pop x) (pop y)) res))
+          (nreverse res)))
+    (mapcar func x)))
 
 (cl--defalias 'cl-svref #'aref)
 
@@ -458,7 +456,7 @@ SEQ, this is like `mapcar'.  With several, it is like the Common Lisp
 ;;With optional argument N, returns Nth-to-last link (default 1)."
 ;;  (if n
 ;;      (let ((m 0) (p x))
-;;	(while (consp p) (cl-incf m) (pop p))
+;;      (while (consp p) (incf m) (pop p))
 ;;	(if (<= n 0) p
 ;;	  (if (< n m) (nthcdr (- m n) x) x)))
 ;;    (while (consp (cdr x)) (pop x))
@@ -504,38 +502,38 @@ The elements of LIST are not copied, just the list structure itself."
 (declare-function cl-round "cl-extra" (x &optional y))
 (declare-function cl-mod "cl-extra" (x y))
 
-(defun cl-adjoin (cl-item cl-list &rest cl-keys)
+(defun cl-adjoin (item list &rest keys)
   "Return ITEM consed onto the front of LIST only if it's not already there.
 Otherwise, return LIST unmodified.
 \nKeywords supported:  :test :test-not :key
 \n(fn ITEM LIST [KEYWORD VALUE]...)"
   (declare (important-return-value t)
            (compiler-macro cl--compiler-macro-adjoin))
-  (cond ((or (equal cl-keys '(:test eq))
-	     (and (null cl-keys) (not (numberp cl-item))))
-	 (if (memq cl-item cl-list) cl-list (cons cl-item cl-list)))
-	((or (equal cl-keys '(:test equal)) (null cl-keys))
-	 (if (member cl-item cl-list) cl-list (cons cl-item cl-list)))
-	(t (apply 'cl--adjoin cl-item cl-list cl-keys))))
+  (cond ((or (equal keys '(:test eq))
+             (and (null keys) (not (numberp item))))
+         (if (memq item list) list (cons item list)))
+        ((or (equal keys '(:test equal)) (null keys))
+         (if (member item list) list (cons item list)))
+        (t (apply 'cl--adjoin item list keys))))
 
-(defun cl-subst (cl-new cl-old cl-tree &rest cl-keys)
+(defun cl-subst (new old tree &rest keys)
   "Substitute NEW for OLD everywhere in TREE (non-destructively).
 Return a copy of TREE with all elements `eql' to OLD replaced by NEW.
 \nKeywords supported:  :test :test-not :key
 \n(fn NEW OLD TREE [KEYWORD VALUE]...)"
   (declare (important-return-value t))
-  (if (or cl-keys (and (numberp cl-old) (not (integerp cl-old))))
-      (apply 'cl-sublis (list (cons cl-old cl-new)) cl-tree cl-keys)
-    (cl--do-subst cl-new cl-old cl-tree)))
+  (if (or keys (and (numberp old) (not (integerp old))))
+      (apply 'cl-sublis (list (cons old new)) tree keys)
+    (cl--do-subst new old tree)))
 
-(defun cl--do-subst (cl-new cl-old cl-tree)
-  (cond ((eq cl-tree cl-old) cl-new)
-	((consp cl-tree)
-	 (let ((a (cl--do-subst cl-new cl-old (car cl-tree)))
-	       (d (cl--do-subst cl-new cl-old (cdr cl-tree))))
-	   (if (and (eq a (car cl-tree)) (eq d (cdr cl-tree)))
-	       cl-tree (cons a d))))
-	(t cl-tree)))
+(defun cl--do-subst (new old tree)
+  (cond ((eq tree old) new)
+        ((consp tree)
+         (let ((a (cl--do-subst new old (car tree)))
+               (d (cl--do-subst new old (cdr tree))))
+           (if (and (eq a (car tree)) (eq d (cdr tree)))
+               tree (cons a d))))
+        (t tree)))
 
 (defsubst cl-acons (key value alist)
   "Add KEY and VALUE to ALIST.

@@ -317,10 +317,13 @@ Leaving \"Default\" unchecked is equivalent with specifying a default of
 	     (vertical-centering-font-regexp display
 					     (choice (const nil) regexp))
 	     ;; frame.c
-	     (default-frame-alist frames
-	       (repeat (cons :format "%v"
-			     (symbol :tag "Parameter")
-			     (sexp :tag "Value"))))
+             (default-frame-alist
+              frames
+              (repeat (cons :format "%v"
+                            (symbol :tag "Parameter"
+                                    :completions ,frame--special-parameters)
+                            (sexp :tag "Value"
+                                  :complete frame--complete-parameter-value))))
 	     (mouse-highlight mouse (choice (const :tag "disabled" nil)
 					    (const :tag "always shown" t)
 					    (other :tag "hidden by keypress" 1))
@@ -347,8 +350,9 @@ Leaving \"Default\" unchecked is equivalent with specifying a default of
 					   (choice
 					    (const :tag "Never" nil)
 					    (const :tag "Always" t)
+					    (const :tag "Force" force)
 					    (repeat (symbol :tag "Parameter")))
-					   "27.1")
+					   "31.1")
 	     (iconify-child-frame frames
 				  (choice
 				   (const :tag "Do nothing" nil)
@@ -581,6 +585,12 @@ Leaving \"Default\" unchecked is equivalent with specifying a default of
              (ns-use-fullscreen-animation ns boolean "25.1")
              (ns-use-srgb-colorspace ns boolean "24.4")
              (ns-scroll-event-delta-factor ns float "29.1")
+
+             (ns-click-through
+	      ns (choice (const :tag "Never (nil)" :value nil)
+                  (const :tag "Always (t)" :value t))
+              "31.1")
+
 	     ;; process.c
 	     (delete-exited-processes processes-basics boolean)
              (process-error-pause-time processes-basics integer "29.1")
@@ -908,6 +918,8 @@ since it could result in memory overflow and make Emacs crash."
 		       (fboundp 'x-create-frame))
 		      ((string-match "tab-bar-" (symbol-name symbol))
 		       (fboundp 'x-create-frame))
+                      ((string-match "image-" (symbol-name symbol))
+                       (fboundp 'x-create-frame))
 		      ((equal "vertical-centering-font-regexp"
 			      (symbol-name symbol))
 		       ;; Any function from fontset.c will do.

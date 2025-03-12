@@ -37,6 +37,50 @@
 (defun files-test-fun1 ()
   (setq files-test-result t))
 
+(ert-deftest files-test-locate-user-emacs-file ()
+  (ert-with-temp-directory home
+    (with-environment-variables (("HOME" home))
+      (let* ((user-emacs-directory (expand-file-name ".emacs.d/" home)))
+        (make-directory user-emacs-directory 'parents)
+        (should-error (locate-user-emacs-file nil "any-file")
+                      :type 'wrong-type-argument)
+        ;; No file exists.
+        (should (equal (locate-user-emacs-file "always")
+                       (expand-file-name "always" user-emacs-directory)))
+        (should (equal (locate-user-emacs-file "always" "never")
+                       (expand-file-name "always" user-emacs-directory)))
+        ;; Only the file in $HOME/.conf exists.
+        (let ((exists (expand-file-name "exists" home)))
+          (write-region "data" nil exists nil 'quietly)
+          (should (equal (locate-user-emacs-file "missing" "exists")
+                         exists)))
+        ;; Only the file in ~/.emacs.d/ exists.
+        (let ((exists (expand-file-name "exists" user-emacs-directory)))
+          (write-region "data" nil exists nil 'quietly)
+          (should (equal (locate-user-emacs-file "exists" "missing")
+                         exists)))
+        ;; Both files exist.
+        (let* ((basename "testconfig")
+               (in-home (expand-file-name basename home))
+               (in-edir (expand-file-name basename user-emacs-directory)))
+          (write-region "data" nil in-home nil 'quietly)
+          (write-region "data" nil in-edir nil 'quietly)
+          (should (equal (locate-user-emacs-file basename)
+                         in-edir))
+          (should (equal (locate-user-emacs-file basename "anything")
+                         in-edir)))
+        ;; NEW-FILE is a list.
+        (should (equal (locate-user-emacs-file '("first" "second"))
+                       (expand-file-name "first" user-emacs-directory)))
+        (should (equal (locate-user-emacs-file '("first" "second") "never")
+                       (expand-file-name "first" user-emacs-directory)))
+        (let ((exists (expand-file-name "exists" user-emacs-directory)))
+          (write-region "data" nil exists nil 'quietly)
+          (should (equal (locate-user-emacs-file '("missing" "exists"))
+                         exists))
+          (should (equal (locate-user-emacs-file '("missing1" "exists") "missing2")
+                         exists)))))))
+
 ;; Test combinations:
 ;; `enable-local-variables' t, nil, :safe, :all, or something else.
 ;; `enable-local-eval' t, nil, or something else.
@@ -2023,7 +2067,7 @@ CALLERS-DIR specifies the value to let-bind
                   (((symbol-function 'read-key)
                     ;; Increase counter and answer 'n' when prompted
                     ;; to save a buffer.
-                    (lambda (&rest _) (cl-incf nb-saved-buffers) ?n))
+                    (lambda (&rest _) (incf nb-saved-buffers) ?n))
                    ;; Do not kill Emacs.
                    ((symbol-function 'kill-emacs) #'ignore)
                    (save-some-buffers-default-predicate callers-dir))

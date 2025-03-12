@@ -3054,11 +3054,18 @@ To check for other states, call `custom-variable-state'."
     (let* ((form (widget-get widget :custom-form))
            (symbol (widget-get widget :value))
            (get (or (get symbol 'custom-get) 'default-value))
-           (value (if (default-boundp symbol)
-                      (condition-case nil
-                          (funcall get symbol)
-                        (error (throw 'get-error t)))
-                    (symbol-value symbol)))
+           (value-widget (car (widget-get widget :children)))
+           ;; Round-trip the value, for the sake of widgets that accept
+           ;; values of different types (e.g., the obsolete key-sequence widget
+           ;; which takes either strings or vectors.  (Bug#76156)
+           (value
+            (widget-apply value-widget :value-to-external
+                          (widget-apply value-widget :value-to-internal
+                                        (if (default-boundp symbol)
+                                            (condition-case nil
+                                                (funcall get symbol)
+                                              (error (throw 'get-error t)))
+                                          (symbol-value symbol)))))
            (orig-value (widget-value (car (widget-get widget :children)))))
       (not (equal (if (memq form '(lisp mismatch))
                       ;; Mimic `custom-variable-value-create'.
@@ -5344,10 +5351,13 @@ The format is suitable for use with `easy-menu-define'."
 To see what function the widget will call, use the
 `widget-describe' command."
   (interactive "@d")
-  (let ((button (get-char-property pos 'button)))
-    ;; If there is no button at point, then use the one at the start
-    ;; of the line, if it is a custom-group-link (bug#2298).
+  (let ((button (or (get-char-property pos 'button)
+                    ;; Maybe we are just past a button, and it's quite handy
+                    ;; to action it as well.  (Bug#72341)
+                    (get-char-property (1- pos) 'button))))
     (or button
+        ;; If there is no button at point, then use the one at the start
+        ;; of the line, if it is a custom-group-link (bug#2298).
 	(if (setq button (get-char-property (line-beginning-position) 'button))
 	    (or (eq (widget-type button) 'custom-group-link)
 		(setq button nil))))
@@ -5985,7 +5995,7 @@ The appropriate types are:
          (val (car value)))
     (cond
      ((eq val 'mode) (setf (nth 1 args)
-                           '(symbol :keymap custom-dirlocals-field-map
+                           `(symbol :keymap ,custom-dirlocals-field-map
                                     :tag "Minor mode")))
      ((eq val 'unibyte) (setf (nth 1 args) '(boolean)))
      ((eq val 'subdirs) (setf (nth 1 args) '(boolean)))
@@ -5994,7 +6004,7 @@ The appropriate types are:
         (when (custom--editable-field-p w)
           (widget-put w :keymap custom-dirlocals-field-map))
         (setf (nth 1 args) w)))
-     (t (setf (nth 1 args) '(sexp :keymap custom-dirlocals-field-map))))
+     (t (setf (nth 1 args) `(sexp :keymap ,custom-dirlocals-field-map))))
     (widget-put (nth 0 args) :keymap custom-dirlocals-field-map)
     (widget-group-value-create widget)))
 

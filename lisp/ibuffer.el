@@ -931,7 +931,7 @@ width and the longest string in LIST."
     (when (get-text-property (point) 'ibuffer-title)
       (forward-line 1)
       (setq arg 1))
-    (cl-decf arg)))
+    (decf arg)))
 
 (defun ibuffer-forward-line (&optional arg skip-group-names)
   "Move forward ARG lines, wrapping around the list if necessary."
@@ -946,7 +946,7 @@ width and the longest string in LIST."
 	    (and skip-group-names
 		 (get-text-property (point) 'ibuffer-filter-group-name)))
     (when (> arg 0)
-      (cl-decf arg))
+      (decf arg))
     (ibuffer-skip-properties (append '(ibuffer-title)
 				     (when skip-group-names
 				       '(ibuffer-filter-group-name)))
@@ -959,7 +959,7 @@ width and the longest string in LIST."
 		 (or (eobp)
 		     (get-text-property (point) 'ibuffer-summary)))
 	(goto-char (point-min)))
-      (cl-decf arg)
+      (decf arg)
       (ibuffer-skip-properties (append '(ibuffer-title)
 				       (when skip-group-names
 					 '(ibuffer-filter-group-name)))
@@ -1110,7 +1110,7 @@ a new window in the current frame, splitting vertically."
 			(setq trying nil))
 		    (error
 		     ;; Handle a failure
-		     (if (or (> (cl-incf attempts) 4)
+                     (if (or (> (incf attempts) 4)
 			     (and (stringp (cadr err))
 				  ;; This definitely falls in the
 				  ;; ghetto hack category...
@@ -1908,18 +1908,18 @@ the buffer object itself and the current mark symbol."
 	      ;; nil if it chose not to affect the buffer
 	      ;; `kill' means the remove line from the buffer list
 	      ;; t otherwise
-	      (cl-incf ibuffer-map-lines-total)
+              (incf ibuffer-map-lines-total)
 	      (cond ((null result)
 		     (forward-line 1))
 		    ((eq result 'kill)
 		     (delete-region (line-beginning-position)
 				    (1+ (line-end-position)))
-		     (cl-incf ibuffer-map-lines-count)
+                     (incf ibuffer-map-lines-count)
 		     (when (< ibuffer-map-lines-total
 			      orig-target-line)
-		       (cl-decf target-line-offset)))
+                       (decf target-line-offset)))
 		    (t
-		     (cl-incf ibuffer-map-lines-count)
+                     (incf ibuffer-map-lines-count)
 		     (forward-line 1)))))
 	  ;; With `ibuffer-auto-mode' enabled, `ibuffer-expert' nil
 	  ;; and more than one marked buffer lines, the preceding loop

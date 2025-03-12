@@ -1369,7 +1369,7 @@ infinite loops when the code/environment contains a circular object.")
 
       ;; Set the name here if it was not set by edebug-make-enter-wrapper.
       (setq edebug-def-name
-	    (or edebug-def-name edebug-old-def-name (cl-gensym "edebug-anon")))
+            (or edebug-def-name edebug-old-def-name (gensym "edebug-anon")))
 
       ;; Add this def as a dependent of containing def.  Buggy.
       '(if (and edebug-containing-def-name
@@ -4255,7 +4255,7 @@ code location is known."
       (let ((new-frame (copy-edebug--frame frame))
             (fun (edebug--frame-fun frame))
             (args (edebug--frame-args frame)))
-        (cl-decf index) ;; FIXME: Not used?
+        (decf index) ;; FIXME: Not used?
         (pcase fun
           ('edebug-enter
 	   (setq skip-next-lambda t
@@ -4594,8 +4594,8 @@ With prefix argument, make it a temporary breakpoint."
     (let ((s 1))
       (while (memq (nth 1 (backtrace-frame i 'called-interactively-p))
                    '(edebug-enter edebug-default-enter))
-        (cl-incf s)
-        (cl-incf i))
+        (incf s)
+        (incf i))
       s)))
 
 ;; Finally, hook edebug into the rest of Emacs.

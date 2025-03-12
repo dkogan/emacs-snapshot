@@ -179,6 +179,23 @@ the available version of Tree-sitter for Java."
     (error
      `((string_literal) @font-lock-string-face))))
 
+(defun java-ts-mode--fontify-constant (node override start end &rest _)
+  "Fontify a Java constant.
+In Java the names of variables declared class constants and of ANSI
+constants should be all uppercase with words separated by underscores.
+This function also prevents annotations from being highlighted as if
+they were constants.
+For NODE, OVERRIDE, START, and END, see `treesit-font-lock-rules'."
+  (let ((node-start (treesit-node-start node))
+	(case-fold-search nil))
+    (when (and
+	   (not (equal (char-before node-start) ?@)) ;; skip annotations
+	   (string-match "\\`[A-Z_][0-9A-Z_]*\\'" (treesit-node-text node)))
+      (treesit-fontify-with-override
+       node-start (treesit-node-end node)
+       'font-lock-constant-face override
+       start end))))
+
 (defvar java-ts-mode--font-lock-settings
   (treesit-font-lock-rules
    :language 'java
@@ -189,8 +206,7 @@ the available version of Tree-sitter for Java."
    :language 'java
    :override t
    :feature 'constant
-   `(((identifier) @font-lock-constant-face
-      (:match "\\`[A-Z_][0-9A-Z_]*\\'" @font-lock-constant-face))
+   `((identifier) @java-ts-mode--fontify-constant
      [(true) (false)] @font-lock-constant-face)
    :language 'java
    :override t
@@ -399,6 +415,26 @@ Return nil if there is no name or if NODE is not a defun node."
                                   "_type"
                                   "true"
                                   "false")))
+                   (list ,(rx bos (or "inferred_parameters"
+                                      "parenthesized_expression"
+                                      "argument_list"
+                                      "type_arguments"
+                                      "switch_block"
+                                      "record_pattern_body"
+                                      "block"
+                                      "resource_specification"
+                                      "annotation_argument_list"
+                                      "element_value_array_initializer"
+                                      "module_body"
+                                      "enum_body"
+                                      "type_parameters"
+                                      "class_body"
+                                      "constructor_body"
+                                      "annotation_type_body"
+                                      "interface_body"
+                                      "array_initializer"
+                                      "formal_parameters")
+                              eos))
                    (sentence ,(rx (or "statement"
                                       "local_variable_declaration"
                                       "field_declaration"
@@ -434,6 +470,14 @@ Return nil if there is no name or if NODE is not a defun node."
                 ("Interface" "\\`interface_declaration\\'" nil nil)
                 ("Enum" "\\`record_declaration\\'" nil nil)
                 ("Method" "\\`method_declaration\\'" nil nil)))
+  ;; Outline minor mode
+  (setq-local treesit-outline-predicate
+              (rx bos (or "class_declaration"
+                          "interface_declaration"
+                          "method_declaration"
+                          "constructor_declaration")
+                  eos))
+
   (treesit-major-mode-setup))
 
 (derived-mode-add-parents 'java-ts-mode '(java-mode))
