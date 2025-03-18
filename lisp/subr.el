@@ -196,7 +196,7 @@ pair.
   "Define SYMBOL as a buffer-local variable with default value VALUE.
 Like `defvar' but additionally marks the variable as being automatically
 buffer-local wherever it is set.
-\n(fn symbol &optional value docstring)"
+\n(fn SYMBOL &optional VALUE DOCSTRING)"
   (declare (debug defvar) (doc-string 3) (indent 2))
   ;; Can't use backquote here, it's too early in the bootstrap.
   (let ((value (car-safe args))
@@ -7451,7 +7451,7 @@ not a list, return a one-element list containing OBJECT."
 The MESSAGE form will be evaluated immediately, but the resulting
 string will be displayed only if BODY takes longer than TIMEOUT seconds.
 
-\(fn (timeout message) &rest body)"
+\(fn (TIMEOUT MESSAGE) &rest BODY)"
   (declare (indent 1))
   `(funcall-with-delayed-message ,(car args) ,(cadr args)
                                  (lambda ()

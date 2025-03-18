@@ -3132,13 +3132,14 @@ ARG is described in the docstring of `up-list'."
                                          (treesit-node-start parent))))
           (setq parent (treesit-parent-until parent pred)))
 
-        (when-let* ((_ (null parent))
-                    (parser (treesit-node-parser (treesit-node-at (point))))
-                    (_ (not (eq parser treesit-primary-parser)))
-                    (guest-root-node (treesit-parser-root-node parser)))
-          ;; Continue from the host node that contains the guest parser.
-          (setq parent (treesit-thing-at
-                        (- (treesit-node-start guest-root-node) 2) pred)))
+        (unless parent
+          (let ((parsers (seq-keep (lambda (o)
+                                     (overlay-get o 'treesit-host-parser))
+                                   (overlays-at (point) t))))
+            (while (and (not parent) parsers)
+              (setq parent (treesit-parent-until
+                            (treesit-node-at (point) (car parsers)) pred)
+                    parsers (cdr parsers)))))
 
         (or (when (and default-pos
                        (or (null parent)
@@ -3417,9 +3418,16 @@ What constitutes as text and source code sentence is determined
 by `text' and `sentence' in `treesit-thing-settings'."
   (if (treesit-node-match-p (treesit-node-at (point)) 'text t)
       (funcall #'forward-sentence-default-function arg)
-    (funcall
-     (if (> arg 0) #'treesit-end-of-thing #'treesit-beginning-of-thing)
-     'sentence (abs arg))))
+    (or (funcall
+         (if (> arg 0) #'treesit-end-of-thing #'treesit-beginning-of-thing)
+         'sentence (abs arg))
+        ;; On failure jump to the buffer's end as `forward-sentence' does,
+        ;; but no further than the boundary of the current range.
+        (goto-char (if (> arg 0)
+                       (min (point-max) (next-single-char-property-change
+                                         (point) 'treesit-parser))
+                     (max (point-min) (previous-single-char-property-change
+                                       (point) 'treesit-parser)))))))
 
 (defun treesit-forward-comment (&optional count)
   "Tree-sitter `forward-comment-function' implementation.
@@ -4017,16 +4025,17 @@ For BOUND, MOVE, BACKWARD, LOOKING-AT, see the descriptions in
                  treesit-outline-predicate)))
     (while (setq node (treesit-parent-until node pred))
       (setq level (1+ level)))
-    ;; Continue counting from the host node.
-    (when-let* ((parser
-                 (when treesit-aggregated-outline-predicate
-                   (seq-some (lambda (o) (overlay-get o 'treesit-host-parser))
-                             (overlays-at (point)))))
-                (node (treesit-node-at (point) parser))
-                (lang (treesit-parser-language parser))
-                (pred (alist-get lang treesit-aggregated-outline-predicate)))
-      (while (setq node (treesit-parent-until node pred))
-        (setq level (1+ level))))
+
+    ;; Continue counting the host nodes.
+    (dolist (parser (seq-keep (lambda (o)
+                                (overlay-get o 'treesit-host-parser))
+                              (overlays-at (point) t)))
+      (let* ((node (treesit-node-at (point) parser))
+             (lang (treesit-parser-language parser))
+             (pred (alist-get lang treesit-aggregated-outline-predicate)))
+        (while (setq node (treesit-parent-until node pred))
+          (setq level (1+ level)))))
+
     level))
 
 ;;; Hideshow mode

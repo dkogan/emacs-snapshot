@@ -34,7 +34,8 @@
 (defcustom text-mode-hook '(text-mode-hook-identify)
   "Normal hook run when entering Text mode and many related modes."
   :type 'hook
-  :options '(turn-on-auto-fill turn-on-flyspell)
+  :options '(turn-on-auto-fill flyspell-mode)
+  :version "31.1"
   :group 'text)
 
 (defvar text-mode-variant nil
@@ -285,6 +286,9 @@ The argument NLINES says how many lines to center."
           (aset tbl ch (+ ch #xFEE0))
           (aset rev-tbl (+ ch #xFEE0) ch)
           (setq ch (1+ ch)))
+        ;; SPC -> U+3000 IDEOGRAPHIC SPACE
+        (aset tbl ?\  #x3000)
+        (aset rev-tbl #x3000 ?\ )
         (set-char-table-extra-slot tbl 0 rev-tbl)
         (set-char-table-extra-slot tbl 1 1)
         (set-char-table-extra-slot rev-tbl 1 1)

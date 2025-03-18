@@ -10,6 +10,7 @@
 
 (
  ("29.1" fun plistp)
+ ("29.1" fun help-key)
  ("28.1" fun always)
  ("27.1" fun project-files)
  ("26.1" fun flymake--diag-region)
@@ -59,6 +60,7 @@
 
  ("19.34" fun make-directory)
  ("19.7" fun defsubst)
+ ("18.59" fun current-global-map)
  ("18.59" fun mark)
  ("13.8" fun nthcdr)
  ("13.8" fun nreverse)

@@ -875,7 +875,8 @@ the C sources, too."
   (when (and (get symbol 'custom-set)
              ;; Don't override manually written documentation.
              (not (string-match (rx word-start "setopt" word-end)
-                                (get symbol 'variable-documentation))))
+                                (documentation-property
+                                 symbol 'variable-documentation))))
     ;; FIXME: `princ` removes text properties added by s-c-k.
     (princ (substitute-command-keys "\
 Setting this variable with `setq' has no effect; use either `setopt'
@@ -1568,7 +1569,8 @@ it is displayed along with the global value."
     (let ((str (read-string-from-buffer
                 (format ";; Edit the `%s' variable." (nth 0 var))
                 (prin1-to-string (nth 1 var)))))
-      (set (nth 0 var) (read str)))))
+      (set (nth 0 var) (read str))
+      (revert-buffer))))
 
 (autoload 'shortdoc-help-fns-examples-function "shortdoc")
 

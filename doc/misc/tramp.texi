@@ -101,6 +101,7 @@ For the developer:
 * GNU Free Documentation License:: The license for this documentation.
 * Function Index::              @value{tramp} functions.
 * Variable Index::              User options and variables.
+* Key Index::                   Key bindings for @value{tramp} commands.
 * Concept Index::               An item for each concept.
 
 @detailmenu
@@ -3798,7 +3799,18 @@ completion lists.  If you want to suppress this completion because
 there are invalid entries in the persistency file, for example if the
 host configuration changes often, or if you plug your laptop to
 different networks frequently, you can set the user option
-@code{tramp-completion-use-cache} to @code{nil}.
+@code{tramp-completion-use-cache} to @code{nil}.  This is set per
+default for all container-based methods, like @option{docker} or
+@option{podman}.  If you want to suppress this for other connections,
+you can use the connection property @t{"completion-use-cache"},
+@xref{Predefined connection information}.  Example:
+
+@lisp
+@group
+(add-to-list 'tramp-connection-properties
+             (list "^/sshfs:" "completion-use-cache" nil))
+@end group
+@end lisp
 
 After remote host name completion comes completion of file names on
 the remote host.  It works the same as with local host file completion
@@ -3917,23 +3929,30 @@ containers on the remote host.
 
 A common use case for ad-hoc specifications is to visit a file or a
 directory with proper permissions, for example with the @option{sudo}
-method.  The command @code{tramp-revert-buffer-with-sudo} supports
-this.
+method.  The commands @code{tramp-revert-buffer-with-sudo} (@kbd{C-x x
+@@}), and @code{tramp-dired-find-file-with-sudo} (@kbd{@@} in
+@code{dired-mode}) support this.
 
+@kindex C-x x @@
 @deffn Command tramp-revert-buffer-with-sudo
-This command shows the current buffer with @option{sudo} permissions.
-The buffer must either visit a file, or a directory
-(@code{dired-mode}).
+This command visits the current buffer with @option{sudo} permissions.
+The buffer must either visit a file, or a directory in @code{dired-mode}.
+@end deffn
+
+@kindex @@ @r{(in dired})
+@deffn Command tramp-dired-find-file-with-sudo
+In @code{dired-mode}, visit the file or directory named on this line.
+This is performed with @option{sudo} permissions.
 @end deffn
 
 @defopt tramp-file-name-with-method
-The method @code{tramp-revert-buffer-with-sudo} shows an alternate
-buffer.  It defaults to @option{sudo}, other valid methods are
-@option{su}, @option{doas}, @option{run0}, and @option{ksu}.
+The method used in @code{tramp-revert-buffer-with-sudo} and
+@code{tramp-dired-find-file-with-sudo}.  It defaults to @option{sudo},
+other valid methods are @option{su}, @option{doas}, @option{run0}, and
+@option{ksu}.
 
-@lisp
-(customize-set-variable 'tramp-file-name-with-method "doas")
-@end lisp
+If a command is called with a prefix argument @kbd{C-u}, the option's
+value is read interactively.
 @end defopt
 
 These methods apply the user @samp{root} as default.  If another user
@@ -6790,6 +6809,11 @@ maintainers, analyzing the remote commands for performance analysis.
 @node Variable Index
 @unnumbered Variable Index
 @printindex vr
+
+
+@node Key Index
+@unnumbered Key Index
+@printindex ky
 
 
 @node Concept Index
