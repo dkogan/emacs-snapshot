@@ -4187,6 +4187,21 @@ returns nil."
 
   (let ((frame (window-frame window)))
     (cond
+     ((and tab-bar-mode
+           ;; Fall back to frame handling in case of less than 2 tabs
+           (> (length (funcall tab-bar-tabs-function frame)) 1)
+           ;; Close the tab with the initial window (bug#59862)
+           (or (eq (nth 1 (window-parameter window 'quit-restore)) 'tab)
+               ;; or with the dedicated window (bug#71386)
+               (and (window-dedicated-p window)
+                    (frame-root-window-p window)))
+           ;; Don't close the tab if more windows were created explicitly
+           (< (seq-count (lambda (w)
+                           (memq (car (window-parameter w 'quit-restore))
+                                 '(window tab frame same)))
+                         (window-list-1 nil 'nomini))
+              2))
+      'tab)
      ((frame-root-window-p window)
       ;; WINDOW's frame can be deleted only if there are other frames
       ;; on the same terminal, and it does not contain the active
@@ -5022,6 +5037,10 @@ if WINDOW gets deleted or its frame is auto-hidden."
   (unless (and dedicated-only (not (window-dedicated-p window)))
     (let ((deletable (window-deletable-p window)))
       (cond
+       ((eq deletable 'tab)
+        (tab-bar-close-tab)
+        (message "Tab closed after deleting the last window")
+        'tab)
        ((eq deletable 'frame)
 	(let ((frame (window-frame window)))
 	  (cond
@@ -5388,13 +5407,7 @@ elsewhere.  This value is used by `quit-windows-on'."
       ;; If the previously selected window is still alive, select it.
       (window--quit-restore-select-window quit-restore-2))
      ((and (not prev-buffer)
-	   (eq (nth 1 quit-restore) 'tab)
-	   (eq (nth 3 quit-restore) buffer))
-      (tab-bar-close-tab)
-      ;; If the previously selected window is still alive, select it.
-      (window--quit-restore-select-window quit-restore-2))
-     ((and (not prev-buffer)
-	   (or (eq (nth 1 quit-restore) 'frame)
+	   (or (memq (nth 1 quit-restore) '(frame tab))
 	       (and (eq (nth 1 quit-restore) 'window)
 		    ;; If the window has been created on an existing
 		    ;; frame and ended up as the sole window on that
@@ -6300,6 +6313,22 @@ specific buffers."
     ))
 
 ;;; Window states, how to get them and how to put them in a window.
+
+(defvar window-state-normalize-buffer-name nil
+  "Non-nil means accommodate buffer names under `uniquify' management.
+`uniquify' prefixes and suffixes will be removed.")
+
+(defun window--state-normalize-buffer-name (buffer)
+  "Normalize BUFFER name, accommodating `uniquify'.
+If BUFFER is under `uniquify' management, return its `buffer-name' with
+its prefixes and suffixes removed; otherwise return BUFFER's
+`buffer-name'."
+  (or (and window-state-normalize-buffer-name
+           (fboundp 'uniquify-buffer-base-name)
+           (with-current-buffer buffer
+             (uniquify-buffer-base-name)))
+      (buffer-name buffer)))
+
 (defun window--state-get-1 (window &optional writable)
   "Helper function for `window-state-get'."
   (let* ((type
@@ -6352,7 +6381,8 @@ specific buffers."
 		(let ((point (window-point window))
 		      (start (window-start window)))
 		  `((buffer
-		     ,(if writable (buffer-name buffer) buffer)
+		     ,(if writable (window--state-normalize-buffer-name
+                                    buffer) buffer)
 		     (selected . ,selected)
 		     (hscroll . ,(window-hscroll window))
 		     (fringes . ,(window-fringes window))
@@ -6374,13 +6404,15 @@ specific buffers."
             ,@(when next-buffers
                 `((next-buffers
                    . ,(if writable
-                          (mapcar #'buffer-name next-buffers)
+                          (mapcar #'window--state-normalize-buffer-name
+                                  next-buffers)
                         next-buffers))))
             ,@(when prev-buffers
                 `((prev-buffers
                    . ,(if writable
                           (mapcar (lambda (entry)
-                                    (list (buffer-name (nth 0 entry))
+                                    (list (window--state-normalize-buffer-name
+                                           (nth 0 entry))
                                           (marker-position (nth 1 entry))
                                           (marker-position (nth 2 entry))))
                                   prev-buffers)
@@ -6908,8 +6940,9 @@ WINDOW's buffer (although WINDOW may show BUFFER already).
 TYPE specifies the type of the calling operation and must be one
 of the symbols `reuse' (meaning that WINDOW exists already and
 will be used for displaying BUFFER), `window' (WINDOW was created
-on an already existing frame) or `frame' (WINDOW was created on a
-new frame).
+on an already existing frame), `frame' (WINDOW was created on a
+new frame) or `tab' (WINDOW is the selected window and BUFFER was
+created in a new tab).
 
 This function installs or updates the `quit-restore' parameter of
 WINDOW.  The `quit-restore' parameter is a list of four elements:
@@ -7656,7 +7689,8 @@ as compiled by `display-buffer'.
 TYPE must be one of the following symbols: `reuse' (which means
 WINDOW existed before the call of `display-buffer' and may
 already show BUFFER or not), `window' (WINDOW was created on an
-existing frame) or `frame' (WINDOW was created on a new frame).
+existing frame), `frame' (WINDOW was created on a new frame), or `tab'
+(WINDOW is the selected window and BUFFER was displayed in a new tab).
 TYPE is passed unaltered to `display-buffer-record-window'.
 
 Handle WINDOW's dedicated flag as follows: If WINDOW already
