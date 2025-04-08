@@ -1968,6 +1968,7 @@ a buffer or a string.  But this is deprecated.  */)
   if (FUNCTIONP (source))
     {
       specpdl_ref count = SPECPDL_INDEX ();
+      record_unwind_protect_excursion ();
       record_unwind_protect (save_restriction_restore,
 			     save_restriction_save ());
       Fnarrow_to_region (beg, end);
@@ -2119,7 +2120,6 @@ a buffer or a string.  But this is deprecated.  */)
 
   Fundo_boundary ();
   bool modification_hooks_inhibited = false;
-  record_unwind_protect_excursion ();
 
   /* We are going to make a lot of small modifications, and having the
      modification hooks called for each of them will slow us down.
@@ -3158,6 +3158,9 @@ Return the message.
 
 In batch mode, the message is printed to the standard error stream,
 followed by a newline.
+
+If the variable `inhibit-message' is non-nil, the message is not
+displayed, only logged in the `*Messages*' buffer.
 
 The first argument is a format control string, and the rest are data
 to be formatted under control of the string.  Percent sign (%), grave
