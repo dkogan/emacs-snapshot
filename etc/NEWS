@@ -227,9 +227,9 @@ albeit as a variable, not a user option.
 +++
 *** New functions to modify window layout.
 Several functions to modify the window layout have been added:
-'rotate-window-layout-clockwise', 'rotate-window-layout-anticlockwise',
-'flip-window-layout-vertically', 'flip-window-layout-horizontally',
-'transpose-window-layout', 'rotate-windows', and 'rotate-windows-back'.
+'window-layout-rotate-clockwise', 'window-layout-rotate-anticlockwise',
+'window-layout-flip-topdown', 'window-layout-flip-leftright',
+'window-layout-transpose', 'rotate-windows', and 'rotate-windows-back'.
 
 +++
 *** Windmove commands now move to skipped windows if invoked twice in a row.
@@ -1505,6 +1505,13 @@ behavior or dispense with the prompting.
 These correspond to the existing 'z p' to pop a stash and 'P' to pop the
 stash at point (deleting the stash at point is also bound to C-k).
 
+---
+*** VC-Dir now offers to register files when checking in mixed filesets.
+Previously, if some files to be checked in were unregistered but others
+were added, removed or edited, Emacs would refuse to proceed.
+Now Emacs prompts to first register the unregistered files, so that all
+files in the fileset are in a compatible state for a checkin.
+
 ** Diff mode
 
 +++
@@ -1995,18 +2002,6 @@ multi-language major mode it is sometimes necessary to modify rules from
 one of the major modes to better suit the new multilingual context.
 
 +++
-*** New command 'treesit-explore'.
-This command replaces 'treesit-explore-mode'.  It turns on
-'treesit-explore-mode' if it’s not on, and pops up the explorer buffer
-if it’s already on.
-
-+++
-*** 'treesit-explore-mode' now supports local parsers.
-Now 'treesit-explore-mode' (or 'treesit-explore') prompts for a parser
-rather than a language, and it’s now possible to select a local parser
-at point to explore.
-
-+++
 *** New variable 'treesit-aggregated-simple-imenu-settings'.
 This variable allows major modes to setup Imenu for multiple languages.
 
@@ -2022,6 +2017,23 @@ tree-sitter modes.
 *** New variable 'treesit-simple-indent-override-rules'.
 Users can customize this variable to add simple custom indentation rules
 for tree-sitter major modes.
+
++++
+*** 'treesit-language-at-point-function' is now optional.
+Multi-language major modes can rely on the default return value from
+'treesit-language-at' that uses the new function 'treesit-parsers-at'.
+
++++
+*** New command 'treesit-explore'.
+This command replaces 'treesit-explore-mode'.  It turns on
+'treesit-explore-mode' if it’s not on, and pops up the explorer buffer
+if it’s already on.
+
++++
+*** 'treesit-explore-mode' now supports local parsers.
+Now 'treesit-explore-mode' (or 'treesit-explore') prompts for a parser
+rather than a language, and it’s now possible to select a local parser
+at point to explore.
 
 +++
 ** New optional BUFFER argument for 'string-pixel-width'.
