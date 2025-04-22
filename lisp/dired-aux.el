@@ -490,9 +490,11 @@ List has a form of (file-name full-file-name (attribute-list))."
 (defun dired-do-chmod (&optional arg)
   "Change the mode of the marked (or next ARG) files.
 Both octal numeric modes like `644' and symbolic modes like `g+w'
-are supported.  Type \\<minibuffer-local-completion-map>\
-\\[next-history-element] to pull the file attributes of the file
-at point into the minibuffer.
+are supported.
+After invoking the command, \
+type \\<minibuffer-local-completion-map>\\[next-history-element] \
+to pull the file attributes
+of the file at point into the minibuffer.
 
 See Info node `(coreutils)File permissions' for more information.
 Alternatively, see the man page for \"chmod(1)\".
@@ -541,9 +543,10 @@ has no effect on MS-Windows."
 ;;;###autoload
 (defun dired-do-chgrp (&optional arg)
   "Change the group of the marked (or next ARG) files.
-Type \\<minibuffer-local-completion-map>\\[next-history-element] \
-to pull the file attributes of the file at point
-into the minibuffer."
+After invoking the command, \
+type \\<minibuffer-local-completion-map>\\[next-history-element] \
+to pull the file attributes
+of the file at point into the minibuffer."
   (interactive "P" dired-mode)
   (if (and (memq system-type '(ms-dos windows-nt))
            (not (file-remote-p default-directory)))
@@ -553,9 +556,10 @@ into the minibuffer."
 ;;;###autoload
 (defun dired-do-chown (&optional arg)
   "Change the owner of the marked (or next ARG) files.
-Type \\<minibuffer-local-completion-map>\\[next-history-element] \
-to pull the file attributes of the file at point
-into the minibuffer."
+After invoking the command, \
+type \\<minibuffer-local-completion-map>\\[next-history-element] \
+to pull the file attributes
+of the file at point into the minibuffer."
   (interactive "P" dired-mode)
   (if (and (memq system-type '(ms-dos windows-nt))
            (not (file-remote-p default-directory)))
@@ -566,9 +570,10 @@ into the minibuffer."
 (defun dired-do-touch (&optional arg)
   "Change the timestamp of the marked (or next ARG) files.
 This calls touch.
-Type Type \\<minibuffer-local-completion-map>\\[next-history-element] \
-to pull the file attributes of the file at point
-into the minibuffer."
+After invoking the command, \
+type \\<minibuffer-local-completion-map>\\[next-history-element] \
+to pull the file attributes
+of the file at point into the minibuffer."
   (interactive "P" dired-mode)
   (dired-do-chxxx "Timestamp" dired-touch-program 'touch arg))
 
@@ -2867,13 +2872,33 @@ If DIRECTORY already exists, signal an error."
       (dired-add-file new)
       (dired-move-to-filename))))
 
+(defcustom dired-create-empty-file-in-current-directory nil
+  "Whether `dired-create-empty-file' acts on the current directory.
+If non-nil, `dired-create-empty-file' creates a new empty file and adds
+an entry for it (or its topmost new parent directory if created) under
+the current subdirectory in the Dired buffer by default (otherwise, it
+adds the new file (and new subdirectories if provided) to whichever
+directory the user enters at the prompt).  If nil,
+`dired-create-empty-file' acts on the default directory by default."
+  :type 'boolean
+  :group 'dired
+  :version "31.1")
+
 ;;;###autoload
 (defun dired-create-empty-file (file)
   "Create an empty file called FILE.
-Add a new entry for the new file in the Dired buffer.
 Parent directories of FILE are created as needed.
+Add an entry in the Dired buffer for the topmost new parent
+directory of FILE, if created, otherwise for the new file.
+If user option `dired-create-empty-file-in-current-directory' is
+non-nil, act on the current subdirectory by default, otherwise act on
+the default directory by default.
 If FILE already exists, signal an error."
-  (interactive (list (read-file-name "Create empty file: ")) dired-mode)
+  (interactive
+   (list (read-file-name "Create empty file: "
+                         (and dired-create-empty-file-in-current-directory
+                              (dired-current-directory))))
+   dired-mode)
   (let* ((expanded (expand-file-name file))
          new)
     (if (file-exists-p expanded)
