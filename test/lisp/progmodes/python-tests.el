@@ -5821,6 +5821,15 @@ if width == 0 and height == 0 and \\
    (python-tests-look-at "raise ValueError(")
    (should (python-info-statement-ends-block-p))))
 
+(ert-deftest python-info-statement-ends-block-p-3 ()
+  (python-tests-with-temp-buffer
+   "
+def function():
+    print()  # Comment
+"
+   (python-tests-look-at "print()")
+   (should (python-info-statement-ends-block-p))))
+
 (ert-deftest python-info-beginning-of-statement-p-1 ()
   (python-tests-with-temp-buffer
    "
@@ -5981,6 +5990,15 @@ if width == 0 and height == 0 and \\
    (should (not (python-info-end-of-block-p)))
    (goto-char (point-max))
    (python-util-forward-comment -1)
+   (should (python-info-end-of-block-p))))
+
+(ert-deftest python-info-end-of-block-p-3 ()
+  (python-tests-with-temp-buffer
+   "
+def function():
+    print()  # Comment
+"
+   (python-tests-look-at "  # Comment")
    (should (python-info-end-of-block-p))))
 
 (ert-deftest python-info-dedenter-opening-block-position-1 ()
@@ -7724,26 +7742,44 @@ always located at the beginning of buffer."
 (ert-deftest python-ts-mode-nested-types-face-1 ()
   (python-ts-tests-with-temp-buffer
    "def func(v:dict[ list[ tuple[str] ], int | None] | None):"
-   (dolist (test '("dict" "list" "tuple" "str" "int" "None" "None"))
+    (dolist (test '("dict" "list" "tuple" "str" "int"))
      (search-forward test)
      (goto-char (match-beginning 0))
-     (should (eq (face-at-point) 'font-lock-type-face)))))
+      (should (eq (face-at-point) 'font-lock-type-face)))
+
+    (goto-char (point-min))
+    (dolist (test '("None" "None"))
+      (search-forward test)
+      (goto-char (match-beginning 0))
+      (should (eq (face-at-point) 'font-lock-constant-face)))))
 
 (ert-deftest python-ts-mode-union-types-face-1 ()
   (python-ts-tests-with-temp-buffer
    "def f(val: tuple[tuple, list[Lvl1 | Lvl2[Lvl3[Lvl4[Lvl5 | None]], Lvl2]]]):"
-   (dolist (test '("tuple" "tuple" "list" "Lvl1" "Lvl2" "Lvl3" "Lvl4" "Lvl5" "None" "Lvl2"))
+    (dolist (test '("tuple" "tuple" "list" "Lvl1" "Lvl2" "Lvl3" "Lvl4" "Lvl5" "Lvl2"))
      (search-forward test)
      (goto-char (match-beginning 0))
-     (should (eq (face-at-point) 'font-lock-type-face)))))
+      (should (eq (face-at-point) 'font-lock-type-face)))
+
+    (goto-char (point-min))
+    (dolist (test '("None"))
+      (search-forward test)
+      (goto-char (match-beginning 0))
+      (should (eq (face-at-point) 'font-lock-constant-face)))))
 
 (ert-deftest python-ts-mode-union-types-face-2 ()
   (python-ts-tests-with-temp-buffer
    "def f(val: Type0 | Type1[Type2, pack0.Type3] | pack1.pack2.Type4 | None):"
-   (dolist (test '("Type0" "Type1" "Type2" "Type3" "Type4" "None"))
+    (dolist (test '("Type0" "Type1" "Type2" "Type3" "Type4"))
      (search-forward test)
      (goto-char (match-beginning 0))
      (should (eq (face-at-point) 'font-lock-type-face)))
+
+    (goto-char (point-min))
+    (dolist (test '("None"))
+      (search-forward test)
+      (goto-char (match-beginning 0))
+      (should (eq (face-at-point) 'font-lock-constant-face)))
 
    (goto-char (point-min))
    (dolist (test '("pack0" "pack1" "pack2"))

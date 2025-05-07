@@ -3504,13 +3504,69 @@ same as `substitute-in-file-name'."
           (setq qpos (1- qpos)))
         (cons qpos #'minibuffer-maybe-quote-filename)))))
 
-(defalias 'completion--file-name-table
-  (completion-table-with-quoting #'completion-file-name-table
-                                 #'substitute-in-file-name
-                                 #'completion--sifn-requote)
+(defun completion--sifn-boundaries (string table pred suffix)
+  "Return completion boundaries on file name STRING.
+
+Runs `substitute-in-file-name' on STRING first, but returns completion
+boundaries for the original string."
+  ;; We want to compute the start boundary on the result of
+  ;; `substitute-in-file-name' (since that's what we use for actual completion),
+  ;; and then transform that into an offset in STRING instead.  We can't do this
+  ;; if we expand environment variables, so double the $s to prevent that.
+  (let* ((doubled-string (replace-regexp-in-string "\\$" "$$" string t t))
+         ;; sifn will change $$ back into $, so SIFNED is mostly the
+         ;; same as STRING, with some text deleted.
+         (sifned (substitute-in-file-name doubled-string))
+         (bounds (completion-boundaries sifned table pred suffix))
+         (sifned-start (car bounds))
+         ;; Adjust SIFNED-START to be an offset in STRING instead of in SIFNED.
+         (string-start (+ (- sifned-start (length sifned)) (length string))))
+    ;; The text within the boundaries should be identical.
+    (cl-assert
+     (eq t (compare-strings sifned sifned-start nil string string-start nil))
+     t)
+    ;; No special processing happens on SUFFIX and the end boundary.
+    (cons string-start (cdr bounds))))
+
+(defun completion--file-name-table (orig pred action)
   "Internal subroutine for `read-file-name'.  Do not call this.
 This is a completion table for file names, like `completion-file-name-table'
-except that it passes the file name through `substitute-in-file-name'.")
+except that it passes the file name through `substitute-in-file-name'."
+  (let ((table #'completion-file-name-table))
+    (if (eq (car-safe action) 'boundaries)
+        (cons 'boundaries (completion--sifn-boundaries orig table pred (cdr action)))
+      (let* ((sifned (substitute-in-file-name orig))
+             (result
+              (let ((completion-regexp-list
+                     ;; Regexps are matched against the real file names after
+                     ;; expansion, so regexps containing $ won't work.  Drop
+                     ;; them; we'll return more completions, but callers need to
+                     ;; handle that anyway.
+                     (seq-remove (lambda (regexp) (string-search "$" regexp))
+                                 completion-regexp-list)))
+                (complete-with-action action table sifned pred))))
+        (cond
+         ((null action)                 ; try-completion
+          (if (stringp result)
+              ;; Extract the newly added text, quote any dollar signs, and
+              ;; append it to ORIG.
+              (let ((new-text (substring result (length sifned))))
+                (concat orig (minibuffer--double-dollars new-text)))
+            result))
+         ((eq action t)                 ; all-completions
+          (mapcar
+           (let ((orig-prefix
+                  (substring orig (car (completion--sifn-boundaries orig table pred ""))))
+                 (sifned-prefix-length
+                  (- (length sifned)
+                     (car (completion-boundaries sifned table pred "")))))
+             ;; Extract the newly added text, quote any dollar signs, and append
+             ;; it to the part of ORIG inside the completion boundaries.
+             (lambda (compl)
+               (let ((new-text (substring compl sifned-prefix-length)))
+                 (concat orig-prefix (minibuffer--double-dollars new-text)))))
+           result))
+         (t result))))))
 
 (defalias 'read-file-name-internal
   (completion-table-in-turn #'completion--embedded-envvar-table

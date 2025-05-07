@@ -126,6 +126,13 @@
    '((ERROR) @font-lock-warning-face))
   "Tree-sitter font-lock settings for `yaml-ts-mode'.")
 
+(defvar yaml-ts-mode--font-lock-feature-list
+  '((comment)
+    (string type)
+    (constant escape-sequence number property)
+    (bracket delimiter error misc-punctuation))
+  "Tree-sitter font-lock feature list for `yaml-ts-mode'.")
+
 (defun yaml-ts-mode--fill-paragraph (&optional justify)
   "Fill paragraph.
 Behaves like `fill-paragraph', but respects block node
@@ -134,18 +141,21 @@ boundaries.  JUSTIFY is passed to `fill-paragraph'."
   (save-restriction
     (widen)
     (let ((node (treesit-node-at (point))))
-      (if (member (treesit-node-type node) '("block_scalar" "comment"))
-        (let* ((start (treesit-node-start node))
-               (end (treesit-node-end node))
-               (start-marker (point-marker))
-               (fill-paragraph-function nil))
-          (save-excursion
-            (goto-char start)
-            (forward-line)
-            (move-marker start-marker (point))
-            (narrow-to-region (point) end))
-          (fill-region start-marker end justify))
-        t))))
+      (pcase (treesit-node-type node)
+        ("block_scalar"
+         (let* ((start (treesit-node-start node))
+                (end (treesit-node-end node))
+                (start-marker (point-marker))
+                (fill-paragraph-function nil))
+           (save-excursion
+             (goto-char start)
+             (forward-line)
+             (move-marker start-marker (point))
+             (narrow-to-region (point) end))
+           (fill-region start-marker end justify)))
+        ("comment"
+         (fill-comment-paragraph justify))))
+    t))
 
 (defun yaml-ts-mode--defun-name (node)
   "Return the defun name of NODE.
@@ -155,11 +165,14 @@ Return nil if there is no name or if NODE is not a defun node."
                         node "key")
                        t)))
 
+(defvar yaml-ts-mode--outline-nodes
+  (rx (or "block_mapping_pair" "block_sequence_item"))
+  "Node names for outline headings.")
+
 (defun yaml-ts-mode--outline-predicate (node)
   "Limit outlines to top-level mappings."
-  (let ((regexp (rx (or "block_mapping_pair" "block_sequence_item"))))
-    (when (string-match-p regexp (treesit-node-type node))
-      (not (treesit-node-top-level node regexp)))))
+  (when (string-match-p yaml-ts-mode--outline-nodes (treesit-node-type node))
+    (not (treesit-node-top-level node yaml-ts-mode--outline-nodes))))
 
 ;;;###autoload
 (define-derived-mode yaml-ts-mode text-mode "YAML"
@@ -173,17 +186,14 @@ Return nil if there is no name or if NODE is not a defun node."
     ;; Comments.
     (setq-local comment-start "# ")
     (setq-local comment-end "")
+    (setq-local comment-start-skip "#+\\s-*")
 
     ;; Indentation.
     (setq-local indent-tabs-mode nil)
 
     ;; Font-lock.
     (setq-local treesit-font-lock-settings yaml-ts-mode--font-lock-settings)
-    (setq-local treesit-font-lock-feature-list
-                '((comment)
-                  (string type)
-                  (constant escape-sequence number property)
-                  (bracket delimiter error misc-punctuation)))
+    (setq-local treesit-font-lock-feature-list yaml-ts-mode--font-lock-feature-list)
 
     (setq-local fill-paragraph-function #'yaml-ts-mode--fill-paragraph)
 
