@@ -118,10 +118,10 @@ index ea05fe6..c2ca077 100644
  
  $(UNINSTALL_DOC):
 diff --git a/configure.ac b/configure.ac
-index eeb5f40..9f99bd7 100644
+index fddb2b9..35f57d1 100644
 --- a/configure.ac
 +++ b/configure.ac
-@@ -7716,11 +7716,10 @@ ARCH_INDEPENDENT_CONFIG_FILES([$srcdir/doc/man/emacs.1])
+@@ -7721,11 +7721,10 @@ ARCH_INDEPENDENT_CONFIG_FILES([$srcdir/doc/man/emacs.1])
  
  AC_CONFIG_FILES([lib/Makefile lib-src/Makefile oldXMenu/Makefile src/Makefile
                   lwlib/Makefile nextstep/Makefile nt/Makefile])
@@ -135,7 +135,7 @@ index eeb5f40..9f99bd7 100644
  
  dnl The test/ directory is missing if './make-dist --no-tests' was used.
  opt_makefile=test/Makefile
-@@ -7792,15 +7791,6 @@ if test "$XCONFIGURE" != "android"; then
+@@ -7797,15 +7796,6 @@ if test "$XCONFIGURE" != "android"; then
    fi
    ])
  
