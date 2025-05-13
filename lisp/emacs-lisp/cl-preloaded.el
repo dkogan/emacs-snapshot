@@ -465,6 +465,67 @@ The fields are used as follows:
   (setf (cl--class-parents (cl--find-class 'cl-structure-object))
       (list (cl--find-class 'record))))
 
+;;;; Support for `cl-deftype'.
+
+(defvar cl--derived-type-list nil
+  "Precedence list of the defined cl-types.")
+
+;; FIXME: The `cl-deftype-handler' property should arguably be turned
+;; into a field of this struct (but it has performance and
+;; compatibility implications, so let's not make that change for now).
+(cl-defstruct
+    (cl-derived-type-class
+     (:include cl--class)
+     (:noinline t)
+     (:constructor nil)
+     (:constructor cl--derived-type-class-make
+                   (name
+                    docstring
+                    parent-types
+                    &aux (parents
+                          (mapcar
+                           (lambda (type)
+                             (or (cl--find-class type)
+                                 (error "Unknown type: %S" type)))
+                           parent-types))))
+     (:copier nil))
+  "Type descriptors for derived types, i.e. defined by `cl-deftype'.")
+
+(defun cl--define-derived-type (name expander predicate &optional parents)
+  "Register derived type with NAME for method dispatching.
+EXPANDER is the function that computes the type specifier from
+the arguments passed to the derived type.
+PREDICATE is the precomputed function to test this type when used as an
+atomic type, or nil if it cannot be used as an atomic type.
+PARENTS is a list of types NAME is a subtype of, or nil."
+  (let* ((class (cl--find-class name)))
+    (when class
+      (or (cl-derived-type-class-p class)
+          ;; FIXME: We have some uses `cl-deftype' in Emacs that
+          ;; "complement" another declaration of the same type,
+          ;; so maybe we should turn this into a warning (and
+          ;; not overwrite the `cl--find-class' in that case)?
+          (error "Type %S already in another class: %S" name (type-of class))))
+    ;; Setup a type descriptor for NAME.
+    (setf (cl--find-class name)
+          (cl--derived-type-class-make name (function-documentation expander)
+                                       parents))
+    (define-symbol-prop name 'cl-deftype-handler expander)
+    (when predicate
+      (define-symbol-prop name 'cl-deftype-satisfies predicate)
+      ;; If the type can be used without arguments, record it for
+      ;; use by `cl-types-of'.
+      ;; The order in `cl--derived-type-list' is important, but the
+      ;; constructor of the class `cl-type-class' already ensures that
+      ;; parent types must be defined before their "child" types
+      ;; (i.e. already added to the `cl--derived-type-list' for types
+      ;; defined with `cl-deftype').  So it is enough to simply push
+      ;; a new type at the beginning of the list.
+      ;; Redefinition is a can of worms anyway, so we don't try to be clever
+      ;; in that case.
+      (or (memq name cl--derived-type-list)
+          (push name cl--derived-type-list)))))
+
 ;; Make sure functions defined with cl-defsubst can be inlined even in
 ;; packages which do not require CL.  We don't put an autoload cookie
 ;; directly on that function, since those cookies only go to cl-loaddefs.
