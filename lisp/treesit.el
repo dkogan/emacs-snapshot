@@ -3978,8 +3978,9 @@ by `treesit-simple-imenu-settings'."
       (lambda (entry)
         (let* ((lang (car entry))
                (settings (cdr entry))
-               (global-parser (car (treesit-parsers-at nil lang nil '(primary global))))
-               (local-parsers (treesit-local-parsers-at nil lang)))
+               (global-parser (car (treesit-parser-list nil lang)))
+               (local-parsers
+                (treesit-parser-list nil lang 'embedded)))
           (cons (treesit-language-display-name lang)
                 ;; No one says you can't have both global and local
                 ;; parsers for the same language.  E.g., Rust uses
@@ -4296,7 +4297,7 @@ instead of emitting a warning."
         (pcase-let ((`(,available . ,err)
                      (treesit-language-available-p lang t)))
           (when (not available)
-            (setq msg (format "language grammar for %s is unavailable (%s): %s"
+            (setq msg (format "language grammar for %s failed to load (%s): %s"
                               lang (nth 0 err)
                               (string-join
                                (mapcar (lambda (x) (format "%s" x))
