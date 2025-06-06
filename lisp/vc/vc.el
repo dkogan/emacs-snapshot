@@ -357,6 +357,12 @@
 ;;   Insert in BUFFER the revision log for the changes that will be
 ;;   received when performing a pull operation from REMOTE-LOCATION.
 ;;
+;; * incoming-revision (remote-location)
+;;
+;;   Return revision at the head of the branch at REMOTE-LOCATION.
+;;   If there is no such branch there, return nil.  (Should signal an
+;;   error, not return nil, in the case that fetching data fails.)
+;;
 ;; - log-search (buffer pattern)
 ;;
 ;;   Search for PATTERN in the revision log and output results into BUFFER.
@@ -1019,6 +1025,26 @@ Not supported by all backends."
   :type 'boolean
   :safe #'booleanp
   :version "31.1")
+
+(defvar vc-async-checkin-backends '(Git Hg)
+  "Backends which support `vc-async-checkin'.")
+
+(defmacro vc--with-backend-in-rootdir (desc &rest body)
+  (declare (indent 1) (debug (sexp sexp body)))
+  ;; Intentionally capture `backend' and `rootdir':
+  ;; no need to keep repeating them.
+  `(let ((backend (vc-deduce-backend))
+         (default-directory default-directory)
+	 rootdir)
+     (if backend
+	 (setq rootdir (vc-call-backend backend 'root default-directory))
+       (setq rootdir
+             (read-directory-name ,(format "Directory for %s: " desc)))
+       (setq backend (vc-responsible-backend rootdir))
+       (unless backend
+         (error "Directory is not version controlled")))
+     (setq default-directory rootdir)
+     ,@body))
 
 
 ;; File property caching
@@ -1868,43 +1894,49 @@ The optional argument PATCH-STRING is a string to check in as a patch.
 
 Runs the normal hooks `vc-before-checkin-hook' and `vc-checkin-hook'."
   (run-hooks 'vc-before-checkin-hook)
-  (vc-start-logentry
-   files comment initial-contents
-   "Enter a change comment."
-   "*vc-log*"
-   (lambda ()
-     (vc-call-backend backend 'log-edit-mode))
-   (lambda (files comment)
-     ;; "This log message intentionally left almost blank".
-     ;; RCS 5.7 gripes about whitespace-only comments too.
-     (unless (and comment (string-match "[^\t\n ]" comment))
-       (setq comment "*** empty log message ***"))
-     (cl-labels ((do-it ()
-                   ;; We used to change buffers to get local value of
-                   ;; `vc-checkin-switches', but the (singular) local
-                   ;; buffer is not well defined for filesets.
-                   (if patch-string
-                       (vc-call-backend backend 'checkin-patch
-                                        patch-string comment)
-                     (vc-call-backend backend 'checkin
-                                      files comment rev))
-                   (mapc #'vc-delete-automatic-version-backups files)))
-       (if (and vc-async-checkin
-                ;; Backends which support `vc-async-checkin'.
-                (memq backend '(Git Hg)))
-           ;; Rely on `vc-set-async-update' to update properties.
-           (do-it)
-         (message "Checking in %s..." (vc-delistify files))
-         (with-vc-properties files (do-it)
-                             `((vc-state . up-to-date)
-                               (vc-checkout-time
-                                . ,(file-attribute-modification-time
-			            (file-attributes file)))
-                               (vc-working-revision . nil)))
-         (message "Checking in %s...done" (vc-delistify files)))))
-   'vc-checkin-hook
-   backend
-   patch-string))
+  (let ((do-async (and vc-async-checkin
+                       (memq backend vc-async-checkin-backends))))
+   (vc-start-logentry
+    files comment initial-contents
+    "Enter a change comment."
+    "*vc-log*"
+    (lambda ()
+      (vc-call-backend backend 'log-edit-mode))
+    (lambda (files comment)
+      ;; "This log message intentionally left almost blank".
+      ;; RCS 5.7 gripes about whitespace-only comments too.
+      (unless (and comment (string-match "[^\t\n ]" comment))
+        (setq comment "*** empty log message ***"))
+      (cl-labels ((do-it ()
+                    ;; We used to change buffers to get local value of
+                    ;; `vc-checkin-switches', but the (singular) local
+                    ;; buffer is not well defined for filesets.
+                    (if patch-string
+                        (vc-call-backend backend 'checkin-patch
+                                         patch-string comment)
+                      (vc-call-backend backend 'checkin
+                                       files comment rev))
+                    (mapc #'vc-delete-automatic-version-backups files)))
+        (if do-async
+            ;; Rely on `vc-set-async-update' to update properties.
+            (do-it)
+          (message "Checking in %s..." (vc-delistify files))
+          (with-vc-properties files (do-it)
+                              `((vc-state . up-to-date)
+                                (vc-checkout-time
+                                 . ,(file-attribute-modification-time
+			             (file-attributes file)))
+                                (vc-working-revision . nil)))
+          (message "Checking in %s...done" (vc-delistify files)))))
+
+    ;; FIXME: In the async case we need the hook to be added to the
+    ;; buffer with the checkin process, using `vc-run-delayed'.  Ideally
+    ;; the identity of that buffer would be exposed to this code,
+    ;; somehow, so we could always handle running the hook up here.
+    (and (not do-async) 'vc-checkin-hook)
+
+    backend
+    patch-string)))
 
 (defun vc-default-checkin-patch (_backend patch-string comment)
   (pcase-let* ((`(,backend ,files) (with-temp-buffer
@@ -2291,20 +2323,10 @@ state of each file in the fileset."
   ;; This is a mix of `vc-root-diff' and `vc-version-diff'
   (when (and (not rev1) rev2)
     (error "Not a valid revision range"))
-  (let ((backend (vc-deduce-backend))
-        (default-directory default-directory)
-        rootdir)
-    (if backend
-        (setq rootdir (vc-call-backend backend 'root default-directory))
-      (setq rootdir (read-directory-name "Directory for VC root-diff: "))
-      (setq backend (vc-responsible-backend rootdir))
-      (if backend
-          (setq default-directory rootdir)
-        (error "Directory is not version controlled")))
+  (vc--with-backend-in-rootdir "VC root-diff"
     (let ((default-directory rootdir))
-      (vc-diff-internal
-       t (list backend (list rootdir)) rev1 rev2
-       (called-interactively-p 'interactive)))))
+      (vc-diff-internal t (list backend (list rootdir)) rev1 rev2
+                        (called-interactively-p 'interactive)))))
 
 ;;;###autoload
 (defun vc-diff (&optional historic not-essential fileset)
@@ -2370,21 +2392,11 @@ The merge base is a common ancestor between REV1 and REV2 revisions."
           (list backend (list (vc-call-backend backend 'root default-directory)))))))
   (when (and (not rev1) rev2)
     (error "Not a valid revision range"))
-  (let ((backend (vc-deduce-backend))
-        (default-directory default-directory)
-        rootdir)
-    (if backend
-        (setq rootdir (vc-call-backend backend 'root default-directory))
-      (setq rootdir (read-directory-name "Directory for VC root-diff: "))
-      (setq backend (vc-responsible-backend rootdir))
-      (if backend
-          (setq default-directory rootdir)
-        (error "Directory is not version controlled")))
+  (vc--with-backend-in-rootdir "VC root-diff"
     (let ((default-directory rootdir)
           (rev1 (vc-call-backend backend 'mergebase rev1 rev2)))
-      (vc-diff-internal
-       t (list backend (list rootdir)) rev1 rev2
-       (called-interactively-p 'interactive)))))
+      (vc-diff-internal t (list backend (list rootdir)) rev1 rev2
+                        (called-interactively-p 'interactive)))))
 
 (declare-function ediff-load-version-control "ediff" (&optional silent))
 (declare-function ediff-vc-internal "ediff-vers"
@@ -2452,16 +2464,7 @@ saving the buffer."
   (if historic
       ;; We want the diff for the VC root dir.
       (call-interactively 'vc-root-version-diff)
-    (let ((backend (vc-deduce-backend))
-	  (default-directory default-directory)
-	  rootdir)
-      (if backend
-	  (setq rootdir (vc-call-backend backend 'root default-directory))
-	(setq rootdir (read-directory-name "Directory for VC root-diff: "))
-	(setq backend (vc-responsible-backend rootdir))
-	(if backend
-	    (setq default-directory rootdir)
-	  (error "Directory is not version controlled")))
+    (vc--with-backend-in-rootdir "VC root-diff"
       ;; VC diff for the root directory produces output that is
       ;; relative to it.  Bind default-directory to the root directory
       ;; here, this way the *vc-diff* buffer is setup correctly, so
@@ -3047,7 +3050,7 @@ LIMIT can also be a string, which means the revision before which to stop."
   (let* ((dir-present (cl-some #'file-directory-p files))
          (shortlog (not (null (memq (if dir-present 'directory 'file)
                                     vc-log-short-style))))
-	(buffer-name "*vc-change-log*")
+	 (buffer-name "*vc-change-log*")
          (type (or type (if shortlog 'short 'long))))
       (vc-log-internal-common
        backend buffer-name files type
@@ -3078,7 +3081,7 @@ LIMIT can also be a string, which means the revision before which to stop."
            (vc-call-backend bk 'show-log-entry working-revision)))
        (lambda (_ignore-auto _noconfirm)
 	 (vc-print-log-internal backend files working-revision
-                              is-start-revision limit type)))))
+                                is-start-revision limit type)))))
 
 (defvar vc-log-view-type nil
   "Set this to record the type of VC log shown in the current buffer.
@@ -3211,23 +3214,14 @@ with its diffs (if the underlying VCS backend supports that)."
        (list lim)))
     (t
      (list (when (> vc-log-show-limit 0) vc-log-show-limit)))))
-  (let* ((backend (vc-deduce-backend))
-	 (default-directory default-directory)
-	 (with-diff (and (eq limit 1) revision))
-	 (vc-log-short-style (unless with-diff vc-log-short-style))
-	 rootdir)
-    (if backend
-	(setq rootdir (vc-call-backend backend 'root default-directory))
-      (setq rootdir (read-directory-name "Directory for VC revision log: "))
-      (setq backend (vc-responsible-backend rootdir))
-      (unless backend
-        (error "Directory is not version controlled")))
-    (setq default-directory rootdir)
-    (vc-print-log-internal backend (list rootdir) revision revision limit
-                           (when with-diff 'with-diff))
-    ;; We're looking at the root, so displaying " from <some-file>" in
-    ;; the mode line isn't helpful.
-    (setq vc-parent-buffer-name nil)))
+  (vc--with-backend-in-rootdir "VC revision log"
+    (let* ((with-diff (and (eq limit 1) revision))
+           (vc-log-short-style (and (not with-diff) vc-log-short-style)))
+      (vc-print-log-internal backend (list rootdir) revision revision limit
+                             (and with-diff 'with-diff))
+      ;; We're looking at the root, so displaying " from <some-file>" in
+      ;; the mode line isn't helpful.
+      (setq vc-parent-buffer-name nil))))
 
 ;;;###autoload
 (defun vc-print-branch-log (branch)
@@ -3254,9 +3248,7 @@ In some version control systems REMOTE-LOCATION can be a remote branch name."
   (interactive
    (when current-prefix-arg
      (list (read-string "Remote location/branch (empty for default): "))))
-  (let ((backend (vc-deduce-backend)))
-    (unless backend
-      (error "Buffer is not version controlled"))
+  (vc--with-backend-in-rootdir "VC root-log"
     (vc-incoming-outgoing-internal backend (or remote-location "")
                                    "*vc-incoming*" 'log-incoming)))
 
@@ -3268,9 +3260,7 @@ In some version control systems REMOTE-LOCATION can be a remote branch name."
   (interactive
    (when current-prefix-arg
      (list (read-string "Remote location/branch (empty for default): "))))
-  (let ((backend (vc-deduce-backend)))
-    (unless backend
-      (error "Buffer is not version controlled"))
+  (vc--with-backend-in-rootdir "VC root-log"
     (vc-incoming-outgoing-internal backend (or remote-location "")
                                    "*vc-outgoing*" 'log-outgoing)))
 
@@ -3304,16 +3294,7 @@ The merge base is a common ancestor of revisions REV1 and REV2."
     (or (ignore-errors (vc-deduce-fileset t))
         (let ((backend (or (vc-deduce-backend) (vc-responsible-backend default-directory))))
           (list backend (list (vc-call-backend backend 'root default-directory)))))))
-  (let ((backend (vc-deduce-backend))
-	(default-directory default-directory)
-	rootdir)
-    (if backend
-	(setq rootdir (vc-call-backend backend 'root default-directory))
-      (setq rootdir (read-directory-name "Directory for VC root-log: "))
-      (setq backend (vc-responsible-backend rootdir))
-      (unless backend
-        (error "Directory is not version controlled")))
-    (setq default-directory rootdir)
+  (vc--with-backend-in-rootdir "VC root-log"
     (setq rev1 (vc-call-backend backend 'mergebase rev1 rev2))
     (vc-print-log-internal backend (list rootdir) rev1 t (or rev2 ""))))
 

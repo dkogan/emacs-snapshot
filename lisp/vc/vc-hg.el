@@ -1186,7 +1186,8 @@ It is based on `log-edit-mode', and has Hg-specific extensions.")
 (defun vc-hg-checkin (files comment &optional _rev)
   "Hg-specific version of `vc-backend-checkin'.
 REV is ignored."
-  (let ((args (nconc (list "commit" "-m")
+  (let ((parent (current-buffer))
+        (args (nconc (list "commit" "-m")
                      (vc-hg--extract-headers comment))))
     (if vc-async-checkin
         (let ((buffer (vc-hg--async-buffer)))
@@ -1195,12 +1196,16 @@ REV is ignored."
            "Finishing checking in files...")
           (with-current-buffer buffer
             (vc-run-delayed
-              (vc-compilation-mode 'hg)))
+              (vc-compilation-mode 'hg)
+              (when (buffer-live-p parent)
+                (with-current-buffer parent
+                  (run-hooks 'vc-checkin-hook)))))
           (vc-set-async-update buffer))
       (apply #'vc-hg-command nil 0 files args))))
 
 (defun vc-hg-checkin-patch (patch-string comment)
-  (let ((patch-file (make-temp-file "hg-patch")))
+  (let ((parent (current-buffer))
+        (patch-file (make-temp-file "hg-patch")))
     (write-region patch-string nil patch-file)
     (unwind-protect
         (let ((args (list "update"
@@ -1214,7 +1219,10 @@ REV is ignored."
                 (apply #'vc-hg--async-command buffer args)
                 (with-current-buffer buffer
                   (vc-run-delayed
-                    (vc-compilation-mode 'hg)))
+                    (vc-compilation-mode 'hg)
+                    (when (buffer-live-p parent)
+                       (with-current-buffer parent
+                         (run-hooks 'vc-checkin-hook)))))
                 (vc-set-async-update buffer))
             (apply #'vc-hg-command nil 0 nil args)))
       (delete-file patch-file))))
@@ -1452,13 +1460,26 @@ This runs the command \"hg summary\"."
 
 (defun vc-hg-log-incoming (buffer remote-location)
   (vc-setup-buffer buffer)
-  (vc-hg-command buffer 1 nil "incoming" "-n" (unless (string= remote-location "")
-						remote-location)))
+  (vc-hg-command buffer 1 nil "incoming" "-n"
+                 (and (not (string-empty-p remote-location))
+		      remote-location)))
+
+(defun vc-hg-incoming-revision (remote-location)
+  (let ((output (with-output-to-string
+                  ;; Exits 1 to mean nothing to pull.
+                  (vc-hg-command standard-output 1 nil
+                                 "incoming" "-qn" "--limit=1"
+                                 "--template={node}"
+                                 (and (not (string-empty-p remote-location))
+		                      remote-location)))))
+    (and (not (string-empty-p output))
+         output)))
 
 (defun vc-hg-log-outgoing (buffer remote-location)
   (vc-setup-buffer buffer)
-  (vc-hg-command buffer 1 nil "outgoing" "-n" (unless (string= remote-location "")
-						remote-location)))
+  (vc-hg-command buffer 1 nil "outgoing" "-n"
+                 (and (not (string-empty-p remote-location))
+		      remote-location)))
 
 (defvar vc-hg-error-regexp-alist
   '(("^M \\(.+\\)" 1 nil nil 0))
