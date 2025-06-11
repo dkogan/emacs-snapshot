@@ -483,6 +483,14 @@ setting is an alternative to 'help-at-pt-display-when-idle'.
 Customize this to nil to disable starting new asynchronous native
 compilations while AC power is not connected.
 
+** New user option 'show-paren-not-in-comments-or-strings'.
+If this option is non-nil, it tells 'show-paren-mode' not to highlight
+the parens that are inside comments and strings.  If set to 'all',
+'show-paren-mode' will never highlight parens that are inside comments
+or strings.  If set to 'on-mismatch', mismatched parens inside comments
+and strings will not be highlighted.  If set to nil (the default),
+highlight the parens wherever they are.
+
 
 * Editing Changes in Emacs 31.1
 
@@ -1775,6 +1783,27 @@ were added, removed or edited, Emacs would refuse to proceed.
 Now Emacs prompts to first register the unregistered files, so that all
 files in the fileset are in a compatible state for a checkin.
 
++++
+*** 'C-x v v' handles missing and removed files more consistently.
+Missing files are those which have been removed from the filesystem but
+are still tracked by version control.  Removed files are those scheduled
+to be removed from version control in the next commit.  Previously,
+different backends were inconsistent about applying these statuses to
+files, and 'C-x v v' behaved subtly differently for the two statuses.
+The combination of these differences between backends and in 'C-x v v'
+behavior was confusing.  Now,
+
+- the Git backend properly marks files as missing if you just delete
+  them instead of using 'C-x v x'
+- in VC-Dir, you can use 'C-x v v' on missing files to mark them as
+  removed
+- when committing, you can include missing files in a set of files with
+  different statuses, just like you've always been able to include
+  removed files.
+
+There is still some further work to do to rationalize VC's handling of
+file removal.
+
 ---
 *** New user option 'vc-dir-hide-up-to-date-on-revert'.
 If you customize this variable to non-nil, the 'g' command to refresh
@@ -1808,6 +1837,12 @@ This replaces and generalizes the old 'vc-annotate-parent-rev'.
 
 ---
 *** vc-dav.el is now obsolete.
+
+---
+*** The 'log-incoming' and 'log-outgoing' functions are deprecated.
+Backend authors should implement the 'incoming-revision' and 'mergebase'
+backend functions instead.  These are jointly sufficient to support the
+'C-x v I' and 'C-x v O' commands.
 
 ** Diff mode
 
@@ -1855,6 +1890,13 @@ the command will only copy those files.
 
 +++
 *** package-x.el is now obsolete.
+
+
+** RCIRC
+
++++
+*** Authentication via NickServ can access password from 'auth-source'
+For details, consult 'rcirc-authinfo'.
 
 ** Xref
 
@@ -2050,6 +2092,13 @@ This option tells 'flash-face-bell-function' which faces should flash.
 This option tells 'flash-face-bell-function' and
 'flash-echo-area-bell-function' which face attributes should be used
 for flash.
+
++++
+*** 'face-all-attributes' now accepts an optional argument INHERIT.
+It has the same meaning as the INHERIT argument to 'face-attribute',
+which already takes this argument for a single attribute.  This is
+useful when you want the face attributes to be absolute and not
+'unspecified'.
 
 ---
 ** Flymake
@@ -2365,6 +2414,12 @@ Now overlays can also have this property, with the same effect for the
 text "covered" by the overlay.
 
 +++
+** New function 'remove-display-text-property'.
+This function removes a display property from the specified region of
+text, preserving any other display properties already set for that
+region.
+
++++
 ** New macro 'cond*'.
 The new macro 'cond*' is an alternative to 'cond' and 'pcase'.
 Like them, it can be used to define several clauses, each one with its
@@ -2393,12 +2448,15 @@ will be calculated based on the window width.
 
 +++
 ** New symbol property 'repeat-continue' for 'repeat-mode'.
-A command with this symbol property whose value is a list of repeat
-maps will not activate the repeat map in 'repeat-mode'.  It will only
-continue the already activated repeating sequence.  Also 'defvar-keymap'
-supports a new keyword ':continue' with a list of commands that only
-continue the active repeating sequence, and the 'use-package' and
-'bind-keys' macros support a similar keyword ':continue-only'.
+A command with the 'repeat-continue' symbol property, which can be a
+list of keymaps or t, will continue an already active repeating sequence
+for a keymap in that list (resp. all keymaps).  The new property does
+not affect whether the command starts a repeating sequence, which
+remains governed by the 'repeat-map' property.  'defvar-keymap' supports
+a new keyword ':continue', a list of commands, and adds the keymap to
+the 'repeat-continue' property of each command in that list.  The
+'use-package' and 'bind-keys' macros support a similar keyword
+':continue-only'.
 
 ** New function 'completion-table-with-metadata'.
 It offers a more concise way to create a completion table with metadata.
