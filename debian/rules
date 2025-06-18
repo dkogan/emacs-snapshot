@@ -157,6 +157,12 @@ nonpersistent_autogen_install_files := \
   debian/$(flavor)-nox.menu \
   debian/$(flavor)-nox.postinst \
   debian/$(flavor)-nox.prerm \
+  debian/$(flavor)-pgtk.README.Debian \
+  debian/$(flavor)-pgtk.desktop \
+  debian/$(flavor)-pgtk.lintian-overrides \
+  debian/$(flavor)-pgtk.menu \
+  debian/$(flavor)-pgtk.postinst \
+  debian/$(flavor)-pgtk.prerm \
   debian/$(flavor)-lucid.README.Debian \
   debian/$(flavor)-lucid.desktop \
   debian/$(flavor)-lucid.lintian-overrides \
@@ -188,11 +194,13 @@ pkgdir_common := $(CURDIR)/debian/$(flavor)-common
 pkgdir_bin_common := $(CURDIR)/debian/$(flavor)-bin-common
 pkgdir_x := $(CURDIR)/debian/$(flavor)
 pkgdir_nox := $(CURDIR)/debian/$(flavor)-nox
+pkgdir_pgtk := $(CURDIR)/debian/$(flavor)-pgtk
 pkgdir_lucid := $(CURDIR)/debian/$(flavor)-lucid
 pkgdir_el := $(CURDIR)/debian/$(flavor)-el
 
 install_dir_x := $(CURDIR)/debian/install-x
 install_dir_nox := $(CURDIR)/debian/install-nox
+install_dir_pgtk := $(CURDIR)/debian/install-pgtk
 install_dir_lucid := $(CURDIR)/debian/install-lucid
 
 local_lpath := /etc/$(flavor):/etc/emacs
@@ -265,6 +273,9 @@ debian/$(flavor).%: pkg_name := $(flavor)
 debian/$(flavor)-nox.%: xsupport := "nox"
 debian/$(flavor)-nox.%: pkg_name := $(flavor)-nox
 
+debian/$(flavor)-pgtk.%: xsupport := "pgtk"
+debian/$(flavor)-pgtk.%: pkg_name := $(flavor)-pgtk
+
 debian/$(flavor)-lucid.%: xsupport := "lucid"
 debian/$(flavor)-lucid.%: pkg_name := $(flavor)-lucid
 
@@ -287,6 +298,9 @@ debian/$(flavor).%: debian/emacsVER.% debian/changelog
 	$(call deb_sub,$<,$@)
 
 debian/$(flavor)-nox.%: debian/emacsVER.% debian/changelog
+	$(call deb_sub,$<,$@)
+
+debian/$(flavor)-pgtk.%: debian/emacsVER.% debian/changelog
 	$(call deb_sub,$<,$@)
 
 debian/$(flavor)-lucid.%: debian/emacsVER.% debian/changelog
@@ -344,6 +358,10 @@ confflags_nox += --with-x=no
 confflags_nox += --without-gconf
 confflags_nox += --without-gsettings
 
+# pgtk configure flags
+confflags_pgtk := $(confflags) 
+confflags_pgtk += --with-pgtk
+
 # lucid configure flags
 confflags_lucid := $(confflags)
 confflags_lucid += --with-x=yes
@@ -376,11 +394,13 @@ override_dh_auto_configure: debian/setup-stamp
 	cp -a /usr/share/misc/config.sub .
 	$(call cfg_tree,debian/build-x,$(confflags_x))
 	$(call cfg_tree,debian/build-nox,$(confflags_nox))
+	$(call cfg_tree,debian/build-pgtk,$(confflags_pgtk))
 	$(call cfg_tree,debian/build-lucid,$(confflags_lucid))
 
 override_dh_auto_build: $(autogen_build_files)
 	$(call build_cmd,debian/build-x)
 	$(call build_cmd,debian/build-nox)
+	$(call build_cmd,debian/build-pgtk)
 	$(call build_cmd,debian/build-lucid)
 
 define install_common_binpkg_bits
@@ -406,11 +426,12 @@ endef
 
 override_dh_auto_install: $(autogen_install_files)
 	rm -rf \
-	  $(install_dir_x) $(install_dir_nox) $(install_dir_lucid) \
+	  $(install_dir_x) $(install_dir_nox) $(install_dir_pgtk) $(install_dir_lucid) \
 	  $(pkgdir_common)/* \
 	  $(pkgdir_bin_common)/* \
 	  $(pkgdir_x)/* \
 	  $(pkgdir_nox)/* \
+	  $(pkgdir_pgtk)/* \
 	  $(pkgdir_lucid)/* \
 	  $(pkgdir_el)/*
 
@@ -601,6 +622,25 @@ override_dh_auto_install: $(autogen_install_files)
         endif
 
         ##################################################
+        # emacsXY-pgtk
+        ifneq (,$(findstring $(flavor)-pgtk, $(shell dh_listpackages)))
+	  $(call emacs_inst,build-pgtk,$(install_dir_pgtk))
+	  $(call install_common_binpkg_bits,\
+	    $(install_dir_pgtk),$(pkgdir_pgtk),$(flavor)-pgtk,pgtk)
+	  install -d $(pkgdir_pgtk)/usr/lib/emacs/$(runtime_ver)/$(target)
+	  cp -a $(install_dir_pgtk)/usr/lib/emacs/$(runtime_ver)/$(target)/emacs*.pdmp $(pkgdir_pgtk)/usr/lib/emacs/$(runtime_ver)/$(target)
+	  $(if $(NO_NATIVE_COMP),,cp -a $(install_dir_pgtk)/usr/lib/emacs/$(runtime_ver)/native-lisp $(pkgdir_pgtk)/usr/lib/emacs/$(runtime_ver))
+
+          # install desktop entry
+	  install -d $(pkgdir_pgtk)/usr/share/applications
+	  install -m 0644 \
+	    debian/$(flavor)-pgtk.desktop \
+	    $(pkgdir_pgtk)/usr/share/applications/
+	  rm -rf $(install_dir_pgtk)
+
+        endif
+
+        ##################################################
         # emacsXY-lucid
         ifneq (,$(findstring $(flavor)-lucid, $(shell dh_listpackages)))
 	  $(call emacs_inst,build-lucid,$(install_dir_lucid))
@@ -633,6 +673,7 @@ override_dh_auto_install: $(autogen_install_files)
         # final cleanup
 	rm -rf $(install_dir_x)
 	rm -rf $(install_dir_nox)
+	rm -rf $(install_dir_pgtk)
 	rm -rf $(install_dir_lucid)
 
 override_dh_testdir:
@@ -649,11 +690,13 @@ override_dh_clean: $(persistent_autogen_files)
 	  configure \
 	  debian/*-stamp \
 	  debian/build-lucid \
+	  debian/build-pgtk \
 	  debian/build-nox \
 	  debian/build-x \
 	  debian/emacsVER-common.README.00 \
 	  debian/emacsVER-common.README.01 \
 	  debian/install-lucid \
+	  debian/install-pgtk \
 	  debian/install-nox \
 	  debian/install-x \
 	 	  src/stamp-h1 src/stamp-h.in
