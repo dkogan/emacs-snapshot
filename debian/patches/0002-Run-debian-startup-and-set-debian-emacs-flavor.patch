@@ -14,10 +14,13 @@ Emacs runs debian-startup and sets debian-emacs-flavor.
  1 file changed, 14 insertions(+), 4 deletions(-)
 
 diff --git a/lisp/startup.el b/lisp/startup.el
-index 3d38f68..c360cf9 100644
+index 030139b3c53..870fa48cb66 100644
 --- a/lisp/startup.el
 +++ b/lisp/startup.el
-@@ -434,6 +434,10 @@ from being initialized."
+@@ -432,12 +432,16 @@ from being initialized."
+   (file-name-as-directory (expand-file-name "tutorials" data-directory))
+   "Directory containing the Emacs TUTORIAL files."
+   :group 'installation
    :type 'directory
    :initialize #'custom-initialize-delay)
  
@@ -28,25 +31,31 @@ index 3d38f68..c360cf9 100644
  (defun normal-top-level-add-subdirs-to-load-path ()
    "Recursively add all subdirectories of `default-directory' to `load-path'.
  More precisely, this uses only the subdirectories whose names
-@@ -1544,11 +1548,17 @@ please check its value")
-     ;; be loaded from site-run-file and wants to test if -q was given
-     ;; should check init-file-user instead, since that is already set.
-     ;; See cus-edit.el for an example.
-+
-+    ;; Debian startup
-     (if site-run-file
--        ;; Sites should not disable the startup screen.
--        ;; Only individuals should disable the startup screen.
--        (let ((inhibit-startup-screen inhibit-startup-screen))
--	  (load site-run-file t t)))
-+        (progn
-+          ;; Load all the debian package snippets.
-+          ;; It's in here because we want -q to kill it too.
-+          (if (load "debian-startup" t t nil)
-+              (debian-startup debian-emacs-flavor))
-+          ;; Now the normal site file...
-+          (let ((inhibit-startup-screen inhibit-startup-screen))
-+            (load site-run-file t t))))
+ start with letters or digits; it excludes any subdirectory named `RCS'
+ or `CVS', and any subdirectory that contains a file named `.nosearch'."
+   (let (dirs
+@@ -1434,16 +1438,20 @@ please check its value")
+   ;; This certainly has to come before loading the regular init file.
+   ;; Note that `user-init-file' is nil at this point.  Code that might
+   ;; be loaded from `site-run-file' and wants to test if -q was given
+   ;; should check `init-file-user' instead, since that is already set.
+   ;; See cus-edit.el for an example.
+   (when site-run-file
+-    ;; Sites should not disable the startup screen.
+-    ;; Only individuals may disable the startup screen.
+-    (let ((inhibit-startup-screen inhibit-startup-screen))
+-      (load site-run-file t t)))
++    (progn
++      ;; Load all the debian package snippets.
++      ;; It's in here because we want -q to kill it too.
++      (if (load "debian-startup" t t nil)
++          (debian-startup debian-emacs-flavor))
++      ;; Now the normal site file...
++      (let ((inhibit-startup-screen inhibit-startup-screen))
++        (load site-run-file t t))))
  
-     ;; Load that user's init file, or the default one, or none.
-     (startup--load-user-init-file
+   ;; Load the early init file, if found.
+   (startup--load-user-init-file
+    (lambda ()
+      (expand-file-name
+       ;; We use an explicit .el extension here to force
