@@ -106,9 +106,6 @@
 
 ;;; Code:
 
-;; TODO:
-;; - log buffers need font-locking.
-
 (eval-when-compile
   (require 'cl-lib)
   (require 'cl-print))
@@ -861,7 +858,7 @@ the buffer contents as a comment."
   ;; Check and record the comment, if any.
   (unless nocomment
     (run-hooks 'vc-logentry-check-hook))
-  ;; Must pass NOT-ESSENTIAL nil because we later call
+  ;; Must pass NOT-ESSENTIAL non-nil because we later call
   ;; `vc-resynch-buffer' with NOQUERY non-nil.
   (vc-buffer-sync-fileset (list log-edit-vc-backend vc-log-fileset))
   (unless vc-log-operation

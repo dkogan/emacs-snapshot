@@ -1182,7 +1182,7 @@ non-nil, don't actually compute a score; just call the callback."
        ((stringp node)
         (setq score (length (split-string node))
               noscore t))
-       ((memq (dom-tag node) '(script head comment))
+       ((memq (dom-tag node) '(head comment script style template))
         (setq score -2
               noscore t))
        ((eq (dom-tag node) 'meta)
@@ -1225,7 +1225,7 @@ non-nil, don't actually compute a score; just call the callback."
          ;; "previous" pages.  NOTE: We could probably filter out
          ;; stylesheet <link> tags here, though it doesn't really matter
          ;; since we don't *do* anything with stylesheets...
-         (when (memq (dom-tag node) '(title link))
+         (when (memq (dom-tag node) '(title link base))
            ;; Copy the node, but not any of its (non-text) children.
            ;; This way, we can ensure that we don't include a node
            ;; directly in our list in addition to as a child of some

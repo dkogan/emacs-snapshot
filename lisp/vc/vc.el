@@ -350,7 +350,8 @@
 ;;   Insert the revision log for FILES into BUFFER.
 ;;   If SHORTLOG is non-nil insert a short version of the log.
 ;;   If LIMIT is non-nil insert only insert LIMIT log entries.
-;;   When LIMIT is a string it means stop at that revision.
+;;   When LIMIT is a string it means stop right before that revision
+;;   (i.e., revision LIMIT itself should not be included in the log).
 ;;   If the backend does not support limiting the number of entries to
 ;;   show it should return `limit-unsupported'.
 ;;   If START-REVISION is given, then show the log starting from that
@@ -375,6 +376,8 @@
 ;;   Return revision at the head of the branch at REMOTE-LOCATION.
 ;;   If there is no such branch there, return nil.  (Should signal an
 ;;   error, not return nil, in the case that fetching data fails.)
+;;   For a distributed VCS, should also fetch that revision into local
+;;   storage for operating on by subsequent calls into the backend.
 ;;
 ;; - log-search (buffer pattern)
 ;;
@@ -2449,6 +2452,69 @@ The merge base is a common ancestor between REV1 and REV2 revisions."
        vc-allow-async-diff (list backend (list rootdir)) rev1 rev2
        (called-interactively-p 'interactive)))))
 
+;;;###autoload
+(defun vc-root-diff-incoming (&optional remote-location)
+  "Report diff of all changes that would be pulled from REMOTE-LOCATION.
+When called interactively with a prefix argument, prompt for REMOTE-LOCATION.
+In some version control systems REMOTE-LOCATION can be a remote branch name.
+
+See `vc-use-incoming-outgoing-prefixes' regarding giving this command a
+global binding."
+  (interactive (vc--maybe-read-remote-location))
+  (vc--with-backend-in-rootdir "VC root-diff"
+    (let ((default-directory rootdir)
+          (incoming (vc--incoming-revision backend
+                                           (or remote-location ""))))
+      (vc-diff-internal vc-allow-async-diff (list backend (list rootdir))
+                        (vc-call-backend backend 'mergebase incoming)
+                        incoming
+                        (called-interactively-p 'interactive)))))
+
+;;;###autoload
+(defun vc-root-diff-outgoing (&optional remote-location)
+  "Report diff of all changes that would be pushed to REMOTE-LOCATION.
+When called interactively with a prefix argument, prompt for REMOTE-LOCATION.
+In some version control systems REMOTE-LOCATION can be a remote branch name.
+
+See `vc-use-incoming-outgoing-prefixes' regarding giving this command a
+global binding."
+  ;; For this command we want to ignore uncommitted changes because
+  ;; those are not outgoing, and the point is to make a comparison
+  ;; between locally committed changes and remote committed changes.
+  ;; (Hence why we don't call `vc-buffer-sync-fileset'.)
+  (interactive (vc--maybe-read-remote-location))
+  (vc--with-backend-in-rootdir "VC root-diff"
+    (let ((default-directory rootdir)
+          (incoming (vc--incoming-revision backend
+                                           (or remote-location ""))))
+      (vc-diff-internal vc-allow-async-diff (list backend (list rootdir))
+                        (vc-call-backend backend 'mergebase incoming)
+                        ;; FIXME: In order to exclude uncommitted
+                        ;; changes we need to pass the most recent
+                        ;; revision as REV2.  Calling `working-revision'
+                        ;; like this works for all the backends we have
+                        ;; in core that implement `mergebase' and so can
+                        ;; be used with this command (Git and Hg).
+                        ;; However, it is not clearly permitted by the
+                        ;; current semantics of `working-revision' to
+                        ;; call it on a directory.
+                        ;;
+                        ;; A possible alternative would be something
+                        ;; like this which effectively falls back to
+                        ;; including uncommitted changes in the case of
+                        ;; an older VCS or where the backend rejects our
+                        ;; attempt to call `working-revision' on a
+                        ;; directory:
+                        ;; (and (eq (vc-call-backend backend
+                        ;;                           'revision-granularity)
+                        ;;          'repository)
+                        ;;      (ignore-errors
+                        ;;        (vc-call-backend backend 'working-revision
+                        ;;                         rootdir)))
+                        (vc-call-backend backend 'working-revision
+                                         rootdir)
+                        (called-interactively-p 'interactive)))))
+
 (declare-function ediff-load-version-control "ediff" (&optional silent))
 (declare-function ediff-vc-internal "ediff-vers"
                   (rev1 rev2 &optional startup-hooks))
@@ -2646,6 +2712,11 @@ Unlike `vc-find-revision-save', doesn't save the buffer to the file."
                   (normal-mode (not enable-local-variables)))
 	        (set-buffer-modified-p nil)
                 (setq buffer-read-only t)
+                (run-hooks 'read-only-mode-hook)
+                (when (and view-read-only
+                           (not view-mode)
+                           (not (eq (get major-mode 'mode-class) 'special)))
+                  (view-mode-enter))
                 (setq failed nil))
 	    (when (and failed (unless buffer (get-file-buffer filename)))
 	      (with-current-buffer (get-file-buffer filename)
@@ -3291,49 +3362,51 @@ The command prompts for the branch whose change log to show."
                            (list rootdir) branch t
                            (when (> vc-log-show-limit 0) vc-log-show-limit))))
 
+(defvar vc-remote-location-history nil
+  "History for remote locations for VC incoming and outgoing commands.")
+
+(defun vc--maybe-read-remote-location ()
+  (and current-prefix-arg
+       (list (read-string "Remote location/branch (empty for default): "
+                          'vc-remote-location-history))))
+
+(defun vc--incoming-revision (backend remote-location)
+  (or (vc-call-backend backend 'incoming-revision remote-location)
+      (user-error "No incoming revision -- local-only branch?")))
+
 ;;;###autoload
 (defun vc-log-incoming (&optional remote-location)
   "Show log of changes that will be received with pull from REMOTE-LOCATION.
 When called interactively with a prefix argument, prompt for REMOTE-LOCATION.
 In some version control systems REMOTE-LOCATION can be a remote branch name."
-  (interactive
-   (when current-prefix-arg
-     (list (read-string "Remote location/branch (empty for default): "))))
+  (interactive (vc--maybe-read-remote-location))
   (vc--with-backend-in-rootdir "VC root-log"
     (vc-incoming-outgoing-internal backend (or remote-location "")
                                    "*vc-incoming*" 'log-incoming)))
 
 (defun vc-default-log-incoming (_backend buffer remote-location)
   (vc--with-backend-in-rootdir ""
-    (let ((incoming (or (vc-call-backend backend
-                                         'incoming-revision
-                                         remote-location)
-                        (user-error "No incoming revision -- local-only branch?"))))
+    (let ((incoming (vc--incoming-revision backend remote-location)))
       (vc-call-backend backend 'print-log (list rootdir) buffer t
-                       (vc-call-backend backend 'mergebase incoming)
-                       incoming))))
+                       incoming
+                       (vc-call-backend backend 'mergebase incoming)))))
 
 ;;;###autoload
 (defun vc-log-outgoing (&optional remote-location)
   "Show log of changes that will be sent with a push operation to REMOTE-LOCATION.
 When called interactively with a prefix argument, prompt for REMOTE-LOCATION.
 In some version control systems REMOTE-LOCATION can be a remote branch name."
-  (interactive
-   (when current-prefix-arg
-     (list (read-string "Remote location/branch (empty for default): "))))
+  (interactive (vc--maybe-read-remote-location))
   (vc--with-backend-in-rootdir "VC root-log"
     (vc-incoming-outgoing-internal backend (or remote-location "")
                                    "*vc-outgoing*" 'log-outgoing)))
 
 (defun vc-default-log-outgoing (_backend buffer remote-location)
   (vc--with-backend-in-rootdir ""
-    (let ((incoming (or (vc-call-backend backend
-                                         'incoming-revision
-                                         remote-location)
-                        (user-error "No incoming revision -- local-only branch?"))))
+    (let ((incoming (vc--incoming-revision backend remote-location)))
       (vc-call-backend backend 'print-log (list rootdir) buffer t
-                       (vc-call-backend backend 'mergebase incoming)
-                       ""))))
+                       ""
+                       (vc-call-backend backend 'mergebase incoming)))))
 
 ;;;###autoload
 (defun vc-log-search (pattern)
@@ -3367,7 +3440,7 @@ The merge base is a common ancestor of revisions REV1 and REV2."
           (list backend (list (vc-call-backend backend 'root default-directory)))))))
   (vc--with-backend-in-rootdir "VC root-log"
     (setq rev1 (vc-call-backend backend 'mergebase rev1 rev2))
-    (vc-print-log-internal backend (list rootdir) rev1 t (or rev2 ""))))
+    (vc-print-log-internal backend (list rootdir) (or rev2 "") t rev1)))
 
 ;;;###autoload
 (defun vc-region-history (from to)
@@ -3589,7 +3662,7 @@ For entries in FILES that are directories, revert all files inside them."
         (mapc #'vc-revert-file files)
       (with-vc-properties files
                           (vc-call-backend backend 'revert-files files)
-                          `((vc-state . up-to-date)))
+                          '((vc-state . up-to-date)))
       (dolist (file files)
         (vc-file-setprop file 'vc-checkout-time
                          (file-attribute-modification-time
