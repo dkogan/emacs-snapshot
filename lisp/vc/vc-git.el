@@ -1144,8 +1144,7 @@ It is based on `log-edit-mode', and has Git-specific extensions."
 (defalias 'vc-git-async-checkins #'always)
 
 (defun vc-git-checkin (files comment &optional _rev)
-  (let* ((parent (current-buffer))
-         (file1 (or (car files) default-directory))
+  (let* ((file1 (or (car files) default-directory))
          (root (vc-git-root file1))
          (default-directory (expand-file-name root))
          (only (or (cdr files)
@@ -1273,11 +1272,9 @@ It is based on `log-edit-mode', and has Git-specific extensions."
                  (with-current-buffer buffer
                    (vc-run-delayed
                      (vc-compilation-mode 'git)
-                     (funcall post)
-                     (when (buffer-live-p parent)
-                       (with-current-buffer parent
-                         (run-hooks 'vc-checkin-hook)))))
-                 (vc-set-async-update buffer))
+                     (funcall post)))
+                 (vc-set-async-update buffer)
+                 (list 'async (get-buffer-process buffer)))
         (apply #'vc-git-command nil 0 files args)
         (funcall post)))))
 
@@ -1937,13 +1934,18 @@ This requires git 1.8.4 or later, for the \"-L\" option of \"git log\"."
 
 ;;; MISCELLANEOUS
 
+(defsubst vc-git--maybe-abbrev ()
+  (if vc-use-short-revision "--abbrev-commit" "--no-abbrev-commit"))
+
 (defun vc-git-previous-revision (file rev)
   "Git-specific version of `vc-previous-revision'."
   (if file
       (let* ((fname (file-relative-name file))
              (prev-rev (with-temp-buffer
                          (and
-                          (vc-git--out-ok "rev-list" "-2" rev "--" fname)
+                          (vc-git--out-ok "rev-list"
+                                          (vc-git--maybe-abbrev)
+                                          "-2" rev "--" fname)
                           (goto-char (point-max))
                           (bolp)
                           (zerop (forward-line -1))
@@ -1974,7 +1976,9 @@ This requires git 1.8.4 or later, for the \"-L\" option of \"git log\"."
          (current-rev
           (with-temp-buffer
             (and
-             (vc-git--out-ok "rev-list" "-1" rev "--" file)
+             (vc-git--out-ok "rev-list"
+                             (vc-git--maybe-abbrev)
+                             "-1" rev "--" file)
              (goto-char (point-max))
              (bolp)
              (zerop (forward-line -1))
@@ -1986,7 +1990,9 @@ This requires git 1.8.4 or later, for the \"-L\" option of \"git log\"."
           (and current-rev
                (with-temp-buffer
                  (and
-                  (vc-git--out-ok "rev-list" "HEAD" "--" file)
+                  (vc-git--out-ok "rev-list"
+                                  (vc-git--maybe-abbrev)
+                                  "HEAD" "--" file)
                   (goto-char (point-min))
                   (search-forward current-rev nil t)
                   (zerop (forward-line -1))
