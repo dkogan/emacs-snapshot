@@ -2405,29 +2405,37 @@ see the \"LIST OUTPUT FORMAT\" section of the git-worktree(1) manual
 page for the meanings of these attributes."
   (with-temp-buffer
     (vc-git-command nil 0 nil "worktree" "prune")
-    (vc-git-command t 0 nil "worktree" "list" "--porcelain" "-z")
-    (let (worktrees current-root current-rest)
-      (goto-char (point-min))
-      (while
-          (re-search-forward "\\=\\(\\([a-zA-Z]+\\)\\(?: \\([^\0]+\\)\\)?\\)?\0"
-                             nil t)
-        (if (match-string 1)
-            (let ((k (intern (match-string 2)))
-                  (v (or (match-string 3) t)))
-              (cond ((and (not current-root) (eq k 'worktree))
-                     (setq current-root (file-name-as-directory v)))
-                    ((not (eq k 'worktree))
-                     (push (cons k v) current-rest))
-                    (t
-                     (error "'git worktree' output parse error"))))
-          (push (cons current-root current-rest) worktrees)
-          (setq current-root nil current-rest nil)))
-      (or worktrees
-          (error "'git worktree' output parse error")))))
+    (let ((have-worktree-list-porcelain-z
+           ;; The -z option to 'worktree list --porcelain' appeared in 2.36
+           (version<= "2.36" (vc-git--program-version))))
+      (vc-git-command t 0 nil "worktree" "list" "--porcelain"
+                      (and have-worktree-list-porcelain-z "-z"))
+      (let (worktrees current-root current-rest)
+        (goto-char (point-min))
+        (while
+            (re-search-forward
+             (if have-worktree-list-porcelain-z
+                 "\\=\\(\\([a-zA-Z]+\\)\\(?: \\([^\0]+\\)\\)?\\)?\0"
+               "\\=\\(\\([a-zA-Z]+\\)\\(?: \\([^\n]+\\)\\)?\\)?\n")
+             nil t)
+          (if (match-string 1)
+              (let ((k (intern (match-string 2)))
+                    (v (or (match-string 3) t)))
+                (cond ((and (not current-root) (eq k 'worktree))
+                       (setq current-root (file-name-as-directory v)))
+                      ((not (eq k 'worktree))
+                       (push (cons k v) current-rest))
+                      (t
+                       (error "'git worktree' output parse error"))))
+            (push (cons current-root current-rest) worktrees)
+            (setq current-root nil current-rest nil)))
+        (or worktrees
+            (error "'git worktree' output parse error"))))))
 
 (defun vc-git-known-other-working-trees ()
   "Implementation of `known-other-working-trees' backend function for Git."
-  (cl-loop with root = (expand-file-name (vc-git-root default-directory))
+  (cl-loop with root = (file-truename
+                        (expand-file-name (vc-git-root default-directory)))
            for (worktree) in (vc-git--worktrees)
            unless (equal worktree root)
            collect (abbreviate-file-name worktree)))
@@ -2451,16 +2459,27 @@ page for the meanings of these attributes."
 
 (defun vc-git-delete-working-tree (directory)
   "Implementation of `delete-working-tree' backend function for Git."
-  (vc-git-command nil 0 nil "worktree" "remove" "-f"
-                  (expand-file-name directory)))
+  ;; Avoid assuming we have 'git worktree remove' which older Git lacks.
+  (delete-directory directory t t)
+  (vc-git-command nil 0 nil "worktree" "prune"))
 
 (defun vc-git-move-working-tree (from to)
   "Implementation of `move-working-tree' backend function for Git."
-  ;; 'git worktree move' can't move the main worktree, but moving and
-  ;; then repairing like this can.
-  (rename-file from (directory-file-name to) 1)
-  (let ((default-directory to))
-    (vc-git-command nil 0 nil "worktree" "repair")))
+  (let ((v (vc-git--program-version)))
+    (cond ((version<= "2.29" v)
+           ;; 'git worktree move' can't move the main worktree,
+           ;; but moving and then repairing can.
+           (rename-file from (directory-file-name to) 1)
+           (let ((default-directory to))
+             (vc-git-command nil 0 nil "worktree" "repair")))
+          ((version<= "2.17" v)
+           ;; We lack 'git worktree repair' but have 'git worktree move'.
+           (vc-git-command nil 0 nil "worktree" "move"
+                           (expand-file-name from)
+                           (expand-file-name to)))
+          (t
+           ;; We don't even have 'git worktree move'.
+           (error "Your Git is too old to relocate other working trees")))))
 
 
 ;;; Internal commands
@@ -2480,7 +2499,7 @@ The difference to `vc-do-command' is that this function always invokes
                 '("GIT_LITERAL_PATHSPECS=1"))
             ;; Avoid repository locking during background operations
             ;; (bug#21559).
-            ,@(when revert-buffer-in-progress-p
+            ,@(when revert-buffer-in-progress
                 '("GIT_OPTIONAL_LOCKS=0")))
           process-environment)))
     (apply #'vc-do-command (or buffer "*vc*") okstatus vc-git-program
@@ -2519,7 +2538,7 @@ The difference to `vc-do-command' is that this function always invokes
                 '("GIT_LITERAL_PATHSPECS=1"))
 	    ;; Avoid repository locking during background operations
 	    ;; (bug#21559).
-	    ,@(when revert-buffer-in-progress-p
+	    ,@(when revert-buffer-in-progress
 		'("GIT_OPTIONAL_LOCKS=0")))
 	  process-environment)))
     (apply #'process-file vc-git-program nil buffer nil "--no-pager" command args)))
