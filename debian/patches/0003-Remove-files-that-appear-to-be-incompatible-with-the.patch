@@ -169,7 +169,7 @@ index 95c8a92..ce85c0a 100644
  ## This is discouraged because the .texi files it generates
  ## are not as well formatted as handwritten ones.
 diff --git a/lisp/help.el b/lisp/help.el
-index 8b29a10..fd63af6 100644
+index e6c5ea5..23f10b3 100644
 --- a/lisp/help.el
 +++ b/lisp/help.el
 @@ -525,6 +525,14 @@ If that doesn't give a function, return nil."

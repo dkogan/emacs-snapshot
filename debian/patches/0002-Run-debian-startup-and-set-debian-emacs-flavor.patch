@@ -14,7 +14,7 @@ Emacs runs debian-startup and sets debian-emacs-flavor.
  1 file changed, 12 insertions(+), 4 deletions(-)
 
 diff --git a/lisp/startup.el b/lisp/startup.el
-index 35c3cb0..c74b0bd 100644
+index 836ead6..1a68f50 100644
 --- a/lisp/startup.el
 +++ b/lisp/startup.el
 @@ -435,6 +435,10 @@ from being initialized."
@@ -28,7 +28,7 @@ index 35c3cb0..c74b0bd 100644
  (defun normal-top-level-add-subdirs-to-load-path ()
    "Recursively add all subdirectories of `default-directory' to `load-path'.
  More precisely, this uses only the subdirectories whose names
-@@ -1438,10 +1442,14 @@ please check its value")
+@@ -1432,10 +1436,14 @@ please check its value")
    ;; should check `init-file-user' instead, since that is already set.
    ;; See cus-edit.el for an example.
    (when site-run-file
