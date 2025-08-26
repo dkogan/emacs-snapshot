@@ -1215,6 +1215,7 @@ styles for specific categories, such as files, buffers, etc."
     ;; A new style that combines substring and pcm might be better,
     ;; e.g. one that does not anchor to bos.
     (project-file (styles . (substring)))
+    (project-buffer (styles . (basic substring)))
     (xref-location (styles . (substring)))
     (info-menu (styles . (basic substring)))
     (symbol-help (styles . (basic shorthand substring))))
@@ -1616,7 +1617,7 @@ when the buffer's text is already an exact match."
              (completed
               (cond
                ((pcase completion-auto-help
-                  ('visible (get-buffer-window "*Completions*" 0))
+                  ('visible (minibuffer--completions-visible))
                   ('always t))
                 (minibuffer-completion-help beg end))
                (t (minibuffer-hide-completions)
@@ -2677,13 +2678,13 @@ so that the update is less likely to interfere with user typing."
 (defun completions--post-command-update ()
   "Update displayed *Completions* buffer after command, once."
   (remove-hook 'post-command-hook #'completions--post-command-update)
-  (when (and completion-eager-update (get-buffer-window "*Completions*" 0))
+  (when (and completion-eager-update (minibuffer--completions-visible))
     (completions--background-update)))
 
 (defun completions--after-change (_start _end _old-len)
   "Update displayed *Completions* buffer after change in buffer contents."
   (when (or completion-auto-deselect completion-eager-update)
-    (when-let* ((window (get-buffer-window "*Completions*" 0)))
+    (when-let* ((window (minibuffer--completions-visible)))
       (when completion-auto-deselect
         (with-selected-window window
           (completions--deselect)))
@@ -2885,7 +2886,7 @@ so that the update is less likely to interfere with user typing."
   ;; FIXME: We could/should use minibuffer-scroll-window here, but it
   ;; can also point to the minibuffer-parent-window, so it's a bit tricky.
   (interactive)
-  (when-let* ((win (get-buffer-window "*Completions*" 0)))
+  (when-let* ((win (minibuffer--completions-visible)))
     (with-selected-window win
       ;; Move point off any completions, so we don't move point there
       ;; again the next time `minibuffer-completion-help' is called.
@@ -3332,18 +3333,26 @@ and `RET' accepts the input typed into the minibuffer."
 (defvar minibuffer-visible-completions--always-bind nil
   "If non-nil, force the `minibuffer-visible-completions' bindings on.")
 
+(defun minibuffer--completions-visible ()
+  "Return the window where the current *Completions* buffer is visible, if any."
+  (when-let* ((window (get-buffer-window "*Completions*" 0)))
+    (when (eq (buffer-local-value 'completion-reference-buffer
+                                  (window-buffer window))
+              ;; If there's no active minibuffer, we call
+              ;; `window-buffer' on nil, assuming that completion is
+              ;; happening in the selected window.
+              (window-buffer (active-minibuffer-window)))
+      window)))
+
 (defun minibuffer-visible-completions--filter (cmd)
   "Return CMD if `minibuffer-visible-completions' bindings should be active."
   (if minibuffer-visible-completions--always-bind
       cmd
-    (when-let* ((window (get-buffer-window "*Completions*" 0)))
-      (when (and (eq (buffer-local-value 'completion-reference-buffer
-                                         (window-buffer window))
-                     (window-buffer (active-minibuffer-window)))
-                 (if (eq cmd #'minibuffer-choose-completion-or-exit)
-                     (with-current-buffer (window-buffer window)
-                       (get-text-property (point) 'completion--string))
-                   t))
+    (when-let* ((window (minibuffer--completions-visible)))
+      (when (if (eq cmd #'minibuffer-choose-completion-or-exit)
+                (with-current-buffer (window-buffer window)
+                  (get-text-property (point) 'completion--string))
+              t)
         cmd))))
 
 (defun minibuffer-visible-completions--bind (binding)
@@ -4117,7 +4126,7 @@ style."
   "Split STRING into a pattern.
 A pattern is a list where each element is either a string
 or a symbol, see `completion-pcm--merge-completions'."
-  (if (and point (< point (length string)))
+  (if (and point (<= point (length string)))
       (let ((prefix (substring string 0 point))
             (suffix (substring string point)))
         (append (completion-pcm--string->pattern prefix)
@@ -4178,12 +4187,6 @@ or a symbol, see `completion-pcm--merge-completions'."
       (pcase p
         (`(,(or 'any 'any-delim) ,(or 'any 'point) . ,_)
          (setq p (cdr p)))
-        ;; This is not just a performance improvement: it turns a
-        ;; terminating `point' into an implicit `any', which affects
-        ;; the final position of point (because `point' gets turned
-        ;; into a non-greedy ".*?" regexp whereas we need it to be
-        ;; greedy when it's at the end, see bug#38458).
-        (`(point) (setq p nil)) ;Implicit terminating `any'.
         (_ (push (pop p) n))))
     (nreverse n)))
 
@@ -4592,38 +4595,35 @@ the same set of elements."
   (cond
    ((null (cdr strs)) (list (car strs)))
    (t
-    (let ((re (completion-pcm--pattern->regex pattern 'group))
+    (let ((re (concat
+               (completion-pcm--pattern->regex pattern 'group)
+               ;; The implicit trailing `any' is greedy.
+               "\\([^z-a]*\\)"))
           (ccs ()))                     ;Chopped completions.
 
-      ;; First chop each string into the parts corresponding to each
-      ;; non-constant element of `pattern', using regexp-matching.
+      ;; First match each string against PATTERN as a regex and extract
+      ;; the text matched by each wildcard.
       (let ((case-fold-search completion-ignore-case))
         (dolist (str strs)
           (unless (string-match re str)
             (error "Internal error: %s doesn't match %s" str re))
           (let ((chopped ())
-                (last 0)
                 (i 1)
                 next)
-            (while (setq next (match-end i))
-              (push (substring str last next) chopped)
-              (setq last next)
+            (while (setq next (match-string i str))
+              (push next chopped)
               (setq i (1+ i)))
-            ;; Add the text corresponding to the implicit trailing `any'.
-            (push (substring str last) chopped)
             (push (nreverse chopped) ccs))))
 
-      ;; Then for each of those non-constant elements, extract the
-      ;; commonality between them.
+      ;; Then for each of those wildcards, extract the commonality between them.
       (let ((res ())
-            (fixed "")
             ;; Accumulate each stretch of wildcards, and process them as a unit.
             (wildcards ()))
         ;; Make the implicit trailing `any' explicit.
         (dolist (elem (append pattern '(any)))
           (if (stringp elem)
               (progn
-                (setq fixed (concat fixed elem))
+                (push elem res)
                 (setq wildcards nil))
             (let ((comps ()))
               (push elem wildcards)
@@ -4634,10 +4634,14 @@ the same set of elements."
               ;; different capitalizations in different parts.
               ;; In practice, it doesn't seem to make any difference.
               (setq ccs (nreverse ccs))
-              (let* ((prefix (try-completion fixed comps))
-                     (unique (or (and (eq prefix t) (setq prefix fixed))
+              (let* ((prefix (try-completion "" comps))
+                     (unique (or (and (eq prefix t) (setq prefix ""))
                                  (and (stringp prefix)
-                                      (eq t (try-completion prefix comps))))))
+                                      ;; If PREFIX is equal to all of COMPS,
+                                      ;; then PREFIX is a unique completion.
+                                      (seq-every-p
+                                       (lambda (comp) (= (length prefix) (length comp)))
+                                       comps)))))
                 ;; If there's only one completion, `elem' is not useful
                 ;; any more: it can only match the empty string.
                 ;; FIXME: in some cases, it may be necessary to turn an
@@ -4651,7 +4655,7 @@ the same set of elements."
                   ;; `prefix' only wants to include the fixed part before the
                   ;; wildcard, not the result of growing that fixed part.
                   (when (seq-some (lambda (elem) (eq elem 'prefix)) wildcards)
-                    (setq prefix fixed))
+                    (setq prefix ""))
                   (push prefix res)
                   ;; Push all the wildcards in this stretch, to preserve `point' and
                   ;; `star' wildcards before ELEM.
@@ -4675,8 +4679,7 @@ the same set of elements."
                       (unless (equal suffix "")
                         (push suffix res))))
                   ;; We pushed these wildcards on RES, so we're done with them.
-                  (setq wildcards nil))
-                (setq fixed "")))))
+                  (setq wildcards nil))))))
         ;; We return it in reverse order.
         res)))))
 
@@ -5113,10 +5116,10 @@ the minibuffer was activated, and execute the forms."
 When used in a minibuffer window, select the window with completions,
 and execute the forms."
   (declare (indent 0) (debug t))
-  `(let ((window (or (get-buffer-window "*Completions*" 0)
+  `(let ((window (or (minibuffer--completions-visible)
                      ;; Make sure we have a completions window.
                      (progn (minibuffer-completion-help)
-                            (get-buffer-window "*Completions*" 0)))))
+                            (minibuffer--completions-visible)))))
      (when window
        (with-selected-window window
          (completion--lazy-insert-strings)
@@ -5211,7 +5214,7 @@ inputs for the prompting command, instead of the default completion table."
             (user-error "No history available"))))
     ;; FIXME: Can we make it work for CRM?
     (let ((completion-in-region-mode-predicate
-           (lambda () (get-buffer-window "*Completions*" 0))))
+           (lambda () (minibuffer--completions-visible))))
       (completion-in-region
        (minibuffer--completion-prompt-end) (point-max)
        (completion-table-with-metadata
@@ -5229,7 +5232,7 @@ provided by the prompting command, instead of the completion table."
           minibuffer-default (funcall minibuffer-default-add-function)))
   (let ((completions (ensure-list minibuffer-default))
         (completion-in-region-mode-predicate
-         (lambda () (get-buffer-window "*Completions*" 0))))
+         (lambda () (minibuffer--completions-visible))))
     (completion-in-region
      (minibuffer--completion-prompt-end) (point-max)
      (completion-table-with-metadata
