@@ -118,7 +118,7 @@ index ea05fe6..c2ca077 100644
  
  $(UNINSTALL_DOC):
 diff --git a/configure.ac b/configure.ac
-index 8c2e6b4..18a3eea 100644
+index 140ff76..19f4bb6 100644
 --- a/configure.ac
 +++ b/configure.ac
 @@ -7725,11 +7725,10 @@ ARCH_INDEPENDENT_CONFIG_FILES([$srcdir/doc/man/emacs.1])
