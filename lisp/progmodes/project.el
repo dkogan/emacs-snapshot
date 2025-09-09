@@ -1398,6 +1398,28 @@ This function is intended to be used as the value of
                                          (file-name-as-directory mirror-name)
                                        mirror-name))))))
 
+;; Used by `diff-mode' and `log-view-mode'.
+;; If the matching directory does not exist it's an error so that we
+;; avoid invalidating the relative file names in Diff mode file headers.
+(defun project-change-to-matching-directory (current-project mirror-project)
+  "Change default directory to matching one under another project.
+CURRENT-PROJECT is the project instance for the current project.
+MIRROR-PROJECT is the project instance for the project to visit.
+A matching directory has the same name relative to the project root.
+If a matching directory does not exist in the other project, it is an
+error.
+
+This function is intended to be used as the value of
+`project-find-matching-buffer-function'."
+  (let* ((mirror-root (project-root mirror-project))
+         (relative-name (file-relative-name default-directory
+                                            (project-root current-project)))
+         (mirror-name (expand-file-name relative-name mirror-root)))
+    (if (file-directory-p mirror-name)
+        (message "Default directory changed to `%s'"
+                 (setq default-directory mirror-name))
+      (user-error "`%s' not found in `%s'" relative-name mirror-root))))
+
 (defun project--completing-read-strict (prompt
                                         collection &optional predicate
                                         hist mb-default
@@ -1696,6 +1718,10 @@ Return non-nil if PROJECT is not a remote project."
      (t
       (complete-with-action action buffers string pred)))))
 
+(when (fboundp 'define-completion-category) ; Introduced in Emacs 31.
+  (define-completion-category 'project-buffer '(buffer)
+    "Completion category for buffers in a given project."))
+
 (defun project--read-project-buffer ()
   (let* ((pr (project-current t))
          (current-buffer (current-buffer))
@@ -1736,7 +1762,8 @@ Return non-nil if PROJECT is not a remote project."
            (project--buffers-completion-table buffers-alist)
            predicate nil nil nil
            other-name))
-         (buffer (assoc-default result buffers-alist #'equal result)))
+         (buffer (or (assoc-default result buffers-alist)
+                     result)))
     ;; XXX: This check hardcodes the default buffer-belonging relation
     ;; which `project-buffers' is allowed to override.  Straighten
     ;; this up sometime later.  Or not.  Since we can add a method
