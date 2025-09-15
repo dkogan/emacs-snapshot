@@ -43,7 +43,7 @@ gbp buildpackage --git-builder=true --git-cleaner=true --git-ignore-new
 
 # build the package
 # note that on my box the "unstable" chroot is actually "jessie"
-sbuild --nolog -s --force-orig-source -A -d unstable
+sbuild --no-clean-source --chroot-mode=unshare --nolog -s --force-orig-source -A -d unstable
 
 
 ##### Done. Do it again without native compilation
@@ -55,6 +55,6 @@ perl -p -i -e 's/emacs-snapshot/emacs-snapshot-no-native-comp/' debian/changelog
 make -f ./debian/rules debian/control
 make -f ./debian/rules debian/copyright
 gbp buildpackage --git-builder=true --git-cleaner=true --git-ignore-new
-sbuild --nolog -s --force-orig-source -A -d unstable
+sbuild --no-clean-source --chroot-mode=unshare --nolog -s --force-orig-source -A -d unstable
 
 dput -u digitalocean_emacs  ../emacs-snapshot*.changes(om[1,2])
