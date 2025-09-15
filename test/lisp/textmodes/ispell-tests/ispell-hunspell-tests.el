@@ -25,8 +25,15 @@
 ;;; Code:
 
 (require 'ispell)
+(require 'ert)
+(require 'ert-x)
 
-(load (expand-file-name "test/lisp/textmodes/ispell-tests/ispell-tests-common.el" source-directory))
+(eval-and-compile
+  (let ((load-path (cons (file-name-directory
+                          (or (macroexp-file-name) load-file-name))
+                         load-path)))
+    (require 'ispell-tests-common)))
+
 (ert-deftest ispell/hunspell/ispell-word/english/check-only ()
 "This test checks that Russian spellchecking works for Hunspell."
   (skip-unless (executable-find "hunspell"))

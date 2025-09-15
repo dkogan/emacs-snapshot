@@ -3460,41 +3460,43 @@ This tests also `file-directory-p' and `file-accessible-directory-p'."
 	    ;; `sort' works destructive.
 	    (should
 	     (equal (file-expand-wildcards "*")
-		    (sort (copy-sequence '("foo" "bar" "baz")) 'string<)))
+		    (sort (copy-sequence '("foo" "bar" "baz")) #'string-lessp)))
 	    (should
 	     (equal (file-expand-wildcards "ba?")
-		    (sort (copy-sequence '("bar" "baz")) 'string<)))
+		    (sort (copy-sequence '("bar" "baz")) #'string-lessp)))
 	    (should
 	     (equal (file-expand-wildcards "ba[rz]")
-		    (sort (copy-sequence '("bar" "baz")) 'string<)))
+		    (sort (copy-sequence '("bar" "baz")) #'string-lessp)))
 
 	    (should
 	     (equal
 	      (file-expand-wildcards "*" 'full)
 	      (sort
-	       (copy-sequence `(,tmp-name2 ,tmp-name3 ,tmp-name4)) 'string<)))
+	       (copy-sequence `(,tmp-name2 ,tmp-name3 ,tmp-name4))
+	       #'string-lessp)))
 	    (should
 	     (equal
 	      (file-expand-wildcards "ba?" 'full)
-	      (sort (copy-sequence `(,tmp-name3 ,tmp-name4)) 'string<)))
+	      (sort (copy-sequence `(,tmp-name3 ,tmp-name4)) #'string-lessp)))
 	    (should
 	     (equal
 	      (file-expand-wildcards "ba[rz]" 'full)
-	      (sort (copy-sequence `(,tmp-name3 ,tmp-name4)) 'string<)))
+	      (sort (copy-sequence `(,tmp-name3 ,tmp-name4)) #'string-lessp)))
 
 	    (should
 	     (equal
 	      (file-expand-wildcards (concat tmp-name1 "/" "*"))
 	      (sort
-	       (copy-sequence `(,tmp-name2 ,tmp-name3 ,tmp-name4)) 'string<)))
+	       (copy-sequence `(,tmp-name2 ,tmp-name3 ,tmp-name4))
+	       #'string-lessp)))
 	    (should
 	     (equal
 	      (file-expand-wildcards (concat tmp-name1 "/" "ba?"))
-	      (sort (copy-sequence `(,tmp-name3 ,tmp-name4)) 'string<)))
+	      (sort (copy-sequence `(,tmp-name3 ,tmp-name4)) #'string-lessp)))
 	    (should
 	     (equal
 	      (file-expand-wildcards (concat tmp-name1 "/" "ba[rz]"))
-	      (sort (copy-sequence `(,tmp-name3 ,tmp-name4)) 'string<))))
+	      (sort (copy-sequence `(,tmp-name3 ,tmp-name4)) #'string-lessp))))
 
 	;; Cleanup.
 	(ignore-errors (delete-directory tmp-name1 'recursive))))))
@@ -3513,7 +3515,7 @@ This tests also `file-directory-p' and `file-accessible-directory-p'."
 	   (tmp-name2 (expand-file-name "foo" tmp-name1))
 	   ;; We test for the summary line.  Keyword "total" could be localized.
 	   (process-environment
-	    (append '("LANG=C" "LANGUAGE=C" "LC_ALL=C") process-environment)))
+	    (seq-union '("LANG=C" "LANGUAGE=C" "LC_ALL=C") process-environment)))
       (unwind-protect
 	  (progn
 	    (make-directory tmp-name1)
@@ -5252,7 +5254,8 @@ This tests also `make-symbolic-link', `file-truename' and `add-name-to-file'."
 			   (member (caddr test-and-result) completions))
 			(should
 			 (equal
-			  (caddr test-and-result) (sort completions)))))))))))
+			  (caddr test-and-result)
+			  (sort completions #'string-lessp)))))))))))
 
       ;; Cleanup.
       (when tramp-trace
@@ -5653,8 +5656,7 @@ If UNSTABLE is non-nil, the test is tagged as `:unstable'."
 (ert-deftest tramp-test30-make-process ()
   "Check `make-process'."
   :tags (append '(:expensive-test :tramp-asynchronous-processes)
-		(and (getenv "EMACS_EMBA_CI")
-                     '(:unstable)))
+		(and (getenv "EMACS_EMBA_CI") '(:unstable)))
   (skip-unless (tramp--test-enabled))
   (skip-unless (tramp--test-supports-processes-p))
 
@@ -7340,7 +7342,7 @@ This requires restrictions of file name syntax."
   "Check, whether Ange-FTP is used."
   (eq
    (tramp-find-foreign-file-name-handler tramp-test-vec)
-   'tramp-ftp-file-name-handler))
+   #'tramp-ftp-file-name-handler))
 
 (defun tramp--test-asynchronous-processes-p ()
   "Whether asynchronous processes tests are run.
@@ -7884,8 +7886,8 @@ This requires restrictions of file name syntax."
        "🌈🍒👋")
 
       (when (and (tramp--test-expensive-test-p) (not (tramp--test-windows-nt-p)))
-	(delete-dups
-	 (mapcar
+	(seq-uniq
+	 (tramp-compat-seq-keep
 	  ;; Use all available language specific snippets.
 	  (lambda (x)
 	    (and
@@ -8306,7 +8308,7 @@ process sentinels.  They shall not disturb each other."
       ;; Reading password from auth-source works.  We use the netrc
       ;; backend; the other backends shall behave similar.
       ;; Macro `ert-with-temp-file' was introduced in Emacs 29.1.
-      (with-no-warnings (when (symbol-plist 'ert-with-temp-file)
+      (with-no-warnings (when (symbol-plist #'ert-with-temp-file)
 	(tramp-cleanup-connection tramp-test-vec 'keep-debug)
 	(setq mocked-input nil)
 	(auth-source-forget-all-cached)
@@ -8319,7 +8321,7 @@ process sentinels.  They shall not disturb each other."
 	    (should (file-exists-p ert-remote-temporary-file-directory))))))
 
       ;; Checking session-timeout.
-      (with-no-warnings (when (symbol-plist 'ert-with-temp-file)
+      (with-no-warnings (when (symbol-plist #'ert-with-temp-file)
 	(tramp-cleanup-connection tramp-test-vec 'keep-debug)
 	(let ((tramp-connection-properties
 	       (cons '(nil "session-timeout" 1)
@@ -8395,7 +8397,7 @@ process sentinels.  They shall not disturb each other."
 
       ;; The password shouldn't be read from auth-source.
       ;; Macro `ert-with-temp-file' was introduced in Emacs 29.1.
-      (with-no-warnings (when (symbol-plist 'ert-with-temp-file)
+      (with-no-warnings (when (symbol-plist #'ert-with-temp-file)
 	(tramp-cleanup-connection tramp-test-vec 'keep-debug)
 	(setq mocked-input nil)
 	(auth-source-forget-all-cached)
