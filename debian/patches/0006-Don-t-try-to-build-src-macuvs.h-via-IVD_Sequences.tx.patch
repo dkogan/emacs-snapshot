@@ -12,7 +12,7 @@ diff --git a/admin/unidata/Makefile.in b/admin/unidata/Makefile.in
 index 223d3fe..440ce5f 100644
 --- a/admin/unidata/Makefile.in
 +++ b/admin/unidata/Makefile.in
-@@ -43,7 +43,7 @@ unifiles = $(addprefix ${unidir}/,$(sort $(shell sed -n 's/^[ \t][ \t]*${lparen}
+@@ -43,7 +43,7 @@ unifiles =
  
  .PHONY: all
  
@@ -21,7 +21,7 @@ index 223d3fe..440ce5f 100644
    ${unidir}/charprop.el ${unidir}/emoji-zwj.el ${unidir}/emoji-labels.el \
    ${unidir}/uni-scripts.el ${unidir}/uni-confusable.el \
    ${unidir}/idna-mapping.el
-@@ -51,11 +51,6 @@ all: ${top_srcdir}/src/macuvs.h ${unifiles} ${unidir}/charscript.el \
+@@ -51,11 +51,6 @@ all:
  ## Specify .elc as an order-only prereq so as to not needlessly rebuild
  ## target just because the .elc is missing.
  ## Same with charprop.el below.

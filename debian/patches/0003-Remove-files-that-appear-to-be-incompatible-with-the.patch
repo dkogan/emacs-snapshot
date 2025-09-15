@@ -31,7 +31,7 @@ diff --git a/Makefile.in b/Makefile.in
 index ea05fe6..c2ca077 100644
 --- a/Makefile.in
 +++ b/Makefile.in
-@@ -174,7 +174,9 @@ man1dir=$(mandir)/man1
+@@ -174,7 +174,9 @@ man1dir=
  # Where to install and expect the info files describing Emacs.
  infodir=@infodir@
  # Info files not in the doc/misc directory (we get those via make echo-info).
@@ -42,7 +42,7 @@ index ea05fe6..c2ca077 100644
  
  # Directory for local state files for all programs.
  localstatedir=@localstatedir@
-@@ -1005,8 +1007,7 @@ endef
+@@ -1005,8 +1007,7 @@ $(1)_$(2):
  ###      normally don't want to recompile.  For example, the 'mostlyclean'
  ###      target for GCC does not delete 'libgcc.a', because recompiling it
  ###      is rarely necessary and takes a lot of time.
@@ -69,7 +69,7 @@ index ea05fe6..c2ca077 100644
  
  DOCS = $(DVIS) $(HTMLS) $(INFOS) $(PDFS) $(PSS)
  $(DOCS):
-@@ -1171,9 +1172,6 @@ info-dir: ${srcdir}/info/dir
+@@ -1171,9 +1172,6 @@ info-dir:
  texi_misc = $(shell MAKEFLAGS= ${MAKE} --no-print-directory -s -C doc/misc echo-sources)
  
  srcdir_doc_info_dir_inputs = \
@@ -79,7 +79,7 @@ index ea05fe6..c2ca077 100644
    $(addprefix ${srcdir}/doc/misc/,${texi_misc})
  info_dir_inputs = \
    ../build-aux/dir_top \
-@@ -1195,14 +1193,10 @@ ${srcdir}/info/dir: ${info_dir_deps}
+@@ -1195,14 +1193,10 @@ ${srcdir}/info/dir:
  	 AWK='${AWK}' ../build-aux/make-info-dir ${info_dir_inputs} \
  	) >$@.tmp && mv $@.tmp $@
  
@@ -98,7 +98,7 @@ index ea05fe6..c2ca077 100644
  INSTALL_DOC = $(INSTALL_DVI) $(INSTALL_HTML) $(INSTALL_PDF) $(INSTALL_PS)
  
  ## Install non .info forms of the documentation.
-@@ -1220,14 +1214,10 @@ install-pdf: $(INSTALL_PDF)
+@@ -1220,14 +1214,10 @@ install-pdf:
  install-ps: $(INSTALL_PS)
  
  
@@ -121,7 +121,7 @@ diff --git a/configure.ac b/configure.ac
 index 140ff76..19f4bb6 100644
 --- a/configure.ac
 +++ b/configure.ac
-@@ -7725,11 +7725,10 @@ ARCH_INDEPENDENT_CONFIG_FILES([$srcdir/doc/man/emacs.1])
+@@ -7725,11 +7725,10 @@ AC_DEFUN
  
  AC_CONFIG_FILES([lib/Makefile lib-src/Makefile oldXMenu/Makefile src/Makefile
                   lwlib/Makefile nextstep/Makefile nt/Makefile])
@@ -135,7 +135,7 @@ index 140ff76..19f4bb6 100644
  
  dnl The test/ directory is missing if './make-dist --no-tests' was used.
  opt_makefile=test/Makefile
-@@ -7801,15 +7800,6 @@ if test "$XCONFIGURE" != "android"; then
+@@ -7801,15 +7800,6 @@ AC_DEFUN
    fi
    ])
  
@@ -155,7 +155,7 @@ diff --git a/doc/misc/Makefile.in b/doc/misc/Makefile.in
 index 95c8a92..ce85c0a 100644
 --- a/doc/misc/Makefile.in
 +++ b/doc/misc/Makefile.in
-@@ -84,6 +84,12 @@ INFO_INSTALL = $(INFO_COMMON) $(DOCMISC_W32)
+@@ -84,6 +84,12 @@ INFO_INSTALL =
  ## because the info files are pre-built in release tarfiles.
  INFO_TARGETS = $(INFO_COMMON) efaq-w32
  
@@ -172,7 +172,7 @@ diff --git a/lisp/help.el b/lisp/help.el
 index 4ba9986..b3594e8 100644
 --- a/lisp/help.el
 +++ b/lisp/help.el
-@@ -525,6 +525,14 @@ If that doesn't give a function, return nil."
+@@ -525,6 +525,14 @@ view-help-file
    (goto-address-mode 1)
    (goto-char (point-min)))
  

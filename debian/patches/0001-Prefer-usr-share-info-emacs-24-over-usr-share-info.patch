@@ -15,7 +15,7 @@ diff --git a/lisp/info.el b/lisp/info.el
 index b314a7d..d15f54d 100644
 --- a/lisp/info.el
 +++ b/lisp/info.el
-@@ -713,7 +713,8 @@ in `Info-file-supports-index-cookies-list'."
+@@ -713,7 +713,8 @@ Info--default-directory-list
  	      (nconc standard-info-dirs (list config-dir))
  	    (cons config-dir standard-info-dirs))))
      (if (not (eq system-type 'windows-nt))
