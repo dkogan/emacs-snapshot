@@ -181,8 +181,11 @@ The temporary file is not created."
   `(condition-case err
        (progn ,@body)
      (file-error
-      (unless (string-equal (error-message-string err)
-			    "make-symbolic-link not supported")
+      (unless (string-match-p
+	       (rx bol (| "make-symbolic-link not supported"
+			  (: "Making symbolic link"
+			     (? ":") " Operation not permitted")))
+	       (error-message-string err))
 	(signal (car err) (cdr err))))))
 
 ;; Don't print messages in nested `tramp--test-instrument-test-case' calls.
@@ -5045,11 +5048,12 @@ This tests also `make-symbolic-link', `file-truename' and `add-name-to-file'."
     (when tramp-trace
       (when (get-buffer trace-buffer) (kill-buffer trace-buffer))
       (dolist
-	  (elt (mapcar #'intern (all-completions "tramp-" obarray #'functionp)))
+	  (elt
+	   (append
+	    (mapcar #'intern (all-completions "tramp-" obarray #'functionp))
+	    '(completion-file-name-table read-file-name)))
 	(unless (get elt 'tramp-suppress-trace)
-	  (trace-function-background elt)))
-      (trace-function-background #'completion-file-name-table)
-      (trace-function-background #'read-file-name))
+	  (trace-function-background elt))))
 
     (unwind-protect
         (dolist (syntax (if (tramp--test-expensive-test-p)
@@ -5196,11 +5200,10 @@ This tests also `make-symbolic-link', `file-truename' and `add-name-to-file'."
                     (discard-input)
                     (setq test (car test-and-result)
                           unread-command-events
-			  (append test '(tab tab return return))
+			  (append test (if noninteractive '(tab tab)
+                                         '(tab tab return)))
                           completions nil
-                          result
-			  (read-file-name
-			   "Prompt: " nil nil 'confirm nil predicate))
+                          result (read-file-name ": " nil nil nil nil predicate))
 
                     (if (or (not (get-buffer "*Completions*"))
 			    (string-match-p
@@ -8540,8 +8543,7 @@ process sentinels.  They shall not disturb each other."
 (ert-deftest tramp-test48-session-timeout ()
   "Check that Tramp handles a session timeout properly."
   (skip-unless (tramp--test-enabled))
-  (skip-unless
-   (tramp-get-method-parameter tramp-test-vec 'tramp-session-timeout))
+  (skip-unless (tramp--test-sh-p))
 
   ;; We want to see the timeout message.
   (tramp--test-instrument-test-case 3

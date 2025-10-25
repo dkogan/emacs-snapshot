@@ -418,12 +418,12 @@ Notes:
 All these arguments can be overwritten by connection properties.
 See Info node `(tramp) Predefined connection information'.
 
-When using `su', `sudo' or `doas' the phrase \"open connection to
-a remote host\" sounds strange, but it is used nevertheless, for
-consistency.  No connection is opened to a remote host, but `su',
-`sudo' or `doas' is started on the local host.  You should
-specify a remote host `localhost' or the name of the local host.
-Another host name is useful only in combination with
+When using `su', `surs', `sg', `sudo', `sudors', `doas', `run0' or `ksu'
+the phrase \"open connection to a remote host\" sounds strange, but it
+is used nevertheless, for consistency.  No connection is opened to a
+remote host, but the respective command is started on the local host.
+You should specify a remote host `localhost' or the name of the local
+host.  Another host name is useful only in combination with
 `tramp-default-proxies-alist'.")
 
 (defcustom tramp-default-method
@@ -941,7 +941,7 @@ to be set, depending on VALUE."
   ;; Cleanup existing buffers.
   (unless (eq (symbol-value symbol) value)
     (tramp-cleanup-all-buffers))
-  ;; Set the value:
+  ;; Set the value.
   (set-default symbol value)
   ;; Reset the depending variables.
   (setq tramp-prefix-format (tramp-build-prefix-format)
@@ -1939,6 +1939,9 @@ expected to be a string, which will be used."
       (when (cadr args)
 	(setq localname (and (stringp (cadr args)) (cadr args))))
       (when hop
+	;; Do not keep the hop for the "archive" method.
+	(when (string-equal method tramp-archive-method)
+	  (setq hop nil))
 	;; Keep hop in file name for completion or when indicated.
 	(unless (or minibuffer-completing-file-name tramp-show-ad-hoc-proxies)
 	  (setq hop nil))
@@ -4085,17 +4088,17 @@ BODY is the backend specific code."
 
 	   (let (last-coding-system-used (need-chown t))
 	     ;; Set file modification time.
-	     (when (or (eq ,visit t) (stringp ,visit))
-	       (when-let* ((file-attr (file-attributes filename 'integer)))
-		 (set-visited-file-modtime
-		  ;; We must pass modtime explicitly, because FILENAME
-		  ;; can be different from (buffer-file-name), f.e. if
-		  ;; `file-precious-flag' is set.
-		  (or (file-attribute-modification-time file-attr)
-		      (current-time)))
-		 (when (and (= (file-attribute-user-id file-attr) uid)
-			    (= (file-attribute-group-id file-attr) gid))
-		   (setq need-chown nil))))
+	     (when-let* (((or (eq ,visit t) (stringp ,visit)))
+			 (file-attr (file-attributes filename 'integer)))
+	       (set-visited-file-modtime
+		;; We must pass modtime explicitly, because FILENAME
+		;; can be different from (buffer-file-name), f.e. if
+		;; `file-precious-flag' is set.
+		(or (file-attribute-modification-time file-attr)
+		    (current-time)))
+	       (when (and (= (file-attribute-user-id file-attr) uid)
+			  (= (file-attribute-group-id file-attr) gid))
+		 (setq need-chown nil)))
 
 	     ;; Set the ownership.
              (when need-chown
@@ -5236,10 +5239,11 @@ Do not set it manually, it is used buffer-local in `tramp-get-lock-pid'.")
 	     vec "Method `%s' is not supported for multi-hops"
 	     (tramp-file-name-method item)))))
 
-      ;; Some methods ("su", "sg", "sudo", "doas", "run0", "ksu") do
-      ;; not use the host name in their command template.  In this
-      ;; case, the remote file name must use either a local host name
-      ;; (first hop), or a host name matching the previous hop.
+      ;; Some methods ("su", "surs", "sg", "sudo", "sudors", "doas",
+      ;; "run0", "ksu") do not use the host name in their command
+      ;; template.  In this case, the remote file name must use either
+      ;; a local host name (first hop), or a host name matching the
+      ;; previous hop.
       (let ((previous-host (or tramp-local-host-regexp "")))
 	(setq choices target-alist)
 	(while (setq item (pop choices))
@@ -7160,7 +7164,7 @@ verbosity of 6."
 		     ;; The returned command name could be truncated
 		     ;; to 15 characters.  Therefore, we cannot check
 		     ;; for `string-equal'.
-		     ((string-prefix-p comm process-name))
+		     ((eq t (compare-strings comm 0 15 process-name 0 15)))
 		     ((throw 'result t)))))))))
 
 ;; When calling "emacs -Q", `auth-source-search' won't be called.  If
@@ -7217,6 +7221,7 @@ Consults the auth-source package."
 		      (tramp-compat-auth-info-password auth-info))))
 
 	 ;; Try the password cache.
+	 ;; Starting with Emacs 31.1, this isn't needed anymore.
 	 (with-tramp-suspended-timers
 	   (setq auth-passwd
 		 (password-read
@@ -7422,6 +7427,10 @@ If VEC is `tramp-null-hop', return local null device."
 
 (run-hooks 'tramp--startup-hook)
 (setq tramp--startup-hook nil)
+;; Native compilation uses `expand-file-name'.  This can result loading
+;; "*.eln" files in an infloop, when `default-directory' is remote.
+;; Prevent this.
+(require 'tramp-cache)
 
 ;;; TODO:
 ;;

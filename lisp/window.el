@@ -8048,11 +8048,8 @@ where:
 
 `display-buffer' scans this alist until the CONDITION is satisfied
 and adds the associated ACTION to the list of actions it will try."
-  :type `(alist :key-type
-		(choice :tag "Condition"
-			regexp
-			(function :tag "Matcher function"))
-		:value-type ,display-buffer--action-custom-type)
+  :type `(alist :key-type (buffer-predicate :tag "Condition")
+                :value-type ,display-buffer--action-custom-type)
   :risky t
   :version "24.1"
   :group 'windows)
@@ -9605,7 +9602,10 @@ Optional second argument NORECORD non-nil means do not put this
 buffer at the front of the list of recently selected ones.
 
 This uses the function `display-buffer' as a subroutine; see its
-documentation for additional customization information."
+documentation for additional customization information.
+If this command needs to split the current window, it by default obeys
+the user options `split-height-threshold' and `split-width-threshold',
+when it decides whether to split the window horizontally or vertically."
   (interactive
    (list (read-buffer-to-switch "Switch to buffer in other window: ")))
   (let ((pop-up-windows t))

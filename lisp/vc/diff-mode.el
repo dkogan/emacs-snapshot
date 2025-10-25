@@ -1175,6 +1175,21 @@ PREFIX is only used internally: don't use it."
                            (cons (cons fs file) diff-remembered-files-alist)))
              file)))))))
 
+(defun diff-buffer-file-names (&optional old noprompt)
+  "Return file names corresponding to all of this buffer's hunks.
+Optional arguments OLD and NOPROMPT are passed on to
+`diff-find-file-name', which see."
+  (save-excursion
+    (cl-loop initially
+             (goto-char (point-min))
+             (ignore-errors (diff-file-next))
+             when (and (looking-at diff-file-header-re)
+                       (diff-find-file-name old noprompt))
+             collect it
+             until (eq (prog1 (point)
+                         (ignore-errors (diff-file-next)))
+                       (point)))))
+
 
 (defun diff-ediff-patch ()
   "Call `ediff-patch-file' on the current buffer."
@@ -2213,17 +2228,21 @@ customize `diff-ask-before-revert-and-kill-hunk' to control that."
       (when (null (diff-apply-buffer beg end t))
         (diff-hunk-kill)))))
 
-(defun diff-apply-buffer (&optional beg end reverse)
+(defun diff-apply-buffer (&optional beg end reverse test)
   "Apply the diff in the entire diff buffer.
 Interactively, if the region is active, apply all hunks that the region
 overlaps; otherwise, apply all hunks.
 With a prefix argument, reverse-apply the hunks.
 If applying all hunks succeeds, save the changed buffers.
 
-When called from Lisp with optional arguments, restrict the application
-to hunks lying between BEG and END, and reverse-apply them when REVERSE
-is non-nil.  Returns nil if buffers were successfully modified and
-saved, or the number of failed hunk applications otherwise."
+When called from Lisp, returns nil if buffers were successfully modified
+and saved, or the number of failed hunk applications otherwise.
+Optional arguments BEG and END restrict the hunks to be applied to those
+lying between BEG and END.
+Optional argument REVERSE means to reverse-apply hunks.
+Optional argument TEST means to not actually apply or reverse-apply any
+hunks, but return the same information: nil if all hunks can be applied,
+or the number of hunks that can't be applied."
   (interactive (list (use-region-beginning)
                      (use-region-end)
                      current-prefix-arg))
@@ -2234,7 +2253,7 @@ saved, or the number of failed hunk applications otherwise."
       (goto-char (or beg (point-min)))
       (diff-beginning-of-hunk t)
       (while (pcase-let ((`(,buf ,line-offset ,pos ,_src ,dst ,switched)
-                          (diff-find-source-location nil reverse)))
+                          (diff-find-source-location nil reverse test)))
                (cond ((and line-offset (not switched))
                       (push (cons pos dst)
                             (alist-get buf buffer-edits)))
@@ -2244,23 +2263,25 @@ saved, or the number of failed hunk applications otherwise."
                     (or (not end) (< (point) end))
                     (looking-at-p diff-hunk-header-re)))))
     (cond ((zerop failures)
-           (dolist (buf-edits (reverse buffer-edits))
-             (with-current-buffer (car buf-edits)
-               (dolist (edit (cdr buf-edits))
-                 (let ((pos (car edit))
-                       (dst (cdr edit))
-                       (inhibit-read-only t))
-                   (goto-char (car pos))
-                   (delete-region (car pos) (cdr pos))
-                   (insert (car dst))))
-               (save-buffer)))
-           (message "Saved %d buffers" (length buffer-edits))
+           (unless test
+             (dolist (buf-edits (reverse buffer-edits))
+               (with-current-buffer (car buf-edits)
+                 (dolist (edit (cdr buf-edits))
+                   (let ((pos (car edit))
+                         (dst (cdr edit))
+                         (inhibit-read-only t))
+                     (goto-char (car pos))
+                     (delete-region (car pos) (cdr pos))
+                     (insert (car dst))))
+                 (save-buffer)))
+             (message "Saved %d buffers" (length buffer-edits)))
            nil)
           (t
-           (message (ngettext "%d hunk failed; no buffers changed"
-                              "%d hunks failed; no buffers changed"
-                              failures)
-                    failures)
+           (unless test
+             (message (ngettext "%d hunk failed; no buffers changed"
+                                "%d hunks failed; no buffers changed"
+                                failures)
+                      failures))
            failures))))
 
 (defalias 'diff-mouse-goto-source #'diff-goto-source)
@@ -2450,7 +2471,7 @@ With non-nil prefix arg, re-diff all the hunks."
     (((class color) (min-colors 88) (background light))
      :background "#ffbbbb")
     (((class color) (min-colors 88) (background dark))
-     :background "#aa2222"))
+     :background "#882222"))
   "Face used for removed characters shown by `diff-refine-hunk'."
   :version "24.3")
 
@@ -2462,7 +2483,7 @@ With non-nil prefix arg, re-diff all the hunks."
     (((class color) (min-colors 88) (background light))
      :background "#aaffaa")
     (((class color) (min-colors 88) (background dark))
-     :background "#22aa22"))
+     :background "#228822"))
   "Face used for added characters shown by `diff-refine-hunk'."
   :version "24.3")
 
@@ -2616,7 +2637,7 @@ Call FUN with two args (BEG and END) for each hunk."
                         (or (ignore-errors (diff-hunk-next) (point))
                             max)))))))))
 
-;; This doesn't use `diff--iterate-hunks', since that assumes that
+;; This doesn't use `diff--iterate-hunks' because that assumes that
 ;; hunks don't change size.
 (defun diff--ignore-whitespace-all-hunks ()
   "Re-diff all the hunks, ignoring whitespace-differences."

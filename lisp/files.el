@@ -1445,13 +1445,9 @@ Tip: You can use this expansion of remote identifier components
 
 ;; Probably this entire variable should be obsolete now, in favor of
 ;; something Tramp-related (?).  It is not used in many places.
-;; It's not clear what the best file for this to be in is, but given
-;; it uses custom-initialize-delay, it is easier if it is preloaded
-;; rather than autoloaded.
-(defcustom remote-shell-program (or (executable-find "ssh") "ssh")
+(defcustom remote-shell-program "ssh"
   "Program to use to execute commands on a remote host (i.e. ssh)."
-  :version "29.1"
-  :initialize #'custom-initialize-delay
+  :version "31.1"
   :group 'environment
   :type 'file)
 
@@ -2019,7 +2015,11 @@ current directory to be available on first \\[next-history-element]
 request.
 
 Interactively, or if WILDCARDS is non-nil in a call from Lisp,
-expand wildcards (if any) and visit multiple files."
+expand wildcards (if any) and visit multiple files.
+
+If this command needs to split the current window, it by default obeys
+the user options `split-height-threshold' and `split-width-threshold',
+when it decides whether to split the window horizontally or vertically."
   (interactive
    (find-file-read-args "Find file in other window: "
                         (confirm-nonexistent-file-or-buffer)))
@@ -2099,7 +2099,10 @@ Use \\[read-only-mode] to permit editing."
 (defun find-file-read-only-other-window (filename &optional wildcards)
   "Edit file FILENAME in another window but don't allow changes.
 Like \\[find-file-other-window], but marks buffer as read-only.
-Use \\[read-only-mode] to permit editing."
+Use \\[read-only-mode] to permit editing.
+If this command needs to split the current window, it by default obeys
+the user options `split-height-threshold' and `split-width-threshold',
+when it decides whether to split the window horizontally or vertically."
   (interactive
    (find-file-read-args "Find file read-only other window: "
                         (confirm-nonexistent-file-or-buffer)))
@@ -2121,7 +2124,11 @@ This command does not select that window.
 See \\[find-file] for the possible forms of the FILENAME argument.
 
 Interactively, or if WILDCARDS is non-nil in a call from Lisp,
-expand wildcards (if any) and replace the file with multiple files."
+expand wildcards (if any) and replace the file with multiple files.
+
+If this command needs to split the current window, it by default obeys
+the user options `split-height-threshold' and `split-width-threshold',
+when it decides whether to split the window horizontally or vertically."
   (interactive
    (save-selected-window
      (other-window 1)
@@ -5110,8 +5117,8 @@ However, the mode will not be changed if
 This also renames the buffer to correspond to the new file.
 The next time the buffer is saved it will go in the newly specified file.
 FILENAME nil or an empty string means mark buffer as not visiting any file.
-Remember to delete the initial contents of the minibuffer
-if you wish to pass an empty string as the argument.
+When calling interactively, remember to delete the initial contents of
+the minibuffer if you wish to pass an empty string as the argument.
 
 The optional second argument NO-QUERY, if non-nil, inhibits asking for
 confirmation in the case where another buffer is already visiting FILENAME.
@@ -7216,23 +7223,24 @@ preserve markers and overlays, at the price of being slower."
 The arguments IGNORE-AUTO and NOCONFIRM are as described for `revert-buffer'.
 Runs the hooks `before-revert-hook' and `after-revert-hook' at the
 start and end.
-The function returns non-nil if it reverts the buffer; signals
-an error if the buffer is not associated with a file.
+The function returns non-nil if it reverts the buffer, and signals an
+error if the buffer is not associated with a file.
 
 Calls `revert-buffer-insert-file-contents-function' to reread the
 contents of the visited file, with two arguments: the first is the file
 name, the second is non-nil if reading an auto-save file.
 
 This function handles only buffers that are visiting files.
-Non-file buffers need a custom function."
+Non-file buffers need a custom `revert-buffer-function'; see
+`revert-buffer'."
   (with-current-buffer (or (buffer-base-buffer (current-buffer))
                            (current-buffer))
     (let* ((auto-save-p (and (not ignore-auto)
                              (recent-auto-save-p)
                              buffer-auto-save-file-name
                              (file-readable-p buffer-auto-save-file-name)
-                             (y-or-n-p
-                              "Buffer has been auto-saved recently.  Revert from auto-save file? ")))
+                             (y-or-n-p "Buffer has been auto-saved recently.  \
+Revert from auto-save file? ")))
            (file-name (if auto-save-p
                           buffer-auto-save-file-name
                         buffer-file-name)))
@@ -7258,8 +7266,8 @@ Non-file buffers need a custom function."
              ;; Effectively copy the after-revert-hook status,
              ;; since after-find-file will clobber it.
              (let ((global-hook (default-value 'after-revert-hook))
-                   (local-hook (when (local-variable-p 'after-revert-hook)
-                                 after-revert-hook))
+                   (local-hook (and (local-variable-p 'after-revert-hook)
+                                    after-revert-hook))
                    (inhibit-read-only t))
                ;; FIXME: Throw away undo-log when preserve-modes is nil?
                (funcall
@@ -7274,8 +7282,7 @@ Non-file buffers need a custom function."
                ;; Run after-revert-hook as it was before we reverted.
                (setq-default revert-buffer-internal-hook global-hook)
                (if local-hook
-                   (setq-local revert-buffer-internal-hook
-                        local-hook)
+                   (setq-local revert-buffer-internal-hook local-hook)
                  (kill-local-variable 'revert-buffer-internal-hook))
                (run-hooks 'revert-buffer-internal-hook))
              t)))))

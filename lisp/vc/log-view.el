@@ -114,6 +114,8 @@
 (require 'log-edit)
 (autoload 'vc-find-revision "vc")
 (autoload 'vc-diff-internal "vc")
+(autoload 'vc--pick-or-revert "vc")
+(autoload 'vc--prompt-other-working-tree "vc")
 
 (defvar cvs-minor-wrap-function)
 (defvar cvs-force-command)
@@ -127,6 +129,7 @@
   "RET" #'log-view-toggle-entry-display
   "m" #'log-view-mark-entry
   "u" #'log-view-unmark-entry
+  "U" #'log-view-unmark-all-entries
   "e" #'log-view-modify-change-comment
   "d" #'log-view-diff
   "=" #'log-view-diff
@@ -135,8 +138,11 @@
   "f" #'log-view-find-revision
   "n" #'log-view-msg-next
   "p" #'log-view-msg-prev
+  "w" #'log-view-copy-revision-as-kill
   "TAB" #'log-view-msg-next
-  "<backtab>" #'log-view-msg-prev)
+  "<backtab>" #'log-view-msg-prev
+  "C" #'log-view-revision-cherry-pick
+  "R" #'log-view-revision-revert)
 
 (easy-menu-define log-view-mode-menu log-view-mode-map
   "Log-View Display Menu."
@@ -158,6 +164,11 @@
      :help "Edit the change comment displayed at point"]
     ["Toggle Details at Point" log-view-toggle-entry-display
      :active log-view-expanded-log-entry-function]
+    "-----"
+    ["Cherry-Pick Revision(s)" log-view-revision-cherry-pick
+     :help "Copy changes from revision(s) to a branch"]
+    ["Revert Revision(s)" log-view-revision-revert
+     :help "Undo the effects of old revision(s)"]
     "-----"
     ["Next Log Entry"  log-view-msg-next
      :help "Go to the next count'th log message"]
@@ -345,8 +356,8 @@ See `log-view-mark-entry'."
   (save-excursion
     (when-let* ((entry (log-view-current-entry)))
       (if (get-char-property (car entry) 'log-view-self)
-          (log-view-unmark-entry)
-        (log-view-mark-entry)))))
+          (log-view-unmark-entry 1)
+        (log-view-mark-entry 1)))))
 
 (defun log-view--mark-unmark (mark-unmark-function arg beg end)
   "Call MARK-UNMARK-FUNCTION on each line of an active region or ARG times.
@@ -383,12 +394,12 @@ characters."
     (dotimes (_ arg)
       (funcall mark-unmark-function))))
 
-(defun log-view-mark-entry (&optional arg beg end)
+(defun log-view-mark-entry (arg &optional beg end)
   "Mark the log entry at point.
 If the region is active in Transient Mark mode, mark all entries.
 When called with a prefix argument, mark that many log entries.
-When called from Lisp, mark ARG entries or all entries between lying
-between BEG and END.  If BEG and END are supplied, ARG is ignored.
+When called from Lisp, mark ARG entries or all entries lying between BEG
+and END.  If BEG and END are supplied, ARG is ignored.
 
 When entries are marked, some commands that usually operate on the entry
 at point will instead operate on all marked entries.
@@ -419,12 +430,12 @@ marked revisions."
 	  (overlay-put ov 'log-view-marked (nth 1 entry)))))
     (log-view-msg-next 1)))
 
-(defun log-view-unmark-entry (&optional arg beg end)
+(defun log-view-unmark-entry (arg &optional beg end)
   "Unmark the log entry at point.
 If the region is active in Transient Mark mode, unmark all entries.
 When called with a prefix argument, unmark that many log entries.
-When called from Lisp, mark ARG entries or all entries between lying
-between BEG and END.  If BEG and END are supplied, ARG is ignored.
+When called from Lisp, mark ARG entries or all entries lying between BEG
+and END.  If BEG and END are supplied, ARG is ignored.
 
 See `log-view-mark-entry'."
   (interactive (list (prefix-numeric-value current-prefix-arg)
@@ -438,6 +449,12 @@ See `log-view-mark-entry'."
     (when-let* ((found (get-char-property (car entry) 'log-view-self)))
       (delete-overlay found))
     (log-view-msg-next 1)))
+
+(defun log-view-unmark-all-entries ()
+  "Unmark all marked log entries in this buffer."
+  (interactive)
+  (log-view--mark-unmark #'log-view--unmark-entry
+                         nil (point-min) (point-max)))
 
 ;;;###autoload
 (defun log-view-get-marked ()
@@ -678,9 +695,114 @@ If called interactively, annotate the version at point."
 		 (log-view-current-tag)
                  nil nil nil log-view-vc-backend)))
 
-;;
-;; diff
-;;
+;;;;
+;;;; Cherry-picks and reverts
+;;;;
+
+(defvar vc-parent-buffer-name)
+(defvar vc-log-short-style)
+(declare-function vc-print-log-internal "vc")
+
+(defun log-view--pick-or-revert (directory no-comment reverse)
+  "Copy changes from revision at point or all marked revisions.
+DIRECTORY is the destination, the root of the target working tree.
+NO-COMMENT non-nil means use the log messages of the revisions
+unmodified, instead of using the backend's default cherry-pick comment
+for that revision.
+NO-COMMENT non-nil with zero or one revisions marked also means don't
+prompt to edit the log message.
+REVERSE non-nil means to make commit(s) undoing the effects of the
+revisions, instead."
+  (let ((default-directory directory)
+        (marked (log-view-get-marked)))
+    (if (length> marked 1)
+        (progn
+          (save-excursion
+            (dolist (rev (if reverse (reverse marked) marked))
+              ;; Unmark each revision *before* copying it.
+              ;; Then if there is a conflict such that a cherry-pick
+              ;; fails, after resolving that conflict and committing the
+              ;; cherry-pick, the right revisions will be marked to
+              ;; resume the original multiple cherry-pick operation.
+              (log-view-goto-rev rev)
+              (log-view-unmark-entry 1)
+              (vc--pick-or-revert rev
+                                  reverse
+                                  (if no-comment
+                                      (vc-call-backend log-view-vc-backend
+                                                       'get-change-comment
+                                                       nil rev)
+                                    t)
+                                  nil
+                                  log-view-vc-backend)))
+          (when (vc-find-backend-function log-view-vc-backend
+                                          'modify-change-comment)
+            (let (vc-log-short-style)
+              (vc-print-log-internal log-view-vc-backend
+                                     (list default-directory)
+                                     nil nil (length marked)))
+            (setq-local vc-log-short-style nil ; For \\`g'.
+                        vc-parent-buffer-name nil)
+            (message (substitute-command-keys "Use \
+\\[log-view-modify-change-comment] to modify any of these messages"))))
+      (let ((rev (or (car marked) (log-view-current-tag))))
+        (vc--pick-or-revert rev
+                            reverse
+                            (and no-comment
+                                 (vc-call-backend log-view-vc-backend
+                                                  'get-change-comment
+                                                  nil rev))
+                            nil
+                            log-view-vc-backend)))))
+
+(defun log-view-revision-cherry-pick (directory &optional no-comment)
+  "Copy changes from revision at point to current branch.
+If there are marked revisions, use those instead of the revision at point.
+
+When called interactively, prompts for the target working tree to which
+to copy the revision(s); the current working tree is the default choice.
+When called from Lisp, DIRECTORY is the root of the target working tree.
+
+When copying a single revision, prompts for editing the log message for
+the new commit, except with optional argument NO-COMMENT non-nil
+(interactively, with a prefix argument).
+When copying multiple revisions, never prompts to edit log messages.
+
+Normally a log message for each new commit is generated by the backend,
+including references to the source commits so that the copy can be
+traced.  With optional argument NO-COMMENT non-nil (interactively, with
+a prefix argument), use the log messages from the source revisions
+unmodified.
+
+See also `vc-revision-cherry-pick'."
+  (interactive
+   (list (vc--prompt-other-working-tree log-view-vc-backend
+                                        "Cherry-pick to working tree"
+                                        'allow-empty)
+         current-prefix-arg))
+  (log-view--pick-or-revert directory no-comment nil))
+
+(defun log-view-revision-revert (directory)
+  "Undo the effects of the revision at point.
+When revisions are marked, undo the effects of each of them.
+When called interactively, prompts for the target working tree in which
+to revert; the current working tree is the default choice.
+When called from Lisp, DIRECTORY is the root of the target working tree.
+
+When reverting a single revision, prompts for editing the log message
+for the new commit.
+When reverting multiple revisions, never prompts to edit log messages.
+
+See also `vc-revision-revert'."
+  (interactive (list (vc--prompt-other-working-tree
+                      (vc-responsible-backend default-directory)
+                      "Revert in working tree"
+                      'allow-empty)))
+  (log-view--pick-or-revert directory nil t))
+
+;;;;
+;;;; diff
+;;;;
 
 (defun log-view-diff (beg end)
   "Get the diff between two revisions.
@@ -741,6 +863,20 @@ considered file(s)."
                  (list (log-view-current-file))
                log-view-vc-fileset)))
      fr to)))
+
+(defun log-view-copy-revision-as-kill ()
+  "Copy the ID of the revision at point to the kill ring.
+If there are marked revisions, copy the IDs of those, separated by spaces."
+  (interactive)
+  (let ((revisions (log-view-get-marked)))
+    (if (length> revisions 1)
+        (let ((found (string-join revisions " ")))
+          (kill-new found)
+          (message "%s" found))
+      (if-let* ((rev (or (car revisions) (log-view-current-tag))))
+          (progn (kill-new rev)
+                 (message "%s" rev))
+        (user-error "No revision at point")))))
 
 (provide 'log-view)
 

@@ -2,12 +2,12 @@
 
 ;; Copyright (C) 2018-2025 Free Software Foundation, Inc.
 
-;; Version: 1.18
+;; Version: 1.19
 ;; Author: João Távora <joaotavora@gmail.com>
 ;; Maintainer: João Távora <joaotavora@gmail.com>
 ;; URL: https://github.com/joaotavora/eglot
 ;; Keywords: convenience, languages
-;; Package-Requires: ((emacs "26.3") (eldoc "1.14.0") (external-completion "0.1") (flymake "1.4.1") (jsonrpc "1.0.24") (project "0.9.8") (seq "2.23") (xref "1.6.2"))
+;; Package-Requires: ((emacs "26.3") (eldoc "1.14.0") (external-completion "0.1") (flymake "1.4.2") (jsonrpc "1.0.26") (project "0.9.8") (seq "2.23") (xref "1.6.2"))
 
 ;; This is a GNU ELPA :core package.  Avoid adding functionality
 ;; that is not available in the version of Emacs recorded above or any
@@ -306,6 +306,7 @@ automatically)."
      . ,(eglot-alternatives '("digestif" "texlab")))
     (erlang-mode . ("erlang_ls" "--transport" "stdio"))
     ((yaml-ts-mode yaml-mode) . ("yaml-language-server" "--stdio"))
+    ((toml-ts-mode conf-toml-mode) . ("tombi" "lsp"))
     (nix-mode . ,(eglot-alternatives '("nil" "rnix-lsp" "nixd")))
     (nickel-mode . ("nls"))
     ((nushell-mode nushell-ts-mode) . ("nu" "--lsp"))
@@ -1269,7 +1270,7 @@ SERVER."
   (unwind-protect
       (progn
         (setf (eglot--shutdown-requested server) t)
-        (eglot--request server :shutdown eglot--{} :timeout (or timeout 1.5))
+        (eglot--request server :shutdown :jsonrpc-omit :timeout (or timeout 1.5))
         (jsonrpc-notify server :exit eglot--{}))
     ;; Now ask jsonrpc.el to shut down the server.
     (jsonrpc-shutdown server (not preserve-buffers))
@@ -2018,7 +2019,7 @@ Doubles as an indicator of snippet support."
            (unless (bound-and-true-p yas-minor-mode) (yas-minor-mode 1))
            (apply #'yas-expand-snippet args)))))
 
- (defun eglot--format-markup (markup &optional mode)
+(defun eglot--format-markup (markup &optional mode)
   "Format MARKUP according to LSP's spec.
 MARKUP is either an LSP MarkedString or MarkupContent object."
   (let (string render-mode language)
@@ -2050,9 +2051,14 @@ MARKUP is either an LSP MarkedString or MarkupContent object."
         (goto-char (point-min))
         (let ((inhibit-read-only t))
           (when (fboundp 'text-property-search-forward)
+            ;; If `render-mode' is `gfm-view-mode', the `invisible'
+            ;; regions are set to `markdown-markup'.  Set them to 't'
+            ;; instead, since this has actual meaning in the "*eldoc*"
+            ;; buffer where we're taking this string (#bug79552).
             (while (setq match (text-property-search-forward 'invisible))
-              (delete-region (prop-match-beginning match)
-                             (prop-match-end match)))))
+              (put-text-property (prop-match-beginning match)
+                                 (prop-match-end match)
+                                 'invisible t))))
         (string-trim (buffer-string))))))
 
 (defun eglot--read-server (prompt &optional dont-if-just-the-one)

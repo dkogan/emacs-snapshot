@@ -634,6 +634,7 @@ extern AVOID wrong_type_argument (Lisp_Object, Lisp_Object);
 extern Lisp_Object default_value (Lisp_Object symbol);
 extern void defalias (Lisp_Object symbol, Lisp_Object definition);
 extern char *fixnum_to_string (EMACS_INT number, char *buffer, char *end);
+extern bool slow_eq (Lisp_Object x, Lisp_Object y);
 
 
 /* Defined in emacs.c.  */
@@ -1325,10 +1326,12 @@ INLINE bool
 INLINE bool
 EQ (Lisp_Object x, Lisp_Object y)
 {
-  return BASE_EQ ((__builtin_expect (symbols_with_pos_enabled, false)
-		   && SYMBOL_WITH_POS_P (x) ? XSYMBOL_WITH_POS_SYM (x) : x),
-		  (__builtin_expect (symbols_with_pos_enabled, false)
-		   && SYMBOL_WITH_POS_P (y) ? XSYMBOL_WITH_POS_SYM (y) : y));
+  if (BASE_EQ (x, y))
+    return true;
+  else if (!__builtin_expect (symbols_with_pos_enabled, false))
+    return false;
+  else
+    return slow_eq (x, y);
 }
 
 INLINE intmax_t
@@ -1576,6 +1579,9 @@ struct Lisp_String
       ptrdiff_t size_byte;
 
       INTERVAL intervals;	/* Text properties in this string.  */
+      /* The data is always followed by a NUL, not included in size or
+	 size_byte, for C interoperability, but may also contain NULs
+	 itself.  */
       unsigned char *data;
     } s;
     struct Lisp_String *next;
@@ -3783,7 +3789,7 @@ record_in_backtrace (Lisp_Object function, Lisp_Object *args, ptrdiff_t nargs)
   specpdl_ptr->bt.kind = SPECPDL_BACKTRACE;
   specpdl_ptr->bt.debug_on_exit = false;
   specpdl_ptr->bt.function = function;
-  current_thread->stack_top = specpdl_ptr->bt.args = args;
+  specpdl_ptr->bt.args = args;
   specpdl_ptr->bt.nargs = nargs;
   grow_specpdl ();
 
@@ -3825,7 +3831,7 @@ enum handlertype {
   CONDITION_CASE,               /* Entry for 'condition-case'.
                                    'tag_or_ch' holds the list of conditions.
                                    'val' holds the retval during longjmp.  */
-  CATCHER_ALL,                  /* Wildcard which catches all 'throw's.
+  CATCHER_ALL,                  /* Wildcard that catches all throws and signals.
                                    'tag_or_ch' is unused.
                                    'val' holds the retval during longjmp.  */
   HANDLER_BIND,                 /* Entry for 'handler-bind'.

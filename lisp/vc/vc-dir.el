@@ -1029,7 +1029,10 @@ system."
   (find-file (vc-dir-current-file)))
 
 (defun vc-dir-find-file-other-window (&optional event)
-  "Find the file on the current line, in another window."
+  "Find the file on the current line, in another window.
+If this command needs to split the current window, it by default obeys
+the user options `split-height-threshold' and `split-width-threshold',
+when it decides whether to split the window horizontally or vertically."
   (interactive (list last-nonmenu-event))
   (if event (posn-set-point (event-end event)))
   (find-file-other-window (vc-dir-current-file)))
@@ -1240,13 +1243,21 @@ that file."
           (set-buffer status-buf)
           (if (not (derived-mode-p 'vc-dir-mode))
               (push status-buf drop)
-            (let ((ddir default-directory))
-              (when (string-prefix-p ddir file)
+            (let ((ddir (expand-file-name
+                         ;; The actual contents of this VC-Dir buffer,
+                         ;; which is what we care about here, is always
+                         ;; relative to the toplevel value.
+                         ;; If we invoked the current command from
+                         ;; STATUS-BUF then it might have shadowed
+                         ;; `default-directory' in order to do its work,
+                         ;; but that's irrelevant to us here.
+                         (buffer-local-toplevel-value 'default-directory))))
+              (when (file-in-directory-p file ddir)
                 (if (file-directory-p file)
 		    (progn
 		      (vc-dir-resync-directory-files file)
 		      (ewoc-set-hf vc-ewoc
-				   (vc-dir-headers vc-dir-backend default-directory) ""))
+				   (vc-dir-headers vc-dir-backend ddir) ""))
                   (let* ((complete-state (vc-dir-recompute-file-state file ddir))
 			 (state (cadr complete-state)))
                     (vc-dir-update
@@ -1254,7 +1265,8 @@ that file."
                      status-buf (or (not state)
 				    (eq state 'up-to-date)))))))))))
     ;; Remove out-of-date entries from vc-dir-buffers.
-    (dolist (b drop) (setq vc-dir-buffers (delq b vc-dir-buffers)))))
+    (setq vc-dir-buffers
+          (cl-nset-difference vc-dir-buffers drop :test #'eq))))
 
 (defvar use-vc-backend)  ;; dynamically bound
 

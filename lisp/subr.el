@@ -1134,6 +1134,62 @@ side-effects, and the argument LIST is not modified."
   (if (memq elt list)
       (delq elt (copy-sequence list))
     list))
+
+(defun internal--effect-free-fun-arg-p (x)
+  (or (symbolp x) (closurep x) (memq (car-safe x) '(function quote))))
+
+(defun take-while (pred list)
+  "Return the longest prefix of LIST whose elements satisfy PRED."
+  (declare (compiler-macro
+            (lambda (_form)
+              (let* ((tail (make-symbol "tail"))
+                     (pred (macroexpand-all pred macroexpand-all-environment))
+                     (f (and (not (internal--effect-free-fun-arg-p pred))
+                             (make-symbol "f")))
+                     (r (make-symbol "r")))
+                `(let (,@(and f `((,f ,pred)))
+                       (,tail ,list)
+                       (,r nil))
+                   (while (and ,tail (funcall ,(or f pred) (car ,tail)))
+                     (push (car ,tail) ,r)
+                     (setq ,tail (cdr ,tail)))
+                   (nreverse ,r))))))
+  (let ((r nil))
+    (while (and list (funcall pred (car list)))
+      (push (car list) r)
+      (setq list (cdr list)))
+    (nreverse r)))
+
+(defun drop-while (pred list)
+  "Skip initial elements of LIST satisfying PRED and return the rest."
+  (declare (compiler-macro
+            (lambda (_form)
+              (let* ((tail (make-symbol "tail"))
+                     (pred (macroexpand-all pred macroexpand-all-environment))
+                     (f (and (not (internal--effect-free-fun-arg-p pred))
+                             (make-symbol "f"))))
+                `(let (,@(and f `((,f ,pred)))
+                       (,tail ,list))
+                   (while (and ,tail (funcall ,(or f pred) (car ,tail)))
+                     (setq ,tail (cdr ,tail)))
+                   ,tail)))))
+  (while (and list (funcall pred (car list)))
+    (setq list (cdr list)))
+  list)
+
+(defun all (pred list)
+  "Non-nil if PRED is true for all elements in LIST."
+  (declare (compiler-macro (lambda (_) `(not (drop-while ,pred ,list)))))
+  (not (drop-while pred list)))
+
+(defun any (pred list)
+  "Non-nil if PRED is true for at least one element in LIST.
+Returns the LIST suffix starting at the first element that satisfies PRED,
+or nil if none does."
+  (declare (compiler-macro
+            (lambda (_)
+              `(drop-while (lambda (x) (not (funcall ,pred x))) ,list))))
+  (drop-while (lambda (x) (not (funcall pred x))) list))
 
 ;;;; Keymap support.
 
@@ -2728,6 +2784,9 @@ Affects only hooks run in the current buffer."
                 binding))
             bindings)))
 
+;; FIXME: Once Emacs 29 is ancient history we can consider a
+;; byte-compiler warning.  This is because Emacs 29 and older will warn
+;; about unused variables with (_ VALUEFORM).
 (defmacro if-let* (varlist then &rest else)
   "Bind variables according to VARLIST and evaluate THEN or ELSE.
 Evaluate each binding in turn, as in `let*', stopping if a
@@ -2735,12 +2794,18 @@ binding value is nil.  If all are non-nil return the value of
 THEN, otherwise the value of the last form in ELSE, or nil if
 there are none.
 
-Each element of VARLIST is a list (SYMBOL VALUEFORM) that binds
-SYMBOL to the value of VALUEFORM.  An element can additionally be
-of the form (VALUEFORM), which is evaluated and checked for nil;
-i.e. SYMBOL can be omitted if only the test result is of
-interest.  It can also be of the form SYMBOL, then the binding of
-SYMBOL is checked for nil."
+Each element of VARLIST is a list (SYMBOL VALUEFORM) that binds SYMBOL
+to the value of VALUEFORM.  If only the test result is of interest, use
+`_' as SYMBOL, i.e. (_ VALUEFORM), in which case VALUEFORM is evaluated
+and checked for nil but the result is not bound.
+An element of VARLIST can also be of the form SYMBOL, in which case the
+binding of SYMBOL is checked for nil, only.
+
+An older form for entries of VARLIST is also supported, where SYMBOL is
+omitted, i.e. (VALUEFORM).  This means the same as (_ VALUEFORM).
+This form is not recommended because many programmers find it
+significantly less readable.  A future release of Emacs may introduce a
+byte-compiler warning for uses of (VALUEFORM) in VARLIST."
   (declare (indent 2)
            (debug ((&rest [&or symbolp (symbolp form) (form)])
                    body)))
@@ -3054,6 +3119,10 @@ though trying to avoid AVOIDED-MODES."
 					 overwrite-mode view-mode
                                          hs-minor-mode)
   "List of all minor mode functions.")
+
+(defvar global-minor-modes nil
+  "A list of the currently enabled global minor modes.
+This is a list of symbols.")
 
 (defun add-minor-mode (toggle name &optional keymap after toggle-fun)
   "Register a new minor mode.
@@ -7651,7 +7720,8 @@ CONDITION is either:
 - a cons-cell, where the car describes how to interpret the cdr.
   The car can be one of the following:
   * `derived-mode': the buffer matches if the buffer's major mode
-    is derived from the major mode in the cons-cell's cdr.
+    is derived from the major mode in the cons-cell's cdr, or from any
+    major mode in the list as accepted by `provided-mode-derived-p'.
   * `major-mode': the buffer matches if the buffer's major mode
     is eq to the cons-cell's cdr.  Prefer using `derived-mode'
     instead when both can work.

@@ -408,7 +408,8 @@ This variable is buffer-local."
       "Vault" "SSH" "BECOME"
       "Enter Auth" "enter auth" "Old" "old" "New" "new" "login"
       "Kerberos" "CVS" "UNIX" " SMB" "LDAP" "PEM" "SUDO"
-      "[sudo]" "doas" "Repeat" "Bad" "Retype" "Verify")
+      "[sudo]" "[sudo: authenticate]" "[su: authenticate]"
+      "doas" "Repeat" "Bad" "Retype" "Verify")
     t)
    ;; Allow for user name to precede password equivalent (Bug#31075).
    " +.*\\)"
@@ -2312,14 +2313,12 @@ Make backspaces delete the previous character."
   ;; `yank' removes the field text property from the text it inserts
   ;; due to `yank-excluded-properties', so arrange for this text
   ;; property to be reapplied in the `after-change-functions'.
-  (let (fun)
-    (setq
-     fun
-     (lambda (beg1 end1 _len1)
-       (remove-hook 'after-change-functions fun t)
-       (when (and (= beg beg1)
-                  (= end end1))
-         (comint--mark-as-output beg1 end1))))
+  (letrec ((fun
+            (lambda (beg1 end1 _len1)
+              (remove-hook 'after-change-functions fun t)
+              (when (and (= beg beg1)
+                         (= end end1))
+                (comint--mark-as-output beg1 end1)))))
     (add-hook 'after-change-functions fun nil t)))
 
 (defun comint--unmark-string-as-output (string)
