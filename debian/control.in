@@ -13,7 +13,7 @@ Build-Depends: bsd-mailx | mailx, libncurses5-dev, texinfo, liblockfile-dev, lib
  libasound2-dev [!hurd-i386 !kfreebsd-i386 !kfreebsd-amd64],
  libacl1-dev,
  libtree-sitter-dev,
- libgccjit-14-dev | libgccjit-13-dev | libgccjit-12-dev | libgccjit-11-dev | libgccjit-10-dev,
+ libgccjit-15-dev | libgccjit-14-dev | libgccjit-13-dev | libgccjit-12-dev | libgccjit-11-dev | libgccjit-10-dev,
  libjansson-dev,
  zlib1g-dev
 Homepage: http://www.gnu.org/software/emacs/
