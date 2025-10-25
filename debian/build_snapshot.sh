@@ -41,8 +41,6 @@ git clean -ffdx; git reset --hard
 # build upstream .orig tarball if needed
 gbp buildpackage --git-builder=true --git-cleaner=true --git-ignore-new
 
-# build the package
-# note that on my box the "unstable" chroot is actually "jessie"
 sbuild --no-clean-source --chroot-mode=unshare -s --force-orig-source -A -d unstable
 
 
