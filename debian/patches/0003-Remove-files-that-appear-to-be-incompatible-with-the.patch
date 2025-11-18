@@ -118,10 +118,10 @@ index ea05fe6..c2ca077 100644
  
  $(UNINSTALL_DOC):
 diff --git a/configure.ac b/configure.ac
-index 6bec1ad..867e4af 100644
+index 44d9cae..f51d4da 100644
 --- a/configure.ac
 +++ b/configure.ac
-@@ -7726,11 +7726,10 @@ AC_DEFUN
+@@ -7721,11 +7721,10 @@ AC_DEFUN
  
  AC_CONFIG_FILES([lib/Makefile lib-src/Makefile oldXMenu/Makefile src/Makefile
                   lwlib/Makefile nextstep/Makefile nt/Makefile])
@@ -135,7 +135,7 @@ index 6bec1ad..867e4af 100644
  
  dnl The test/ directory is missing if './make-dist --no-tests' was used.
  opt_makefile=test/Makefile
-@@ -7802,15 +7801,6 @@ AC_DEFUN
+@@ -7797,15 +7796,6 @@ AC_DEFUN
    fi
    ])
  
@@ -169,10 +169,10 @@ index 95c8a92..ce85c0a 100644
  ## This is discouraged because the .texi files it generates
  ## are not as well formatted as handwritten ones.
 diff --git a/lisp/help.el b/lisp/help.el
-index 4ba9986..b3594e8 100644
+index 8cf91fa..5be0dd7 100644
 --- a/lisp/help.el
 +++ b/lisp/help.el
-@@ -525,6 +525,14 @@ view-help-file
+@@ -586,6 +586,14 @@ view-help-file
    (goto-address-mode 1)
    (goto-char (point-min)))
  
