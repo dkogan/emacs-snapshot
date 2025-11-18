@@ -4418,6 +4418,7 @@ extern void message3_nolog (Lisp_Object);
 extern void message_dolog (const char *, ptrdiff_t, bool, bool);
 extern void message_with_string (const char *, Lisp_Object, bool);
 extern void message_log_maybe_newline (void);
+extern void reset_message_log_need_newline (void);
 extern void update_echo_area (void);
 extern void truncate_echo_area (ptrdiff_t);
 extern void redisplay (void);
@@ -5616,7 +5617,21 @@ extern void init_system_name (void);
 #define eabs(x)         ((x) < 0 ? -(x) : (x))
 
 /* SAFE_ALLOCA normally allocates memory on the stack, but if size is
-   larger than MAX_ALLOCA, use xmalloc to avoid overflowing the stack.  */
+   larger than MAX_ALLOCA, use xmalloc to avoid overflowing the stack.
+
+   If you are thinking MAX_ALLOCA is too small given the usual C stack
+   size of programs on modern platforms, consider the following adverse
+   effects of allowing larger stack-based allocations:
+
+    . Conservative stack scanning by GC is expensive; enlarging the
+      stack will force GC to scan more, and thus GC cycles will take
+      more time.
+    . A large stack-based allocation risks to miss the guard page at
+      the end of the stack space, which is used by modern operating
+      systems to detect stack exhaustion and enlarge the stack as
+      needed; this thus risks hitting a segfault where none should
+      have happened.  (This problem is real in deeply-recursive cases,
+      but these do happen in Emacs, e.g. in regexp search or during GC.)  */
 
 enum MAX_ALLOCA { MAX_ALLOCA = 16 * 1024 };
 

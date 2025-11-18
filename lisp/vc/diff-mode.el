@@ -113,6 +113,17 @@ You can always manually refine a hunk with `diff-refine-hunk'."
                  (const :tag "Refine hunks during font-lock" font-lock)
                  (const :tag "Refine hunks during navigation" navigation)))
 
+(defcustom diff-refine-threshold 30000  ;FIXME: Arbitrary choice.
+  ;; FIXME: A better way to handle this would be to do the refinement
+  ;; asynchronously, so pathological cases just delay the refinement's display
+  ;; but don't freeze Emacs.
+  "Maximum size of diff hunk that can be automatically refined.
+If a hunk is larger than that limit, measured in characters, `diff-refine'
+is not automatically applied, to avoid pathological cases taking too long.
+Does not affect the `diff-refine-hunk' interactive command."
+  :version "31.1"
+  :type 'integer)
+
 (defcustom diff-font-lock-prettify nil
   "If non-nil, font-lock will try and make the format prettier.
 
@@ -210,7 +221,14 @@ and with a `diff-minor-mode-prefix' prefix in `diff-minor-mode'."
   "A" #'diff-ediff-patch
   "r" #'diff-restrict-view
   "R" #'diff-reverse-direction
-  "<remap> <undo>" #'diff-undo)
+  "<remap> <undo>" #'diff-undo
+
+  ;; The foregoing commands don't affect buffers beyond this one.
+  ;; The following command is the only one that has a single-letter
+  ;; binding and which affects buffers beyond this one.
+  ;; However, the following command asks for confirmation by default,
+  ;; so that seems okay.  --spwhitton
+  "u" #'diff-revert-and-kill-hunk)
 
 (defvar-keymap diff-mode-map
   :doc "Keymap for `diff-mode'.  See also `diff-mode-shared-map'."
@@ -227,7 +245,7 @@ and with a `diff-minor-mode-prefix' prefix in `diff-minor-mode'."
   "C-x 4 A" #'diff-add-change-log-entries-other-window
   ;; Misc operations.
   "C-c C-a" #'diff-apply-hunk
-  "C-c M-r" #'diff-revert-and-kill-hunk
+  "C-c M-u" #'diff-revert-and-kill-hunk
   "C-c C-m a" #'diff-apply-buffer
   "C-c C-m n" #'diff-delete-other-hunks
   "C-c C-e" #'diff-ediff-patch
@@ -322,7 +340,8 @@ well."
     (if diff-auto-refine-mode
         (progn
           (customize-set-variable 'diff-refine 'navigation)
-          (condition-case-unless-debug nil (diff-refine-hunk) (error nil)))
+          (condition-case-unless-debug nil (diff-refine-hunk 'skip-if-large)
+            (error nil)))
       (customize-set-variable 'diff-refine nil))))
 (make-obsolete 'diff-auto-refine-mode "set `diff-refine' instead." "27.1")
 (make-obsolete-variable 'diff-auto-refine-mode
@@ -398,11 +417,11 @@ well."
   '((default
      :inherit diff-changed)
     (((class color) (min-colors 88) (background light))
-     :background "grey90" :extend t)
+     :background "#ffffaa" :extend t)
     (((class color) (min-colors 88) (background dark))
-     :background "grey20" :extend t)
+     :background "#888833" :extend t)
     (((class color))
-     :foreground "grey" :extend t))
+     :foreground "yellow" :extend t))
   "`diff-mode' face used to highlight changed lines."
   :version "28.1")
 
@@ -805,7 +824,7 @@ next hunk if TRY-HARDER is non-nil; otherwise signal an error."
                             (with-current-buffer buffer
                               (save-excursion
                                 (goto-char point)
-                                (diff-refine-hunk))))))))))))
+                                (diff-refine-hunk 'skip-if-large))))))))))))
 
 (easy-mmode-define-navigation
  diff-file diff-file-header-re "file" diff-end-of-file)
@@ -2168,7 +2187,8 @@ With a prefix argument, REVERSE the hunk."
 		     "Hunk has already been applied; undo it? ")))))
       (message "(Nothing done)"))
      ((and deletion (not switched))
-      (when (y-or-n-p (format-message "Delete file `%s'?" (buffer-file-name buf)))
+      (when (y-or-n-p (format-message "Delete file `%s'?"
+                                      (buffer-file-name buf)))
         (delete-file (buffer-file-name buf) delete-by-moving-to-trash)
         (kill-buffer buf)))
      (t
@@ -2178,7 +2198,8 @@ With a prefix argument, REVERSE the hunk."
 	(delete-region (car pos) (cdr pos))
 	(insert (car new)))
       ;; Display BUF in a window
-      (set-window-point (display-buffer buf) (+ (car pos) (cdr new)))
+      (set-window-point (display-buffer buf '(nil (inhibit-same-window . t)))
+                        (+ (car pos) (cdr new)))
       (diff-hunk-status-msg line-offset (xor switched reverse) nil)
       (when diff-advance-after-apply-hunk
 	(diff-hunk-next))))))
@@ -2508,8 +2529,9 @@ Return new point, if it was moved."
       (setq pt (point)))
     pt))
 
-(defun diff-refine-hunk ()
-  "Highlight changes of hunk at point at a finer granularity."
+(defun diff-refine-hunk (&optional skip-if-large)
+  "Highlight changes of hunk at point at a finer granularity.
+If SKIP-IF-LARGE is non-nil, obey `diff-refine-threshold'."
   (interactive)
   (when (diff--some-hunks-p)
     (save-excursion
@@ -2517,7 +2539,7 @@ Return new point, if it was moved."
             ;; Be careful to start from the hunk header so diff-end-of-hunk
             ;; gets to read the hunk header's line info.
             (end (progn (diff-end-of-hunk) (point))))
-        (diff--refine-hunk beg end)))))
+        (diff--refine-hunk beg end skip-if-large)))))
 
 (defun diff--refine-propertize (beg end face)
   (let ((ol (make-overlay beg end)))
@@ -2537,7 +2559,7 @@ by `diff-refine-hunk'."
   :version "30.1"
   :type 'boolean)
 
-(defun diff--refine-hunk (start end)
+(defun diff--refine-hunk (start end &optional skip-if-large)
   (require 'smerge-mode)
   (goto-char start)
   (let* ((style (diff-hunk-style))      ;Skips the hunk header as well.
@@ -2550,6 +2572,17 @@ by `diff-refine-hunk'."
 
     (goto-char beg)
     (pcase style
+      ((guard (and skip-if-large
+                   ;; FIXME: Maybe instead of testing the hunk size, we
+                   ;; should test the size of each individual "delete+insert"
+                   ;; pairs, since a big hunk with many small del+ins pairs
+                   ;; should not suffer from the usual pathological
+                   ;; complexity problems.
+                   ;; Or maybe even push the test down into
+                   ;; `smerge-refine-regions' where `smerge-mode' could
+                   ;; also use it?
+                   (> (- end beg) diff-refine-threshold)))
+       nil)
       ('unified
        (while (re-search-forward "^[-+]" end t)
          (let ((beg-del (progn (beginning-of-line) (point)))
@@ -2669,7 +2702,7 @@ Call FUN with two args (BEG and END) for each hunk."
        max
        (lambda (beg end)
          (unless (get-char-property beg 'diff--font-lock-refined)
-           (diff--refine-hunk beg end)
+           (diff--refine-hunk beg end 'skip-if-large)
            (let ((ol (make-overlay beg end)))
              (overlay-put ol 'diff--font-lock-refined t)
              (overlay-put ol 'diff-mode 'fine)

@@ -3449,7 +3449,7 @@ Check if a node type is available, then return the right indent rules."
                ((parent-is "jsx_fragment") parent js-indent-level)))
     (error
      `(((match "<" "jsx_text") parent 0)
-       ((parent-is "jsx_text") parent js-indent-level)))))
+       ((parent-is "jsx_text") parent-bol js-indent-level)))))
 
 (defun js--treesit-switch-body-helper (_node parent _bol &rest _args)
   "Anchor helper for the switch body..
@@ -3832,7 +3832,9 @@ Return nil if there is no name or if NODE is not a defun node."
 This mode is intended to be inherited by concrete major modes.
 Currently there are `js-mode' and `js-ts-mode'."
   :group 'js
-  nil)
+  (setq-local hs-block-start-regexp "\\s(\\|{\\|\"")
+  (setq-local hs-block-end-regexp "\\s)\\|}\\|\"")
+  (setq-local hs-c-start-regexp "/[*/]"))
 
 ;;;###autoload
 (define-derived-mode js-mode js-base-mode "JavaScript"

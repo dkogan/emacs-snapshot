@@ -2208,27 +2208,44 @@ This requires git 1.8.4 or later, for the \"-L\" option of \"git log\"."
       (format "Summary: %s\n(cherry picked from commit %s)\n"
               comment rev))))
 
+(defun vc-git--assert-revision-on-branch (rev branch)
+  "Signal an error unless REV is on BRANCH."
+  ;; 'git branch --contains' is a porcelain command whose output could
+  ;; change in the future.
+  (unless (zerop (vc-git-command nil 1 nil "merge-base"
+                                 "--is-ancestor" rev branch))
+    (error "Revision %s does not exist on branch %s" rev branch)))
+
+(defun vc-git-revision-published-p (rev)
+  "Whether we think REV has been pushed such that it is public history.
+Considers only the current branch.  Does not fetch."
+  (let ((branch (vc-git--current-branch)))
+    (vc-git--assert-revision-on-branch rev branch)
+    (and
+     ;; BRANCH has an upstream.
+     (with-temp-buffer
+       (vc-git--out-ok "config" "--get"
+                       (format "branch.%s.merge" branch)))
+     ;; REV is not outgoing.
+     (not (cl-member rev
+                     (split-string
+                      (with-output-to-string
+                        (vc-git-command standard-output 0 nil "log"
+                                        "--pretty=format:%H"
+                                        "@{upstream}..HEAD")))
+                     :test #'string-prefix-p)))))
+
 (defun vc-git--assert-allowed-rewrite (rev)
   (when (and (not (and vc-allow-rewriting-published-history
                        (not (eq vc-allow-rewriting-published-history 'ask))))
-             ;; Check there is an upstream.
-             (with-temp-buffer
-               (vc-git--out-ok "config" "--get"
-                               (format "branch.%s.merge"
-                                       (vc-git--current-branch)))))
-    (let ((outgoing (split-string
-                     (with-output-to-string
-                       (vc-git-command standard-output 0 nil "log"
-                                       "--pretty=format:%H"
-                                       "@{upstream}..HEAD")))))
-      (unless (or (cl-member rev outgoing :test #'string-prefix-p)
-                  (and (eq vc-allow-rewriting-published-history 'ask)
+             (vc-git-revision-published-p rev)
+             (not (and (eq vc-allow-rewriting-published-history 'ask)
                        (yes-or-no-p
                         (format "\
 Commit %s appears published; allow rewriting history?"
-                                rev))))
-        (user-error "\
-Will not rewrite likely-public history; see option `vc-allow-rewriting-published-history'")))))
+                                rev)))))
+    (user-error "Will not rewrite likely-public history; \
+see option `vc-allow-rewriting-published-history'")))
 
 (defun vc-git-modify-change-comment (files rev comment)
   (vc-git--assert-allowed-rewrite rev)
@@ -2297,6 +2314,35 @@ Rebase may --autosquash your other squash!/fixup!/amend!; proceed?")))
   (with-environment-variables (("GIT_SEQUENCE_EDITOR" "true"))
     (vc-git-command nil 0 nil "rebase" "--autostash" "--autosquash" "-i"
                     (format "%s~1" rev))))
+
+(defun vc-git-delete-revision (rev)
+  "Rebase current branch to remove REV."
+  (vc-git--assert-revision-on-branch rev (vc-git--current-branch))
+  (with-temp-buffer
+    (vc-git-command t 0 nil "log" "--merges" (format "%s~1.." rev))
+    (unless (bobp)
+      (error "There have been merges since %s; cannot delete revision"
+             rev)))
+  (unless (zerop (vc-git-command nil 1 nil "rebase"
+                                 rev "--onto" (format "%s~1" rev)))
+    ;; FIXME: Ideally we would leave some sort of conflict for the user
+    ;; to resolve, instead of just giving up.  We would want C-x v v to
+    ;; do 'git rebase --continue' like how it can currently be used to
+    ;; conclude a merge after resolving conflicts.
+    (vc-git-command nil 0 nil "rebase" "--abort")
+    (error "Merge conflicts while trying to delete %s; aborting" rev)))
+
+(defun vc-git-delete-revisions-from-end (rev)
+  "Hard reset back to REV.
+It is an error if REV is not on the current branch."
+  (vc-git--assert-revision-on-branch rev (vc-git--current-branch))
+  (vc-git-command nil 0 nil "reset" "--hard" rev))
+
+(defun vc-git-uncommit-revisions-from-end (rev)
+  "Soft reset back to REV.
+It is an error if REV is not on the current branch."
+  (vc-git--assert-revision-on-branch rev (vc-git--current-branch))
+  (vc-git-command nil 0 nil "reset" "--soft" rev))
 
 (defvar vc-git-extra-menu-map
   (let ((map (make-sparse-keymap)))

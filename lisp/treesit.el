@@ -573,7 +573,8 @@ separate ranges for each language detected in the query.
 
 Query NODE with QUERY, the captured nodes generates ranges.  Nodes
 captured by the `@language' capture name are converted to language
-symbols with LANGUAGE-FN.
+symbols with LANGUAGE-FN.  LANGUAGE-FN can return nil, meaning no
+valid language is detected, in which case the range is skipped.
 
 RANGE-FN, if non-nil, is a function that takes a NODE and OFFSET, and
 returns the ranges to use for that NODE.
@@ -585,16 +586,17 @@ BEG, END, OFFSET are the same as in `treesit-query-range'."
     (dolist (match-group (treesit-query-capture node query beg end nil t))
       (let* ((lang-node (alist-get 'language match-group))
              (lang (funcall language-fn lang-node)))
-        (dolist (capture match-group)
-          (let ((name (car capture))
-                (node (cdr capture)))
-            (when (and (not (equal (symbol-name name) "language"))
-                       (not (string-prefix-p "_" (symbol-name name))))
-              (push (if range-fn
-                        (funcall range-fn node offset)
-                      (list (cons (+ (treesit-node-start node) offset-left)
-                                  (+ (treesit-node-end node) offset-right))))
-                    (alist-get lang ranges-by-language)))))))
+        (when lang
+          (dolist (capture match-group)
+            (let ((name (car capture))
+                  (node (cdr capture)))
+              (when (and (not (equal (symbol-name name) "language"))
+                         (not (string-prefix-p "_" (symbol-name name))))
+                (push (if range-fn
+                          (funcall range-fn node offset)
+                        (list (cons (+ (treesit-node-start node) offset-left)
+                                    (+ (treesit-node-end node) offset-right))))
+                      (alist-get lang ranges-by-language))))))))
     (mapcar (lambda (entry)
               (cons (car entry)
                     (apply #'append (nreverse (cdr entry)))))
@@ -694,11 +696,13 @@ this way: Emacs queries QUERY in the host language's parser,
 computes the ranges spanned by the captured nodes, and applies
 these ranges to parsers for the embedded language.
 
-If the embed language is dynamic, then `:embed' can specify a
-function.  This function will by passed a node and should return
+If the embedded language is dynamic, then `:embed' can specify a function.
+This function will be passed a node as an argument, and should return
 the language symbol for the embedded code block.  The node is the one
-captured from QUERY with capture name `@language'.  Also make sure the
-code block and language capture are in the same match group.
+captured from QUERY with capture name `@language'.  Make sure the code
+block and language capture are in the same match group.  The function
+can return nil if no valid language can be found; in that case, the range
+is discarded.
 
 If there's a `:local' keyword with value t, the range computed by
 this QUERY is given a dedicated local parser.  Otherwise, the
@@ -753,9 +757,24 @@ that encompasses the region between START and END."
                  (when (null host)
                    (signal 'treesit-error (list "Value of :host option cannot be omitted")))
                  (when (treesit-available-p)
-                  (push (list (treesit-query-compile host query)
-                             embed local offset range-fn)
-                       result)))
+                   ;; Don't replace this with
+                   ;; `treesit--compile-query-with-cache'.
+                   ;; `treesit-query-compile' is lazy and don't actually
+                   ;; load the grammar until the query is
+                   ;; used. `treesit--compile-query-with-cache' compiles
+                   ;; eagerly so it's not safe to use for this function
+                   ;; which might be called when loading a package.  To
+                   ;; do it properly like font-lock, we need to not
+                   ;; compile the queries here, and compile them with
+                   ;; `treesit--compile-query-with-cache' when major
+                   ;; mode is enabled.  Let's just keep things simple
+                   ;; and keep range rules as-is.  Because for range
+                   ;; rules, the queries generally don't need to
+                   ;; computed dynamically, and queries are simple and
+                   ;; few, so recompiling isn't as much of a problem.
+                   (push (list (treesit-query-compile host query)
+                               embed local offset range-fn)
+                         result)))
                (setq host nil embed nil offset nil local nil range-fn nil))))
     (nreverse result)))
 
@@ -4230,7 +4249,7 @@ For BOUND, MOVE, BACKWARD, LOOKING-AT, see the descriptions in
 
 (defun treesit-hs-block-end ()
   "Tree-sitter implementation of `hs-block-end-regexp'."
-  (let* ((pred 'list)
+  (let* ((pred (bound-and-true-p hs-treesit-things))
          (thing (treesit-thing-at
                  (if (bobp) (point) (1- (point))) pred))
          (end (when thing (treesit-node-end thing)))
@@ -4242,8 +4261,8 @@ For BOUND, MOVE, BACKWARD, LOOKING-AT, see the descriptions in
       t)))
 
 (defun treesit-hs-find-block-beginning ()
-  "Tree-sitter implementation of `hs-find-block-beginning-func'."
-  (let* ((pred 'list)
+  "Tree-sitter implementation of `hs-find-block-beginning-function'."
+  (let* ((pred (bound-and-true-p hs-treesit-things))
          (thing (treesit-thing-at (point) pred))
          (beg (when thing (treesit-node-start thing)))
          (end (when beg (min (1+ beg) (point-max)))))
@@ -4253,24 +4272,25 @@ For BOUND, MOVE, BACKWARD, LOOKING-AT, see the descriptions in
       t)))
 
 (defun treesit-hs-find-next-block (_regexp maxp comments)
-  "Tree-sitter implementation of `hs-find-next-block-func'."
+  "Tree-sitter implementation of `hs-find-next-block-function'."
   (when (not comments)
     (forward-comment (point-max)))
   (let* ((comment-pred
           (when comments
             (if (treesit-thing-defined-p 'comment (treesit-language-at (point)))
                 'comment "\\`comment\\'")))
-         (pred (if comment-pred (append '(or list) (list comment-pred)) 'list))
+         (hs-things (bound-and-true-p hs-treesit-things))
+         (pred (append `(or ,hs-things) (when comment-pred (list comment-pred))))
          ;; `treesit-navigate-thing' can't find a thing at bobp,
          ;; so use `treesit-thing-at' to match at bobp.
          (current (treesit-thing-at (point) pred))
          (beg (or (and current (eq (point) (treesit-node-start current)) (point))
                   (treesit-navigate-thing (point) 1 'beg pred)))
-         ;; Check if we found a list or a comment
-         (list-thing (when beg (treesit-thing-at beg 'list)))
+         ;; Check if we found a block or a comment
+         (block-thing (when beg (treesit-thing-at beg hs-things)))
          (comment-thing (when beg (treesit-thing-at beg comment-pred)))
          (comment-p (and comment-thing (eq beg (treesit-node-start comment-thing))))
-         (thing (if comment-p comment-thing list-thing))
+         (thing (if comment-p comment-thing block-thing))
          (end (if thing (min (1+ (treesit-node-start thing)) (point-max)))))
     (when (and end (<= end maxp))
       (goto-char end)
@@ -4281,8 +4301,8 @@ For BOUND, MOVE, BACKWARD, LOOKING-AT, see the descriptions in
       t)))
 
 (defun treesit-hs-looking-at-block-start-p ()
-  "Tree-sitter implementation of `hs-looking-at-block-start-p-func'."
-  (let* ((pred 'list)
+  "Tree-sitter implementation of `hs-looking-at-block-start-predicate'."
+  (let* ((pred (bound-and-true-p hs-treesit-things))
          (thing (treesit-thing-at (point) pred))
          (beg (when thing (treesit-node-start thing)))
          (end (min (1+ (point)) (point-max))))
@@ -4291,7 +4311,7 @@ For BOUND, MOVE, BACKWARD, LOOKING-AT, see the descriptions in
       t)))
 
 (defun treesit-hs-inside-comment-p ()
-  "Tree-sitter implementation of `hs-inside-comment-p-func'."
+  "Tree-sitter implementation of `hs-inside-comment-predicate'."
   (let* ((comment-pred
           (if (treesit-thing-defined-p 'comment (treesit-language-at (point)))
               'comment "\\`comment\\'"))
@@ -4494,14 +4514,12 @@ before calling this function."
     (setq-local show-paren-data-function #'treesit-show-paren-data)
     (setq-local hs-c-start-regexp nil
                 hs-block-start-regexp nil
-                hs-block-start-mdata-select 0
                 hs-block-end-regexp #'treesit-hs-block-end
-                hs-forward-sexp-func #'forward-list
-                hs-adjust-block-beginning nil
-                hs-find-block-beginning-func #'treesit-hs-find-block-beginning
-                hs-find-next-block-func #'treesit-hs-find-next-block
-                hs-looking-at-block-start-p-func #'treesit-hs-looking-at-block-start-p
-                hs-inside-comment-p-func #'treesit-hs-inside-comment-p))
+                hs-forward-sexp-function #'forward-list
+                hs-find-block-beginning-function #'treesit-hs-find-block-beginning
+                hs-find-next-block-function #'treesit-hs-find-next-block
+                hs-looking-at-block-start-predicate #'treesit-hs-looking-at-block-start-p
+                hs-inside-comment-predicate #'treesit-hs-inside-comment-p))
 
   (when (treesit-thing-defined-p 'sentence nil)
     (setq-local forward-sentence-function #'treesit-forward-sentence))
