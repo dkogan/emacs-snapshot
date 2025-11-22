@@ -857,6 +857,12 @@ you could already use 'C-u C-x C-n' to clear the goal column.
 
 * Changes in Specialized Modes and Packages in Emacs 31.1
 
+** Editorconfig
+---
+*** 'editorconfig-apply' is declared obsolete.
+You can now use 'editorconfig-display-current-properties' without having
+to call 'editorconfig-apply'.
+
 ** Auth Source
 
 +++
@@ -2001,6 +2007,10 @@ This can be used by external ELPA packages for performance optimizations
 in special cases.  For more information, see "(tramp) New operations" in
 the Tramp manual.
 
+** Isearch and Replace
+
+*** Typing 'd' during 'query-replace' shows the diff buffer with replacements.
+
 ** Diff
 
 ---
@@ -2765,6 +2775,16 @@ This function pulses a specified list of faces.  The pulse duration is
 determined by the new user option 'pulse-face-duration'.
 
 ** Miscellaneous
+
+---
+*** The first client frame now shows warnings from daemon startup.
+When there are warnings emitted during Emacs startup, usually due to
+problems in your initialization file, these are shown in a "*Warnings*"
+buffer.  Until now such warnings were not made visible in the case that
+Emacs was started as a daemon.  Now the first frame after daemon startup
+will show the "*Warnings*" buffer.  So for example, starting Emacs with
+a command like 'emacsclient -a"" -c' will now show "*Warnings*" just
+like a plain invocation of 'emacs' would.
 
 ---
 *** 'tooltip-mode' now shows tooltips after delay on TTY frames.
