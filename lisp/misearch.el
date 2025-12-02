@@ -406,6 +406,8 @@ modified buffer to be able to use unsaved changes."
 (declare-function diff-setup-whitespace "diff-mode" ())
 (declare-function diff-setup-buffer-type "diff-mode" ())
 
+(defvar diff--coding-system-for-buffer) ; from diff.el
+
 ;;;###autoload
 (defun multi-file-replace-as-diff (files from-string replacements regexp-flag delimited-flag)
   "Show as diffs replacements of FROM-STRING with REPLACEMENTS.
@@ -439,7 +441,11 @@ as in `perform-replace'."
                   file-name
                 (when (or (not file-exists)
                           (eq multi-file-diff-unsaved 'use-modified-buffer))
-                  (find-buffer-visiting file-name)))))
+                  (find-buffer-visiting file-name))))
+             ;; Make sure any supported characters can be written to a
+             ;; file without asking the user to select a safe
+             ;; coding-system.
+             (diff--coding-system-for-buffer 'utf-8-emacs))
         (when non-file-buffer (setq file-name (buffer-name file-name)))
         (when (or file-exists file-buffer)
           (with-temp-buffer
@@ -512,6 +518,7 @@ variable `diff-switches' are passed to the diff command,
 otherwise SWITCHES is used.  SWITCHES can be a string or a list
 of strings.  BUF should be non-nil.  LABEL-OLD and LABEL-NEW
 specify labels to use for file names."
+  (require 'diff)
   (unless (bufferp new) (setq new (expand-file-name new)))
   (unless (bufferp old) (setq old (expand-file-name old)))
   (or switches (setq switches diff-switches)) ; If not specified, use default.
@@ -540,7 +547,9 @@ specify labels to use for file names."
                                         (or new-alt new)))))
                      " ")))
     (with-current-buffer buf
-      (let ((inhibit-read-only t))
+      (let ((inhibit-read-only t)
+            (coding-system-for-read (or diff--coding-system-for-buffer
+                                        coding-system-for-read)))
         (insert command "\n")
         (call-process shell-file-name nil buf nil
                       shell-command-switch command))

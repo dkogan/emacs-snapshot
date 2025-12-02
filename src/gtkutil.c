@@ -1475,6 +1475,14 @@ xg_update_dark_mode_for_all_displays (bool dark_mode_p)
 	 = gtk_settings_get_for_screen (screen);
        xg_set_gtk_theme_dark_mode (dark_mode_p, settings);
      }
+
+   {
+     struct input_event inev;
+     EVENT_INIT (inev);
+     inev.kind = TOOLKIT_THEME_CHANGED_EVENT;
+     inev.arg = dark_mode_p ? Qdark : Qlight;
+     kbd_buffer_store_event (&inev);
+   }
 }
 
 /* Set initial dark mode for a new frame (called during frame
@@ -2886,10 +2894,11 @@ xg_font_filter (const PangoFontFamily *family,
    `FAMILY [VALUE1 VALUE2] SIZE'
 
    This can be parsed using font_parse_fcname in font.c.
-   DEFAULT_NAME, if non-zero, is the default font name.  */
+   DEFAULT_NAME, if non-null, is the default font name;
+   it might be updated in place.  */
 
 Lisp_Object
-xg_get_font (struct frame *f, const char *default_name)
+xg_get_font (struct frame *f, char *default_name)
 {
   GtkWidget *w;
   int done = 0;

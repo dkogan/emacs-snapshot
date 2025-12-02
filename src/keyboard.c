@@ -4242,6 +4242,15 @@ kbd_buffer_get_event (KBOARD **kbp,
 	}
 #endif /* HAVE_ANDROID */
 
+      case TOOLKIT_THEME_CHANGED_EVENT:
+	kbd_fetch_ptr = next_kbd_event (event);
+	input_pending = readable_events (0);
+
+	Vtoolkit_theme = event->ie.arg;
+	CALLN (Frun_hook_with_args, Qtoolkit_theme_set_functions,
+	       event->ie.arg);
+	break;
+
 #ifdef HAVE_EXT_MENU_BAR
       case MENU_BAR_ACTIVATE_EVENT:
 	{
@@ -11224,8 +11233,8 @@ read_key_sequence (Lisp_Object *keybuf, Lisp_Object prompt,
                  {
                    if (FIXNUMP (key) && XFIXNUM (key) != -2)
                      {
-                       /* If interrupted while initializing terminal, we
-                          need to replay the interrupting key.
+                       /* If interrupted while initializing terminal,
+                          we need to replay the interrupting key.
                           There may also have been a current buffer
                           change we would otherwise miss.
                           See bug#5095, bug#37782, bug#79513.  */
@@ -11237,9 +11246,7 @@ read_key_sequence (Lisp_Object *keybuf, Lisp_Object prompt,
                        keybuf[0] = key;
                      }
                    else
-                     {
-                       mock_input = 0;
-                     }
+		     mock_input = 0;
 		  }
 		goto replay_entire_sequence;
 	      }

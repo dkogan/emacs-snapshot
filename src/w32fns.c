@@ -180,11 +180,6 @@ struct MONITOR_INFO_EX
     char    szDevice[CCHDEVICENAME];
 };
 
-/* Reportedly, MSVC does not have this in its headers.  */
-#if defined (_MSC_VER) && _WIN32_WINNT < 0x0500
-DECLARE_HANDLE(HMONITOR);
-#endif
-
 typedef BOOL (WINAPI * TrackMouseEvent_Proc)
   (IN OUT LPTRACKMOUSEEVENT lpEventTrack);
 typedef LONG (WINAPI * ImmGetCompositionString_Proc)
@@ -2440,6 +2435,8 @@ w32_applytheme (HWND hwnd)
 				    &w32_darkmode, sizeof (w32_darkmode));
 	}
     }
+  WPARAM dark_mode_p = w32_darkmode ? 1 : 0;
+  PostThreadMessage (dwMainThreadId, WM_EMACS_SET_TOOLKIT_THEME, dark_mode_p, 0);
 }
 
 static HWND
@@ -3645,6 +3642,7 @@ w32_name_of_message (UINT msg)
       M (WM_CHAR),
       M (WM_EMACS_DRAGOVER),
       M (WM_EMACS_DROP),
+      M (WM_EMACS_SET_TOOLKIT_THEME),
 #undef M
       { 0, 0 }
   };

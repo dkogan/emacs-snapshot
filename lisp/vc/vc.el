@@ -2429,6 +2429,92 @@ with a prefix argument."
   (interactive (list (vc-read-revision "Revision to delete: ")))
   (vc--pick-or-revert rev t nil t nil nil backend))
 
+(defun vc--remove-revisions-from-end (rev delete prompt backend)
+  "Delete revisions newer than REV.
+DELETE non-nil means to remove the changes from the working tree.
+DELETE `discard' means to silently discard uncommitted changes.
+PROMPT non-nil means to always get confirmation.  (This is passed by
+`log-view-uncommit-revisions-from-end' and `log-view-delete-revisions'
+because they have single-letter bindings and don't otherwise prompt, so
+might be easy to use accidentally.)
+BACKEND is the VC backend."
+  (let ((backend (or backend (vc-responsible-backend default-directory))))
+    (unless (eq (vc-call-backend backend 'revision-granularity)
+                'repository)
+      (error "Requires VCS with whole-repository revision granularity"))
+    (unless (vc-find-backend-function backend 'revision-published-p)
+      (signal 'vc-not-supported (list 'revision-published-p backend)))
+    ;; Rewinding the end of the branch to REV does not in itself mean
+    ;; rewriting public history because a subsequent pull will generally
+    ;; undo the rewinding.  Rewinding and then making new commits before
+    ;; syncing with the upstream will necessitate merging, but that's
+    ;; just part of the normal workflow with a distributed VCS.
+    ;; Therefore we don't prompt about deleting published revisions (and
+    ;; so we ignore `vc-allow-rewriting-published-history').
+    ;; We do care about deleting *unpublished* revisions, however,
+    ;; because that could potentially mean losing work permanently.
+    (when (if (vc-call-backend backend 'revision-published-p
+                               (vc-call-backend backend
+                                                'working-revision-symbol))
+              (and prompt
+                   (not (y-or-n-p
+                         (format "Uncommit revisions newer than %s?"
+                                 rev))))
+            ;; FIXME: Actually potentially not all revisions newer than
+            ;; REV would be permanently deleted -- only those which are
+            ;; unpushed.  So this prompt is a little misleading.
+            (not (yes-or-no-p
+                  (format "Permanently delete revisions newer than %s?"
+                          rev))))
+      (user-error "Aborted"))
+    (if delete
+        ;; FIXME: As discussed in bug#79408, instead of just failing if
+        ;; the user declines reverting the changes, we would leave
+        ;; behind some sort of conflict for the user to resolve, like we
+        ;; do when there is a merge conflict.
+        (let ((root (vc-root-dir)))
+          (when (vc-dir-status-files root nil backend)
+            (if (eq delete 'discard)
+                (vc-revert-file root)
+              (let ((vc-buffer-overriding-fileset `(,backend (,root))))
+                (vc-revert))))
+          (vc-call-backend backend 'delete-revisions-from-end rev))
+      (vc-call-backend backend 'uncommit-revisions-from-end rev))))
+
+;;;###autoload
+(defun vc-uncommit-revisions-from-end (rev &optional backend)
+  "Delete revisions newer than REV without touching the working tree.
+REV must be on the current branch.  The newer revisions are deleted from
+the revision history but the changes made by those revisions to files in
+the working tree are not undone.
+When called interactively, prompts for REV.
+BACKEND is the VC backend.
+
+To delete revisions from the revision history and also undo the changes
+in the working tree, see `vc-delete-revisions-from-end'."
+  (interactive (list
+                (vc-read-revision "Uncommit revisions newer than revision: ")))
+  (vc--remove-revisions-from-end rev nil nil backend))
+
+;;;###autoload
+(defun vc-delete-revisions-from-end (rev &optional discard backend)
+  "Delete revisions newer than REV.
+REV must be on the current branch.  The newer revisions are deleted from
+the revision history and the changes made by those revisions to files in
+the working tree are undone.
+When called interactively, prompts for REV.
+If the are uncommitted changes, prompts to discard them.
+With a prefix argument (when called from Lisp, with optional argument
+DISCARD non-nil), discard any uncommitted changes without prompting.
+BACKEND is the VC backend.
+
+To delete revisions from the revision history without undoing the
+changes in the working tree, see `vc-uncommit-revisions-from-end'."
+  (interactive (list
+                (vc-read-revision "Delete revisions newer than revision: ")
+                current-prefix-arg))
+  (vc--remove-revisions-from-end rev (if discard 'discard t) nil backend))
+
 (declare-function diff-bounds-of-hunk "diff-mode")
 
 (defun vc-default-checkin-patch (_backend patch-string comment)
@@ -3820,7 +3906,7 @@ Each function runs in the log output buffer without args.")
 
 (defun vc-incoming-outgoing-internal (backend upstream-location buffer-name type)
   (vc-log-internal-common
-   backend buffer-name nil type
+   backend buffer-name (list (vc-root-dir)) type
    (lambda (bk buf type-arg _files)
      (vc-call-backend bk type-arg buf upstream-location))
    (lambda (_bk _files-arg _ret) nil)
@@ -3929,7 +4015,28 @@ The command prompts for the branch whose change log to show."
                     'vc-remote-location-history)))
 
 (defun vc--incoming-revision (backend &optional upstream-location refresh)
-  (or (vc-call-backend backend 'incoming-revision upstream-location refresh)
+  ;; Some backends don't support REFRESH and so always behave as though
+  ;; REFRESH is non-nil.  This is not just for a lack of implementation
+  ;; in Emacs; for example, Mercurial repositories don't store any
+  ;; representation of the incoming revision between running commands.
+  ;;
+  ;; Fetching the incoming revision is often slow, and in many cases the
+  ;; last known incoming revision will serve perfectly well.  For
+  ;; example, when finding revisions that are outgoing, the last known
+  ;; incoming revision is fine except for the rare case in which someone
+  ;; else cherry-picks the very same commits that you have outstanding,
+  ;; and pushes them.  Given this, we implement our own caching.
+  (or (and (not refresh)
+           (cdr (assoc upstream-location
+                       (vc--repo-getprop 'vc-incoming-revision))))
+      (and-let* ((res (vc-call-backend backend 'incoming-revision
+                                       upstream-location refresh)))
+        (if-let* ((alist (vc--repo-getprop 'vc-incoming-revision)))
+            (setf (alist-get upstream-location alist nil nil #'equal)
+                  res)
+          (vc--repo-setprop 'vc-incoming-revision
+                            `((,upstream-location . ,res))))
+        res)
       (user-error "No incoming revision -- local-only branch?")))
 
 ;;;###autoload
@@ -3969,6 +4076,17 @@ can be a remote branch name."
       (vc-call-backend backend 'print-log (list rootdir) buffer t
                        ""
                        (vc-call-backend backend 'mergebase incoming)))))
+
+(defun vc--count-outgoing (backend)
+  "Return number of changes that will be sent with a `vc-push'."
+  (with-temp-buffer
+    (let ((display-buffer-overriding-action
+           '(display-buffer-no-window (allow-no-window . t))))
+      (vc-incoming-outgoing-internal backend nil
+                                     (current-buffer) 'log-outgoing))
+    (let ((proc (get-buffer-process (current-buffer))))
+      (while (accept-process-output proc)))
+    (how-many log-view-message-re)))
 
 ;;;###autoload
 (defun vc-log-search (pattern)
@@ -4088,6 +4206,9 @@ to the working revision (except for keyword expansion)."
     (vc-revert-files backend files)))
 
 ;;;###autoload
+(defalias 'vc-restore #'vc-revert)
+
+;;;###autoload
 (defun vc-pull (&optional arg)
   "Update the current fileset or branch.
 You must be visiting a version controlled file, or in a `vc-dir' buffer.
@@ -4148,7 +4269,10 @@ It also signals an error in a Bazaar bound branch."
 	 (backend (car vc-fileset)))
 ;;;	 (files (cadr vc-fileset)))
     (if (vc-find-backend-function backend 'push)
-        (vc-call-backend backend 'push arg)
+        (progn (vc-call-backend backend 'push arg)
+               ;; FIXME: Ideally we would only clear out the
+               ;; REMOTE-LOCATION to which we are pushing.
+               (vc--repo-setprop 'vc-incoming-revision nil))
       (user-error "VC push is unsupported for `%s'" backend))))
 
 ;;;###autoload
@@ -5179,6 +5303,34 @@ option to non-nil to skip the prompting."
   :group 'vc
   :version "31.1")
 
+(defun vc--fileset-by-state (fileset)
+  "Return alist of VC states of all files in FILESET.
+The keys into the alist are VC states, and the values are file names.
+For directories in FILESET, the alist includes values for all
+non-ignored, non-up-to-date files within those directories."
+  (let ((backend (car fileset))
+        (remaining (cadr fileset))
+        ret-val)
+    (while remaining
+      (cond* ((bind* (next (pop remaining))))
+             ((atom next)
+              (push next (alist-get (vc-state next backend) ret-val)))
+             ((bind* (file (car next))))
+             ((file-directory-p file)
+              (setq remaining
+                    (nconc (vc-dir-status-files file nil backend)
+                           remaining)))
+             (t
+              (push file (alist-get (cadr next) ret-val)))))
+    ret-val))
+
+(declare-function diff-kill-creations-deletions "diff-mode")
+(declare-function diff-filename-drop-dir "diff-mode")
+(declare-function diff-hunk-file-names "diff-mode")
+(declare-function diff-file-next "diff-mode")
+(defvar diff-hunk-header-re)
+(declare-function vc-dir-resynch-file "vc-dir")
+
 (defun vc--apply-to-other-working-tree
     (directory mirror-dir fileset patch-string move)
   "Workhorse routine for copying/moving changes to other working trees.
@@ -5191,42 +5343,141 @@ determine the changes to copy or move.
 MOVE non-nil means to move instead of copy."
   (unless (or (not move)
               vc-no-confirm-moving-changes
-              (yes-or-no-p
+              (y-or-n-p
                (format "Really %s uncommitted work out of this working tree?"
                        (propertize "move" 'face 'bold))))
     (user-error "Aborted"))
   (vc-buffer-sync-fileset fileset nil)
-  (with-temp-buffer
-    (if (not patch-string)
-        (let ((display-buffer-overriding-action '(display-buffer-no-window
-                                                  (allow-no-window . t))))
-          (vc-diff-internal nil fileset nil nil nil (current-buffer)))
-      (diff-mode)
-      (insert patch-string))
-    (let ((default-directory mirror-dir))
-      (vc-buffer-sync-fileset (diff-vc-deduce-fileset) nil))
-    (when-let* (move
-                (failed (diff-apply-buffer nil nil 'reverse 'test)))
-      ;; If PATCH-STRING is non-nil and this fails, the user called us
-      ;; from a `diff-mode' buffer that doesn't reverse-apply; that's
-      ;; a `user-error'.
-      ;; If PATCH-STRING is nil and this fails, `vc-diff-internal'
-      ;; generated a nonsense diff -- not the user's fault.
-      (funcall (if patch-string #'user-error #'error)
-               (ngettext "%d hunk does not reverse-apply to this working tree"
-                         "%d hunks do not reverse-apply to this working tree"
-                         failed)
-               failed))
-    (let ((default-directory mirror-dir))
-      (when-let* ((failed (diff-apply-buffer)))
-        (user-error (ngettext "%d hunk does not apply to `%s'"
-                              "%d hunks do not apply to `%s'"
-                              failed)
-                    failed directory)))
-    (when move
-      (diff-apply-buffer nil nil 'reverse))
-    (message "Changes %s to `%s'"
-             (if move "moved" "applied") directory)))
+  (let* ((fileset (cl-list* (car fileset)
+                            (mapcar #'file-relative-name (cadr fileset))
+                            (cddr fileset)))
+         (backend (car fileset))
+         (by-state (vc--fileset-by-state fileset))
+         (copies (append (alist-get 'added by-state)
+                         (alist-get 'unregistered by-state)))
+         (deletions (append (alist-get 'removed by-state)
+                            (alist-get 'missing by-state)))
+         (whole-files (append copies deletions))
+         (orig-dd default-directory)
+         non-empty-patch-p)
+    (with-temp-buffer
+      (cond* (patch-string
+              (diff-mode)
+              (insert patch-string))
+             ;; Some backends don't tolerate unregistered files
+             ;; appearing in the fileset for a diff operation.
+             ((bind* (diff-fileset
+                      `(,backend ,(cl-set-difference
+                                   (cadr fileset)
+                                   (alist-get 'unregistered by-state))))))
+             ;; An empty files list makes `vc-diff-internal' diff the
+             ;; whole of `default-directory'.
+             ((cadr diff-fileset)
+              (cl-letf ((display-buffer-overriding-action
+                         '(display-buffer-no-window (allow-no-window . t)))
+                        ;; Try to disable, e.g., Git's rename detection.
+                        ((symbol-value (vc-make-backend-sym backend
+                                                            'diff-switches))
+                         t))
+                (vc-diff-internal nil diff-fileset nil nil nil
+                                  (current-buffer))))
+             (t (require 'diff-mode)))
+      ;; We'll handle any `added', `removed', `missing' and
+      ;; `unregistered' files in FILESET by copying or moving whole
+      ;; files, so remove any of them that show up in the diff
+      ;; (only `added' and `removed' should actually show up).
+      (diff-kill-creations-deletions t)
+      (goto-char (point-min))
+      (if (not (setq non-empty-patch-p
+                     (re-search-forward diff-hunk-header-re nil t)))
+          ;; No hunks, so just sync WHOLE-FILES and skip over testing
+          ;; reverse-application to the source working tree.
+          (let ((default-directory mirror-dir))
+            (vc-buffer-sync-fileset `(,backend ,whole-files) nil))
+        ;; We cannot deal with renames, copies, and combinations of
+        ;; renames and copies with ordinary changes detected by the VCS.
+        ;; If we called `vc-diff-internal' just above then there shouldn't
+        ;; be any, but check to make sure.  And if PATCH-STRING is non-nil
+        ;; then we definitely need to check there aren't any.
+        ;;
+        ;; In order to be able to support these kinds of things, then
+        ;; rather than do it entirely ad hoc here, we probably want new
+        ;; VC states representing renames and copies.
+        ;; There is an old FIXME about this in `vc-state'.  --spwhitton
+        (cl-loop initially
+                 (goto-char (point-min))
+                 (ignore-errors (diff-file-next))
+                 for (name1 name2) = (diff-hunk-file-names)
+                 for name1* = (or (diff-filename-drop-dir name1) name1)
+                 and name2* = (or (diff-filename-drop-dir name2) name2)
+                 unless (equal name1* name2*)
+                 do (funcall (if patch-string #'user-error #'error)
+                             (format "Cannot %s renames and/or copies"
+                                     (if move "move" "apply")))
+                 until (eq (prog1 (point)
+                             (ignore-errors (diff-file-next)))
+                           (point)))
+        (let* ((default-directory mirror-dir)
+               (sync-fileset (diff-vc-deduce-fileset)))
+          (rplacd (last (cadr sync-fileset)) whole-files)
+          (vc-buffer-sync-fileset sync-fileset nil))
+        (when-let* (move
+                    (failed (diff-apply-buffer nil nil 'reverse 'test)))
+          ;; If PATCH-STRING is non-nil and this fails, the user called us
+          ;; from a `diff-mode' buffer that doesn't reverse-apply; that's
+          ;; a `user-error'.
+          ;; If PATCH-STRING is nil and this fails, `vc-diff-internal'
+          ;; generated a nonsense diff -- not the user's fault.
+          (funcall
+           (if patch-string #'user-error #'error)
+           (ngettext "%d hunk does not reverse-apply to this working tree"
+                     "%d hunks do not reverse-apply to this working tree"
+                     failed)
+           failed)))
+      (let ((default-directory mirror-dir)
+            (mirror-states (make-hash-table :test #'equal)))
+        (pcase-dolist (`(,file ,state . ,_)
+                       (vc-dir-status-files mirror-dir nil backend))
+          (puthash file state mirror-states))
+        (dolist (copy copies)
+          (when (file-exists-p copy)
+            (user-error "`%s' already exists in `%s'"
+                        copy mirror-dir)))
+        (dolist (deletion deletions)
+          (when (memq (gethash deletion mirror-states)
+                      '(edited needs-merge unlocked-changes added
+                               conflict unregistered))
+            (user-error "`%s' in `%s' has incompatible state `%s'"
+                        deletion mirror-dir
+                        (gethash deletion mirror-states))))
+        (when-let* (non-empty-patch-p
+                    (failed (diff-apply-buffer)))
+          (user-error (ngettext "%d hunk does not apply to `%s'"
+                                "%d hunks do not apply to `%s'"
+                                failed)
+                      failed directory))
+        ;; For both `added' & `unregistered' files we leave them
+        ;; unregistered in the target working tree, and for `removed' &
+        ;; `missing' files we leave them missing.  This means that if
+        ;; the user wants to throw away their copied changes it's less
+        ;; effort to do so.  If the user does want to check in the
+        ;; copied changes then VC-Dir will implicitly handle registering
+        ;; the additions and deletions as part of `vc-checkin'.
+        (dolist (copy copies)
+          (copy-file (expand-file-name copy orig-dd) copy))
+        (mapc #'delete-file deletions)
+        (when vc-dir-buffers
+          (mapc #'vc-dir-resynch-file whole-files)))
+      (when move
+        (diff-apply-buffer nil nil 'reverse)
+        (mapc (lambda (f) (vc-call-backend backend 'unregister f))
+              (alist-get 'added by-state))
+        (mapc #'delete-file copies)
+        (when vc-dir-buffers
+          (mapc #'vc-dir-resynch-file copies))
+        (vc-revert-files backend deletions))
+      (message "Changes %s to `%s'"
+               (if move "moved" "applied") directory))))
 
 ;;;###autoload
 (defun vc-kill-other-working-tree-buffers (backend)

@@ -2781,8 +2781,8 @@ to a regexp that is actually used for the search.")
   (isearch-clean-overlays))
 
 ;; A macro because we push STACK, i.e. a local var in `perform-replace'.
-(defmacro replace--push-stack (replaced search-str next-replace stack)
-  (declare (indent 0) (debug (form form form gv-place)))
+(defmacro replace--push-stack (replaced search-str next-replace next-replacement match-again stack)
+  (declare (indent 0) (debug (form form form form form gv-place)))
   `(push (list (point) ,replaced
                ;; If the replacement has already happened, all we need is the
                ;; current match start and end.  We could get this with a trivial
@@ -2797,7 +2797,7 @@ to a regexp that is actually used for the search.")
 		   (list
 		    (match-beginning 0) (match-end 0) (current-buffer))
 	         (match-data))
-	       ,search-str ,next-replace)
+	       ,search-str ,next-replace ,next-replacement ,match-again)
          ,stack))
 
 (defun replace--region-filter (bounds)
@@ -3149,7 +3149,9 @@ characters."
 				     real-match-data
 				     (replace-match-data
 				      nil real-match-data
-				      (nth 2 elt))))
+				      (nth 2 elt))
+                                     next-replacement (nth 5 elt)
+                                     match-again (nth 6 elt)))
 			   (message "No previous match")
 			   (ding 'no-terminate)
 			   (sit-for 1)))
@@ -3258,7 +3260,8 @@ characters."
                              (replace--push-stack
                               replaced
                               search-string-replaced
-                              next-replacement-replaced stack)))
+                              next-replacement-replaced next-replacement match-again
+                              stack)))
 			((or (eq def 'automatic) (eq def 'automatic-all))
 			 (or replaced
 			     (setq noedit
@@ -3338,9 +3341,12 @@ characters."
 			 (setq replaced t))
 
                         ((eq def 'diff)
-			 (let ((display-buffer-overriding-action
-				'(nil (inhibit-same-window . t))))
-			   (save-selected-window
+                         (let ((display-buffer-overriding-action
+                                ;; Override only the default value.
+                                (if (equal display-buffer-overriding-action '(nil))
+                                    '(nil (inhibit-same-window . t))
+                                  display-buffer-overriding-action)))
+                           (save-selected-window
                              (multi-file-replace-as-diff
                               (list (or buffer-file-name (current-buffer)))
                               from-string (or replacements next-replacement)
@@ -3372,7 +3378,8 @@ characters."
                   (replace--push-stack
                    replaced
                    search-string-replaced
-                   next-replacement-replaced stack))
+                   next-replacement-replaced next-replacement match-again
+                   stack))
                 (setq next-replacement-replaced nil
                       search-string-replaced    nil
                       last-was-act-and-show     nil))))))
