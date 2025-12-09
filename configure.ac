@@ -1578,9 +1578,6 @@ fi
 
 #### Choose a compiler.
 
-dnl Don't bother to test for C89.
-AC_DEFUN([_AC_PROG_CC_C89], [$2])
-
 dnl Sets GCC=yes if using gcc.
 AC_PROG_CC([gcc cc cl clang "$XCRUN gcc" "$XCRUN clang"])
 
@@ -1588,11 +1585,6 @@ if test -n "$XCRUN"; then
   AC_CHECK_PROGS([AR], [ar "$XCRUN ar"])
   test -n "$AR" && export AR
 fi
-
-dnl Emacs needs C99 or later.
-gl_PROG_CC_C99
-
-AC_PROG_CC_C_O
 
 if test x$GCC = xyes; then
   test "x$GCC_TEST_OPTIONS" != x && CC="$CC $GCC_TEST_OPTIONS"
@@ -3254,9 +3246,19 @@ AC_CACHE_CHECK(
    fi])
 doug_lea_malloc=$emacs_cv_var_doug_lea_malloc
 
-AC_CHECK_ALIGNOF([int])
-AC_CHECK_ALIGNOF([long])
-AC_CHECK_ALIGNOF([long long])
+AC_CHECK_ALIGNOF([EMACS_INT],
+  [[#include <limits.h>
+    #include <stddef.h>
+    #include <stdint.h>
+    #if INTPTR_MAX <= INT_MAX && !defined WIDE_EMACS_INT
+    typedef int EMACS_INT;
+    #elif INTPTR_MAX <= LONG_MAX && !defined WIDE_EMACS_INT
+    typedef long int EMACS_INT;
+    #elif INTPTR_MAX <= LLONG_MAX
+    typedef long long int EMACS_INT;
+    #endif
+  ]])
+
 AC_CHECK_SIZEOF([long])
 
 AC_CACHE_CHECK([for struct alignment],
@@ -3275,46 +3277,42 @@ if test "$emacs_cv_struct_alignment" = yes; then
      structure to an N-byte boundary.])
 fi
 
+# Check for alignas now rather than waiting for gl_INIT to do it,
+# as the system_malloc=no test below needs $gl_cv_header_working_stdalign_h.
+# Do not simply call gl_INIT here, as the ac_cv_func_pthread_sigmask=yes
+# assignment below affects how gl_INIT works.
+# Instead, call gl_ALIGNASOF, the only part of gl_INIT needed here.
+# Then make gl_ALIGNASOF a no-op so gl_INIT does not duplicate its code.
+gl_ALIGNASOF
+AC_DEFUN([gl_ALIGNASOF])
+
 system_malloc=yes
 
 # If it appears as if the system malloc can't be trusted to return
 # adequately positioned memory, enable the GNU malloc, which more
 # consistently provides allocations at low addresses, as is required for
 # the pdumper to load dump files at a representable location.
-AS_IF([test "$with_pdumper" = "yes" && test "$with_wide_int" != "yes"],
-  AC_CHECK_HEADERS([stdalign.h])
-  [AC_CACHE_CHECK([whether alignas is required yet unavailable],
-    [emacs_cv_alignas_unavailable],
-    [AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#ifdef HAVE_STDALIGN_H
-#include <stdalign.h>
-#endif
-      #include <limits.h>
-     ]], [[
-#define IDEAL_GCALIGNMENT 8
-#if INTPTR_MAX <= INT_MAX && !defined WIDE_EMACS_INT
-#  define ALIGNOF_EMACS_INT ALIGNOF_INT
-# elif INTPTR_MAX <= LONG_MAX && !defined WIDE_EMACS_INT
-#  define ALIGNOF_EMACS_INT ALIGNOF_LONG
-# elif INTPTR_MAX <= LLONG_MAX
-#  define ALIGNOF_EMACS_INT ALIGNOF_LONG_LONG
-# else
-# error "INTPTR_MAX too large"
-#endif
+AS_CASE([$emacs_cv_struct_alignment%$gl_cv_header_working_stdalign_h%$with_wide_int%$ac_cv_alignof_EMACS_INT%$with_pdumper],
+  [*%*%*%*%*%*],
+    [AC_MSG_ERROR([configuration values cannot contain '%'])],
 
-#if (ALIGNOF_EMACS_INT < IDEAL_GCALIGNMENT && !defined alignas	\
-     && !defined HAVE_STRUCT_ATTRIBUTE_ALIGNED	       		\
-     && !defined __alignas_is_defined				\
-     && __STDC_VERSION__ < 202311 && __cplusplus < 201103)
-#error "!USE_LSB_TAG required"
-#endif
-   ]])], [emacs_cv_alignas_unavailable=no],
-        [emacs_cv_alignas_unavailable=yes])])
-   AS_IF([test "$emacs_cv_alignas_unavailable" = "yes"],
-     [system_malloc=no
-       AC_MSG_WARN([The GNU memory manager will be enabled as your system
-does not guarantee that the portable dumper can allocate memory at a suitably
-low address.])])])
+  dnl There is no problem in most situations, i.e.:
+  [dnl if emacs_cv_struct_alignment
+   yes%* \
+   dnl or if gl_cv_header_working_stdalign_h
+   | *%yes*%*%*%* \
+   dnl or if with_wide_int (as in practice tag bits are high-order)
+   | *%*%yes%*%* \
+   dnl or if EMACS_INT's alignment is at least 8.
+   | *%*%*%8%* | *%*%*%[1-9]?*%*],
+    [],
+
+  dnl Otherwise, if using the portable dumper, enable GNU malloc.
+  [*%yes],
+    [system_malloc=no
+     AC_MSG_WARN([The GNU memory manager will be enabled as your system
+       does not guarantee that the portable dumper can allocate memory
+       at a suitably low address.])])
 
 dnl This must be before the test of $ac_cv_func_sbrk below.
 AC_CHECK_FUNCS_ONCE([sbrk])
@@ -3425,6 +3423,12 @@ if test "$ac_cv_header_pthread_h" && test "$opsys" != "mingw32"; then
      done])
   if test "$emacs_cv_pthread_lib" != no; then
     AC_DEFINE([HAVE_PTHREAD], [1], [Define to 1 if you have POSIX threads.])
+    m4_foreach([emacs_type],
+      [[max_align_t], [pthread_cond_t], [pthread_mutex_t]],
+      [AC_CHECK_ALIGNOF(emacs_type,
+	 [[#include <stddef.h>
+	   #include <pthread.h>
+	 ]])])
     case $emacs_cv_pthread_lib in
       -*) LIB_PTHREAD=$emacs_cv_pthread_lib;;
     esac
@@ -4466,7 +4470,16 @@ if test "$with_xwidgets" != "no"; then
     dnl FIXME: Check framework WebKit2
     dnl WEBKIT_REQUIRED=M.m.p
     WEBKIT_LIBS="-Wl,-framework -Wl,WebKit"
-    WEBKIT_CFLAGS="-I/System/Library/Frameworks/WebKit.framework/Headers"
+    WEBKIT_HEADERS="/System/Library/Frameworks/WebKit.framework/Headers"
+    if test -z "$xcsdkdir" -a -n "$XCRUN" -a ! -d "${WEBKIT_HEADERS}"; then
+      dnl WebKit headers not found.  Try Xcode SDK dir if it is sane.
+      xcsdkdir=`$XCRUN --show-sdk-path 2>/dev/null`
+      case $xcsdkdir in
+	*[[\\\"\#\$\&\'\`$am_lf\ \	]]*)
+	xcsdkdir="" ;;
+      esac
+    fi
+    WEBKIT_CFLAGS="-I${xcsdkdir}${WEBKIT_HEADERS}"
     HAVE_WEBKIT="yes"
     HAVE_XWIDGETS=$HAVE_WEBKIT
     XWIDGETS_OBJ="xwidget.o"
@@ -7355,7 +7368,7 @@ if test "$with_features" = no && test "$enable_acl" != yes; then
   enable_acl=no
 fi
 
-# Configure gnulib.  Although this does not affect CFLAGS or LIBS permanently.
+# Configure gnulib.  Although this does not affect CFLAGS or LIBS permanently,
 # it temporarily reverts them to their pre-pkg-config values,
 # because gnulib needs to work with both src (which uses the
 # pkg-config stuff) and lib-src (which does not).  For example, gnulib

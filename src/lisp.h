@@ -90,21 +90,18 @@ DEFINE_GDB_SYMBOL_END (GCTYPEBITS)
 typedef int EMACS_INT;
 typedef unsigned int EMACS_UINT;
 enum { EMACS_INT_WIDTH = INT_WIDTH, EMACS_UINT_WIDTH = UINT_WIDTH };
-#  define ALIGNOF_EMACS_INT ALIGNOF_INT
 #  define EMACS_INT_MAX INT_MAX
 #  define pI ""
 # elif INTPTR_MAX <= LONG_MAX && !defined WIDE_EMACS_INT
 typedef long int EMACS_INT;
 typedef unsigned long EMACS_UINT;
 enum { EMACS_INT_WIDTH = LONG_WIDTH, EMACS_UINT_WIDTH = ULONG_WIDTH };
-#  define ALIGNOF_EMACS_INT ALIGNOF_LONG
 #  define EMACS_INT_MAX LONG_MAX
 #  define pI "l"
 # elif INTPTR_MAX <= LLONG_MAX
 typedef long long int EMACS_INT;
 typedef unsigned long long int EMACS_UINT;
 enum { EMACS_INT_WIDTH = LLONG_WIDTH, EMACS_UINT_WIDTH = ULLONG_WIDTH };
-#  define ALIGNOF_EMACS_INT ALIGNOF_LONG_LONG
 #  define EMACS_INT_MAX LLONG_MAX
 /* MinGW supports %lld only if __USE_MINGW_ANSI_STDIO is non-zero,
    which is arranged by config.h, and (for mingw.org) if GCC is 6.0 or
@@ -123,6 +120,7 @@ enum { EMACS_INT_WIDTH = LLONG_WIDTH, EMACS_UINT_WIDTH = ULLONG_WIDTH };
 #  error "INTPTR_MAX too large"
 # endif
 #endif
+static_assert (alignof (EMACS_INT) == ALIGNOF_EMACS_INT);
 
 /* Number of bits to put in each character in the internal representation
    of bool vectors.  This should not vary across implementations.  */
@@ -252,15 +250,13 @@ DEFINE_GDB_SYMBOL_END (INTTYPEBITS)
     b. slower, because it typically requires extra masking.
    So, USE_LSB_TAG is true only on hosts where it might be useful.  */
 DEFINE_GDB_SYMBOL_BEGIN (bool, USE_LSB_TAG)
-#if (ALIGNOF_EMACS_INT < IDEAL_GCALIGNMENT && !defined alignas	\
-     && ! (__GNUC__ || 4 <= __clang_major__)			\
-     && __STDC_VERSION__ < 202311 && __cplusplus < 201103)	\
-     && !defined WIDE_EMACS_INT					\
-     && !defined HAVE_STRUCT_ATTRIBUTE_ALIGNED
-#define USE_LSB_TAG 0
-#else /* ALIGNOF_EMACS_INT >= IDEAL_GCALIGNMENT || defined alignas ... */
-#define USE_LSB_TAG (VAL_MAX / 2 < INTPTR_MAX)
-#endif /* ALIGNOF_EMACS_INT >= IDEAL_GCALIGNMENT || defined alignas ... */
+#if (ALIGNOF_EMACS_INT < IDEAL_GCALIGNMENT \
+     && !HAVE_C_ALIGNASOF && !defined alignas \
+     && !defined HAVE_STRUCT_ATTRIBUTE_ALIGNED)
+# define USE_LSB_TAG false
+#else
+# define USE_LSB_TAG (VAL_MAX / 2 < INTPTR_MAX)
+#endif
 DEFINE_GDB_SYMBOL_END (USE_LSB_TAG)
 
 /* Mask for the value (as opposed to the type bits) of a Lisp object.  */
@@ -268,14 +264,9 @@ DEFINE_GDB_SYMBOL_BEGIN (EMACS_INT, VALMASK)
 # define VALMASK (USE_LSB_TAG ? - (1 << GCTYPEBITS) : VAL_MAX)
 DEFINE_GDB_SYMBOL_END (VALMASK)
 
-/* Support 'alignas (A)' if possible, where A is an integer constant.  */
-#ifndef alignas
-# if __GNUC__ || 4 <= __clang_major__
-/* This is more reliable than the alignas operator, in GCC 14.  */
-#  define alignas(a) __attribute__ ((__aligned__ (a)))
-# elif __STDC_VERSION__ < 202311 && __cplusplus < 201103
-#  define alignas(a) /* not supported */
-# endif
+/* Ignore 'alignas' on compilers lacking it.  */
+#if !HAVE_C_ALIGNASOF && !defined alignas
+# define alignas(a) /* not supported */
 #endif
 
 /* The minimum alignment requirement for Lisp objects that is imposed by the
@@ -4384,8 +4375,6 @@ extern void adjust_after_insert (ptrdiff_t, ptrdiff_t, ptrdiff_t,
 				 ptrdiff_t, ptrdiff_t);
 extern void adjust_markers_for_delete (ptrdiff_t, ptrdiff_t,
 				       ptrdiff_t, ptrdiff_t);
-extern void adjust_markers_for_insert (ptrdiff_t, ptrdiff_t,
-				       ptrdiff_t, ptrdiff_t, bool);
 extern void adjust_markers_bytepos (ptrdiff_t, ptrdiff_t,
 				    ptrdiff_t, ptrdiff_t, int);
 extern void replace_range (ptrdiff_t, ptrdiff_t, Lisp_Object, bool, bool, bool);
@@ -4794,7 +4783,6 @@ intern_c_string (const char *str)
 extern Lisp_Object Vautoload_queue;
 extern Lisp_Object Vrun_hooks;
 extern Lisp_Object Vsignaling_function;
-extern Lisp_Object inhibit_lisp_code;
 extern bool signal_quit_p (Lisp_Object);
 
 /* To run a normal hook, use the appropriate function from the list below.
@@ -4991,7 +4979,6 @@ extern void syms_of_marker (void);
 
 /* Defined in fileio.c.  */
 
-extern Lisp_Object file_name_directory (Lisp_Object);
 extern char *splice_dir_file (char *, char const *, char const *)
   ATTRIBUTE_RETURNS_NONNULL;
 extern bool file_name_absolute_p (const char *);
@@ -5120,7 +5107,6 @@ void handle_input_available_signal (int);
 #endif
 extern Lisp_Object pending_funcalls;
 extern bool detect_input_pending (void);
-extern bool detect_input_pending_ignore_squeezables (void);
 extern bool detect_input_pending_run_timers (bool);
 extern void safe_run_hooks (Lisp_Object);
 extern void safe_run_hooks_2 (Lisp_Object, Lisp_Object, Lisp_Object);
@@ -5363,7 +5349,9 @@ extern ptrdiff_t emacs_write (int, void const *, ptrdiff_t);
 extern ptrdiff_t emacs_write_sig (int, void const *, ptrdiff_t);
 extern ptrdiff_t emacs_write_quit (int, void const *, ptrdiff_t);
 extern void emacs_perror (char const *);
+#ifdef HAVE_ANDROID
 extern int renameat_noreplace (int, char const *, int, char const *);
+#endif
 extern int str_collate (Lisp_Object, Lisp_Object, Lisp_Object, Lisp_Object);
 extern void syms_of_sysdep (void);
 

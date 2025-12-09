@@ -3239,17 +3239,17 @@ saving the buffer."
                           (called-interactively-p 'interactive))))))
 
 ;;;###autoload
-(defun vc-root-dir ()
+(defun vc-root-dir (&optional backend)
   "Return the root directory for the current VC tree.
-Return nil if the root directory cannot be identified."
-  (let ((backend (vc-deduce-backend)))
-    (if backend
-        (condition-case err
-            (vc-call-backend backend 'root default-directory)
-          (vc-not-supported
-           (unless (eq (cadr err) 'root)
-             (signal (car err) (cdr err)))
-           nil)))))
+Return nil if the root directory cannot be identified.
+BACKEND is the VC backend."
+  (and-let* ((backend (or backend (vc-deduce-backend))))
+    (condition-case err
+        (vc-call-backend backend 'root default-directory)
+      (vc-not-supported
+       (unless (eq (cadr err) 'root)
+         (signal (car err) (cdr err)))
+       nil))))
 
 ;;;###autoload
 (defun vc-revision-other-window (rev)
@@ -4026,18 +4026,24 @@ The command prompts for the branch whose change log to show."
   ;; incoming revision is fine except for the rare case in which someone
   ;; else cherry-picks the very same commits that you have outstanding,
   ;; and pushes them.  Given this, we implement our own caching.
-  (or (and (not refresh)
-           (cdr (assoc upstream-location
-                       (vc--repo-getprop 'vc-incoming-revision))))
-      (and-let* ((res (vc-call-backend backend 'incoming-revision
-                                       upstream-location refresh)))
-        (if-let* ((alist (vc--repo-getprop 'vc-incoming-revision)))
-            (setf (alist-get upstream-location alist nil nil #'equal)
-                  res)
-          (vc--repo-setprop 'vc-incoming-revision
-                            `((,upstream-location . ,res))))
-        res)
-      (user-error "No incoming revision -- local-only branch?")))
+  ;;
+  ;; Do store `nil', before signalling an error, if there is no incoming
+  ;; revision, because that's also something that can be slow to
+  ;; determine and so should be remembered.
+  (if-let* ((_ (not refresh))
+            (record (assoc upstream-location
+                           (vc--repo-getprop backend 'vc-incoming-revision))))
+      (cdr record)
+    (let ((res (vc-call-backend backend 'incoming-revision
+                                upstream-location refresh)))
+      (if-let* ((alist (vc--repo-getprop backend 'vc-incoming-revision)))
+          (setf (alist-get upstream-location alist nil nil #'equal)
+                res)
+        (vc--repo-setprop backend
+                          'vc-incoming-revision
+                          `((,upstream-location . ,res))))
+      (or res
+          (user-error "No incoming revision -- local-only branch?")))))
 
 ;;;###autoload
 (defun vc-log-incoming (&optional upstream-location)
@@ -4051,12 +4057,13 @@ can be a remote branch name."
     (vc-incoming-outgoing-internal backend upstream-location
                                    "*vc-incoming*" 'log-incoming)))
 
-(defun vc-default-log-incoming (_backend buffer upstream-location)
-  (vc--with-backend-in-rootdir ""
-    (let ((incoming (vc--incoming-revision backend upstream-location 'refresh)))
-      (vc-call-backend backend 'print-log (list rootdir) buffer t
-                       incoming
-                       (vc-call-backend backend 'mergebase incoming)))))
+(defun vc-default-log-incoming (backend buffer upstream-location)
+  (let ((incoming (vc--incoming-revision backend upstream-location
+                                         'refresh))
+        (default-directory (vc-root-dir backend)))
+    (vc-call-backend backend 'print-log (list default-directory)
+                     buffer t incoming
+                     (vc-call-backend backend 'mergebase incoming))))
 
 ;;;###autoload
 (defun vc-log-outgoing (&optional upstream-location)
@@ -4070,12 +4077,12 @@ can be a remote branch name."
     (vc-incoming-outgoing-internal backend upstream-location
                                    "*vc-outgoing*" 'log-outgoing)))
 
-(defun vc-default-log-outgoing (_backend buffer upstream-location)
-  (vc--with-backend-in-rootdir ""
-    (let ((incoming (vc--incoming-revision backend upstream-location)))
-      (vc-call-backend backend 'print-log (list rootdir) buffer t
-                       ""
-                       (vc-call-backend backend 'mergebase incoming)))))
+(defun vc-default-log-outgoing (backend buffer upstream-location)
+  (let ((incoming (vc--incoming-revision backend upstream-location))
+        (default-directory (vc-root-dir backend)))
+    (vc-call-backend backend 'print-log (list default-directory)
+                     buffer t ""
+                     (vc-call-backend backend 'mergebase incoming))))
 
 (defun vc--count-outgoing (backend)
   "Return number of changes that will be sent with a `vc-push'."
@@ -4229,10 +4236,14 @@ tip revision are merged into the working file."
     (cond
      ;; If a pull operation is defined, use it.
      ((vc-find-backend-function backend 'pull)
-      (vc-call-backend backend 'pull arg))
+      (vc-call-backend backend 'pull arg)
+      ;; FIXME: Ideally we would only clear out the stored value for the
+      ;; REMOTE-LOCATION from which we are pulling.
+      (vc-run-delayed
+        (vc--repo-setprop backend 'vc-incoming-revision nil)))
      ;; If VCS has `merge-news' functionality (CVS and SVN), use it.
      ((vc-find-backend-function backend 'merge-news)
-      (save-some-buffers ; save buffers visiting files
+      (save-some-buffers                ; save buffers visiting files
        nil (lambda ()
 	     (and (buffer-modified-p)
 		  (let ((file (buffer-file-name)))
@@ -4272,7 +4283,8 @@ It also signals an error in a Bazaar bound branch."
         (progn (vc-call-backend backend 'push arg)
                ;; FIXME: Ideally we would only clear out the
                ;; REMOTE-LOCATION to which we are pushing.
-               (vc--repo-setprop 'vc-incoming-revision nil))
+               (vc-run-delayed
+                 (vc--repo-setprop backend 'vc-incoming-revision nil)))
       (user-error "VC push is unsupported for `%s'" backend))))
 
 ;;;###autoload
@@ -4295,18 +4307,12 @@ It also signals an error in a Bazaar bound branch."
   (let* ((vc-fileset (vc-deduce-fileset t))
 	 (backend (car vc-fileset)))
     (if (vc-find-backend-function backend 'pull)
-        (let ((proc (vc-call-backend backend 'pull arg)))
-          (when (and (processp proc) (process-buffer proc))
-            (with-current-buffer (process-buffer proc)
-              (if (and (eq (process-status proc) 'exit)
-                       (zerop (process-exit-status proc)))
-                  (let ((vc--inhibit-async-window t))
-                    (vc-push arg))
-                (vc-exec-after
-                 (lambda ()
-                   (let ((vc--inhibit-async-window t))
-                     (vc-push arg)))
-                 proc)))))
+        (when-let* ((proc (vc-call-backend backend 'pull arg))
+                    (buf (and (processp proc) (process-buffer proc))))
+          (with-current-buffer buf
+            (vc-run-delayed-success 0
+              (let ((vc--inhibit-async-window t))
+                (vc-push arg)))))
       (user-error "VC pull is unsupported for `%s'" backend))))
 
 (defun vc-version-backup-file (file &optional rev)

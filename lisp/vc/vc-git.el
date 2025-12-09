@@ -712,7 +712,7 @@ or an empty string if none."
 
 ;; Follows vc-git-command (or vc-do-async-command), which uses vc-do-command
 ;; from vc-dispatcher.
-(declare-function vc-exec-after "vc-dispatcher" (code &optional success))
+(declare-function vc-exec-after "vc-dispatcher" (code &optional okstatus proc))
 ;; Follows vc-exec-after.
 (declare-function vc-set-async-update "vc-dispatcher" (process-buffer))
 
@@ -749,7 +749,7 @@ or an empty string if none."
       ('diff-index
        (vc-git-command (current-buffer) 'async files
                        "diff-index" "--relative" "-z" "-M" "HEAD" "--")))
-    (vc-run-delayed
+    (vc-run-delayed-success 1
       (vc-git-after-dir-status-stage git-state))))
 
 (defun vc-git-dir-status-files (_dir files update-function)
@@ -1320,16 +1320,18 @@ It is an error to supply both or neither."
                         (and (not patch-string)
                              (if only (list "--only" "--") '("-a")))))
       (if vc-async-checkin
-          (progn (vc-wait-for-process-before-save
-                  (apply #'vc-do-async-command buffer root
-                         vc-git-program (nconc args files))
-                  "Finishing checking in files...")
-                 (with-current-buffer buffer
-                   (vc-run-delayed
-                     (vc-compilation-mode 'git)
-                     (funcall post)))
-                 (vc-set-async-update buffer)
-                 (list 'async (get-buffer-process buffer)))
+          (let ((proc (apply #'vc-do-async-command buffer root
+                             vc-git-program (nconc args files))))
+            (set-process-query-on-exit-flag proc t)
+            (vc-wait-for-process-before-save
+             proc
+             "Finishing checking in files...")
+            (with-current-buffer buffer
+              (vc-run-delayed
+                (vc-compilation-mode 'git)
+                (funcall post)))
+            (vc-set-async-update buffer)
+            (list 'async (get-buffer-process buffer)))
         (apply #'vc-git-command nil 0 files args)
         (funcall post)))))
 
@@ -1527,6 +1529,7 @@ If PROMPT is non-nil, prompt for the Git command to run."
             vc-filter-command-function))
          (proc (apply #'vc-do-async-command
                       buffer root git-program command extra-args)))
+    (set-process-query-on-exit-flag proc t)
     ;; "git pull" includes progress output that uses ^M to move point
     ;; to the beginning of the line.  Just translate these to newlines
     ;; (but don't do anything with the CRLF sequence).
@@ -1746,7 +1749,15 @@ If LIMIT is a non-empty string, use it as a base revision."
 
 (defun vc-git-incoming-revision (&optional upstream-location refresh)
   (let ((rev (or upstream-location "@{upstream}")))
-    (when (or refresh (null (vc-git--rev-parse rev)))
+    (when (and (or refresh (null (vc-git--rev-parse rev)))
+               ;; If the branch has no upstream, and we weren't supplied
+               ;; with one, then fetching is always useless (bug#79952).
+               (or upstream-location
+                   (and-let* ((branch (vc-git--current-branch)))
+                     (with-temp-buffer
+                       (vc-git--out-ok "config" "--get"
+                                       (format "branch.%s.remote"
+                                               branch))))))
       (vc-git-command nil 0 nil "fetch"
                       (and upstream-location
                            ;; Extract remote from "remote/branch".
