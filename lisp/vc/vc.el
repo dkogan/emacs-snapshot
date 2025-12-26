@@ -647,6 +647,7 @@
 ;;   function is defined for this backend and that symbol, or a symbolic
 ;;   name involving that symbol, is passed to this function as REV, this
 ;;   function may return a symbolic name.
+;;   The implementation should respect the value of vc-use-short-revision.
 ;;
 ;;   Possible future extension: make REV an optional argument, and if
 ;;   nil, default it to FILE's working revision.
@@ -662,6 +663,7 @@
 ;;
 ;;   Return the revision number that follows REV for FILE, or nil if no such
 ;;   revision exists.
+;;   The implementation should respect the value of vc-use-short-revision.
 ;;
 ;; - log-edit-mode ()
 ;;
@@ -1093,7 +1095,7 @@ value other than `ask' if you have a strong grasp of the VCS in use."
                  (const :tag "Allow without prompting" t))
   :version "31.1")
 
-(defconst vc-cloneable-backends-custom-type
+(defconst vc-clonable-backends-custom-type
   `(choice :convert-widget
            ,(lambda (widget)
               (let (opts)
@@ -1104,6 +1106,9 @@ value other than `ask' if you have a strong grasp of the VCS in use."
                 (widget-put widget :args opts))
               widget))
   "The type of VC backends that support cloning VCS repositories.")
+(define-obsolete-variable-alias
+  'vc-cloneable-backends-custom-type
+  'vc-clonable-backends-custom-type "31.1")
 
 (defcustom vc-clone-heuristic-alist
   `((,(rx bos "http" (? "s") "://"
@@ -1145,7 +1150,7 @@ specifying a backend.  Each element of the alist has the form
 the first association for which the URL of the repository matches
 the URL-REGEXP of the association."
   :type `(alist :key-type (regexp :tag "Regular expression matching URLs")
-                :value-type ,vc-cloneable-backends-custom-type)
+                :value-type ,vc-clonable-backends-custom-type)
   :version "31.1")
 
 (defcustom vc-async-checkin nil
@@ -2147,10 +2152,15 @@ have changed; continue with old fileset?" (current-buffer))))
                                               patch-string comment)
                            (vc-call-backend backend 'checkin
                                             files comment rev))
-                    (mapc #'vc-delete-automatic-version-backups files))))
+                    (mapc #'vc-delete-automatic-version-backups files)))
+                (done-msg ()
+                  (message "Checking in %s...done" (vc-delistify files))))
         (if do-async
             ;; Rely on `vc-set-async-update' to update properties.
-            (do-it)
+            (let ((ret (do-it)))
+              (when (eq (car-safe ret) 'async)
+                (vc-exec-after #'done-msg nil (cadr ret)))
+              ret)
           (prog2 (message "Checking in %s..." (vc-delistify files))
               (with-vc-properties files (do-it)
                                   `((vc-state . up-to-date)
@@ -2158,7 +2168,7 @@ have changed; continue with old fileset?" (current-buffer))))
                                      . ,(file-attribute-modification-time
 			                 (file-attributes file)))
                                     (vc-working-revision . nil)))
-            (message "Checking in %s...done" (vc-delistify files))))))
+            (done-msg)))))
     'vc-checkin-hook
     backend
     patch-string)))
@@ -2726,7 +2736,7 @@ Output goes to the buffer BUFFER, which defaults to *vc-diff*.
 BUFFER, if non-nil, should be a buffer or a buffer name.
 Return t if the buffer had changes, nil otherwise."
   (unless buffer
-    (setq buffer "*vc-diff*"))
+    (setq buffer (get-buffer-create "*vc-diff*")))
   (let* ((files (cadr vc-fileset))
 	 (messages (cons (format "Finding changes in %s..."
                                  (vc-delistify files))
@@ -2789,18 +2799,25 @@ Return t if the buffer had changes, nil otherwise."
                      (if async 'async 1) "diff" file
                      (append (vc-switches nil 'diff) `(,(null-device)))))))
         (setq files (nreverse filtered))))
+    (with-current-buffer buffer
+      ;; Make the *vc-diff* buffer read only, the diff-mode key
+      ;; bindings are nicer for read only buffers. pcl-cvs does the
+      ;; same thing.
+      (setq buffer-read-only t)
+      ;; Set the major mode and some local variables before calling into
+      ;; the backend.  This means that the backend can itself set local
+      ;; variables and enable minor modes in BUFFER if it wants to.
+      ;; Call into the backend with the old current buffer, though, so
+      ;; that its operation can be influenced by local variables in that
+      ;; buffer (some discussion in bug#80005).
+      (diff-mode)
+      (setq-local diff-vc-backend (car vc-fileset))
+      (setq-local diff-vc-revisions (list rev1 rev2))
+      (setq-local revert-buffer-function
+                  (lambda (_ignore-auto _noconfirm)
+                    (vc-diff-internal async vc-fileset rev1 rev2 verbose))))
     (vc-call-backend (car vc-fileset) 'diff files rev1 rev2 buffer async)
     (set-buffer buffer)
-    ;; Make the *vc-diff* buffer read only, the diff-mode key
-    ;; bindings are nicer for read only buffers. pcl-cvs does the
-    ;; same thing.
-    (setq buffer-read-only t)
-    (diff-mode)
-    (setq-local diff-vc-backend (car vc-fileset))
-    (setq-local diff-vc-revisions (list rev1 rev2))
-    (setq-local revert-buffer-function
-                (lambda (_ignore-auto _noconfirm)
-                  (vc-diff-internal async vc-fileset rev1 rev2 verbose)))
     (if (and (zerop (buffer-size))
              (not (get-buffer-process (current-buffer))))
         ;; Treat this case specially so as not to pop the buffer.
@@ -3094,8 +3111,9 @@ global binding."
                       ;;                           'revision-granularity)
                       ;;          'repository)
                       ;;      (ignore-errors
-                      ;;        (vc-symbolic-working-revision (caadr fileset)))
-                      (vc-symbolic-working-revision (caadr fileset))
+                      ;;        (vc-symbolic-working-revision (caadr fileset)
+                      ;;                                      backend)))
+                      (vc-symbolic-working-revision (caadr fileset) backend)
                       (called-interactively-p 'interactive))))
 
 ;; For the following two commands, the default meaning for
@@ -4027,7 +4045,7 @@ The command prompts for the branch whose change log to show."
   ;; else cherry-picks the very same commits that you have outstanding,
   ;; and pushes them.  Given this, we implement our own caching.
   ;;
-  ;; Do store `nil', before signalling an error, if there is no incoming
+  ;; Do store `nil', before signaling an error, if there is no incoming
   ;; revision, because that's also something that can be slow to
   ;; determine and so should be remembered.
   (if-let* ((_ (not refresh))
@@ -4479,10 +4497,8 @@ file names."
   (dolist (file file-or-files)
     (let ((buf (get-file-buffer file))
           (backend (vc-backend file)))
-      (unless backend
-        (error "File %s is not under version control"
-               (file-name-nondirectory file)))
-      (unless (vc-find-backend-function backend 'delete-file)
+      (unless (or (not backend)
+                  (vc-find-backend-function backend 'delete-file))
         (error "Deleting files under %s is not supported in VC" backend))
       (when (and buf (buffer-modified-p buf))
         (error "Please save or undo your changes before deleting %s" file))
@@ -4505,11 +4521,13 @@ file names."
         (with-current-buffer (or buf (find-file-noselect file))
           (let ((backup-inhibited nil))
 	    (backup-buffer))))
-      ;; Bind `default-directory' so that the command that the backend
-      ;; runs to remove the file is invoked in the correct context.
-      (let ((default-directory (file-name-directory file)))
-        (vc-call-backend backend 'delete-file file))
-      ;; If the backend hasn't deleted the file itself, let's do it for him.
+      (when backend
+        ;; Bind `default-directory' so that the command that the backend
+        ;; runs to remove the file is invoked in the correct context.
+        (let ((default-directory (file-name-directory file)))
+          (vc-call-backend backend 'delete-file file)))
+      ;; For the case of unregistered files, or if the backend didn't
+      ;; actually delete the file.
       (when (file-exists-p file) (delete-file file))
       ;; Forget what VC knew about the file.
       (vc-file-clearprops file)

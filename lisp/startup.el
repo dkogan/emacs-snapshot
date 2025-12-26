@@ -1236,6 +1236,9 @@ directories that do not contain Lisp files."
   :type '(choice (repeat (string :tag "Directory name")))
   :version "31.1")
 
+(declare-function byte-recompile-file "bytecomp"
+                  (filename &optional force arg load))
+
 (defun prepare-user-lisp (&optional just-activate autoload-file force)
   "Byte-compile, scrape autoloads and prepare files in `user-lisp-directory'.
 Write the autoload file to AUTOLOAD-FILE.  If JUST-ACTIVATE is non-nil,
@@ -1245,21 +1248,22 @@ If AUTOLOAD-FILE is nil, store the autoload data in a file next to DIR.
 If FORCE is non-nil, or if invoked interactively with a prefix argument,
 re-create the entire autoload file and byte-compile everything
 unconditionally."
-  (interactive (list nil current-prefix-arg))
+  (interactive (list nil nil current-prefix-arg))
+  (unless just-activate (require 'bytecomp))
   (unless (file-directory-p user-lisp-directory)
     (error "No such directory: %S" user-lisp-directory))
   (unless autoload-file
     (setq autoload-file (expand-file-name ".user-lisp-autoloads.el"
                                           user-lisp-directory)))
-  (let* ((pred
-          (let ((ignored
-                 (concat "\\`" (regexp-opt user-lisp-ignored-directories) "\\'")))
-            (lambda (dir)
-              (not (string-match-p ignored (file-name-nondirectory dir))))))
+  (let* ((ignored
+          (concat "\\`" (regexp-opt user-lisp-ignored-directories) "\\'"))
+         (pred
+          (lambda (dir)
+            (not (string-match-p ignored (file-name-nondirectory dir)))))
          (dir (expand-file-name user-lisp-directory))
          (backup-inhibited t)
          (dirs (list dir)))
-    (add-to-list 'load-path dir)
+    (add-to-list 'load-path (directory-file-name dir))
     (dolist (file (directory-files-recursively dir "" t pred))
       (cond
        ((and (file-regular-p file) (string-suffix-p ".el" file))
@@ -1268,8 +1272,9 @@ unconditionally."
             (byte-recompile-file file force 0)
             (when (native-comp-available-p)
               (native-compile-async file)))))
-       ((file-directory-p file)
-        (add-to-list 'load-path file)
+       ((and (file-directory-p file)
+             (not (string-match-p ignored (file-name-nondirectory file))))
+        (add-to-list 'load-path (directory-file-name file))
         (push file dirs))))
     (unless just-activate
       (loaddefs-generate dirs autoload-file nil nil nil force))

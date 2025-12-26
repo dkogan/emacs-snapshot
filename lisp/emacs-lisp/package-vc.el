@@ -74,7 +74,7 @@ the backend nor a repository URL that's recognized via
 
 The value must be a member of `vc-handled-backends' that supports
 the `clone' VC function."
-  :type vc-cloneable-backends-custom-type
+  :type vc-clonable-backends-custom-type
   :version "29.1")
 
 (defcustom package-vc-register-as-project t
@@ -329,7 +329,7 @@ asynchronously."
         (replace-regexp-in-string
          "-pkg\\.el\\'" ".el"
          (file-name-nondirectory pkg-file))
-        "  -*- no-byte-compile: t -*-\n"
+        "  -*- no-byte-compile: t; lexical-binding: t -*-\n"
         (prin1-to-string
          (nconc
           (list 'define-package
@@ -352,7 +352,7 @@ asynchronously."
              (when-let* (((null (alist-get :maintainer extras)))
                          (main-file)
                          (maintainers (lm-maintainers main-file)))
-               ;; Like in `pakcage-buffer-info', for backward
+               ;; Like in `package-buffer-info', for backward
                ;; compatibility, use a single cons-cell if there's
                ;; only one maintainer.
                (setf (alist-get :maintainer extras)
@@ -585,7 +585,7 @@ building documentation and marking the package as installed."
       (unless (file-equal-p lisp-dir pkg-dir)
         (write-region
          (concat
-          ";; Autoload indirection for package-vc\n\n"
+          ";; Autoload indirection for package-vc -*- lexical-binding: t -*-\n\n"
           (prin1-to-string
            ;; The indirection is just a single load statement to the
            ;; actual file (we don't want to use symbolic links due to
@@ -631,7 +631,7 @@ building documentation and marking the package as installed."
     (dolist (elc-file (directory-files-recursively
                        lisp-dir
                        (rx string-start
-                           (not ".") (zero-or-more any) ".elc"
+                           (not ".") (zero-or-more anychar) ".elc"
                            string-end)
                        nil
                        (lambda (dir)

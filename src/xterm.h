@@ -1766,6 +1766,7 @@ extern void x_ignore_errors_for_next_request (struct x_display_info *,
 extern void x_stop_ignoring_errors (struct x_display_info *);
 extern void x_clear_errors (Display *);
 extern void x_set_window_size (struct frame *, bool, int, int);
+extern void x_set_window_size_and_position (struct frame *, int, int);
 extern void x_set_last_user_time_from_lisp (struct x_display_info *, Time);
 extern void x_make_frame_visible (struct frame *);
 extern void x_make_frame_invisible (struct frame *);
@@ -2017,7 +2018,7 @@ extern int x_error_message_count;
 
 #ifdef HAVE_XINPUT2
 extern struct xi_device_t *xi_device_from_id (struct x_display_info *, int);
-# ifdef HAVE_X_TOOLKIT
+# if defined USE_X_TOOLKIT || !(defined USE_GTK && defined HAVE_GTK3)
 extern bool xi_frame_selected_for (struct frame *, unsigned long);
 # endif
 # ifndef USE_GTK

@@ -279,8 +279,8 @@ That is, refreshing the VC-Dir buffer also hides `up-to-date' and
       '(menu-item "Open File" vc-dir-find-file
 		  :help "Find the file on the current line"))
     (define-key map [delete]
-      '(menu-item "Delete" vc-dir-clean-files
-		  :help "Delete the unregistered marked files"))
+      '(menu-item "Delete" vc-dir-delete-files
+		  :help "Delete marked files"))
     (define-key map [sepvcdet] '("--"))
     ;; FIXME: This needs a key binding.  And maybe a better name
     ;; ("Insert" like PCL-CVS uses does not sound that great either)...
@@ -318,8 +318,6 @@ That is, refreshing the VC-Dir buffer also hides `up-to-date' and
       '(menu-item "Revert to Base Version" vc-revert
 		  :help "Revert working copies of the selected fileset to their repository contents."))
     (define-key map [next-action]
-      ;; FIXME: This really really really needs a better name!
-      ;; And a key binding too.
       '(menu-item "Check In/Out" vc-next-action
 		  :help "Do the next logical version control operation on the current fileset"))
     (define-key map [register]
@@ -364,7 +362,7 @@ That is, refreshing the VC-Dir buffer also hides `up-to-date' and
     ;;                                     bound by `special-mode'.
     ;; Marking.
     (define-key map "m" #'vc-dir-mark)
-    (define-key map "d" #'vc-dir-clean-files)
+    (define-key map "d" #'vc-dir-delete-file)
     (define-key map "M" #'vc-dir-mark-all-files)
     (define-key map "u" #'vc-dir-unmark)
     (define-key map "U" #'vc-dir-unmark-all-files)
@@ -1030,8 +1028,7 @@ tracked by a VCS."
 The files will also be marked as deleted in the version control
 system."
   (interactive)
-  (mapc #'vc-delete-file (or (vc-dir-marked-files)
-                            (list (vc-dir-current-file)))))
+  (vc-delete-file (or (vc-dir-marked-files) (vc-dir-current-file))))
 
 (defun vc-dir-find-file ()
   "Find the file on the current line."
@@ -1350,6 +1347,19 @@ therefore also disable the fetching."
   :group 'vc
   :version "31.1")
 
+(defun vc-dir--count-outgoing (backend)
+  "Call `vc--count-outgoing' with a delayed message and local quits."
+  (let ((inhibit-quit t))
+    (prog1
+        (with-local-quit
+          (with-delayed-message
+              (2 (substitute-command-keys
+                  "Counting outgoing revisions ...
+(\\[keyboard-quit] to skip; \
+see `vc-dir-show-outgoing-count' if this is frequently slow)"))
+            (ignore-errors (vc--count-outgoing backend))))
+      (setq quit-flag nil))))
+
 (defun vc-dir-headers (backend dir)
   "Display the headers in the *VC-Dir* buffer.
 It calls the `dir-extra-headers' backend method to display backend
@@ -1363,12 +1373,7 @@ specific headers."
    (vc-call-backend backend 'dir-extra-headers dir)
    "\n"
    (and-let* (vc-dir-show-outgoing-count
-              (count
-               (ignore-errors
-                 (with-delayed-message
-                     (2 (substitute-quotes "Counting outgoing revisions ...
-(see `vc-dir-show-outgoing-count' if this is frequently slow)" ))
-                   (vc--count-outgoing backend))))
+              (count (vc-dir--count-outgoing backend))
               (_ (plusp count)))
      (concat (propertize "Outgoing   : "
                          'face 'vc-dir-header)

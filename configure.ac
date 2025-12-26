@@ -1798,7 +1798,6 @@ AS_IF([test $gl_gcc_warnings = no],
   nw="$nw -Wformat-overflow=2"      # False alarms due to GCC bug 110333
   nw="$nw -Woverlength-strings"     # Not a problem these days
   nw="$nw -Wvla"                    # Emacs uses <vla.h>.
-  nw="$nw -Wunused-const-variable=2" # lisp.h declares const objects.
   nw="$nw -Winline"                 # OK to ignore 'inline'
   nw="$nw -Wstrict-overflow"        # OK to optimize assuming that
                                     # signed overflow has undefined behavior
@@ -3277,12 +3276,20 @@ if test "$emacs_cv_struct_alignment" = yes; then
      structure to an N-byte boundary.])
 fi
 
-# Check for alignas now rather than waiting for gl_INIT to do it,
-# as the system_malloc=no test below needs $gl_cv_header_working_stdalign_h.
-# Do not simply call gl_INIT here, as the ac_cv_func_pthread_sigmask=yes
-# assignment below affects how gl_INIT works.
-# Instead, call gl_ALIGNASOF, the only part of gl_INIT needed here.
-# Then make gl_ALIGNASOF a no-op so gl_INIT does not duplicate its code.
+dnl Work around a glitch if aclocal is invoked outside of autogen.sh.
+dnl Such an invocation generates an aclocal.m4 that lacks m4/stdalign.m4.
+dnl The following hack checks the otherwise-uninvolved macro gl_STDALIGN_H
+dnl so that the hack itself does not generate a diagnostic.
+m4_divert_push([KILL])
+m4_ifdef([gl_STDALIGN_H], [], [m4_include([m4/stdalign.m4])])
+m4_divert_pop([KILL])
+
+dnl Check for alignas now rather than waiting for gl_INIT to do it,
+dnl as the system_malloc=no test below needs $gl_cv_header_working_stdalign_h.
+dnl Do not simply call gl_INIT here, as the ac_cv_func_pthread_sigmask=yes
+dnl assignment below affects how gl_INIT works.
+dnl Instead, call gl_ALIGNASOF, the only part of gl_INIT needed here.
+dnl Then make gl_ALIGNASOF a no-op so gl_INIT does not duplicate its code.
 gl_ALIGNASOF
 AC_DEFUN([gl_ALIGNASOF])
 
@@ -7382,7 +7389,6 @@ CFLAGS=$pre_PKG_CONFIG_CFLAGS
 LIBS="$LIB_PTHREAD $pre_PKG_CONFIG_LIBS"
 gl_ASSERT_NO_GNULIB_POSIXCHECK
 gl_ASSERT_NO_GNULIB_TESTS
-gl_EEMALLOC
 gl_INIT
 CFLAGS=$SAVE_CFLAGS
 LIBS=$SAVE_LIBS
