@@ -28,7 +28,7 @@ Status: new
  4 files changed, 33 insertions(+), 39 deletions(-)
 
 diff --git a/Makefile.in b/Makefile.in
-index ea05fe6..c2ca077 100644
+index 01436d1..6df1018 100644
 --- a/Makefile.in
 +++ b/Makefile.in
 @@ -174,7 +174,9 @@ man1dir=
@@ -118,10 +118,10 @@ index ea05fe6..c2ca077 100644
  
  $(UNINSTALL_DOC):
 diff --git a/configure.ac b/configure.ac
-index 9d113be..af689b3 100644
+index 0d7c58d..8f49e97 100644
 --- a/configure.ac
 +++ b/configure.ac
-@@ -7752,11 +7752,10 @@ AC_DEFUN
+@@ -7765,11 +7765,10 @@ AC_DEFUN
  
  AC_CONFIG_FILES([lib/Makefile lib-src/Makefile oldXMenu/Makefile src/Makefile
                   lwlib/Makefile nextstep/Makefile nt/Makefile])
@@ -135,7 +135,7 @@ index 9d113be..af689b3 100644
  
  dnl The test/ directory is missing if './make-dist --no-tests' was used.
  opt_makefile=test/Makefile
-@@ -7828,15 +7827,6 @@ AC_DEFUN
+@@ -7841,15 +7840,6 @@ AC_DEFUN
    fi
    ])
  
@@ -152,7 +152,7 @@ index 9d113be..af689b3 100644
    dnl then a directory etc/refcards is created in the build directory,
    dnl which is probably harmless, but confusing (in out-of-tree builds).
 diff --git a/doc/misc/Makefile.in b/doc/misc/Makefile.in
-index 95c8a92..ce85c0a 100644
+index 5eee502..a4dc9e0 100644
 --- a/doc/misc/Makefile.in
 +++ b/doc/misc/Makefile.in
 @@ -84,6 +84,12 @@ INFO_INSTALL =
@@ -169,10 +169,10 @@ index 95c8a92..ce85c0a 100644
  ## This is discouraged because the .texi files it generates
  ## are not as well formatted as handwritten ones.
 diff --git a/lisp/help.el b/lisp/help.el
-index 8cf91fa..5be0dd7 100644
+index 76c3770..335413d 100644
 --- a/lisp/help.el
 +++ b/lisp/help.el
-@@ -586,6 +586,14 @@ view-help-file
+@@ -587,6 +587,14 @@ view-help-file
    (goto-address-mode 1)
    (goto-char (point-min)))
  
