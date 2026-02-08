@@ -118,10 +118,10 @@ index 01436d1..6df1018 100644
  
  $(UNINSTALL_DOC):
 diff --git a/configure.ac b/configure.ac
-index 0d7c58d..8f49e97 100644
+index 420ab6d..094650c 100644
 --- a/configure.ac
 +++ b/configure.ac
-@@ -7765,11 +7765,10 @@ AC_DEFUN
+@@ -7741,11 +7741,10 @@ AC_DEFUN
  
  AC_CONFIG_FILES([lib/Makefile lib-src/Makefile oldXMenu/Makefile src/Makefile
                   lwlib/Makefile nextstep/Makefile nt/Makefile])
@@ -135,7 +135,7 @@ index 0d7c58d..8f49e97 100644
  
  dnl The test/ directory is missing if './make-dist --no-tests' was used.
  opt_makefile=test/Makefile
-@@ -7841,15 +7840,6 @@ AC_DEFUN
+@@ -7817,15 +7816,6 @@ AC_DEFUN
    fi
    ])
  
