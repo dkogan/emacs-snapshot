@@ -1995,9 +1995,20 @@ DEFUN ("x-display-mm-height", Fx_display_mm_height, Sx_display_mm_height, 0, 1, 
        doc: /* SKIP: real doc in xfns.c.  */)
   (Lisp_Object terminal)
 {
+  double px_to_mm;
   struct ns_display_info *dpyinfo = check_ns_display_info (terminal);
 
-  return make_fixnum (ns_display_pixel_height (dpyinfo) / (92.0/25.4));
+#ifdef NS_IMPL_COCOA
+  CGDirectDisplayID did = CGMainDisplayID ();
+  CGSize size_mm = CGDisplayScreenSize (did);
+  CGRect bounds = CGDisplayBounds (did);
+
+  px_to_mm = size_mm.height / bounds.size.height;
+#else
+  px_to_mm = 25.4 / dpyinfo->resx;
+#endif
+
+  return make_fixnum (ns_display_pixel_height (dpyinfo) * px_to_mm);
 }
 
 
@@ -2005,9 +2016,20 @@ DEFUN ("x-display-mm-width", Fx_display_mm_width, Sx_display_mm_width, 0, 1, 0,
        doc: /* SKIP: real doc in xfns.c.  */)
   (Lisp_Object terminal)
 {
+  double px_to_mm;
   struct ns_display_info *dpyinfo = check_ns_display_info (terminal);
 
-  return make_fixnum (ns_display_pixel_width (dpyinfo) / (92.0/25.4));
+#ifdef NS_IMPL_COCOA
+  CGDirectDisplayID did = CGMainDisplayID ();
+  CGSize size_mm = CGDisplayScreenSize (did);
+  CGRect bounds = CGDisplayBounds (did);
+
+  px_to_mm = size_mm.width / bounds.size.width;
+#else
+  px_to_mm = 25.4 / dpyinfo->resy;
+#endif
+
+  return make_fixnum (ns_display_pixel_width (dpyinfo) * px_to_mm);
 }
 
 
@@ -2209,6 +2231,62 @@ font descriptor.  If string contains `fontset' and not
   return build_string (ns_xlfd_to_fontname (SSDATA (name)));
 }
 
+static void
+ns_init_colors (void)
+{
+  NSTRACE ("ns_init_colors");
+
+  NSColorList *cl = [NSColorList colorListNamed: @"Emacs"];
+
+  /* There are 752 colors defined in rgb.txt.  */
+  if ( cl == nil || [[cl allKeys] count] < 752)
+    {
+      Lisp_Object color_file, color_map, color, name;
+      unsigned long c;
+
+      color_file = Fexpand_file_name (build_string ("rgb.txt"),
+				      Fsymbol_value (intern ("data-directory")));
+
+      color_map = Fx_load_color_file (color_file);
+      if (NILP (color_map))
+	fatal ("Could not read %s.\n", SDATA (color_file));
+
+      cl = [[NSColorList alloc] initWithName: @"Emacs"];
+      for ( ; CONSP (color_map); color_map = XCDR (color_map))
+	{
+	  color = XCAR (color_map);
+	  name = XCAR (color);
+	  c = XFIXNUM (XCDR (color));
+	  c |= 0xFF000000;
+	  [cl setColor:
+		[NSColor colorWithUnsignedLong:c]
+		forKey: [NSString stringWithLispString: name]];
+	}
+      @try
+	{
+#if defined (NS_IMPL_COCOA) && MAC_OS_X_VERSION_MAX_ALLOWED >= 101100
+#if MAC_OS_X_VERSION_MIN_REQUIRED < 101100
+	  if ([cl respondsToSelector:@selector(writeToURL:error:)])
+#endif
+	    if ([cl writeToURL:nil error:nil] == false)
+	      fprintf (stderr, "ns_init_colors: could not write Emacs.clr\n");
+#if MAC_OS_X_VERSION_MIN_REQUIRED < 101100
+	    else
+#endif
+#endif /* MAC_OS_X_VERSION_MAX_ALLOWED >= 101100 */
+#if MAC_OS_X_VERSION_MIN_REQUIRED < 101100 || defined (NS_IMPL_GNUSTEP)
+	      if ([cl writeToFile: nil] == false)
+		fprintf (stderr, "ns_init_colors: could not write Emacs.clr\n");
+#endif
+	}
+      @catch (NSException *e)
+	{
+	  NSLog(@"ns_init_colors: could not write Emacs.clr: %@", e.reason);
+	}
+    }
+}
+
+static BOOL ns_init_colors_done = NO;
 
 DEFUN ("ns-list-colors", Fns_list_colors, Sns_list_colors, 0, 1, 0,
        doc: /* Return a list of all available colors.
@@ -2219,6 +2297,12 @@ The optional argument FRAME is currently ignored.  */)
   NSEnumerator *colorlists;
   NSColorList *clist;
   NSAutoreleasePool *pool;
+
+  if (ns_init_colors_done == NO)
+    {
+      ns_init_colors ();
+      ns_init_colors_done = YES;
+    }
 
   if (!NILP (frame))
     {

@@ -148,7 +148,6 @@
 (require 'cl-lib)
 (eval-when-compile (require 'subr-x))
 (eval-when-compile (require 'epg))      ;For setf accessors.
-(eval-when-compile (require 'inline))   ;For `define-inline'
 (require 'seq)
 
 (require 'tabulated-list)
@@ -508,8 +507,6 @@ package."
 ;; `package-load-all-descriptors', which ultimately populates the
 ;; `package-alist' variable.
 
-(declare-function package-vc-version "package-vc" (pkg))
-
 (defun package-process-define-package (exp)
   "Process define-package expression EXP and push it to `package-alist'.
 EXP should be a form read from a foo-pkg.el file.
@@ -748,7 +745,6 @@ wants to review the package prior to installation.  See `package-review'."
 
 (declare-function mail-text "sendmail" ())
 (declare-function message-goto-body "message" (&optional interactive))
-(declare-function diff-no-select "diff" (old new &optional switches no-async buf))
 
 (defun package-review (pkg-desc pkg-dir old-desc)
   "Review the package specified PKG-DESC which is about to be installed.
@@ -781,7 +777,6 @@ attached."
                                            (package-desc-full-name pkg-desc)))))
               t)
              (?m
-              (require 'diff)             ;for `diff-no-select'
               (with-temp-buffer
                 (diff-no-select
                  (package-desc-dir old-desc) pkg-dir
@@ -805,12 +800,8 @@ attached."
                       (insert-buffer-substring tmp-buf)
                       (comment-region start (point))))))
               t)
-             (?c
-              (view-file news)
-              t)
-             (?b
-              (dired pkg-dir "-R") ;FIXME: Is recursive dired portable?
-              t)))))
+             (?c (view-file news) t)
+             (?b (dired pkg-dir) t)))))
 
 (declare-function dired-get-marked-files "dired")
 
@@ -1107,7 +1098,7 @@ The return result is a `package-desc'."
           (dolist (file (sort files :key #'length))
             ;; The file may be a link to a nonexistent file; e.g., a
             ;; lock file.
-            (when (file-exists-p file)
+            (when (and (file-readable-p file) (file-regular-p file))
               (with-temp-buffer
                 (insert-file-contents file)
                 ;; When we find the file with the data,
@@ -2067,8 +2058,6 @@ had been enabled."
                 (message  "Package `%s' installed" name))
             (error  "Package `%s' not installed" name))))))
 
-(declare-function package-vc-upgrade "package-vc" (pkg))
-
 ;;;###autoload
 (defun package-upgrade (name)
   "Upgrade package NAME if a newer version exists.
@@ -2083,7 +2072,7 @@ NAME should be a symbol."
          (package-install-upgrade-built-in (not pkg-desc)))
     ;; `pkg-desc' will be nil when the package is an "active built-in".
     (if (and pkg-desc (package-vc-p pkg-desc))
-        (package-vc-upgrade pkg-desc)
+        (error "Use `package-vc-upgrade' for VC packages")
       (let ((new-desc (cadr (assq name package-archive-contents))))
         (when (or (null new-desc)
                   (version-list-= (package-desc-version pkg-desc)
@@ -2104,16 +2093,16 @@ NAME should be a symbol."
    #'car
    (seq-filter
     (lambda (elt)
-      (or (let ((available
-                 (assq (car elt) package-archive-contents)))
-            (and available
-                 (or (and
-                      include-builtins
-                      (not (package-desc-version (cadr elt))))
-                     (version-list-<
-                      (package-desc-version (cadr elt))
-                      (package-desc-version (cadr available))))))
-          (package-vc-p (cadr elt))))
+      (let ((available
+             (assq (car elt) package-archive-contents)))
+        (and available
+             (or (and
+                  include-builtins
+                  (not (package-desc-version (cadr elt))))
+                 (version-list-<
+                  (package-desc-version (cadr elt))
+                  (package-desc-version (cadr available))))
+             (not (package-vc-p (cadr elt))))))
     (if include-builtins
         (append package-alist
                 (mapcan
@@ -2146,7 +2135,9 @@ from ELPA by either using `\\[package-upgrade]' or
                          (format "%s packages to upgrade.  Do it?"
                                  (length upgradeable))))))
         (user-error "Upgrade aborted"))
-      (mapc #'package-upgrade upgradeable))))
+      (dolist (pkg upgradeable)
+        (with-demoted-errors "Error while upgrading: %S"
+          (package-upgrade pkg))))))
 
 (defun package--dependencies (pkg)
   "Return a list of all transitive dependencies of PKG.
@@ -4528,6 +4519,122 @@ Does not fetch the updated list of packages before displaying.
 The list is displayed in a buffer named `*Packages*'."
   (interactive)
   (list-packages t))
+
+
+;;;; Package Suggestions
+
+(defun package--autosuggest-install-and-enable (sug)
+  "Install and enable a package suggestion SUG.
+SUG should be of the form as described in `package--suggestion-applies-p'."
+  (let ((buffers-to-update '()))
+    (dolist (buf (buffer-list))
+      (with-current-buffer buf
+        (when (and (eq major-mode 'fundamental-mode) (buffer-file-name)
+                   (package--suggestion-applies-p sug))
+          (push buf buffers-to-update))))
+    (with-demoted-errors "Failed to install package: %S"
+      (package-install (car sug))
+      (dolist (buf buffers-to-update)
+        (with-demoted-errors "Failed to enable major mode: %S"
+          (with-current-buffer buf
+            (funcall-interactively (or (cadddr sug) (car sug)))))))))
+
+(defun package--autosugest-prompt (packages)
+  "Query the user whether to install PACKAGES or not.
+PACKAGES is a list of package suggestions in the form described in
+`package--suggestion-applies-p'.  The function returns a non-nil value
+if the user confirms installation, otherwise nil."
+  (let* ((inhibit-read-only t) (use-hard-newlines t)
+         (nl (propertize "\n" 'hard t)) (nlnl (concat nl nl))
+         (buf (current-buffer)))
+    (with-current-buffer (get-buffer-create
+                          (format "*package suggestion: %s*"
+                                  (buffer-name buf)))
+      (erase-buffer)
+      (insert
+       "The buffer \""
+       (buffer-name buf)
+       "\" currently lacks any language-specific support.
+The package manager can provide the editor support for these kinds of
+files by downloading a package from Emacs's package archive:" nl)
+
+      (when (length> packages 1)
+        (insert nl "(Note that there are multiple candidate packages,
+so you have to select which to install!)" nl))
+
+      (pcase-dolist (`(,pkg . ,sugs) (seq-group-by #'car packages))
+        (insert nl "* "
+                (buttonize (concat "Install " (symbol-name pkg))
+                           (lambda (_)
+                             (package--autosuggest-install-and-enable
+                              (car sugs))
+                             (quit-window)))
+                " ("
+                (buttonize "about"
+                           (lambda (_)
+                             (unless (assq pkg package-archive-contents)
+                               (package-read-all-archive-contents))
+                             (describe-package pkg)))
+                ", matches ")
+        (dolist (sug sugs)
+          (unless (eq (char-before) ?\s)
+            (insert ", "))
+          (pcase sug
+            (`(,_ auto-mode-alist . ,_)
+             (insert "file extension "))
+            (`(,_ magic-mode-alist . ,_)
+             (insert "magic bytes"))
+            (`(,_ interpreter-mode-alist . ,_)
+             (insert "interpreter "))))
+        (delete-horizontal-space) (insert ").")
+
+        (add-to-list 'package--autosuggest-suggested pkg))
+
+      (insert nl "* " (buttonize "Do not install anything" (lambda (_) (quit-window))) "."
+              nl "* " (buttonize "Permanently disable package suggestions"
+                            (lambda (_)
+                              (customize-save-variable
+                               'package-autosuggest-mode nil
+                               "Disabled at user's request")
+                              (quit-window)))
+              "."
+
+              nlnl "To learn more about package management, read "
+              (buttonize "(emacs) Packages" (lambda (_) (info "(emacs) Packages")))
+              ", and to learn more about how Emacs supports specific languages, read "
+              (buttonize "(emacs) Major modes" (lambda (_) (info "(emacs) Major modes")))
+              ".")
+
+      (fill-region (point-min) (point-max))
+      (special-mode)
+      (button-mode t)
+
+      (let ((win (display-buffer-below-selected (current-buffer) '())))
+        (fit-window-to-buffer win)
+        (select-window win)
+        (set-window-dedicated-p win t)
+        (set-window-point win (point-min))))))
+
+;;;###autoload
+(defun package-autosuggest (&optional candidates)
+  "Prompt the user to install the suggested packages.
+The optional argument CANDIDATES may be a list of package suggestions
+in the form described in `package--suggestion-applies-p'.  If omitted
+or nil, the list of candidates will be computed from the database."
+  (interactive)
+  (package--autosugest-prompt
+   (or candidates
+       (package--autosuggest-find-candidates)
+       (user-error "No package suggestions found"))))
+
+(defun package-reset-suggestions ()
+  "Forget previous package suggestions.
+Emacs will remember if you have previously rejected a suggestion during
+a session and won't mention it afterwards.  If you have made a mistake
+or would like to reconsider this, use this command to want to reset the
+suggestions."
+  (interactive)
+  (setq package--autosuggest-suggested nil))
 
 
 ;;;; Quickstart: precompute activation actions for faster start up.

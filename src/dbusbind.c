@@ -29,6 +29,11 @@ along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.  */
 #include "pdumper.h"
 #include "process.h"
 
+#ifndef O_RDONLY
+/* WINDOWSNT.  */
+#include <fcntl.h>
+#endif
+
 #ifndef DBUS_NUM_MESSAGE_TYPES
 #define DBUS_NUM_MESSAGE_TYPES 5
 #endif

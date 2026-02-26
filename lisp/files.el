@@ -2260,7 +2260,6 @@ killed."
 	(let (kill-buffer-query-functions kill-buffer-hook)
 	  (kill-buffer obuf))))))
 
-;; FIXME we really need to fold the uniquify stuff in here by default,
 (defun create-file-buffer (filename)
   "Create a suitably named buffer for visiting FILENAME, and return it.
 FILENAME (sans directory) is used unchanged if that name is free;
@@ -6351,9 +6350,6 @@ Before and after saving the buffer, this function runs
 	      (setq buffer-backed-up nil)))))))
     setmodes))
 
-(declare-function diff-no-select "diff"
-		  (old new &optional switches no-async buf))
-
 (defvar save-some-buffers--switch-window-callback nil)
 
 (defvar save-some-buffers-action-alist
@@ -6384,7 +6380,6 @@ Before and after saving the buffer, this function runs
     (?d ,(lambda (buf)
            (if (null (buffer-file-name buf))
                (message "Not applicable: no file")
-             (require 'diff)            ;for diff-no-select.
              (let ((diffbuf (diff-no-select (buffer-file-name buf) buf
                                             nil 'noasync)))
                (if (not enable-recursive-minibuffers)

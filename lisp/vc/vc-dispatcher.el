@@ -385,7 +385,9 @@ the man pages for \"torsocks\" for more details about Tor."
   :group 'vc)
 
 (defvar vc-user-edit-command-history nil
-  "Name of minibuffer history variable for `vc-user-edit-command'.")
+  "Name of minibuffer history variable for `vc-user-edit-command'.
+Bound to the name of the variable holding a command's minibuffer
+history, by that command, around its call to `vc-user-edit-command'.")
 
 (defun vc-user-edit-command (command file-or-list flags)
   "Prompt the user to edit VC command COMMAND and FLAGS.
@@ -597,6 +599,8 @@ Display the buffer in some window, but don't select it."
     (if (get-buffer-process buffer)
 	(error "Another VC action on %s is running" root))
     (with-current-buffer buffer
+      (when (eq major-mode 'fundamental-mode)
+        (special-mode))         ; So that e.g. \\`q' works consistently.
       (setq default-directory root)
       (let* (;; Run in the original working directory.
              (default-directory dir)

@@ -71,6 +71,7 @@
 (declare-function edebug-mode "edebug")
 (declare-function project-mode-line-format "project")
 (declare-function tramp-check-remote-uname "tramp-sh")
+(declare-function tramp-file-name-with-sudo "tramp-cmds")
 (declare-function tramp-find-executable "tramp-sh")
 (declare-function tramp-get-remote-chmod-h "tramp-sh")
 (declare-function tramp-get-remote-path "tramp-sh")
@@ -185,7 +186,7 @@ The temporary file is not created."
   (declare (indent defun) (debug (body)))
   `(condition-case err
        (progn ,@body)
-     (file-error
+     (remote-file-error
       (unless (string-match-p
 	       (rx bol (| "make-symbolic-link not supported"
 			  (: "Making symbolic link"
@@ -2203,19 +2204,31 @@ being the result.")
 	   m))
 	 :type 'user-error)))))
 
-(ert-deftest tramp-test03-file-name-method-rules ()
-  "Check file name rules for some methods."
-  (skip-unless (eq tramp-syntax 'default))
-  (skip-unless (tramp--test-enabled))
-
-  ;; Multi hops are allowed for inline methods only.
-  (let (non-essential)
-    (should-error
-     (expand-file-name "/ssh:user1@host1|method:user2@host2:/path/to/file")
-     :type 'user-error)
-    (should-error
-     (expand-file-name "/method:user1@host1|ssh:user2@host2:/path/to/file")
-     :type 'user-error)))
+(ert-deftest tramp-test03-file-error ()
+  "Check that Tramp signals an error in case of connection problems."
+  ;; Connect to a non-existing host.
+  (let ((vec (copy-tramp-file-name tramp-test-vec))
+	;; Don't poison it.
+	(tramp-default-proxies-alist tramp-default-proxies-alist)
+	(tramp-show-ad-hoc-proxies t))
+    (cl-letf* (((symbol-function #'read-string) #'ignore) ; Suppress password.
+	       ((tramp-file-name-host vec) "example.com.invalid"))
+      (should-error
+       (file-exists-p (tramp-make-tramp-file-name vec))
+       ;; `user-error' is raised if the host shall be local.
+       ;; `remote-file-error' is raised if the host cannot be connected.
+       :type (if (tramp--test-ange-ftp-p)
+		 'ftp-error '(user-error remote-file-error)))
+      (should-error
+       (file-exists-p (tramp-make-tramp-file-name vec))
+       ;; `ftp-error' and `remote-file-error' are subcategories of
+       ;; `file-error'.  Let's check this as well.
+       :type '(user-error file-error))
+      ;; Check multi-hop.
+      (should-error
+       (file-exists-p
+	(tramp-file-name-with-sudo (tramp-make-tramp-file-name vec)))
+       :type '(user-error file-error)))))
 
 (ert-deftest tramp-test04-substitute-in-file-name ()
   "Check `substitute-in-file-name'."
@@ -5505,9 +5518,10 @@ This tests also `make-symbolic-link', `file-truename' and `add-name-to-file'."
   (tramp--test-message "buf: %s\n%s\n---" (current-buffer) (buffer-string))
   (ert-fail (format "`%s' timed out" (ert-test-name (ert-running-test)))))
 
+;; Fails in batch: signal
 (ert-deftest tramp-test29-start-file-process ()
   "Check `start-file-process'."
-  :tags '(:expensive-test :tramp-asynchronous-processes)
+  :tags '(:expensive-test :tramp-asynchronous-processes :nobatch)
   (skip-unless (tramp--test-enabled))
   (skip-unless (tramp--test-supports-processes-p))
 
@@ -5686,7 +5700,12 @@ If UNSTABLE is non-nil, the test is tagged as `:unstable'."
      ;; (concat (ert-test-documentation (get ',test 'ert--test))
      ;;         "\nUse direct async process.")
      :tags (append '(:expensive-test :tramp-asynchronous-processes)
-		   (and ,unstable '(:unstable)))
+		   (and ,unstable '(:unstable))
+		   (and (memq ',test '(tramp-test29-start-file-process
+				       tramp-test30-make-process
+				       tramp-test32-shell-command
+				       tramp-test33-environment-variables))
+			'(:nobatch)))
      (skip-unless (tramp--test-enabled))
      (let* ((default-directory ert-remote-temporary-file-directory)
 	    (ert-test (ert-get-test ',test))
@@ -5710,6 +5729,7 @@ If UNSTABLE is non-nil, the test is tagged as `:unstable'."
 	 (file-truename ert-remote-temporary-file-directory)
 	 (funcall (ert-test-body ert-test))))))
 
+;; Fails in batch: signal
 (tramp--test-deftest-direct-async-process tramp-test29-start-file-process)
 
 (ert-deftest tramp-test30-make-process ()
@@ -5973,6 +5993,7 @@ If UNSTABLE is non-nil, the test is tagged as `:unstable'."
 	      ;; Cleanup.
 	      (ignore-errors (delete-process proc)))))))))
 
+;; Fails in batch: signal
 (tramp--test-deftest-direct-async-process tramp-test30-make-process)
 
 (ert-deftest tramp-test31-interrupt-process ()
@@ -6279,6 +6300,7 @@ INPUT, if non-nil, is a string sent to the process."
       (when (natnump cols)
 	(should (= cols async-shell-command-width))))))
 
+;; Fails in batch: signal
 (tramp--test-deftest-direct-async-process tramp-test32-shell-command)
 
 ;; This test is inspired by Bug#39067.
@@ -6499,6 +6521,7 @@ INPUT, if non-nil, is a string sent to the process."
 	       this-shell-command-to-string
 	       "printenv | grep -v PS1 | grep -v _=")))))))))
 
+;; Fails in batch: signal
 (tramp--test-deftest-direct-async-process tramp-test33-environment-variables)
 
 ;; This test is inspired by Bug#27009.
@@ -7637,11 +7660,12 @@ This requires restrictions of file name syntax."
   (unless (tramp--test-crypt-p)
     (or (tramp--test-adb-p) (tramp--test-sh-p) (tramp--test-sshfs-p)
 	(and (tramp--test-smb-p)
-	     (file-writable-p
-	      (file-name-concat
-	       (file-remote-p ert-remote-temporary-file-directory)
-	       ;; We check a directory on the "ADMIN$" share.
-	       "ADMIN$" "Boot"))))))
+	     (ignore-errors
+	       (file-writable-p
+		(file-name-concat
+		 (file-remote-p ert-remote-temporary-file-directory)
+		 ;; We check a directory on the "ADMIN$" share.
+		 "ADMIN$" "Boot")))))))
 
 (defun tramp--test-supports-set-file-modes-p ()
   "Return whether the method under test supports setting file modes."
