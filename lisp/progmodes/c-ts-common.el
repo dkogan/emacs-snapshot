@@ -54,6 +54,12 @@
 
 ;;; Comment indentation and filling
 
+(defvar c-ts-common-comment-start-skip
+  (rx (or (seq "/" (+ "/"))
+          (seq "/" (+ "*")))
+      (* (syntax whitespace)))
+  "The `comment-start-skip' used by `c-ts-common-comment-setup'.")
+
 (defun c-ts-common-looking-at-star (_n _p bol &rest _)
   "A tree-sitter simple indent matcher.
 Matches if there is a \"*\" after BOL."
@@ -273,12 +279,6 @@ This function should be called at BOL.  Used by
    ;; Other: let `adaptive-fill-regexp' and
    ;; `adaptive-fill-first-line-regexp' decide.
    (t nil)))
-
-(defvar c-ts-common-comment-start-skip
-  (rx (or (seq "/" (+ "/"))
-          (seq "/" (+ "*")))
-      (* (syntax whitespace)))
-  "The `comment-start-skip' used by `c-ts-common-comment-setup'.")
 
 (defun c-ts-common-comment-setup ()
   "Set up local variables for C-like comment.

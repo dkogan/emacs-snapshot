@@ -133,7 +133,7 @@ this is exactly representable and is greater than
 
 (ert-deftest data-tests-native-comp-unit ()
   (skip-unless (fboundp 'subr-native-comp-unit))
-  (let ((unit (subr-native-comp-unit #'car)))
+  (let ((unit (subr-native-comp-unit (symbol-function 'symbol-file))))
     (skip-unless unit)
     (let ((orig (native-comp-unit-file unit)))
       (native-comp-unit-set-file unit "data-tests-unit")

@@ -2192,7 +2192,7 @@ have changed; continue with old fileset?" (current-buffer))))
         ;; NOQUERY parameter non-nil.
         (vc-buffer-sync-fileset (list backend files)))
       (when register (vc-register (list backend register)))
-      (let (to-remove-props)
+      (let (to-remove-props proc)
         (cl-flet ((do-it ()
                     ;; We used to change buffers to get local value of
                     ;; `vc-checkin-switches', but the (singular) local
@@ -2206,18 +2206,23 @@ have changed; continue with old fileset?" (current-buffer))))
                   (remove-props-done-msg ()
                     (dolist (file to-remove-props)
                       (vc-file-setprop file 'display-state nil))
-                    (message "Checking in %s...done" (vc-delistify files))))
+                    (message "Checking in %s...%s"
+                             (vc-delistify files)
+                             (if (or (not proc)
+                                     (zerop (process-exit-status proc)))
+                                 "done" "failed"))))
           (if do-async
               ;; Rely on `vc-set-async-update' to update properties
               ;; other than the display-only `display-state' property.
               (let ((ret (do-it)))
                 (when (eq (car-safe ret) 'async)
+                  (setq proc (cadr ret))
                   (dolist (file files)
                     (let ((file (expand-file-name file)))
                       (vc-file-setprop file 'display-state "committing")
                       (vc-dir-resynch-file file)
                       (push file to-remove-props)))
-                  (vc-exec-after #'remove-props-done-msg nil (cadr ret)))
+                  (vc-exec-after #'remove-props-done-msg nil proc))
                 ret)
             (prog2 (message "Checking in %s..." (vc-delistify files))
                 (with-vc-properties files (do-it)
@@ -3463,7 +3468,8 @@ When called from Lisp, optional argument FILESET overrides the fileset."
          (backend (car fileset)))
     (vc-print-log-internal backend (cadr fileset) nil nil
                            (vc--outgoing-base-mergebase backend
-                                                        upstream-location))))
+                                                        upstream-location)
+                           'log-outstanding)))
 
 ;;;###autoload
 (defun vc-root-log-outstanding (&optional upstream-location)
@@ -4182,13 +4188,14 @@ LIMIT can also be a string, which means the revision before which to stop."
   "Set this to record the type of VC log shown in the current buffer.
 Supported values are:
 
-  `short'        -- short log form, one line for each commit
-  `long'         -- long log form, including full log message and author
-  `with-diff'    -- log including diffs
-  `log-outgoing' -- log of changes to be pushed to upstream
-  `log-incoming' -- log of changes to be brought by pulling from upstream
-  `log-search'   -- log entries matching a pattern; shown in long format
-  `mergebase'    -- log created by `vc-log-mergebase'.")
+  `short'           -- short log form, one line for each commit
+  `long'            -- long log form, including full log message and author
+  `with-diff'       -- log including diffs
+  `log-outgoing'    -- log of changes to be pushed to upstream
+  `log-incoming'    -- log of changes to be brought by pulling from upstream
+  `log-outstanding' -- log of changes you've not yet finished sharing
+  `log-search'      -- log entries matching a pattern; shown in long format
+  `mergebase'       -- log created by `vc-log-mergebase'.")
 (put 'vc-log-view-type 'permanent-local t)
 (defvar vc-sentinel-movepoint)
 
@@ -4301,7 +4308,7 @@ some users might prefer for interactive usage."
                  (vc--read-limit)
                (prefix-numeric-value current-prefix-arg))))
         (vc-print-fileset-branch-log branch))
-    (vc-print-log)))
+    (vc-print-log nil (and (plusp vc-log-show-limit) vc-log-show-limit))))
 
 ;;;###autoload
 (defun vc-print-root-log (&optional limit revision)
@@ -4345,7 +4352,7 @@ instead of the working revision, and a number specifying the maximum
 number of revisions to show; the default is `vc-log-show-limit'.
 You can also use a numeric prefix argument to specify this.
 
-This is like `vc-root-print-log' but with an alternative prefix argument
+This is like `vc-print-root-log' but with an alternative prefix argument
 that some users might prefer for interactive usage."
   (declare (interactive-only vc-print-root-log))
   (interactive)
@@ -4357,7 +4364,7 @@ that some users might prefer for interactive usage."
                  (vc--read-limit)
                (prefix-numeric-value current-prefix-arg))))
         (vc-print-root-branch-log branch))
-    (vc-print-root-log)))
+    (vc-print-root-log (and (plusp vc-log-show-limit) vc-log-show-limit))))
 
 (defun vc--read-branch-to-log (&optional fileset)
   "Read the name of a branch to log.
@@ -5032,18 +5039,23 @@ current buffer's file name if it's under version control."
   (cl-callf expand-file-name old)
   (cl-callf expand-file-name new)
   (let ((oldbuf (get-file-buffer old))
-        (default-directory (file-name-directory old)))
+        (default-directory (file-name-directory old))
+        (dirp (file-directory-p old)))
     (when (and oldbuf (buffer-modified-p oldbuf))
       (error "Please save files before moving them"))
     (when (get-file-buffer new)
       (error "Already editing new file name"))
     (when (file-exists-p new)
       (error "New file already exists"))
-    (let ((state (vc-state old)))
-      (unless (memq state '(up-to-date edited added))
-	(error "Please %s files before moving them"
-	       (if (stringp state) "check in" "update"))))
-    (vc-call rename-file old new)
+    (unless dirp
+      (let ((state (vc-state old)))
+        (unless (memq state '(up-to-date edited added))
+          (error "Please %s files before moving them"
+	         (if (stringp state) "check in" "update")))))
+    (vc-call-backend (if dirp
+                         (vc-responsible-backend old)
+                       (vc-backend old))
+                     'rename-file old new)
     (vc-file-clearprops old)
     (vc-file-clearprops new)
     ;; Move the actual file (unless the backend did it already)

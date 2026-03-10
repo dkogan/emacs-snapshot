@@ -38,8 +38,7 @@
     (prog-mode-hook . flyspell-prog-mode)
 
     (text-mode-hook . display-line-numbers-mode)
-    (text-mode-hook . flyspell-mode)
-    )
+    (text-mode-hook . flyspell-mode))
   "Alist mapping hooks to functions.
 The functions are added to the corresponding hooks when enabling
 `newcomers-presets-mode', and removed when disabling the mode.")
@@ -92,6 +91,7 @@ This minor mode will enable and disable the theme on startup."
  '(font-use-system-font t)
  '(frame-resize-pixelwise t)
  '(window-resize-pixelwise t)
+ '(mode-line-compact 'long)
 
 ;;;; Mouse-related options
  '(context-menu-mode t)
@@ -113,13 +113,23 @@ This minor mode will enable and disable the theme on startup."
  '(repeat-mode t)
  '(delete-selection-mode t)
  '(editorconfig-mode t)
+ '(indent-tabs-mode nil)
+ '(imenu-auto-rescan t)
+ '(view-read-only t)
 
 ;;;; Directory managment-related options
  '(dired-auto-revert-buffer t)
  '(dired-mouse-drag-files t)
+ '(shell-command-prompt-show-cwd t)
 
 ;;;; File-related options
+ '(etags-regen-mode t)
  '(vc-auto-revert-mode t)
+ '(vc-deduce-backend-nonvc-modes t)
+ '(vc-dir-save-some-buffers-on-revert t)
+ '(vc-find-revision-no-save t)
+ '(vc-follow-symlinks t)
+ '(vc-use-incoming-outgoing-prefixes t)
 
 ;;;; Completion-related options
  '(minibuffer-visible-completions t)
@@ -136,7 +146,9 @@ This minor mode will enable and disable the theme on startup."
  '(package-autosuggest-mode t)
  '(package-menu-use-current-if-no-marks nil)
 
- )
+;;;; Frame and window-related options
+ '(tab-bar-history-mode t)
+ '(tab-bar-show 0))
 
 (provide-theme 'newcomers-presets)
 ;;; newcomers-presets-theme.el ends here

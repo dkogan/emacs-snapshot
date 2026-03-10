@@ -1182,14 +1182,28 @@ side-effects, and the argument LIST is not modified."
   (declare (compiler-macro (lambda (_) `(not (drop-while ,pred ,list)))))
   (not (drop-while pred list)))
 
-(defun any (pred list)
+(defun member-if (pred list)
   "Non-nil if PRED is true for at least one element in LIST.
-Returns the LIST suffix starting at the first element that satisfies PRED,
-or nil if none does."
+Returns the suffix of LIST starting with the first element that
+satisfies PRED, or nil if none do.
+
+Compatibility note: this function replaces `cl-member-if' but does not
+support the latter's `:key KEY-FN' argument.  It is better to compose
+any KEY-FN into PRED.  For example, you can replace
+
+    (cl-member-if #\\='foo items :key #\\='bar)
+
+with
+
+    (member-if (lambda (x) (foo (bar x))) items)"
   (declare (compiler-macro
             (lambda (_)
               `(drop-while (lambda (x) (not (funcall ,pred x))) ,list))))
   (drop-while (lambda (x) (not (funcall pred x))) list))
+
+;; This is good to have for improved readability in certain uses, but
+;; use the traditional Lisp name for the underlying function.  --spwhitton
+(defalias 'any #'member-if)
 
 ;;;; Keymap support.
 
@@ -4451,6 +4465,10 @@ at BEG.  Likewise, if the targeted overlays end after END, they
 will be altered so that they start at END.  Overlays that start
 at or after BEG and end before END will be removed completely.
 
+Empty overlays will be removed if they are at BEG, between BEG
+and END, or at END provided END denotes the position at the end
+of the buffer.
+
 BEG and END default respectively to the beginning and end of the
 buffer.
 Values are compared with `eq'.
@@ -5089,20 +5107,6 @@ newlines."
                        shell-file-name delete buffer nil
                        shell-command-switch command))
 
-(defvar command-line-max-length
-  ;; Currently we use the same value everywhere.  If we actually use
-  ;; larger values on some systems at some point, then we need to make
-  ;; sure we handle whether the command will be run remotely via TRAMP.
-  ;; FIXME: This value is very small, it might easily all be used up by
-  ;; `process-environment'.  We really want a larger value on POSIX.
-  4096
-  "Maximum length of a command and its arguments on this system.
-This is measured in characters.
-Used by `multiple-command-partition-arguments'.  Other code calls that
-function for cases in which it's known to be safe to run the command
-multiple times on subsequent partitions of the list of arguments.
-(In a shell script, you might use the `xargs' utility.)")
-
 (defun multiple-command-partition-arguments (command arguments &optional shellp)
   "Partition ARGUMENTS of COMMAND to avoid command line length limits.
 This function is for running commands on each element of ARGUMENTS where
@@ -5153,11 +5157,11 @@ about encoding which is not currently made available to Lisp."
                      (+ (length arg) 3)
                    (length arg))))
         (cond ((<= (+ fixed-args-len next-len len)
-                   command-line-max-length)
+                   (connection-local-value command-line-max-length))
                (push arg next)
                (incf next-len len))
               ((<= (+ fixed-args-len len)
-                   command-line-max-length)
+                   (connection-local-value command-line-max-length))
                (push (nreverse next) all-partitions)
                (setq next (list arg) next-len len))
               (t
@@ -6232,7 +6236,10 @@ consisting of STR followed by an invisible left-to-right mark
   "Return non-nil if STRING1 is greater than STRING2 in lexicographic order.
 Case is significant.
 Symbols are also allowed; their print names are used instead."
-  (declare (pure t) (side-effect-free t))
+  (declare (compiler-macro (lambda (_)
+                             (let ((arg1 (make-symbol "arg1")))
+                               `(let ((,arg1 ,string1))
+                                  (string-lessp ,string2 ,arg1))))))
   (string-lessp string2 string1))
 
 

@@ -143,6 +143,12 @@ instead of its now-obsolete variable.
 
 ** Network Security Manager (NSM) is now more strict.
 
+---
+** New char-table 'special-mirror-table' for mirroring special glyphs.
+This char-table is used to mirror special glyphs (truncation and
+continuation) when the user has defined an alternative representation
+for those characters via display tables.
+
 *** NSM warns about TLS 1.1 by default.
 It has been deprecated by RFC 8996, published in 2021.
 
@@ -501,12 +507,12 @@ for a window.  The result is the `window-use-time' of a frame's most
 recently used window.
 
 +++
-*** New function 'get-mru-frame'.
-This function returns the most recently used frame from among all
-frames, or those visible or iconified on the same terminal as the
-selected frame.  A frame can be excluded, for example, the selected
-frame, as it will always be the most recently used frame on the current
-terminal.
+*** New functions 'get-mru-frames' and 'get-mru-frame'.
+'get-mru-frames' returns a list of frames sorted by their most recent
+use time from among all frames, or those visible or iconified on the
+same terminal as the selected frame.  Child frames can be excluded.  A
+single frame can be excluded, for example, the selected frame.
+'get-mru-frame' returns the single most recently used frame.
 
 ---
 *** After deleting, 'delete-frame' now selects the most recently used frame.
@@ -870,6 +876,13 @@ purple bar cursor on compatible terminals as well.  See the Info node
 You can use this command to copy options from a theme into your user
 configuration.
 
+---
+** New user option 'multiple-terminals-merge-keyboards'.
+Customizing this option to non-nil disables entering single-keyboard
+mode in most cases in which Emacs would by default enter that mode.
+This can make things work better for some cases of X forwarding; see the
+docstring for the new option.
+
 
 * Editing Changes in Emacs 31.1
 
@@ -1021,6 +1034,10 @@ already did for 'undo'.
 This mode keeps modified lines centered horizontally according to the
 value of 'fill-column', by calling 'center-line' on each non-empty line
 of the modified region.
+
++++
+** New command 'unfill-paragraph'.
+This is the inverse of 'M-q' ('fill-paragraph').
 
 
 * Changes in Specialized Modes and Packages in Emacs 31.1
@@ -1241,6 +1258,19 @@ information.
 *** 'treesit-language-at-point-function' is now optional.
 Multi-language major modes can rely on the default return value from
 'treesit-language-at' that uses the new function 'treesit-parsers-at'.
+
++++
+*** Tree-sitter thing functions now work better with multiple parsers.
+The following functions now handle better the case when there are
+multiple parsers at point: 'treesit-thing-prev', 'treesit-thing-next',
+'treesit-navigate-thing', 'treesit-thing-at'.  When there are multiple
+parsers at point, instead of using whatever 'treesit-node-at' returns at
+point, these functions now try every relevant parser in descending order
+of relevance.  (Deeper-embedded parsers have higher relevance.)  These
+functions now also take an additional optional argument, PARSER, that
+allows caller to specify a parser or language to use.  That also means
+'treesit-beginning/end-of-defun' now can move across parsers.
+
 
 +++
 *** New command 'treesit-explore'.
@@ -1666,15 +1696,16 @@ the list of types to which a value belongs.
 These functions or macros have been added to Emacs Lisp, and the old
 names are now aliases for the built-in equivalents:
 
-- 'cl-incf'   renamed to 'incf'
-- 'cl-decf'   renamed to 'decf'
-- 'cl-oddp'   renamed to 'oddp'
-- 'cl-evenp'  renamed to 'evenp'
-- 'cl-plusp'  renamed to 'plusp'
-- 'cl-minusp' renamed to 'minusp'
+- 'cl-incf'      renamed to 'incf'
+- 'cl-decf'      renamed to 'decf'
+- 'cl-oddp'      renamed to 'oddp'
+- 'cl-evenp'     renamed to 'evenp'
+- 'cl-plusp'     renamed to 'plusp'
+- 'cl-minusp'    renamed to 'minusp'
+- 'cl-member-if' renamed to 'member-if'
 
-The old names are considered deprecated, and will be marked as obsolete
-in some future release.
+'cl-member-if' is marked obsolete.  The other names are deprecated too,
+and will be marked as obsolete in a future release.
 
 +++
 *** 'cl-labels' now also accepts '(FUNC EXP)' bindings, like 'cl-flet'.
@@ -1765,6 +1796,16 @@ between items in the "*Open Recent*" buffer likewise displays such
 messages.  To suppress these messages, customize the user option
 'recentf-suppress-open-file-help' to non-nil.  The default value of this
 option is nil.
+
+---
+*** New user option 'recentf-exclude-ignored-extensions'.
+Add the new predicate function 'recentf-exclude-file-by-extension-p' to
+the list that is the value of the user option 'recentf-exclude' to
+ignore files with certain extensions.  By default, adding this function
+to 'recentf-exclude' ignores files whose extensions are listed in
+'completion-ignored-extensions'; you can specify a different list of
+extensions by customizing the new user option
+'recentf-exclude-ignored-extensions'.
 
 ** Saveplace
 
@@ -2901,6 +2942,11 @@ You can disable this by customizing 'vc-dir-show-outgoing-count' to nil.
 *** New user option 'vc-async-checkin' to enable async checkin operations.
 Currently only supported by the Git and Mercurial backends.
 
++++
+*** New user option 'vc-display-failed-async-commands'.
+If non-nil, displays the buffer with the output of the failed command
+when an asynchronous VC command (e.g. pulls and pushes) fails.
+
 ---
 *** New 'log-edit-hook' option to display diff of changes to commit.
 You can customize 'log-edit-hook' to include its new
@@ -3090,6 +3136,11 @@ those packages.  The default is to show a button on the mode line that
 can be used to install such packages, but you can customise the
 presentation style of these suggestions using
 'package-autosuggest-style'.
+
++++
+*** New user option 'package-retention-policy'.
+This user option controls what previous packages versions to keep on
+upgrade.  By default, this is set to nil, to keep the previous behavior.
 
 ** Rcirc
 
@@ -3931,12 +3982,15 @@ display time or even cause Emacs to hang trying to display such a face.
 Affected APIs include 'defface', 'set-face-attribute', their callers,
 and other similar functions.
 
-+++
-Original behavior of 'overlays-in' and 'overlays-at' has been restored.
-Before Emacs 29.1, the list of overlays returned by these two functions
-included overlays outside of the current narrowing of the buffer.  This
-behavior has been restored.  As result, 'remove-overlays' can now again
-remove overlays outside of the narrowing, as it did before Emacs 29.1.
++++ Original behavior of 'overlays-in' and 'overlays-at' has been
+restored.  Before Emacs 28.1, the list of overlays returned by these two
+functions included overlays outside of the current narrowing of the
+buffer, and there wasn't a special exception for including empty
+overlays at end of accessible portion of the buffer.  This behavior has
+been restored, and the special behavior for empty overlays is again
+reserved only to the actual end of buffer, disregarding the narrowing.
+As result, 'remove-overlays' can now again remove overlays outside of
+the narrowing, as it did before Emacs 28.1.
 
 ---
 ** 'help-setup-xref' now re-enables the major mode of the Help buffer.
@@ -4032,8 +4086,8 @@ signal an error if they are given a non-integer.
 These work like 'drop' and 'take' but use a predicate instead of counting.
 
 +++
-** New functions 'any' and 'all'.
-These return non-nil for lists where any and all elements, respectively,
+** New function 'all' and function alias 'any'.
+These return non-nil for lists where all and any elements, respectively,
 satisfy a given predicate.
 
 +++
@@ -4424,6 +4478,11 @@ other free systems.
 Transformed images are smoothed using the bilinear interpolation by
 means of the GDI+ library.
 
+---
+** Emacs on MS-Windows is now capable of exporting frame screenshots to files.
+The new primitive 'w32-export-frame' can be used to export a screenshot
+of a specified frame to an image file in one of the supported image
+formats, such as JPEG or PNG.
 ---
 ** Emacs on MS-Windows now supports the ':data' keyword for 'play-sound'.
 In addition to ':file FILE' for playing a sound from a file, ':data
