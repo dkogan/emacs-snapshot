@@ -28,7 +28,7 @@ Status: new
  4 files changed, 33 insertions(+), 39 deletions(-)
 
 diff --git a/Makefile.in b/Makefile.in
-index 01436d1..6df1018 100644
+index 849a75c..f05c857 100644
 --- a/Makefile.in
 +++ b/Makefile.in
 @@ -174,7 +174,9 @@ man1dir=
@@ -118,7 +118,7 @@ index 01436d1..6df1018 100644
  
  $(UNINSTALL_DOC):
 diff --git a/configure.ac b/configure.ac
-index 670b746..1b41ae7 100644
+index 3567849..3376108 100644
 --- a/configure.ac
 +++ b/configure.ac
 @@ -7784,11 +7784,10 @@ AC_DEFUN
