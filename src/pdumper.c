@@ -3208,19 +3208,18 @@ dump_object_for_offset (struct dump_context *ctx, Lisp_Object object)
 static dump_off
 dump_charset (struct dump_context *ctx, int cs_i)
 {
-#if CHECK_STRUCTS && !defined (HASH_charset_E31F4B5D96)
+#if CHECK_STRUCTS && !defined (HASH_charset_C9F4DCA7A7)
 # error "charset changed. See CHECK_STRUCTS comment in config.h."
 #endif
   /* We can't change the alignment here, because ctx->offset is what
      will be used for the whole array.  */
   eassert (ctx->offset % alignof (struct charset) == 0);
-  const struct charset *cs = charset_table + cs_i;
+  const struct charset *cs = charset_table.start + cs_i;
   struct charset out;
   dump_object_start (ctx, &out, sizeof (out));
-  if (cs_i < charset_table_used) /* Don't look at uninitialized data.  */
+  if (cs_i < charset_table.used) /* Don't look at uninitialized data.  */
     {
       DUMP_FIELD_COPY (&out, cs, id);
-      dump_field_lv (ctx, &out, cs, &cs->attributes, WEIGHT_NORMAL);
       DUMP_FIELD_COPY (&out, cs, dimension);
       memcpy (out.code_space, &cs->code_space, sizeof (cs->code_space));
       if (cs->code_space_mask)
@@ -3245,7 +3244,7 @@ dump_charset (struct dump_context *ctx, int cs_i)
       DUMP_FIELD_COPY (&out, cs, code_offset);
     }
   dump_off offset = dump_object_finish (ctx, &out, sizeof (out));
-  if (cs_i < charset_table_used && cs->code_space_mask)
+  if (cs_i < charset_table.used && cs->code_space_mask)
     dump_remember_cold_op (ctx, COLD_OP_CHARSET,
                            Fcons (dump_off_to_lisp (cs_i),
                                   dump_off_to_lisp (offset)));
@@ -3261,11 +3260,8 @@ dump_charset_table (struct dump_context *ctx)
   dump_off offset = ctx->offset;
   if (dump_set_referrer (ctx))
     ctx->current_referrer = build_string ("charset_table");
-  /* We are dumping the entire table, not just the used slots, because
-     otherwise when we restore from the pdump file, the actual size of
-     the table will be smaller than charset_table_size, and we will
-     crash if/when a new charset is defined.  */
-  for (int i = 0; i < charset_table_size; ++i)
+  eassert (charset_table.size == charset_table.used);
+  for (int i = 0; i < charset_table.size; ++i)
     dump_charset (ctx, i);
   dump_clear_referrer (ctx);
   dump_emacs_reloc_to_dump_ptr_raw (ctx, &charset_table, offset);
@@ -3415,7 +3411,7 @@ dump_cold_charset (struct dump_context *ctx, Lisp_Object data)
     (ctx,
      cs_dump_offset + dump_offsetof (struct charset, code_space_mask),
      ctx->offset);
-  struct charset *cs = charset_table + cs_i;
+  struct charset *cs = charset_table.start + cs_i;
   dump_write (ctx, cs->code_space_mask, 256);
 }
 
