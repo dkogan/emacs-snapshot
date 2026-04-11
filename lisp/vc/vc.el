@@ -157,12 +157,15 @@
 ;; - dir-status-files (dir files update-function)
 ;;
 ;;   Produce RESULT: a list of lists of the form (FILE VC-STATE EXTRA)
-;;   for FILES in DIR.  If FILES is nil, report on all files in DIR.
-;;   (It is OK, though possibly inefficient, to ignore the FILES argument
-;;   and always report on all files in DIR.)
+;;   for FILES in DIR (which need not be the repository root).
+;;   If FILES is nil, report on all files in DIR.
+;;   (It is permitted, though possibly inefficient, to ignore the FILES
+;;   argument and always report on all files in DIR.)
 ;;
 ;;   If FILES is non-nil, this function should report on all requested
 ;;   files, including up-to-date or ignored files.
+;;   If FILES is nil, up-to-date and ignored files may be excluded, but
+;;   need not be.
 ;;
 ;;   EXTRA can be used for backend specific information about FILE.
 ;;
@@ -283,6 +286,11 @@
 ;;   vc-checkin-switches to the backend command.  The optional REV
 ;;   revision argument is only supported with some older VCSes, like
 ;;   RCS and CVS, and is otherwise silently ignored.
+;;
+;;   If the backend supports async checkins and `vc-async-checkin' is
+;;   non-nil, the implementation should start an asychronous process to
+;;   commit the changes, and return a cons whose car is `async' and
+;;   whose cdr is that process object.
 ;;
 ;; - checkin-patch (patch-string comment)
 ;;
@@ -1268,7 +1276,7 @@ Return the result of evaluating FORM."
          (dolist (file ,flist)
            (dolist (setting ,settings)
              (let ((property (car setting)))
-               (unless (memq property ,vc-touched-properties)
+               (unless (memq property vc-touched-properties)
                  (put (intern file vc-file-prop-obarray)
                       property (cdr setting))))))))))
 
@@ -1596,8 +1604,10 @@ Some files are unregistered; register them before checking in?"))
                             (cadr other-alist))))
              (error "\
 To apply VC operations to multiple files, the files must be in similar VC states.
-%s in state %s clashes with %s in state %s"
-                    (cadr first) (car first) (cadr second) (car second)))))
+%s in state `%s' clashes with
+%s in state `%s'"
+                    (abbreviate-file-name (cadr first)) (car first)
+                    (abbreviate-file-name (cadr second)) (car second)))))
     (list files* state
           (and state (not (eq state 'unregistered))
                (vc-checkout-model backend files*)))))
@@ -2220,7 +2230,8 @@ have changed; continue with old fileset?" (current-buffer))))
                   (dolist (file files)
                     (let ((file (expand-file-name file)))
                       (vc-file-setprop file 'display-state "committing")
-                      (vc-dir-resynch-file file)
+                      (when vc-dir-buffers
+                        (vc-dir-resynch-file file))
                       (push file to-remove-props)))
                   (vc-exec-after #'remove-props-done-msg nil proc))
                 ret)
@@ -2610,40 +2621,42 @@ proceed anyway?")))
       (make-directory (file-name-directory (expand-file-name f tmpdir)) t)
       (copy-file (expand-file-name f)
                  (expand-file-name f tmpdir)))
-    (unwind-protect
-        (progn
-          (vc-revert-files backend
-                           (mapcar (lambda (f)
-                                     (with-current-buffer (find-file-noselect f)
-                                       buffer-file-name))
-                                   files))
-          (with-temp-buffer
-            ;; Trying to support CVS too.  Assuming that vc-diff
-            ;; there will usually have diff root in default-directory.
-            (when (vc-find-backend-function backend 'root)
-              (setq-local default-directory
-                          (vc-call-backend backend 'root (car files))))
-            (unless (eq 0
-                        (call-process-region patch-string
-                                             nil
-                                             "patch"
-                                             nil
-                                             t
-                                             nil
-                                             "-p1"
-                                             "-r" null-device
-                                             "--posix"
-                                             "--remove-empty-files"
-                                             "-i" "-"))
-              (user-error "Patch failed: %s" (buffer-string))))
-          (vc-call-backend backend 'checkin files comment))
-      (dolist (f files)
-        (copy-file (expand-file-name f tmpdir)
-                   (expand-file-name f)
-                   t)
-        (with-current-buffer (get-file-buffer f)
-          (revert-buffer t t t)))
-      (delete-directory tmpdir t))))
+    (cl-flet ((do-it ()
+                (vc-revert-files backend
+                                 (mapcar (lambda (f)
+                                           (with-current-buffer
+                                               (find-file-noselect f)
+                                             buffer-file-name))
+                                         files))
+                (with-temp-buffer
+                  ;; Try to support CVS too.  Assume that vc-diff there
+                  ;; will usually have diff root in `default-directory'.
+                  (when (vc-find-backend-function backend 'root)
+                    (setq-local default-directory
+                                (vc-call-backend backend 'root (car files))))
+                  (unless (zerop (call-process-region patch-string nil "patch"
+                                                      nil t nil
+                                                      "-p1"
+                                                      "-r" null-device
+                                                      "--posix"
+                                                      "--remove-empty-files"
+                                                      "-i" "-"))
+                    (user-error "Patch failed: %s" (buffer-string))))
+                (vc-call-backend backend 'checkin files comment))
+              (cleanup ()
+                (dolist (f files)
+                  (copy-file (expand-file-name f tmpdir)
+                             (expand-file-name f)
+                             t)
+                  (with-current-buffer (get-file-buffer f)
+                    (revert-buffer t t t)))
+                (delete-directory tmpdir t)))
+      (if (and vc-async-checkin
+               (vc-call-backend backend 'async-checkins))
+          (let ((ret (do-it)))
+            (when (eq (car-safe ret) 'async)
+              (vc-exec-after #'cleanup nil (cadr ret))))
+        (unwind-protect (do-it) (cleanup))))))
 
 ;;; Additional entry points for examining version histories
 

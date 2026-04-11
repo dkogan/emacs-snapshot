@@ -2,12 +2,12 @@
 
 ;; Copyright (C) 2018-2026 Free Software Foundation, Inc.
 
-;; Version: 1.22
+;; Version: 1.23
 ;; Author: João Távora <joaotavora@gmail.com>
 ;; Maintainer: João Távora <joaotavora@gmail.com>
 ;; URL: https://github.com/joaotavora/eglot
 ;; Keywords: convenience, languages
-;; Package-Requires: ((emacs "26.3") (eldoc "1.16.0") (external-completion "0.1") (flymake "1.4.5") (jsonrpc "1.0.27") (project "0.11.2") (seq "2.23") (xref "1.7.0"))
+;; Package-Requires: ((emacs "26.3") (eldoc "1.16.0") (external-completion "0.1") (flymake "1.4.5") (jsonrpc "1.0.28") (project "0.11.2") (seq "2.23") (xref "1.7.0"))
 
 ;; This is a GNU ELPA :core package.  Avoid adding functionality
 ;; that is not available in the version of Emacs recorded above or any
@@ -2710,10 +2710,11 @@ still unanswered LSP requests to the server\n"))))
 
 (defconst eglot-mode-line-progress
   '(:eval
-    (when-let ((server (eglot-current-server)))
+    (when-let ((s (eglot-current-server)))
       (cl-loop
-       for pr hash-values of (eglot--progress-reporters server)
-       when (eq (car pr) 'eglot--mode-line-reporter)
+       for pr in (cl-delete 'eglot--mode-line-reporter
+                            (hash-table-values (eglot--progress-reporters s))
+                            :key #'car :test-not #'eq)
        for v = (nth 4 pr)
        when v sum 1 into n and sum v into acc
        collect (format "(%s) %s %s" (nth 1 pr) (nth 2 pr) (nth 3 pr))
@@ -3086,7 +3087,8 @@ root of the current project.  It should return an object of the
 format described above.")
 
 ;;;###autoload
-(put 'eglot-workspace-configuration 'safe-local-variable #'listp)
+(put 'eglot-workspace-configuration 'safe-local-variable
+     (lambda (v) (and (listp v) (not (functionp v)))))
 
 (defun eglot-show-workspace-configuration (&optional server)
   "Dump `eglot-workspace-configuration' as JSON for debugging."

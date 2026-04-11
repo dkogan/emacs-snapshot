@@ -3016,6 +3016,8 @@ BODY is the backend specific code."
       (when (file-directory-p ,directory)
 	(seq-uniq (delq nil
          (let* ((case-fold-search read-file-name-completion-ignore-case)
+                (remote-file-name-inhibit-cache
+		 (tramp-suppress-remote-file-name-inhibit-cache))
 		(result
 		 (if (tramp-tramp-file-p ,directory)
 		     (with-parsed-tramp-file-name
@@ -3027,16 +3029,14 @@ BODY is the backend specific code."
 			     (format
 			      "file-name-all-completions-%s"
 			      tramp-fnac-add-trailing-slash)
-			   ;; Mark symlinked directories.  Other
-			   ;; directories are already marked.
+			   ;; Mark directories, including symlinks to
+			   ;; directories.
 			   (mapcar
 			    (lambda (x)
 			      (let ((f (file-name-concat ,directory x)))
 				(if (and tramp-fnac-add-trailing-slash
 					 (not (string-suffix-p "/" x))
-					 (file-directory-p
-					  (if (file-symlink-p f)
-					      (file-truename f) f)))
+					 (file-directory-p f))
 				    (concat x "/") x)))
 			    ;; Some storage systems do not return "." and "..".
 			    (seq-union
@@ -5348,14 +5348,15 @@ a connection-local variable."
       (setq spec-list (cddr spec-list)))
     (setq spec (apply #'format-spec-make extra-spec-list))
     ;; Expand format spec.
-    (if (atom args)
-	(tramp-format-spec args spec)
+    (cond
+     ((consp args)
       (flatten-tree
        (mapcar
 	(lambda (x)
 	  (setq x (mapcar (lambda (y) (tramp-format-spec y spec)) x))
 	  (unless (member "" x) x))
-	args)))))
+	args)))
+     (args (tramp-format-spec args spec)))))
 
 (defun tramp-post-process-creation (proc vec)
   "Apply actions after creation of process PROC."
@@ -5477,8 +5478,7 @@ processes."
 		 (tramp-get-method-parameter v 'tramp-direct-async)
                  `(,(string-join command " ")))
 	      command))
-	   (login-program
-	    (tramp-expand-args v 'tramp-login-program))
+	   (login-program (tramp-expand-args v 'tramp-login-program))
 	   ;; We don't create the temporary file.  In fact, it is just
 	   ;; a prefix for the ControlPath option of ssh; the real
 	   ;; temporary file has another name, and it is created and

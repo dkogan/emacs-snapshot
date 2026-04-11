@@ -9752,6 +9752,7 @@ handle_stop_backwards (struct it *it, ptrdiff_t charpos)
   struct display_pos save_current = it->current;
   struct text_pos save_position = it->position;
   struct composition_it save_cmp_it = it->cmp_it;
+  int save_sp = it->sp;
   struct text_pos pos1;
   ptrdiff_t next_stop;
 
@@ -9783,7 +9784,8 @@ handle_stop_backwards (struct it *it, ptrdiff_t charpos)
   next_stop = it->stop_charpos;
   it->stop_charpos = it->prev_stop;
   handle_stop (it);
-  it->stop_charpos = next_stop;
+  if (it->sp == save_sp)
+    it->stop_charpos = next_stop;
 }
 
 /* Load IT with the next display element from current_buffer.  Value
@@ -17385,7 +17387,7 @@ redisplay_internal (void)
 	     area, displaying a different frame means redisplay the
 	     whole thing.  */
 	  SET_FRAME_GARBAGED (sf);
-#if !defined DOS_NT && !defined HAVE_ANDROID
+#if !defined MSDOS && !defined HAVE_ANDROID
 	  set_tty_color_mode (FRAME_TTY (sf), sf);
 #endif
 	}
@@ -25689,8 +25691,8 @@ display_line (struct it *it, int cursor_vpos)
 {
   struct glyph_row *row = it->glyph_row;
   Lisp_Object overlay_arrow_string;
-  struct it wrap_it;
-  void *wrap_data = NULL;
+  struct it wrap_it, prev_it;
+  void *wrap_data = NULL, *prev_data = NULL;
   bool may_wrap = false;
   int wrap_x UNINIT;
   int wrap_row_used = -1;
@@ -25699,6 +25701,7 @@ display_line (struct it *it, int cursor_vpos)
   int wrap_row_extra_line_spacing UNINIT;
   ptrdiff_t wrap_row_min_pos UNINIT, wrap_row_min_bpos UNINIT;
   ptrdiff_t wrap_row_max_pos UNINIT, wrap_row_max_bpos UNINIT;
+  int wrap_face_id UNINIT, prev_face_id;
   int cvpos;
   ptrdiff_t min_pos = ZV + 1, max_pos = 0;
   ptrdiff_t min_bpos UNINIT, max_bpos UNINIT;
@@ -25869,6 +25872,7 @@ display_line (struct it *it, int cursor_vpos)
 
   /* Loop generating characters.  The loop is left with IT on the next
      character to display.  */
+  wrap_face_id = -1;
   while (true)
     {
       int n_glyphs_before, hpos_before, x_before;
@@ -25962,9 +25966,17 @@ display_line (struct it *it, int cursor_vpos)
 		  wrap_row_min_bpos = min_bpos;
 		  wrap_row_max_pos = max_pos;
 		  wrap_row_max_bpos = max_bpos;
+		  wrap_face_id = prev_face_id;
 		}
 	      /* Update may_wrap for the next iteration.  */
               may_wrap = next_may_wrap;
+	      if (may_wrap)
+		{
+		  prev_face_id = it->face_id;
+		  SAVE_IT (prev_it, *it, prev_data);
+		}
+	      else
+		prev_face_id = -1;
 	    }
 	}
 
@@ -26222,8 +26234,10 @@ display_line (struct it *it, int cursor_vpos)
 		      if (row->reversed_p)
 			unproduce_glyphs (it,
 					  row->used[TEXT_AREA] - wrap_row_used);
-		      RESTORE_IT (it, &wrap_it, wrap_data);
-		      it->continuation_lines_width += wrap_x;
+		      /* We need to extend the face of the display
+                         element _before_ the wrap point.  */
+		      eassert (wrap_face_id >= 0);
+		      RESTORE_IT (it, &prev_it, prev_data);
 		      row->used[TEXT_AREA] = wrap_row_used;
 		      row->ascent = wrap_row_ascent;
 		      row->height = wrap_row_height;
@@ -26237,10 +26251,11 @@ display_line (struct it *it, int cursor_vpos)
 		      row->continued_p = true;
 		      row->ends_at_zv_p = false;
 		      row->exact_window_width_line_p = false;
-
 		      /* Make sure that a non-default face is extended
 			 up to the right margin of the window.  */
 		      extend_face_to_end_of_line (it);
+		      RESTORE_IT (it, &wrap_it, wrap_data);
+		      it->continuation_lines_width += wrap_x;
 		    }
 		  else if ((it->what == IT_CHARACTER
 			    || it->what == IT_STRETCH
@@ -26539,6 +26554,8 @@ display_line (struct it *it, int cursor_vpos)
 
   if (wrap_data)
     bidi_unshelve_cache (wrap_data, true);
+  if (prev_data)
+    bidi_unshelve_cache (prev_data, true);
 
   /* If line is not empty and hscrolled, maybe insert truncation glyphs
      at the left window margin.  */
@@ -32842,6 +32859,8 @@ produce_special_glyphs (struct it *it, enum display_element_type what,
 	  /* Mirror for R2L.  */
 	  if (direction == R2L)
 	    {
+	      face_id = GLYPH_CODE_FACE (gc);
+
 	      /* Try bidi mirroring first.  */
 	      int c = bidi_mirror_char (GLYPH_CODE_CHAR (gc));
 
@@ -32861,10 +32880,17 @@ produce_special_glyphs (struct it *it, enum display_element_type what,
 		      else
 			SET_GLYPH (glyph, '/', face_id);
 		    }
+		  else
+		    SET_GLYPH_FROM_GLYPH_CODE (glyph, gc);
 		}
 	      else
+		{
+		  struct face *face = FACE_FROM_ID (it->f, face_id);
+		  int id = FACE_FOR_CHAR (it->f, face, c, -1, Qnil);
+
 		  /* Bidi mirroring.  */
-		  SET_GLYPH (glyph, c, face_id);
+		  SET_GLYPH (glyph, c, id);
+		}
 	    }
 	  else
 	    /* No mirroring.  */
@@ -32903,6 +32929,8 @@ produce_special_glyphs (struct it *it, enum display_element_type what,
 	  if (((it->bidi_it.paragraph_dir == R2L) && !left_edge_p) ||
 	      ((it->bidi_it.paragraph_dir == L2R) && left_edge_p))
 	    {
+	      face_id = GLYPH_CODE_FACE (gc);
+
 	      /* Try bidi mirroring first.  */
 	      int c = bidi_mirror_char (GLYPH_CODE_CHAR (gc));
 
@@ -32922,6 +32950,8 @@ produce_special_glyphs (struct it *it, enum display_element_type what,
 		      else
 			SET_GLYPH (glyph, '$', face_id);
 		    }
+		  else
+		    SET_GLYPH_FROM_GLYPH_CODE (glyph, gc);
 		}
 	      else
 		{

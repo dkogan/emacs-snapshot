@@ -751,17 +751,27 @@ hence another buffer should be returned."
     (unless (and (featurep 'ls-lisp)
                  (boundp 'ls-lisp-use-insert-directory-program)
                  (null ls-lisp-use-insert-directory-program))
-      (let ((errbuf (get-buffer "*ls error*")))
+      (let ((errbuf (get-buffer "*ls error*"))
+            ;; Since different `ls' programs can produce different
+            ;; messages for the nonexisting file error, we make a sample
+            ;; message to use for comparing the expected message with
+            ;; the string in the error buffer.
+            (ls-err (lambda (fn)
+		      (let* ((tmpname (make-temp-name "/bug80499-tests-"))
+                             (errlist (string-split
+                                       (shell-command-to-string
+                                        (concat insert-directory-program
+                                                " -al " tmpname))
+                                       tmpname)))
+                        (concat (car errlist) fn (cadr errlist))))))
         (should (get-buffer-window errbuf))
         (should-not (equal (buffer-name buf) (file-name-nondirectory name)))
         (with-current-buffer errbuf
-          (should (string-match-p
-                   (format
-                    ;; Use .* around file name to account for different
-                    ;; file-name quoting styles, or no quoting at all.
-                    "%s: cannot access .*%s.*: No such file or directory\n"
-                    insert-directory-program (file-name-nondirectory name))
-                   (buffer-string))))
+          ;; The error message may report e.g. "/bin/ls" even though the
+          ;; value of `insert-directory-program' is "ls", so we can't
+          ;; test with `equal'.
+          (should (string-match-p (funcall ls-err (file-name-nondirectory name))
+                                  (buffer-string))))
         (kill-buffer errbuf))
       (delete-directory dir t))))
 

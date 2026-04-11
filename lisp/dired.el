@@ -649,6 +649,9 @@ The match starts at the beginning of the line and ends after the end
 of the line.
 Subexpression 2 must end right before the \\n.")
 
+(defvar dired--ls-error-file nil
+  "When non-nil, name of temporary file an `ls' error is written to.")
+
 (defvar dired--ls-error-buffer nil
   "Non-nil if the current dired invocation yields an `ls' error.
 The non-nil value is the buffer containing the error message.")
@@ -1237,8 +1240,9 @@ If DIRNAME is already in a Dired buffer, that buffer is used without refresh."
   (prog1 (pop-to-buffer-same-window (dired-noselect dirname switches))
     (dired--display-ls-error)))
 
-;; This is needed to let clicks on the menu bar invoke Dired even if
-;; some feature remaps the Dired command to another command.
+;; This lets clicks on the menu bar invoke Dired even if some feature
+;; remaps the Dired command to another command that does not handle this
+;; situation correctly (e.g. earlier versions of `dired-at-point-prompter').
 ;;;###autoload
 (defun dired-from-menubar (dirname &optional switches)
   "Edit an existing directory."
@@ -1455,16 +1459,12 @@ The return value is the target column for the file names."
       (let ((failed t))
 	(unwind-protect
 	    (progn (dired-readin)
-                   ;; Check for file entries (they are listed below the
-                   ;; directory name and (if present) wildcard lines).
-                   (while (and (skip-syntax-forward "\s")
-                               (looking-at "\\(.+:$\\|wildcard\\)"))
-                     (forward-line))
-                   (unless (eobp)
+                   (unless (and dired--ls-error-buffer
+                                (get-buffer "*ls error*"))
 		     (setq failed nil)))
-	  ;; No file entries indicates an `ls' error, and `dired-readin'
-	  ;; can fail if parent directories are inaccessible.  In either
-	  ;; case don't leave the Dired buffer around.
+	  ;; If either `dired-readin' failed (e.g. if parent directories
+	  ;; are inaccessible) or `ls' errored, don't leave the Dired
+	  ;; buffer around.
 	  (when failed
             (kill-buffer buffer)
             (setq buffer nil))))
@@ -1618,7 +1618,24 @@ wildcards, erases the buffer, and builds the subdir-alist anew
       ;; Else treat it as a wildcard spec
       ;; unless we have an explicit list of files.
       (dired-insert-directory dir dired-actual-switches
-       file-list (not file-list) t)))))
+                              file-list (not file-list) t)))
+    ;; Every time `temporary-file-directory' is (re)displayed in Dired a
+    ;; new `ls' error file is created and the Dired buffer has an entry
+    ;; for it.  The file itself is deleted in `insert-directory' but its
+    ;; Dired entry remains, so we remove it here.  This is not relevant
+    ;; if ls-lisp emulation is used.
+    (when (files--use-insert-directory-program-p)
+      (let ((tmpbuf (dired-find-buffer-nocreate temporary-file-directory)))
+        (when tmpbuf
+          (with-current-buffer tmpbuf
+            (widen)
+            (goto-char (point-min))
+            (when (search-forward (file-name-base dired--ls-error-file) nil t)
+              ;; The call chain of `dired-remove-entry' requires non-nil
+              ;; `dired-subdir-alist', but here it is nil, so we set it.
+              (let ((dired-subdir-alist `((,temporary-file-directory
+                                           . ,(point-min-marker)))))
+                (dired-remove-entry dired--ls-error-file)))))))))
 
 (defun dired-align-file (beg end)
   "Align the fields of a file to the ones of surrounding lines.
@@ -4111,8 +4128,8 @@ See `%s' for other alternatives and more information."))
                         (search-backward "Warning (dired)")))))
 
 (defun dired--display-ls-error ()
-  "Pop up a buffer displaying the current `ls' error, if any."
-  (when dired--ls-error-buffer
+  "Pop up the buffer displaying the current `ls' error, if any."
+  (when (buffer-live-p dired--ls-error-buffer)
     (let* ((errwin (display-buffer dired--ls-error-buffer)))
       (fit-window-to-buffer errwin))
     (setq dired--ls-error-buffer nil)))

@@ -3868,19 +3868,12 @@ If PARENTS is non-nil, ARGLIST must be nil."
 ;; both at compile-time and at runtime, so we need to double-check.
 (static-if (not (fboundp 'cl--define-derived-type)) nil
   (when (fboundp 'cl--define-derived-type)
-    (cl-deftype natnum () (declare (parents integer)) '(satisfies natnump))
     (cl-deftype character () (declare (parents fixnum natnum))
                 '(and fixnum natnum))
     (cl-deftype base-char () (declare (parents character))
                 '(satisfies characterp))
     (cl-deftype extended-char () (declare (parents character))
                 '(and character (not base-char)))
-    (cl-deftype keyword () (declare (parents symbol)) '(satisfies keywordp))
-    (cl-deftype command ()
-      ;; FIXME: Can't use `function' as parent because of arrays as
-      ;; keyboard macros, which are redundant since `kmacro.el'!!
-      ;;(declare (parents function))
-      '(satisfies commandp))
 
     (eval-when-compile
       (defmacro cl--defnumtype (type base)
