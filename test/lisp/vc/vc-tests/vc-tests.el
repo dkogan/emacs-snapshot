@@ -436,9 +436,12 @@ This checks also `vc-backend' and `vc-responsible-backend'."
               ;; nil: Git Mtn
               ;; "0": Bzr CVS Hg SRC SVN
               ;; "1.1": RCS SCCS
+              ;; "0000000000000000000000000000000000000000": Hg
               ;; "-1": Hg versions before 5 (probably)
               (message "vc-working-revision4 %s" (vc-working-revision tmp-name))
-              (should (member (vc-working-revision tmp-name) '(nil "0" "1.1" "-1")))
+              (should (member (vc-working-revision tmp-name)
+                              '(nil "0" "1.1" "-1"
+                                    "0000000000000000000000000000000000000000")))
 
               ;; TODO: Call `vc-checkin', and check the resulting
               ;; working revision.  None of the return values should be
@@ -586,7 +589,104 @@ This checks also `vc-backend' and `vc-responsible-backend'."
               (should (equal (vc-state new-name)
                              (if (memq backend '(RCS SCCS))
                                  'up-to-date
-                               'added)))))
+                               'added))))
+
+            ;; Test OK-IF-ALREADY-EXISTS.
+            ;; RCS doesn't support `vc-delete-file'.
+            (unless (eq backend 'RCS)
+              (let ((tmp-name (expand-file-name "qux" default-directory))
+                    (new-name (expand-file-name "quuux" default-directory)))
+                (write-region "qux" nil tmp-name nil 'nomessage)
+                (write-region "quuux" nil new-name nil 'nomessage)
+                (vc-register
+                 (list backend (list (file-name-nondirectory tmp-name)
+                                     (file-name-nondirectory new-name))))
+
+                (should-error (vc-rename-file tmp-name new-name)
+                              :type 'file-already-exists)
+                (vc-rename-file tmp-name new-name 'ok-if-already-exists)
+                (should-not (file-exists-p tmp-name))
+                (should (file-exists-p new-name))))
+
+            ;; Test moving into an existing directory.
+            ;; FIXME: This is broken for RCS and I don't know why.  --spwhitton
+            (unless (eq backend 'RCS)
+              (let ((tmp-name (expand-file-name "quux" default-directory))
+                    (new-dir (expand-file-name "dir1/" default-directory))
+                    (new-name (expand-file-name "dir1/quux" default-directory)))
+                (make-directory new-dir)
+                (write-region "quux" nil tmp-name nil 'nomessage)
+                (vc-register
+                 `(,backend (,(file-relative-name new-dir default-directory)
+                             ,(file-name-nondirectory tmp-name))))
+
+                (vc-rename-file tmp-name new-dir)
+                (should-not (file-exists-p tmp-name))
+                (should (file-exists-p new-name)))))
+
+        ;; Save exit.
+        (ignore-errors
+          (run-hooks 'vc-test--cleanup-hook))))))
+
+(defun vc-test--rename-directory (backend)
+  "Check the rename-file action for directories."
+  (ert-with-temp-directory tempdir
+    (let ((vc-handled-backends `(,backend))
+          (default-directory
+           (file-name-as-directory
+            (expand-file-name
+             (make-temp-name "vc-test") temporary-file-directory)))
+          (process-environment process-environment)
+          vc-test--cleanup-hook)
+      (vc--fix-home-for-bzr tempdir)
+      (unwind-protect
+          (progn
+            ;; Cleanup.
+            (add-hook
+             'vc-test--cleanup-hook
+             (let ((dir default-directory))
+               (lambda () (delete-directory dir 'recursive))))
+
+            ;; Create empty repository.
+            (make-directory default-directory)
+            (vc-test--create-repo-function backend)
+
+            ;; Test mix of registered and unregistered files.
+            (let* ((tmp-dir (expand-file-name "dir1/" default-directory))
+                   (tmp-name1 (expand-file-name "foo" tmp-dir))
+                   (tmp-name2 (expand-file-name "bar" tmp-dir))
+                   (new-dir (expand-file-name "dir2/" default-directory))
+                   (new-name1 (expand-file-name "foo" new-dir))
+                   (new-name2 (expand-file-name "bar" new-dir)))
+              (make-directory tmp-dir)
+              (write-region "foo" nil tmp-name1 nil 'nomessage)
+              (write-region "bar" nil tmp-name2 nil 'nomessage)
+              ;; Register TMP-NAME1 but *not* TMP-NAME2.
+              (vc-register `(,backend
+                             (,(file-relative-name tmp-name1
+                                                   default-directory))))
+
+              (vc-rename-file (directory-file-name tmp-dir)
+                              (directory-file-name new-dir))
+              (should-not (file-exists-p tmp-name1))
+              (should-not (file-exists-p tmp-name2))
+              (should (file-exists-p new-name1))
+              (should (file-exists-p new-name2)))
+
+            ;; Test only unregistered files.
+            (let* ((tmp-dir (expand-file-name "dir3/" default-directory))
+                   (tmp-name (expand-file-name "foo" tmp-dir))
+                   (new-dir (expand-file-name "dir4/" default-directory))
+                   (new-name (expand-file-name "foo" new-dir)))
+              (make-directory tmp-dir)
+              (write-region "foo" nil tmp-name nil 'nomessage)
+
+              (vc-rename-file (directory-file-name tmp-dir)
+                              (directory-file-name new-dir))
+              (should-not (file-exists-p tmp-name))
+              (should-not (file-exists-p tmp-name))
+              (should (file-exists-p new-name))
+              (should (file-exists-p new-name))))
 
         ;; Save exit.
         (ignore-errors
@@ -1190,7 +1290,26 @@ This checks also `vc-backend' and `vc-responsible-backend'."
 	      ',(intern
 	         (format "vc-test-%s01-register" backend-string))))))
           (skip-unless (memq ',backend '(Git Hg)))
-          (vc-test--checkin-patch ',backend))))))
+          (vc-test--checkin-patch ',backend))
+
+        (ert-deftest
+            ,(intern (format "vc-test-%s10-rename-directory" backend-string)) ()
+          ,(format "Check `vc-rename-file' with directories for the %s backend."
+                   backend-string)
+          (skip-unless
+           (ert-test-passed-p
+            (ert-test-most-recent-result
+             (ert-get-test
+              ',(intern
+                 (format "vc-test-%s01-register" backend-string))))))
+          ;; See vc-test-*-rename-file regarding CVS and Mtn.
+          ;; SVN requires all files to rename are registered but we want
+          ;; to test a mix of registered and unregistered files in this test.
+          ;; RCS does not seem to support renaming directories; possibly
+          ;; `vc-rcs-rename-file' could be improved or it might be a
+          ;; fundamental limitation.
+          (skip-when (memq ',backend '(CVS SVN Mtn RCS)))
+          (vc-test--rename-directory ',backend))))))
 
 (provide 'vc-tests)
 ;;; vc-tests.el ends here

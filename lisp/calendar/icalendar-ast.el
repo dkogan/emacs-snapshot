@@ -24,6 +24,8 @@
 
 ;;; Commentary:
 
+;; For an overview of the iCalendar library, see icalendar-shortdoc.el.
+
 ;; This file defines the abstract syntax tree representation for
 ;; iCalendar data.  The AST is based on `org-element-ast' (which see;
 ;; that feature will eventually be renamed and moved out of the Org tree
@@ -293,8 +295,11 @@ PROPS should be a plist with any of the following keywords:
 
 (defun ical:ast-node-children-of (type node)
   "Return a list of all the children of NODE of type TYPE."
-  (seq-filter (lambda (c) (eq type (ical:ast-node-type c)))
-              (ical:ast-node-children node)))
+  (let (tchildren)
+    (dolist (c (ical:ast-node-children node))
+      (when (eq type (ical:ast-node-type c))
+        (push c tchildren)))
+    (nreverse tchildren)))
 
 
 ;; A high-level API for constructing iCalendar syntax nodes in Lisp code:
