@@ -1137,12 +1137,13 @@ of the API instead.")
                                       (concat "\n" (pp-to-string
                                                     foreign-message))))
                                (concat log-text "\n")))))))
-          (goto-char (point-max))
           ;; XXX: could use `run-at-time' to delay server logs
           ;; slightly to play nice with verbose servers' stderr.
           (when error
             (setq msg (propertize msg 'face 'error)))
-          (insert-before-markers msg)
+          (save-excursion
+            (goto-char (point-max))
+            (insert-before-markers msg))
           (jsonrpc--limit-buffer-size max))))))
 
 (defun jsonrpc--forwarding-buffer (name prefix conn)
@@ -1167,11 +1168,12 @@ PREFIX to CONN's events buffer."
                                   (line-beginning-position 0)
                                   (line-end-position 0))
                       do (with-current-buffer (jsonrpc-events-buffer conn)
-                           (goto-char (point-max))
                            (let ((inhibit-read-only t))
-                             (insert
-                              (propertize (format "%s %s\n" prefix line)
-                                          'face 'shadow))
+                             (save-excursion
+                               (goto-char (point-max))
+                               (insert-before-markers
+                                (propertize (format "%s %s\n" prefix line)
+                                            'face 'shadow)))
                              (jsonrpc--limit-buffer-size max)))
                       until (eobp)))))
        nil t))

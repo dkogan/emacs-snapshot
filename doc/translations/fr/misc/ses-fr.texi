@@ -335,12 +335,12 @@ Mettre en vedette toutes les cellules (@code{mark-whole-buffer}).
 @node Formulas
 @section Formules de cellule
 @cindex formules
-@cindex formules, saisire
+@cindex formules, saisir
 @cindex valeurs
 @cindex valeurs de cellule
 @cindex éditer des cellules
 @findex ses-read-cell
-@findex ses-read-symbole
+@findex ses-read-symbol
 @findex ses-edit-cell
 @findex ses-recalculate-cell
 @findex ses-recalculate-all
