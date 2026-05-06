@@ -131,6 +131,8 @@ in a Emacs not built with tree-sitter library."
 
      (declare-function treesit-available-p "treesit.c")
 
+     (declare-function treesit-parser-remove-notifier "treesit.c")
+
      (defvar treesit-thing-settings)
      (defvar treesit-major-mode-remap-alist)
      (defvar treesit-extra-load-path)))
@@ -1232,27 +1234,27 @@ Return the created local parsers as a list."
         ;; Each element of RANGES can be either (START . END) or ((START
         ;; . END)...).
         (dolist (range ranges)
-          (let ((beg (treesit--range-start range))
-                (end (treesit--range-end range))
-                (existing-local-parser
-                 (catch 'done
-                   (dolist (ov (overlays-in beg end) nil)
-                     ;; Update range of local parser.
-                     (when-let* ((embedded-parser
-                                  (overlay-get ov 'treesit-parser))
-                                 (parser-lang (treesit-parser-language
-                                               embedded-parser))
-                                 (parser-level (treesit-parser-embed-level
-                                                embedded-parser)))
-                       (when (and (overlay-get ov 'treesit-parser-local-p)
-                                  (eq parser-lang embedded-lang)
-                                  (eq embed-level parser-level))
-                         (treesit--set-embed-ranges
-                          range embedded-parser host-parser)
-                         (move-overlay ov beg end)
-                         (overlay-put ov 'treesit-parser-ov-timestamp
-                                      modified-tick)
-                         (throw 'done embedded-parser)))))))
+          (let* ((r-start (treesit--range-start range))
+                 (r-end (treesit--range-end range))
+                 (existing-local-parser
+                  (catch 'done
+                    (dolist (ov (overlays-in r-start r-end) nil)
+                      ;; Update range of local parser.
+                      (when-let* ((embedded-parser
+                                   (overlay-get ov 'treesit-parser))
+                                  (parser-lang (treesit-parser-language
+                                                embedded-parser))
+                                  (parser-level (treesit-parser-embed-level
+                                                 embedded-parser)))
+                        (when (and (overlay-get ov 'treesit-parser-local-p)
+                                   (eq parser-lang embedded-lang)
+                                   (eq embed-level parser-level))
+                          (treesit--set-embed-ranges
+                           range embedded-parser host-parser)
+                          (move-overlay ov r-start r-end)
+                          (overlay-put ov 'treesit-parser-ov-timestamp
+                                       modified-tick)
+                          (throw 'done embedded-parser)))))))
             (if existing-local-parser
                 (push existing-local-parser touched-parsers)
               ;; Create overlay and local parser.  Refer to
@@ -1260,7 +1262,7 @@ Return the created local parsers as a list."
               ;; local parser overlays.
               (let ((embedded-parser (treesit-parser-create
                                       embedded-lang nil t 'embedded))
-                    (ov (make-overlay beg end nil nil t)))
+                    (ov (make-overlay r-start r-end nil nil t)))
                 (treesit-parser-set-embed-level embedded-parser embed-level)
                 (overlay-put ov 'treesit-parser embedded-parser)
                 (overlay-put ov 'treesit-parser-local-p t)
@@ -1448,10 +1450,10 @@ queries."
             (signal 'treesit-query-error value))
         (condition-case err
             (let ((compiled (treesit-query-compile lang query 'eager)))
-              (puthash (cons lang query) compiled treesit--query-cache)
+              (puthash (cons lang query-source) compiled treesit--query-cache)
               compiled)
           (treesit-query-error
-           (puthash (cons lang query) (cdr err) treesit--query-cache)
+           (puthash (cons lang query-source) (cdr err) treesit--query-cache)
            (signal 'treesit-query-error (cdr err))))))))
 
 (defvar-local treesit-font-lock-settings nil
@@ -4454,12 +4456,14 @@ For BOUND, MOVE, BACKWARD, LOOKING-AT, see the descriptions in
       (setq level (1+ level)))
 
     ;; Continue counting the host nodes.
-    (dolist (parser (mapcar #'cdr (treesit-parsers-at (point) nil t '(global local))))
-      (let* ((node (treesit-node-at (point) parser))
-             (lang (treesit-parser-language parser))
-             (pred (alist-get lang treesit-aggregated-outline-predicate)))
-        (while (setq node (treesit-parent-until node pred))
-          (setq level (1+ level)))))
+    (when treesit-aggregated-outline-predicate
+      (dolist (parser (mapcar #'cdr (treesit-parsers-at
+                                     (point) nil t '(global local))))
+        (let* ((node (treesit-node-at (point) parser))
+               (lang (treesit-parser-language parser))
+               (pred (alist-get lang treesit-aggregated-outline-predicate)))
+          (while (setq node (treesit-parent-until node pred))
+            (setq level (1+ level))))))
 
     level))
 
@@ -4610,6 +4614,10 @@ as belonging to the node that ends before POS (by subtracting 1 from POS)."
 
 LANGUAGE is the language symbol to check for availability.
 It can also be a list of language symbols.
+
+It checks that tree-sitter available, the language(s) grammar are
+available, and the current buffer's size isn't too
+large (`treesit-max-buffer-size').
 
 If tree-sitter is not ready, emit a warning and return nil.  If
 the user has chosen to activate tree-sitter for LANGUAGE and

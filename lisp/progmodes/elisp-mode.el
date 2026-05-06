@@ -287,6 +287,12 @@ If this is non-nil, `emacs-lisp-mode' uses code analysis to determine
 the role of each symbol and highlight it accordingly.  We call this kind
 of highlighting \"semantic highlighting\".
 
+If `elisp-add-help-echo' is non-nil, also annotate the symbol with the
+`help-echo' text property.  If `cursor-sensor-mode' is enabled, also
+arrange for all occurrences of each local variable to be highlighted
+with the `elisp-variable-at-point' face whenever point is on any of that
+variable's occurrences.
+
 Semantic highlighting works best when you keep your code syntactically
 correct while editing it, for example by using `electric-pair-mode'.
 
@@ -571,7 +577,12 @@ This option has effect only if `elisp-fontify-semantically' is non-nil."
      ;; HLP is either a string, or a function that takes SYM as an
      ;; additional argument on top of the usual WINDOW, OBJECT and POS
      ;; that `help-echo' functions takes.
-     (if (stringp hlp) hlp (apply-partially hlp sym)))))
+     (if (stringp hlp) hlp
+       (let ((cache 'unset))
+         (lambda (win obj pos)
+           (if (eq cache 'unset)
+               (setq cache (funcall hlp sym win obj pos))
+             cache)))))))
 
 (defvar font-lock-beg)
 (defvar font-lock-end)
@@ -607,7 +618,11 @@ semantic highlighting takes precedence."
 
 If `elisp-add-help-echo' is non-nil, also annotate the symbol with the
 `help-echo' text property.  If `cursor-sensor-mode' is enabled and ID is
-non-nil, also annotate the symbol with `cursor-sensor-functions'."
+non-nil, also annotate the symbol with `cursor-sensor-functions'.
+
+For the precise meaning of the arguments of this function, see the
+docstring of `elisp-scope-analyze-form'.  This function is intended for
+use with `elisp-scope-analyze-form' as its CALLBACK argument."
   (let ((end (progn (goto-char beg) (read (current-buffer)) (point))))
     (let ((face (elisp-scope-get-symbol-role-property role :face)))
       (add-face-text-property

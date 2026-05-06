@@ -468,7 +468,7 @@ BI-DESC should be a `package--bi-desc' object."
                        :summary (package--bi-desc-summary bi-desc)
                        :dir 'builtin))
 
-(defconst package--builtin-alist nil)
+(defvar package--builtin-alist nil)
 (defun package--builtin-alist ()
   "Return a alist of built-in packages in the form of `package-alist'.
 The alist doesn't include the pseudo-package for Emacs."
@@ -2566,7 +2566,7 @@ intended for testing Emacs and/or the packages in a clean environment."
   (interactive
    (cl-loop for p in (append
                       (cl-loop for p in (package--alist) append (cdr p))
-                      (cl-loop for p in package-archive-contents append (cdr p)))
+                      (cl-loop for p in (package--archive-contents) append (cdr p)))
 	    unless (package-built-in-p p)
 	    collect (cons (package-desc-full-name p) p) into table
 	    finally return
@@ -4593,7 +4593,7 @@ SUG should be of the form as described in `package--suggestion-applies-p'."
           (with-current-buffer buf
             (funcall-interactively (or (cadddr sug) (car sug)))))))))
 
-(defun package--autosugest-prompt (packages)
+(defun package--autosuggest-prompt (packages)
   "Query the user whether to install PACKAGES or not.
 PACKAGES is a list of package suggestions in the form described in
 `package--suggestion-applies-p'.  The function returns a non-nil value
@@ -4676,7 +4676,7 @@ The optional argument CANDIDATES may be a list of package suggestions
 in the form described in `package--suggestion-applies-p'.  If omitted
 or nil, the list of candidates will be computed from the database."
   (interactive)
-  (package--autosugest-prompt
+  (package--autosuggest-prompt
    (or candidates
        (package--autosuggest-find-candidates)
        (user-error "No package suggestions found"))))

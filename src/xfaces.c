@@ -5211,6 +5211,7 @@ lookup_basic_face (struct window *w, struct frame *f, int face_id)
     case WINDOW_DIVIDER_LAST_PIXEL_FACE_ID:	name = Qwindow_divider_last_pixel;	break;
     case INTERNAL_BORDER_FACE_ID:	name = Qinternal_border; 	break;
     case CHILD_FRAME_BORDER_FACE_ID:	name = Qchild_frame_border; 	break;
+    case MARGIN_FACE_ID:		name = Qmargin;			break;
 
     default:
       emacs_abort (); /* the caller is supposed to pass us a basic face id */
@@ -5978,6 +5979,7 @@ realize_basic_faces (struct frame *f)
       realize_named_face (f, Qtab_bar, TAB_BAR_FACE_ID);
       realize_named_face (f, Qtab_line_active, TAB_LINE_ACTIVE_FACE_ID);
       realize_named_face (f, Qtab_line_inactive, TAB_LINE_INACTIVE_FACE_ID);
+      realize_named_face (f, Qmargin, MARGIN_FACE_ID);
       unbind_to (count, Qnil);
 
       /* Reflect changes in the `menu' face in menu bars.  */

@@ -294,7 +294,7 @@
 ;;   RCS and CVS, and is otherwise silently ignored.
 ;;
 ;;   If the backend supports async checkins and `vc-async-checkin' is
-;;   non-nil, the implementation should start an asychronous process to
+;;   non-nil, the implementation should start an asynchronous process to
 ;;   commit the changes, and return a cons whose car is `async' and
 ;;   whose cdr is that process object.
 ;;
@@ -3357,27 +3357,30 @@ BACKEND is the VC backend."
         ;; branch has no name.
         (vc-call-backend backend 'trunk-or-topic-p branch))))
 
-(defun vc--outgoing-base (backend)
+(defun vc--outgoing-base (backend force-topic)
   "Return an outgoing base for the current branch under VC backend BACKEND.
 The outgoing base is the upstream location for which unintegrated
 changes on this branch are destined once they are integrated.
 
 There are two stages to determining the outgoing base.
 First we decide whether we think this is a shorter-lived or a
-longer-lived (\"trunk\") branch by calling `vc-trunk-or-topic-p'.
-If that function returns nil, assume this is a shorter-lived branch.
-This is based on how it's commands primarily intended for working with
-shorter-lived branches that call this function.
+longer-lived (\"trunk\") branch.  If FORCE-TOPIC is non-nil, assume this
+is a shorter-lived branch.  Otherwise call `vc-trunk-or-topic-p'.
+If that function returns nil, also assume this is a shorter-lived
+branch.  This is based on how it's commands primarily intended for
+working with shorter-lived branches that call this function.
 Second, if we have determined that this is a trunk, return nil, meaning
 that the outgoing base is the place to which `vc-push' would push.
 Otherwise, we have determined that this is a shorter-lived branch, and
 we return the value of calling BACKEND's `topic-outgoing-base' VC API
 function."
   ;; For further discussion see bug#80006.
-  (and (memq (vc-trunk-or-topic-p nil backend) '(topic nil))
+  (and (or force-topic
+           (memq (vc-trunk-or-topic-p nil backend) '(topic nil)))
        (vc-call-backend backend 'topic-outgoing-base)))
 
-(defun vc--outgoing-base-mergebase (backend &optional upstream-location refresh)
+(defun vc--outgoing-base-mergebase
+    (backend &optional upstream-location refresh force-topic)
   "Return, under VC backend BACKEND, the merge base with UPSTREAM-LOCATION.
 Normally UPSTREAM-LOCATION, if non-nil, is a string.
 If UPSTREAM-LOCATION is nil, it means to call `vc--outgoing-base' and
@@ -3387,12 +3390,15 @@ If UPSTREAM-LOCATION is the special value t, it means to use the place
 to which `vc-push' would push as UPSTREAM-LOCATION, unconditionally.
 (This is passed when the user invokes an outgoing base command with a
  \\`C-u C-u' prefix argument; see `vc--maybe-read-outgoing-base'.)
-REFRESH is passed on to `vc--incoming-revision'."
+REFRESH is passed on to `vc--incoming-revision'.
+FORCE-TOPIC is passed on to `vc--outgoing-base'."
   (vc-call-backend backend 'mergebase
                    (vc--incoming-revision backend
                                           (pcase upstream-location
                                             ('t nil)
-                                            ('nil (vc--outgoing-base backend))
+                                            ('nil
+                                             (vc--outgoing-base backend
+                                                                force-topic))
                                             (_ upstream-location))
                                           refresh)))
 
@@ -3460,6 +3466,41 @@ When called from Lisp, optional argument FILESET overrides the fileset."
                       (called-interactively-p 'interactive))))
 
 ;;;###autoload
+(defun vc-root-diff-outgoing-and-edited (&optional upstream-location)
+  "Report combined diff of all outgoing and uncommitted changes.
+Outgoing changes are those that would be pushed to UPSTREAM-LOCATION.
+When unspecified UPSTREAM-LOCATION is the place \\[vc-push] would push
+to.  When called interactively with a prefix argument, prompt for
+UPSTREAM-LOCATION.  In some version control systems UPSTREAM-LOCATION
+can be a remote branch name.
+When called from Lisp optional argument FILESET overrides the VC
+fileset.
+
+This command is the same as `vc-root-diff-unintegrated' used on a trunk."
+  (declare (interactive-only vc-root-diff-unintegrated))
+  (interactive (list (or (vc--maybe-read-outgoing-base) t)))
+  (vc-root-diff-unintegrated upstream-location))
+
+;;;###autoload
+(defun vc-diff-outgoing-and-edited (&optional upstream-location fileset)
+  "Report combined diff of outgoing and uncommitted changes to VC fileset.
+Outgoing changes are those that would be pushed to UPSTREAM-LOCATION.
+When unspecified UPSTREAM-LOCATION is the place \\[vc-push] would push
+to.  When called interactively with a prefix argument, prompt for
+UPSTREAM-LOCATION.  In some version control systems UPSTREAM-LOCATION
+can be a remote branch name.
+When called from Lisp optional argument FILESET overrides the VC
+fileset.
+
+This command is the same as `vc-diff-unintegrated' used on a trunk."
+  (declare (interactive-only vc-diff-unintegrated))
+  (interactive (let ((fileset (vc-deduce-fileset t)))
+                 (list (or (vc--maybe-read-outgoing-base (car fileset))
+                           t)
+                       fileset)))
+  (vc-diff-unintegrated upstream-location fileset))
+
+;;;###autoload
 (defun vc-log-unintegrated (&optional upstream-location fileset)
   "Show log for the VC fileset since the merge base with UPSTREAM-LOCATION.
 The merge base with UPSTREAM-LOCATION means the common ancestor of the
@@ -3516,6 +3557,115 @@ topic branch."
   (interactive (list (vc--maybe-read-outgoing-base)))
   (vc--with-backend-in-rootdir "VC revision log"
     (vc-log-unintegrated upstream-location `(,backend (,rootdir)))))
+
+;;;###autoload
+(defun vc-root-diff-remote-unintegrated (&optional upstream-location)
+  "Report diff of remote changes since merge base with UPSTREAM-LOCATION.
+Remote changes are changes in the incoming revision (instead of the
+working revision), and the merge base with UPSTREAM-LOCATION is the
+common ancestor of the incoming revision and UPSTREAM-LOCATION.
+This command only makes sense for decentralized VCS, because otherwise
+there is no distinction between locally committed changes and upstream
+changes.
+
+When unspecified, UPSTREAM-LOCATION is the outgoing base when this
+branch is considered as a topic branch (whether or not it actually is).
+This command with unspecified UPSTREAM-LOCATION only makes sense on
+topic branches.  See `vc-trunk-or-topic-p'.
+
+When called interactively with a prefix argument, prompt for
+UPSTREAM-LOCATION, which should be a remote branch name."
+  (interactive (list (vc--maybe-read-outgoing-base nil 'no-double)))
+  (vc--with-backend-in-rootdir "VC root-diff"
+    (vc-diff-remote-unintegrated upstream-location
+                                 `(,backend (,rootdir)))))
+
+;;;###autoload
+(defun vc-diff-remote-unintegrated (&optional upstream-location fileset)
+  "Show remote fileset changes since merge base with UPSTREAM-LOCATION.
+Remote changes are changes in the incoming revision (instead of the
+working revision), and the merge base with UPSTREAM-LOCATION is the
+common ancestor of the incoming revision and UPSTREAM-LOCATION.
+This command only makes sense for decentralized VCS, because otherwise
+there is no distinction between locally committed changes and remote
+changes.
+
+When unspecified, UPSTREAM-LOCATION is the outgoing base when this
+branch is considered as a topic branch (whether or not it actually is).
+This command with unspecified UPSTREAM-LOCATION only makes sense on
+topic branches.  See `vc-trunk-or-topic-p'.
+
+When called interactively with a prefix argument, prompt for
+UPSTREAM-LOCATION, which should be a remote branch name.
+
+When called from Lisp, optional argument FILESET overrides the fileset."
+  (interactive (let ((fileset (vc-deduce-fileset t)))
+                 (list (vc--maybe-read-outgoing-base (car fileset)
+                                                     'no-double)
+                       fileset)))
+  (let* ((fileset (or fileset (vc-deduce-fileset t)))
+         (backend (car fileset)))
+    (vc-diff-internal vc-allow-async-diff fileset
+                      (vc--outgoing-base-mergebase backend
+                                                   upstream-location
+                                                   'refresh 'force-topic)
+                      ;; REFRESH nil here because we just refreshed.
+                      (vc--incoming-revision backend)
+                      (called-interactively-p 'interactive))))
+
+;;;###autoload
+(defun vc-log-remote-unintegrated (&optional upstream-location fileset)
+  "Show remote log for VC fileset since merge base with UPSTREAM-LOCATION.
+Remote changes are changes in the incoming revision (instead of the
+working revision), and the merge base with UPSTREAM-LOCATION is the
+common ancestor of the incoming revision and UPSTREAM-LOCATION.
+This command only makes sense for decentralized VCS, because otherwise
+there is no distinction between locally committed changes and remote
+changes.
+
+When unspecified, UPSTREAM-LOCATION is the outgoing base when this
+branch is considered as a topic branch (whether or not it actually is).
+This command with unspecified UPSTREAM-LOCATION only makes sense on
+topic branches.  See `vc-trunk-or-topic-p'.
+
+When called interactively with a prefix argument, prompt for
+UPSTREAM-LOCATION, which should be a remote branch name.
+
+When called from Lisp, optional argument FILESET overrides the fileset."
+  (interactive (let ((fileset (vc-deduce-fileset t)))
+                 (list (vc--maybe-read-outgoing-base (car fileset))
+                       fileset)))
+  (let* ((fileset (or fileset (vc-deduce-fileset t)))
+         (backend (car fileset)))
+    (vc-print-log-internal backend (cadr fileset)
+                           (vc--incoming-revision backend nil 'refresh)
+                           'is-start-revision
+                           ;; REFRESH nil here because we just refreshed.
+                           (vc--outgoing-base-mergebase backend
+                                                        upstream-location
+                                                        nil 'force-topic))))
+
+;;;###autoload
+(defun vc-root-log-remote-unintegrated (&optional upstream-location)
+  "Show log of remote revisions since merge base with UPSTREAM-LOCATION.
+Remote changes are changes in the incoming revision (instead of the
+working revision), and the merge base with UPSTREAM-LOCATION is the
+common ancestor of the incoming revision and UPSTREAM-LOCATION.
+This command only makes sense for decentralized VCS, because otherwise
+there is no distinction between locally committed changes and remote
+changes.
+
+When unspecified, UPSTREAM-LOCATION is the outgoing base when this
+branch is considered as a topic branch (whether or not it actually is).
+This command with unspecified UPSTREAM-LOCATION only makes sense on
+topic branches.  See `vc-trunk-or-topic-p'.
+
+When called interactively with a prefix argument, prompt for
+UPSTREAM-LOCATION, which should be a remote branch name."
+  (interactive (list (vc--maybe-read-outgoing-base nil 'no-double)))
+  (vc--with-backend-in-rootdir "VC revision log"
+    (vc-log-remote-unintegrated upstream-location
+                                `(,backend (,rootdir)))))
 
 (declare-function ediff-load-version-control "ediff" (&optional silent))
 (declare-function ediff-vc-internal "ediff-vers"
@@ -4446,14 +4596,15 @@ starting at that revision.  Tags and remote references also work."
                                nil 'vc-remote-location-history)))
          (and (not (string-empty-p res)) res))))
 
-(defun vc--maybe-read-outgoing-base (&optional backend)
+(defun vc--maybe-read-outgoing-base (&optional backend no-double)
   "Return upstream location for interactive uses of outgoing base commands.
 If there is no prefix argument, return nil.
-If the current prefix argument is \\`C-u C-u', return t.
+If the current prefix argument is \\`C-u C-u' and NO-DOUBLE is nil,
+return t.
 Otherwise prompt for an upstream location.
 BACKEND is the VC backend."
   (cond
-   ((equal current-prefix-arg '(16)) t)
+   ((and (not no-double) (equal current-prefix-arg '(16))) t)
    (current-prefix-arg
     (let* ((outgoing-base (vc-call-backend (or backend
                                                (vc-deduce-backend))
@@ -5581,15 +5732,14 @@ When called from Lisp, BACKEND is the VC backend."
   (dired directory))
 
 (defvar project-prompter)
+(declare-function project-root "project")
 
-(defun vc--prompt-other-working-tree (backend prompt &optional allow-empty)
+(defun vc--prompt-other-working-tree (backend prompt &optional allow-current)
   "Invoke `project-prompter' to choose another working tree.
 BACKEND is the VC backend.
 PROMPT is the prompt string for `project-prompter'.
-If ALLOW-EMPTY is non-nil, empty input means the current working tree.
-In typical usage ALLOW-EMPTY non-nil means that it makes sense to apply
-the caller's operation to the current working tree."
-  ;; If there are no other working trees and ALLOW-EMPTY is non-nil, we
+If ALLOW-CURRENT is non-nil, allow selecting the current working tree."
+  ;; If there are no other working trees and ALLOW-CURRENT is non-nil we
   ;; still invoke the `project-prompter' and require the user to type
   ;; \\`RET', even though it's redundant.  Doing it this way means that
   ;; invoking the command on the current working tree works the same
@@ -5601,28 +5751,28 @@ the caller's operation to the current working tree."
   ;; stopping to look at the echo area.
   (let ((trees (vc-call-backend backend 'known-other-working-trees))
         res)
-    (unless (or trees allow-empty)
-      (user-error
-       (substitute-command-keys
-        "No other working trees.  Use \\[vc-add-working-tree] to add one")))
     (require 'project)
+    (cond* ((bind-and* (_ allow-current)
+                       (p (project-current)))
+            (push (project-root p) trees))
+           ((null trees)
+            (user-error
+             (substitute-command-keys
+              "No other working trees.  Use \\[vc-add-working-tree] to add one"))))
     (dolist (tree trees)
       (when-let* ((p (project-current nil tree)))
         (project-remember-project p nil t)))
     (setq res
           (funcall project-prompter
-                   (if allow-empty
-                       (format "%s (empty for this working tree)"
-                               prompt)
+                   (if allow-current
+                       (concat prompt " (default current working tree)")
                      prompt)
-                   (if trees
-                       (lambda (k &optional _v)
-                         (member (or (car-safe k) k) trees))
-                     #'ignore)
-                   t allow-empty))
+                   (lambda (k &optional _v)
+                     (member (or (car-safe k) k) trees))
+                   'require-known))
     (if (string-empty-p res) (vc-root-dir) res)))
 
-(defvar project-current-directory-override)
+(defvar project-find-matching-buffer-function)
 
 ;;;###autoload
 (defun vc-switch-working-tree (directory)
@@ -5636,8 +5786,17 @@ to the root of this working tree."
    (list
     (vc--prompt-other-working-tree (vc-responsible-backend default-directory)
                                    "Other working tree to visit")))
-  (let ((project-current-directory-override directory))
-    (project-find-matching-buffer)))
+  (let ((backend (or (vc-deduce-backend)
+                     (vc-responsible-backend default-directory)
+                     (error "No VC backend"))))
+    ;; Manually construct VC project objects because `project-current'
+    ;; might find a non-VC project within the VC working tree containing
+    ;; DIRECTORY, but we should ignore that (bug#80939).
+    (funcall project-find-matching-buffer-function
+             `(vc ,backend ,(vc-root-dir backend))
+             `(vc ,backend
+                  ,(let ((default-directory directory))
+                     (vc-root-dir backend))))))
 
 ;;;###autoload
 (defun vc-working-tree-switch-project (dir)
@@ -5650,7 +5809,8 @@ Prompts for the directory file name of the other working tree."
   (interactive
    (list
     (vc--prompt-other-working-tree (vc-responsible-backend default-directory)
-                                   "Other working tree to switch to")))
+                                   "Other working tree to switch to"
+                                   'allow-current)))
   (project-switch-project dir))
 
 ;;;###autoload
@@ -5663,7 +5823,7 @@ BACKEND is the VC backend."
    (let ((backend (vc-responsible-backend default-directory)))
      (list backend
            (vc--prompt-other-working-tree backend "Delete working tree"
-                                          'allow-empty))))
+                                          'allow-current))))
   (let* ((delete-this (file-in-directory-p default-directory directory))
          (directory (expand-file-name directory))
          (default-directory
@@ -5709,7 +5869,7 @@ BACKEND is the VC backend."
    (let ((backend (vc-responsible-backend default-directory)))
      (list backend
            (vc--prompt-other-working-tree backend "Relocate working tree"
-                                          'allow-empty)
+                                          'allow-current)
            (read-directory-name "New location for working tree: "
                                 (file-name-parent-directory (vc-root-dir))))))
   (let* ((move-this (file-in-directory-p default-directory from))

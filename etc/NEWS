@@ -25,6 +25,14 @@ applies, and please also update docstrings as needed.
 * Installation Changes in Emacs 31.1
 
 +++
+** New face 'margin' for the window margin background.
+A new basic face 'margin' is used by default for text displayed in the
+left and right margin areas, i.e., the areas reserved by packages such as
+git-gutter, lsp-mode, and hl-diff for per-line annotations.  Its
+background defaults to the frame default, so existing behavior is
+unchanged for users who do not customize it.
+
++++
 ** Unexec dumper removed.
 The traditional unexec dumper, deprecated since Emacs 27, has been
 removed.
@@ -766,7 +774,7 @@ more terminals and applications than the old capabilities, 'setf24' and
 +++
 ** New user option 'xterm-update-cursor' to update cursor display on TTYs.
 When enabled, Emacs sends Xterm escape sequences on Xterm-compatible
-terminals to update the cursor's appearacse.  Emacs can update the
+terminals to update the cursor's appearance.  Emacs can update the
 cursor's shape and color.  For example, if you use a purple bar cursor
 on graphical displays then when this option is enabled Emacs will use a
 purple bar cursor on compatible terminals as well.  See the Info node
@@ -976,11 +984,10 @@ It is equivalent to running 'project-any-command' with
 The prompt now displays the chosen project on which to invoke a command.
 
 ---
-*** 'project-prompter' values may be called with up to four arguments.
+*** 'project-prompter' values may be called with up to three arguments.
 These allow callers of the value of 'project-prompter' to specify a
 prompt string; prompt the user to choose between a subset of all the
-known projects; disallow returning arbitrary directories; and allow
-returning an empty string.
+known projects; and disallow returning arbitrary directories.
 See the docstring of 'project-prompter' for a full specification of
 these new optional arguments.
 
@@ -3008,6 +3015,19 @@ These are useful to view all outstanding (unmerged, unpushed) changes on
 the current branch.  They are also available as 'T =', 'T D', 'T l' and
 'T L' in VC Directory buffers.
 
+'C-x v T R =' ('vc-diff-remote-unintegrated'), 'C-x v T R D'
+('vc-root-diff-remote-unintegrated'), 'C-x v T R l'
+('vc-log-remote-unintegrated') and 'C-x v T R L'
+('vc-root-log-remote-unintegrated') are corresponding commands which
+report information about the remote versions of a topic branch.
+
++++
+*** New commands to report combined diffs of all local changes.
+'C-x v E =' ('vc-diff-outgoing-and-edited') and 'C-x v E D'
+('vc-root-diff-outgoing-and-edited') report combined diffs of all
+outgoing changes plus any uncommitted changes.  They are useful to show
+all work that's present only locally.
+
 +++
 *** New user option 'vc-use-incoming-outgoing-prefixes'.
 If this is customized to non-nil, 'C-x v I' and 'C-x v O' become prefix
@@ -4581,6 +4601,20 @@ is a proper list, in which case the list will be returned as is,
 otherwise the function will return the object wrapped in a
 singleton list.
 
+---
+** In batch mode, 'C-c' (i.e. SIGINT) can either 'quit' or kill Emacs.
+By default it kills Emacs, as before, but 'kill-emacs-on-sigint'
+can be set to nil to change that.
+The response to SIGINT in interactive sessions is unaffected,
+e.g. in a normal GUI session it still kills Emacs whereas in a terminal
+it causes 'quit' since it is used for 'C-g'.
+
++++
+** New ':interactive-only' way to add an advice.
+While it is marginally more efficient than ':after' or ':before',
+the main purpose is to make the intention more obvious when the advice
+modifies only the interactive form and not the actual behavior
+of the function.
 
 * Changes in Emacs 31.1 on Non-Free Operating Systems
 
@@ -4668,9 +4702,7 @@ color Emoji font installed on your system for the 'emoji' script.
 +++
 ** Emacs on MS-Windows now supports 'yank-media'.
 This command inserts clipboard data of different formats into the
-current buffer, if the major mode supports it.  (Support for
-'yank-media' will be unavailable on MS-Windows if Emacs was configured
-'--without-native-image-api'.)
+current buffer, if the major mode supports it.
 
 ---
 ** Emacs on MS-Windows now supports up to 1024 sub-processes.
