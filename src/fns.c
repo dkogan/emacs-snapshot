@@ -2804,7 +2804,8 @@ DEFUN ("equal", Fequal, Sequal, 2, 2, 0,
        doc: /* Return t if two Lisp objects have similar structure and contents.
 They must have the same data type.
 Conses are compared by comparing the cars and the cdrs.
-Vectors and strings are compared element by element.
+Vectors and strings are compared element by element (so text properties
+of strings are ignored).
 Numbers are compared via `eql', so integers do not equal floats.
 \(Use `=' if you want integers and floats to be able to be equal.)
 Symbols must match exactly.  */)
@@ -4974,13 +4975,15 @@ maybe_resize_hash_table (struct Lisp_Hash_Table *h)
 
       Lisp_Object *key_and_value
 	= hash_table_alloc_bytes (2 * new_size * sizeof *key_and_value);
-      memcpy (key_and_value, h->key_and_value,
-	      2 * old_size * sizeof *key_and_value);
+      if (old_size)
+	memcpy (key_and_value, h->key_and_value,
+		2 * old_size * sizeof *key_and_value);
       for (ptrdiff_t i = 2 * old_size; i < 2 * new_size; i++)
         key_and_value[i] = HASH_UNUSED_ENTRY_KEY;
 
       hash_hash_t *hash = hash_table_alloc_bytes (new_size * sizeof *hash);
-      memcpy (hash, h->hash, old_size * sizeof *hash);
+      if (old_size)
+	memcpy (hash, h->hash, old_size * sizeof *hash);
 
       ptrdiff_t old_index_size = hash_table_index_size (h);
       ptrdiff_t index_bits = compute_hash_index_bits (new_size);

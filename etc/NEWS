@@ -30,11 +30,28 @@ applies, and please also update docstrings as needed.
 
 * Changes in Emacs 32.1
 
+---
+** Emacs no longer kills child processes after EPIPE.
+Previously, Emacs would immediately kill a child process and set its
+exit status to 256 if sending input to that process returned EPIPE.
+Now when this happens, Emacs closes the file descriptor to write to the
+child process, but allows it to continue execution as normal.
+
 
 * Editing Changes in Emacs 32.1
 
 
 * Changes in Specialized Modes and Packages in Emacs 32.1
+
+** Package
+
+---
+*** Package-vc can copy local changes from existing installations.
+When installing the latest release of a package, 'package-vc' will
+propose copying files from an existing tarball installation of the same
+package with the same version.  This is useful if you have started
+making local changes to your tarball installation, and then decided to
+check out the repository to prepare a patch for the package maintainer.
 
 
 * New Modes and Packages in Emacs 32.1
