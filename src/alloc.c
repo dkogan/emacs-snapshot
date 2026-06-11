@@ -638,13 +638,21 @@ static_assert (LISP_ALIGNMENT % GCALIGNMENT == 0);
 enum { MALLOC_IS_LISP_ALIGNED = alignof (max_align_t) % LISP_ALIGNMENT == 0 };
 static_assert (MALLOC_IS_LISP_ALIGNED);
 
+/* Most of Emacs does not assume PTRDIFF_MAX <= SIZE_MAX, and may use
+   expressions like min (PTRDIFF_MAX, SIZE_MAX) to port even to
+   theoretical platforms where the assumption does not hold.
+   However, some parts of Emacs pass nonnegative ptrdiff_t values to
+   allocator functions like xmalloc that expect size_t.
+   This is portable in practice; check it here to document the assumption.  */
+static_assert (PTRDIFF_MAX <= SIZE_MAX);
+
 #define MALLOC_PROBE(size)			\
   do {						\
     if (profiler_memory_running)		\
       malloc_probe (size);			\
   } while (0)
 
-/* Like malloc but check for no memory and block interrupt input.  */
+/* Like malloc but check for no memory, and profile allocations.  */
 
 void *
 xmalloc (size_t size)
@@ -656,7 +664,10 @@ xmalloc (size_t size)
   return val;
 }
 
-/* Like the above, but zeroes out the memory just allocated.  */
+/* Like the above, but zero out the memory just allocated.
+   Calling this can be faster than allocating and zeroing,
+   as the calloc implementation can avoid the zeroing overhead
+   when obtaining memory directly from the operating system.  */
 
 void *
 xzalloc (size_t size)
@@ -668,7 +679,22 @@ xzalloc (size_t size)
   return val;
 }
 
-/* Like realloc but check for no memory and block interrupt input.  */
+/* Like xzalloc, but for an array of N objects each of size S.  */
+
+void *
+xcalloc (size_t n, size_t s)
+{
+  void *val = calloc (n, s);
+  if (!val)
+    {
+      size_t size;
+      memory_full (ckd_mul (&size, n, s) ? SIZE_MAX : size);
+    }
+  MALLOC_PROBE (n * s);
+  return val;
+}
+
+/* Like realloc but check for no memory, and profile allocations.  */
 
 void *
 xrealloc (void *block, size_t size)
@@ -681,7 +707,7 @@ xrealloc (void *block, size_t size)
 }
 
 
-/* Like free but block interrupt input.  */
+/* Like free but do not free pdumper objects.  */
 
 void
 xfree (void *block)
@@ -703,7 +729,7 @@ static_assert (INT_MAX <= PTRDIFF_MAX);
 
 
 /* Allocate an array of NITEMS items, each of size ITEM_SIZE.
-   Signal an error on memory exhaustion, and block interrupt input.  */
+   Signal an error on memory exhaustion, and profile allocations.  */
 
 void *
 xnmalloc (ptrdiff_t nitems, ptrdiff_t item_size)
@@ -711,13 +737,13 @@ xnmalloc (ptrdiff_t nitems, ptrdiff_t item_size)
   eassert (0 <= nitems && 0 < item_size);
   ptrdiff_t nbytes;
   if (ckd_mul (&nbytes, nitems, item_size) || SIZE_MAX < nbytes)
-    memory_full (SIZE_MAX);
+    memory_full_up ();
   return xmalloc (nbytes);
 }
 
 
 /* Reallocate an array PA to make it of NITEMS items, each of size ITEM_SIZE.
-   Signal an error on memory exhaustion, and block interrupt input.  */
+   Signal an error on memory exhaustion, and profile allocations.  */
 
 void *
 xnrealloc (void *pa, ptrdiff_t nitems, ptrdiff_t item_size)
@@ -725,7 +751,7 @@ xnrealloc (void *pa, ptrdiff_t nitems, ptrdiff_t item_size)
   eassert (0 <= nitems && 0 < item_size);
   ptrdiff_t nbytes;
   if (ckd_mul (&nbytes, nitems, item_size) || SIZE_MAX < nbytes)
-    memory_full (SIZE_MAX);
+    memory_full_up ();
   return xrealloc (pa, nbytes);
 }
 
@@ -743,7 +769,7 @@ xnrealloc (void *pa, ptrdiff_t nitems, ptrdiff_t item_size)
    If PA is null, then allocate a new array instead of reallocating
    the old one.
 
-   Block interrupt input as needed.  If memory exhaustion occurs, set
+   Profile memory allocations.  If memory exhaustion occurs, set
    *NITEMS to zero if PA is null, and signal an error (i.e., do not
    return).
 
@@ -792,7 +818,7 @@ xpalloc (void *pa, ptrdiff_t *nitems, ptrdiff_t nitems_incr_min,
       && (ckd_add (&n, n0, nitems_incr_min)
 	  || (0 <= nitems_max && nitems_max < n)
 	  || ckd_mul (&nbytes, n, item_size)))
-    memory_full (SIZE_MAX);
+    memory_full_up ();
   pa = xrealloc (pa, nbytes);
   *nitems = n;
   return pa;
@@ -873,7 +899,7 @@ void *lisp_malloc_loser EXTERNALLY_VISIBLE;
    L == make_lisp_ptr (P, T), then XPNTR (L) == P and XTYPE (L) == T.  */
 
 static void *
-lisp_malloc (size_t nbytes, bool clearit, enum mem_type type)
+lisp_malloc (ptrdiff_t nbytes, bool clearit, enum mem_type type)
 {
   register void *val;
 
@@ -1057,7 +1083,7 @@ pointer_align (void *ptr, int alignment)
    Alignment is on a multiple of BLOCK_ALIGN and `nbytes' has to be
    smaller or equal to BLOCK_BYTES.  */
 static void *
-lisp_align_malloc (size_t nbytes, enum mem_type type)
+lisp_align_malloc (ptrdiff_t nbytes, enum mem_type type)
 {
   void *base, *val;
   struct ablocks *abase;
@@ -1111,7 +1137,7 @@ lisp_align_malloc (size_t nbytes, enum mem_type type)
 	    {
 	      lisp_malloc_loser = base;
 	      free (base);
-	      memory_full (SIZE_MAX);
+	      memory_full_up ();
 	    }
 	}
 #endif
@@ -1496,12 +1522,12 @@ sdata_size (ptrdiff_t n)
 
 /* Exact bound on the number of bytes in a string, not counting the
    terminating null.  A string cannot contain more bytes than
-   STRING_BYTES_BOUND, nor can it be so long that the size_t
+   STRING_BYTES_BOUND, nor can it be so long that the
    arithmetic in allocate_string_data would overflow while it is
    calculating a value to be passed to malloc.  */
 static ptrdiff_t const STRING_BYTES_MAX =
   min (STRING_BYTES_BOUND,
-       ((SIZE_MAX
+       ((min (PTRDIFF_MAX, SIZE_MAX)
 	 - GC_STRING_EXTRA
 	 - offsetof (struct sblock, data)
 	 - SDATA_DATA_OFFSET)
@@ -1742,7 +1768,7 @@ allocate_string_data (struct Lisp_String *s,
 
   if (nbytes > LARGE_STRING_BYTES || immovable)
     {
-      size_t size = FLEXSIZEOF (struct sblock, data, needed);
+      ptrdiff_t size = FLEXSIZEOF (struct sblock, data, needed);
 
 #ifdef DOUG_LEA_MALLOC
       if (!mmap_lisp_allowed_p ())
@@ -2181,7 +2207,7 @@ LENGTH must be a number.  INIT matters only in whether it is t or nil.  */)
   CHECK_FIXNAT (length);
   EMACS_INT len = XFIXNAT (length);
   if (BOOL_VECTOR_LENGTH_MAX < len)
-    memory_full (SIZE_MAX);
+    memory_full_up ();
   Lisp_Object val = make_clear_bool_vector (len, NILP (init));
   return NILP (init) ? val : bool_vector_fill (val, init);
 }
@@ -2193,7 +2219,7 @@ usage: (bool-vector &rest OBJECTS)  */)
   (ptrdiff_t nargs, Lisp_Object *args)
 {
   if (BOOL_VECTOR_LENGTH_MAX < nargs)
-    memory_full (SIZE_MAX);
+    memory_full_up ();
   Lisp_Object vector = make_clear_bool_vector (nargs, true);
   for (ptrdiff_t i = 0; i < nargs; i++)
     if (!NILP (args[i]))
@@ -2970,7 +2996,7 @@ allocate_vector_from_block (ptrdiff_t nbytes)
 {
   struct Lisp_Vector *vector;
   struct vector_block *block;
-  size_t index, restbytes;
+  ptrdiff_t index, restbytes;
 
   eassume (VBLOCK_BYTES_MIN <= nbytes && nbytes <= VBLOCK_BYTES_MAX);
   eassume (nbytes % roundup_size == 0);
@@ -2996,7 +3022,7 @@ allocate_vector_from_block (ptrdiff_t nbytes)
       {
 	/* This vector is larger than requested.  */
 	vector = vector_free_lists[index];
-	size_t vector_nbytes = pseudovector_nbytes (&vector->header);
+	ptrdiff_t vector_nbytes = pseudovector_nbytes (&vector->header);
 	eassert (vector_nbytes > nbytes);
 	ASAN_UNPOISON_VECTOR_CONTENTS (vector, nbytes - header_size);
 	vector_free_lists[index] = next_vector (vector);
@@ -3397,7 +3423,7 @@ allocate_clear_vector (ptrdiff_t len, bool clearit)
   if (len == 0)
     return XVECTOR (zero_vector);
   if (VECTOR_ELTS_MAX < len)
-    memory_full (SIZE_MAX);
+    memory_full_up ();
   struct Lisp_Vector *v = allocate_vectorlike (len, clearit);
   v->header.size = len;
   return v;
@@ -4124,7 +4150,7 @@ memory_full (size_t nbytes)
       consing_until_gc = min (consing_until_gc, memory_full_cons_threshold);
 
       /* The first time we get here, free the spare memory.  */
-      for (int i = 0; i < ARRAYELTS (spare_memory); i++)
+      for (int i = 0; i < countof (spare_memory); i++)
 	if (spare_memory[i])
 	  {
 	    if (i == 0)
@@ -4140,6 +4166,16 @@ memory_full (size_t nbytes)
   /* This used to call error, but if we've run out of memory, we could
      get infinite recursion trying to build the string.  */
   xsignal (Qnil, Vmemory_signal_data);
+}
+
+/* Report memory exhaustion because size calculations overflowed,
+   or perhaps malloc was invoked successfully but the
+   resulting pointer had problems fitting into a tagged EMACS_INT.  */
+
+void
+memory_full_up (void)
+{
+  memory_full (SIZE_MAX);
 }
 
 /* If we released our reserve (due to running out of memory),
@@ -5429,10 +5465,10 @@ inhibit_garbage_collection (void)
 }
 
 /* Return the number of bytes in N objects each of size S, guarding
-   against overflow if size_t is narrower than byte_ct.  */
+   against overflow if ptrdiff_t is narrower than byte_ct.  */
 
 static byte_ct
-object_bytes (object_ct n, size_t s)
+object_bytes (object_ct n, ptrdiff_t s)
 {
   byte_ct b = s;
   return n * b;
@@ -5643,7 +5679,7 @@ visit_static_gc_roots (struct gc_root_visitor visitor)
                      &buffer_local_symbols,
                      GC_ROOT_BUFFER_LOCAL_NAME);
 
-  for (int i = 0; i < ARRAYELTS (lispsym); i++)
+  for (int i = 0; i < countof (lispsym); i++)
     {
       Lisp_Object sptr = builtin_lisp_symbol (i);
       visitor.visit (&sptr, GC_ROOT_C_SYMBOL, visitor.data);
@@ -6573,7 +6609,7 @@ process_mark_stack (ptrdiff_t base_sp)
 
 	      case PVEC_CHAR_TABLE:
 	      case PVEC_SUB_CHAR_TABLE:
-		mark_char_table (ptr, (enum pvec_type) pvectype);
+		mark_char_table (ptr, pvectype);
 		break;
 
 	      case PVEC_BOOL_VECTOR:
@@ -6999,11 +7035,11 @@ sweep_symbols (void)
   struct symbol_block *sblk;
   struct symbol_block **sprev = &symbol_block;
   int lim = symbol_block_index;
-  object_ct num_free = 0, num_used = ARRAYELTS (lispsym);
+  object_ct num_free = 0, num_used = countof (lispsym);
 
   symbol_free_list = NULL;
 
-  for (int i = 0; i < ARRAYELTS (lispsym); i++)
+  for (int i = 0; i < countof (lispsym); i++)
     lispsym[i].u.s.gcmarkbit = 0;
 
   for (sblk = symbol_block; sblk; sblk = *sprev)
@@ -7141,28 +7177,28 @@ respective remote host.  */)
 #else
   units = 1;
 #endif
-  return list4i ((uintmax_t) si.totalram * units / 1024,
-		 (uintmax_t) si.freeram * units / 1024,
-		 (uintmax_t) si.totalswap * units / 1024,
-		 (uintmax_t) si.freeswap * units / 1024);
+  return list4i ((uintmax_t) {si.totalram} * units / 1024,
+		 (uintmax_t) {si.freeram} * units / 1024,
+		 (uintmax_t) {si.totalswap} * units / 1024,
+		 (uintmax_t) {si.freeswap} * units / 1024);
 #elif defined WINDOWSNT
   unsigned long long totalram, freeram, totalswap, freeswap;
 
   if (w32_memory_info (&totalram, &freeram, &totalswap, &freeswap) == 0)
-    return list4i ((uintmax_t) totalram / 1024,
-		   (uintmax_t) freeram / 1024,
-		   (uintmax_t) totalswap / 1024,
-		   (uintmax_t) freeswap / 1024);
+    return list4i ((uintmax_t) {totalram} / 1024,
+		   (uintmax_t) {freeram} / 1024,
+		   (uintmax_t) {totalswap} / 1024,
+		   (uintmax_t) {freeswap} / 1024);
   else
     return Qnil;
 #elif defined MSDOS
   unsigned long totalram, freeram, totalswap, freeswap;
 
   if (dos_memory_info (&totalram, &freeram, &totalswap, &freeswap) == 0)
-    return list4i ((uintmax_t) totalram / 1024,
-		   (uintmax_t) freeram / 1024,
-		   (uintmax_t) totalswap / 1024,
-		   (uintmax_t) freeswap / 1024);
+    return list4i ((uintmax_t) {totalram} / 1024,
+		   (uintmax_t) {freeram} / 1024,
+		   (uintmax_t) {totalswap} / 1024,
+		   (uintmax_t) {freeswap} / 1024);
   else
     return Qnil;
 #else /* not HAVE_LINUX_SYSINFO, not WINDOWSNT, not MSDOS */
@@ -7269,7 +7305,7 @@ which_symbols (Lisp_Object obj, EMACS_INT find_max)
 
    if (! deadp (obj))
      {
-       for (int i = 0; i < ARRAYELTS (lispsym); i++)
+       for (int i = 0; i < countof (lispsym); i++)
 	 {
 	   Lisp_Object sym = builtin_lisp_symbol (i);
 	   if (symbol_uses_obj (sym, obj))
@@ -7437,7 +7473,7 @@ If this portion is smaller than `gc-cons-threshold', this is ignored.  */);
 
   DEFVAR_INT ("symbols-consed", symbols_consed,
 	      doc: /* Number of symbols that have been consed so far.  */);
-  symbols_consed += ARRAYELTS (lispsym);
+  symbols_consed += countof (lispsym);
 
   DEFVAR_INT ("string-chars-consed", string_chars_consed,
 	      doc: /* Number of string characters that have been consed so far.  */);

@@ -161,17 +161,23 @@ proceed to mark and unmark other entries, without asking."
   :version "31.1")
 
 (defcustom vc-dir-auto-hide-up-to-date nil
-  "If non-nil, VC-Dir automatically hides \\+`up-to-date' and \\+`ignored' items.
+  "Whether VC-Dir auto-removes \\+`up-to-date'/\\+`ignored' files from display.
 
-If the value of this variable is the symbol `revert', \
-\\<vc-dir-mode-map>\\[revert-buffer] in VC-Dir
-buffers also does \\[vc-dir-hide-up-to-date].  \
-That is, refreshing the VC-Dir buffer also hides
-\\+`up-to-date' and \\+`ignored' items.
+If the value is nil, files shown in the VC-Dir buffer will remain on
+display if they become \\+`up-to-date' or \\+`ignored'.
+If the value is t, files are automatically removed from display when
+they become \\+`up-to-date' or \\+`ignored'.
+If the value is the symbol `revert', any displayed files that
+are \\+`up-to-date' or \\+`ignored' are removed from display
+by \\<vc-dir-mode-map>\\[revert-buffer], but they are not automatically removed
+when they become \\+`up-to-date' or \\+`ignored'.  That is,
+refreshing the VC-Dir buffer hides \\+`up-to-date' and \\+`ignored'
+files when the value is the symbol `revert'.
+Any other value is treated as t.
 
-If the value of this variable is any other non-nil value, then in
-addition, hide items whenever their state would change to
-\\+`up-to-date' or \\+`ignored'.
+VC-Dir never shows \\+`up-to-date' and \\+`ignored' files when the
+directory is first displayed.
+
 You can still use `vc-dir-show-fileentry' to manually add an entry for
 an \\+`up-to-date' or \\+`ignored' file."
   :type 'boolean
@@ -640,7 +646,8 @@ Also update some VC file properties from ENTRIES."
                        (or (null next)
                            (vc-dir-fileinfo->directory (ewoc-data next)))))
                 (ewoc-delete vc-ewoc crt)))
-              (setq crt prev))))))
+              (setq crt prev))))
+        (cl-assert (null to-remove))))
     ;; Update VC file properties.
     (pcase-dolist (`(,file ,state ,_extra) entries)
       (vc-file-setprop file 'vc-backend
@@ -1306,8 +1313,7 @@ that file."
 
 (defun vc-dir-resynch-file (&optional fname)
   "Update the entries for FNAME in any directory buffers that list it."
-  (let* ((file  (or fname buffer-file-name))
-         (file-tn (file-truename file))
+  (let* ((file (file-truename (or fname buffer-file-name)))
          (drop '()))
     (save-current-buffer
       ;; look for a vc-dir buffer that might show this file.
@@ -1326,20 +1332,19 @@ that file."
                          ;; `default-directory' in order to do its work,
                          ;; but that's irrelevant to us here.
                          (buffer-local-toplevel-value 'default-directory))))
-              (when (file-in-directory-p file-tn ddir)
-                (if (file-directory-p file-tn)
+              (when (file-in-directory-p file ddir)
+                (if (file-directory-p file)
 		    (progn
-		      (vc-dir-resync-directory-files file-tn)
-		      (ewoc-set-hf vc-ewoc
-				   (vc-dir-headers vc-dir-backend ddir) ""))
+		      (vc-dir-resync-directory-files file)
+		      (vc-dir--set-header ddir))
                   (let* ((complete-state
-                          ;; Pass FILE not FILE-TN here.  See bug#80967.
-                          (vc-dir-recompute-file-state file ddir))
+                          (vc-dir-recompute-file-state file
+                                                       (file-truename ddir)))
 			 (state (cadr complete-state)))
-                    (vc-dir-update
-                     (list complete-state)
-                     status-buf (or (not state)
-				    (eq state 'up-to-date)))))))))))
+                    (vc-dir-update (list complete-state)
+                                   status-buf
+                                   (or (not state)
+				       (eq state 'up-to-date)))))))))))
     ;; Remove out-of-date entries from vc-dir-buffers.
     (setq vc-dir-buffers
           (cl-nset-difference vc-dir-buffers drop :test #'eq))))
@@ -1407,33 +1412,87 @@ the *vc-dir* buffer.
 
 (defcustom vc-dir-show-outgoing-count t
   "Whether to display the number of unpushed revisions in VC-Dir.
-For some combinations of VC backends and remotes, determining how many
-outgoing revisions there are is slow, because the backend must fetch
-from the remote, and your connection to the remote is slow.  Customize
-this variable to nil to disable calculating the outgoing count and
-therefore also disable the fetching."
+This variable was for when the number of unpushed revisions was counted
+synchronously.  As that is now done asynchronously, this toggle is no
+longer needed."
   :type 'boolean
   :safe #'booleanp
   :group 'vc
   :version "31.1")
+(make-obsolete-variable 'vc-dir-show-outgoing-count nil "32.1")
 
-(defun vc-dir--count-outgoing (backend)
-  "Call `vc--count-outgoing' with a delayed message and local quits."
-  (let ((inhibit-quit t))
-    (prog1
-        (with-local-quit
-          (with-delayed-message
-              (2 (substitute-command-keys
-                  "Counting outgoing revisions ...
-(\\[keyboard-quit] to skip; \
-see `vc-dir-show-outgoing-count' if this is frequently slow)"))
-            (ignore-errors (vc--count-outgoing backend))))
-      (setq quit-flag nil))))
+(defvar log-view-message-re)
+
+(defun vc-dir--count-outgoing (backend overlay)
+  "Populate OVERLAY with count of outgoing revisions for backend BACKEND.
+See `vc-dir-async-header-values' for an explanation of how this function
+uses OVERLAY."
+  (overlay-put overlay 'after-string
+               (propertize "[counting ...]" 'face 'vc-dir-header-value))
+  (let ((display-buffer-overriding-action
+         '(display-buffer-no-window (allow-no-window . t)))
+        (unknown (propertize "<<unknown>>" 'face 'vc-dir-header-value))
+        (buf (generate-new-buffer " *temp*" t))
+        proc)
+    (with-current-buffer buf
+      (condition-case _
+          (progn
+            (vc-incoming-outgoing-internal backend nil
+                                           (current-buffer) 'log-outgoing)
+            (overlay-put overlay 'proc (get-buffer-process (current-buffer)))
+            (setq proc (get-buffer-process (current-buffer)))
+            (vc-run-delayed
+              (unwind-protect
+                  (overlay-put
+                   overlay 'after-string
+                   (if (or (not (eq (process-status proc) 'exit))
+                           (plusp (process-exit-status proc)))
+                       unknown
+                     (goto-char (point-min))
+                     (let ((count (how-many log-view-message-re)))
+                       (if (zerop count)
+                           (propertize "No unpushed revisions"
+                                       'face 'vc-dir-header-value)
+                         (propertize
+                          (format (ngettext "%d unpushed revision"
+                                            "%d unpushed revisions"
+                                            count)
+                                  count)
+                          'face 'vc-dir-header-urgent-value
+                          'mouse-face 'highlight
+                          'keymap vc-dir-outgoing-revisions-map
+                          'help-echo "\\<vc-dir-outgoing-revisions-map>\
+\\[vc-root-log-outgoing]: List outgoing revisions")))))
+                (kill-buffer))))
+        (error (overlay-put overlay 'after-string unknown)
+               (kill-buffer buf))))))
+
+(defvar-local vc-dir-async-header-values
+  '(("Outgoing" . vc-dir--count-outgoing))
+  "List of specifications for asynchronously computed VC-Dir header values.
+Each element is a pair (HEADER . FUN) where
+- HEADER is a string label for the header in the VC-Dir buffer.
+- FUN is a function of two arguments (BACKEND OVERLAY) that starts the
+  asynchronous computation of the header's value.  BACKEND is the VC
+  backend.  OVERLAY is an overlay in the target VC-Dir buffer.
+  FUN should set
+  - the `after-string' property of the overlay to a temporary value
+    indicating that an async computation is in progress, conventionally
+    of the form \"[%s ...]\";
+  - the `proc' property of the overlay to the asynchronous process it starts;
+  - the `after-string' property of the overlay to the computed header
+    value after the asychronous computation completes, \"<<unknown>>\"
+    if the information was not obtainable.
+  See `vc-dir--count-outgoing' for an example.
+
+VC backend `dir-extra-headers' implementations may push additional
+elements to this list.")
 
 (defun vc-dir-headers (backend dir)
   "Display the headers in the *VC-Dir* buffer.
 It calls the `dir-extra-headers' backend method to display backend
 specific headers."
+  (kill-local-variable 'vc-dir-async-header-values)
   (concat
    (propertize "VC backend : " 'face 'vc-dir-header)
    (propertize (format "%s\n" backend) 'face 'vc-dir-header-value)
@@ -1442,21 +1501,28 @@ specific headers."
                'face 'vc-dir-header-value)
    (vc-call-backend backend 'dir-extra-headers dir)
    "\n"
-   (and-let* (vc-dir-show-outgoing-count
-              (count (vc-dir--count-outgoing backend))
-              (_ (plusp count)))
-     (concat (propertize "Outgoing   : "
-                         'face 'vc-dir-header)
-             (propertize (format (ngettext "%d unpushed revision"
-                                           "%d unpushed revisions"
-                                           count)
-                                 count)
-                         'face 'vc-dir-header-urgent-value
-                         'mouse-face 'highlight
-                         'keymap vc-dir-outgoing-revisions-map
-                         'help-echo "\\<vc-dir-outgoing-revisions-map>\
-\\[vc-root-log-outgoing]: List outgoing revisions")
-             "\n"))))
+   (mapconcat (pcase-lambda (`(,header . ,_))
+                (concat (propertize (format "%-11s: " header)
+                                    'face 'vc-dir-header)
+                        "\n"))
+              vc-dir-async-header-values)))
+
+(defun vc-dir--set-header (def-dir)
+  (ewoc-set-hf vc-ewoc (vc-dir-headers vc-dir-backend def-dir) "")
+  ;; Clear overlays in the header from the last run.
+  (dolist (overlay (overlays-in (point-min)
+                                (length (car (ewoc-get-hf vc-ewoc)))))
+    (when-let* ((proc (overlay-get overlay 'proc))
+                (_ (eq 'run (process-status proc))))
+      (kill-process proc))
+    (delete-overlay overlay))
+  ;; Set up new async header overlays.
+  (save-excursion
+    (pcase-dolist (`(,field . ,fun) vc-dir-async-header-values)
+      (goto-char (point-min))
+      (when (re-search-forward (format "^%s\\s-" field) nil t)
+        (funcall fun vc-dir-backend
+                 (make-overlay (pos-eol) (pos-eol)))))))
 
 (defun vc-dir-refresh-files (files)
   "Refresh some FILES in the *VC-Dir* buffer."
@@ -1515,7 +1581,7 @@ Throw an error if another update process is in progress."
       (error "Another update process is in progress, cannot run two at a time")
     (let ((def-dir default-directory)
 	  (backend vc-dir-backend))
-      (when vc-dir-save-some-buffers-on-revert
+      (when (and vc-dir-save-some-buffers-on-revert (not non-essential))
         (vc-buffer-sync-fileset `(,vc-dir-backend (,def-dir)) t))
       (vc-set-mode-line-busy-indicator)
       ;; Call the `dir-status' backend function.
@@ -1538,8 +1604,8 @@ Throw an error if another update process is in progress."
 		    (setf (vc-dir-fileinfo->needs-update info) t) nil))
                 vc-ewoc)
       ;; Bzr has serious locking problems, so setup the headers first (this is
-      ;; synchronous) rather than doing it while dir-status is running.
-      (ewoc-set-hf vc-ewoc (vc-dir-headers backend def-dir) "")
+      ;; mostly synchronous) rather than doing it while dir-status is running.
+      (vc-dir--set-header def-dir)
       (let ((buffer (current-buffer)))
         (with-current-buffer vc-dir-process-buffer
           (setq default-directory def-dir)

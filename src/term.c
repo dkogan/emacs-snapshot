@@ -554,7 +554,7 @@ encode_terminal_code (struct glyph *src, int src_len,
      Vglyph_table contains a string or a composite glyph is
      encountered.  */
   if (ckd_mul (&required, src_len, MAX_MULTIBYTE_LENGTH))
-    memory_full (SIZE_MAX);
+    memory_full_up ();
   if (encode_terminal_src_size < required)
     encode_terminal_src = xpalloc (encode_terminal_src,
 				   &encode_terminal_src_size,
@@ -1245,7 +1245,7 @@ calculate_costs (struct frame *frame)
       max_frame_cols = max (max_frame_cols, FRAME_COLS (frame));
       if ((min (PTRDIFF_MAX, SIZE_MAX) / sizeof (int) - 1) / 2
 	  < max_frame_cols)
-	memory_full (SIZE_MAX);
+	memory_full_up ();
 
       char_ins_del_vector =
 	xrealloc (char_ins_del_vector,
@@ -1427,7 +1427,7 @@ term_get_fkeys_1 (void)
   if (!KEYMAPP (KVAR (kboard, Vinput_decode_map)))
     kset_input_decode_map (kboard, Fmake_sparse_keymap (Qnil));
 
-  for (i = 0; i < ARRAYELTS (keys); i++)
+  for (i = 0; i < countof (keys); i++)
     {
       char *sequence = tgetstr (keys[i].cap, address);
       if (sequence)
@@ -2613,7 +2613,7 @@ This function temporarily suspends and resumes the terminal
 device.  */)
   (Lisp_Object size, Lisp_Object tty)
 {
-  if (!TYPE_RANGED_FIXNUMP (size_t, size))
+  if (!RANGED_FIXNUMP (0, size, min (PTRDIFF_MAX, SIZE_MAX)))
     error ("Invalid output buffer size");
   Fsuspend_tty (tty);
   struct terminal *terminal = decode_tty_terminal (tty);
@@ -4585,7 +4585,7 @@ use the Bourne shell command 'TERM=...; export TERM' (C-shell:\n\
   tty->TS_exit_attribute_mode = tgetstr ("me", address);
 #ifdef TERMINFO
   tty->TS_enter_strike_through_mode = tigetstr ("smxx");
-  if (tty->TS_enter_strike_through_mode == (char *) (intptr_t) -1)
+  if (tty->TS_enter_strike_through_mode == (char *) (intptr_t) {-1})
     tty->TS_enter_strike_through_mode = NULL;
 #else
   /* FIXME: Is calling tgetstr here for non-terminfo case correct,
@@ -4621,8 +4621,8 @@ use the Bourne shell command 'TERM=...; export TERM' (C-shell:\n\
 	const char *bg;
 	/* Our own non-standard support for 24-bit colors. */
 	if ((fg = tigetstr ("setf24")) && (bg = tigetstr ("setb24"))
-	    && fg != (char *) (intptr_t) -1
-	    && bg != (char *) (intptr_t) -1)
+	    && fg != (char *) (intptr_t) {-1}
+	    && bg != (char *) (intptr_t) {-1})
 	  {
 	    tty->TS_set_foreground = fg;
 	    tty->TS_set_background = bg;
@@ -4630,8 +4630,8 @@ use the Bourne shell command 'TERM=...; export TERM' (C-shell:\n\
 	  }
 	/* Other non-standard support for 24-bit colors. */
 	else if ((fg = tigetstr ("setrgbf")) && (bg = tigetstr ("setrgbb"))
-	    && fg != (char *) (intptr_t) -1
-	    && bg != (char *) (intptr_t) -1)
+	    && fg != (char *) (intptr_t) {-1}
+	    && bg != (char *) (intptr_t) {-1})
 	  {
 	    tty->TS_set_foreground = fg;
 	    tty->TS_set_background = bg;
@@ -4692,7 +4692,7 @@ use the Bourne shell command 'TERM=...; export TERM' (C-shell:\n\
      common default escape sequence and is not recommended.  */
 #ifdef TERMINFO
   tty->TF_set_underline_style = tigetstr ("Smulx");
-  if (tty->TF_set_underline_style == (char *) (intptr_t) -1)
+  if (tty->TF_set_underline_style == (char *) (intptr_t) {-1})
     tty->TF_set_underline_style = NULL;
 #else
   tty->TF_set_underline_style = tgetstr ("Smulx", address);
@@ -4751,6 +4751,7 @@ use the Bourne shell command 'TERM=...; export TERM' (C-shell:\n\
     FrameCols (tty) = width;
     FrameRows (tty) = height;
     tty->char_ins_del_ok = 0;
+    tty->TN_max_colors = 16;  /* Must be non-zero for tty-display-color-p.  */
     init_baud_rate (fileno (tty->input));
   }
 #endif	/* MSDOS */
@@ -5262,8 +5263,19 @@ On TTY frames, as a display optimization, Emacs may move to a position
 by "overshooting" with TAB characters and one BACKSPACE character, when
 this is more efficient.  This combination can interfere with the
 functioning of some software, such as screen readers.  Set this to
-non-nil to enable this optimization.  */);
+non-nil to enable this optimization.
+If `tty-cursor-movement-use-TAB' is nil, this variable has no effect,
+as Emacs will never use TABs for cursor movement.  */);
   tty_cursor_movement_use_TAB_BS = 0;
+
+  DEFVAR_BOOL ("tty-cursor-movement-use-TAB", tty_cursor_movement_use_TAB,
+    doc: /* Whether TTY frames may use TAB for cursor motion.
+On TTY frames, as a display optimization, Emacs may move cursor to a
+position with TAB characters, when this is more efficient.  This might
+produce wrong results if the hardware tabs of the terminal were set to
+be of different width than Emacs expects.  Set this to nil to disable
+using TABs for cursor motion.  */);
+  tty_cursor_movement_use_TAB = 1;
 
   defsubr (&Stty_display_color_p);
   defsubr (&Stty_display_color_cells);

@@ -458,7 +458,7 @@ DEFUN ("dump-colors", Fdump_colors, Sdump_colors, 0, 0, 0,
 
   putc ('\n', stderr);
 
-  for (i = n = 0; i < ARRAYELTS (color_count); ++i)
+  for (i = n = 0; i < countof (color_count); ++i)
     if (color_count[i])
       {
 	fprintf (stderr, "%3d: %5d", i, color_count[i]);
@@ -539,7 +539,7 @@ static void
 x_free_gc (struct frame *f, GC gc)
 {
   eassert (input_blocked_p ());
-  IF_DEBUG ((--ngcs, eassert (ngcs >= 0)));
+  IF_DEBUG ((eassert (ngcs > 0), ngcs--));
   XFreeGC (FRAME_X_DISPLAY (f), gc);
 }
 
@@ -565,7 +565,7 @@ x_create_gc (struct frame *f, unsigned long mask, Emacs_GC *egc)
 static void
 x_free_gc (struct frame *f, Emacs_GC *gc)
 {
-  IF_DEBUG ((--ngcs, eassert (ngcs >= 0)));
+  IF_DEBUG ((eassert (ngcs > 0), ngcs--));
   xfree (gc);
 }
 
@@ -4527,12 +4527,16 @@ lface_equal_p (Lisp_Object *v1, Lisp_Object *v2)
 
 
 DEFUN ("internal-lisp-face-equal-p", Finternal_lisp_face_equal_p,
-       Sinternal_lisp_face_equal_p, 2, 3, 0,
+       Sinternal_lisp_face_equal_p, 2, 4, 0,
        doc: /* True if FACE1 and FACE2 are equal.
 If the optional argument FRAME is given, report on FACE1 and FACE2 in that frame.
 If FRAME is t, report on the defaults for FACE1 and FACE2 (for new frames).
-If FRAME is omitted or nil, use the selected frame.  */)
-  (Lisp_Object face1, Lisp_Object face2, Lisp_Object frame)
+If FRAME is omitted or nil, use the selected frame.
+Optional fourth argument INHERIT, if non-nil, means the faces
+are considered equal if one inherits from the other in a way
+that makes them have the same attributes when used on display.   */)
+  (Lisp_Object face1, Lisp_Object face2, Lisp_Object frame,
+   Lisp_Object inherit)
 {
   bool equal_p;
   struct frame *f;
@@ -4548,6 +4552,45 @@ If FRAME is omitted or nil, use the selected frame.  */)
   lface2 = lface_from_face_name (f, face2, true);
   equal_p = lface_equal_p (XVECTOR (lface1)->contents,
 			   XVECTOR (lface2)->contents);
+  if (!(NILP (inherit) || equal_p))
+    {
+      /* The below is a subset of merging the descendant face with its
+         parent(s).  We only consider a direct inheritance (so no FACE1
+         that inherits from some other face which inherits from FACE2),
+         and the values of :inherit that are lists are not considered.
+         This is enough in simple cases such as the line-number-current
+         face that inherits from line-number.  */
+      Lisp_Object attrs1[LFACE_VECTOR_SIZE], attrs2[LFACE_VECTOR_SIZE];
+      int i;
+      equal_p = true;
+      memcpy (attrs1, xvector_contents (lface1), sizeof attrs1);
+      memcpy (attrs2, xvector_contents (lface2), sizeof attrs2);
+      /* If either face inherits from the other one, and all the other
+         face attributes of the inheriting face are either unspecified
+         or equal to those of the parent face, consider the faces equal.  */
+      if (EQ (attrs1[LFACE_INHERIT_INDEX], face2))
+	{
+	  for (i = 1; i < LFACE_VECTOR_SIZE && equal_p; ++i)
+	    {
+	      if (i == LFACE_INHERIT_INDEX)
+		continue;
+	      equal_p = face_attr_equal_p (attrs1[i], attrs2[i])
+			|| UNSPECIFIEDP (attrs1[i]);
+	    }
+	}
+      else if (EQ (attrs2[LFACE_INHERIT_INDEX], face1))
+	{
+	  for (i = 1; i < LFACE_VECTOR_SIZE && equal_p; ++i)
+	    {
+	      if (i == LFACE_INHERIT_INDEX)
+		continue;
+	      equal_p = face_attr_equal_p (attrs1[i], attrs2[i])
+			|| UNSPECIFIEDP (attrs2[i]);
+	    }
+	}
+
+    }
+
   return equal_p ? Qt : Qnil;
 }
 
@@ -5807,14 +5850,14 @@ Value is ORDER.  */)
 {
   Lisp_Object list;
   int i;
-  int indices[ARRAYELTS (font_sort_order)];
+  int indices[countof (font_sort_order)];
 
   CHECK_LIST (order);
   memset (indices, 0, sizeof indices);
   i = 0;
 
   for (list = order;
-       CONSP (list) && i < ARRAYELTS (indices);
+       CONSP (list) && i < countof (indices);
        list = XCDR (list), ++i)
     {
       Lisp_Object attr = XCAR (list);
@@ -5836,9 +5879,9 @@ Value is ORDER.  */)
       indices[i] = xlfd;
     }
 
-  if (!NILP (list) || i != ARRAYELTS (indices))
+  if (!NILP (list) || i != countof (indices))
     signal_error ("Invalid font sort order", order);
-  for (i = 0; i < ARRAYELTS (font_sort_order); ++i)
+  for (i = 0; i < countof (font_sort_order); ++i)
     if (indices[i] == 0)
       signal_error ("Invalid font sort order", order);
 
@@ -7340,7 +7383,7 @@ DEFUN ("dump-face", Fdump_face, Sdump_face, 0, 1, 0, doc: /* */)
       int i;
 
       fputs ("font selection order: ", stderr);
-      for (i = 0; i < ARRAYELTS (font_sort_order); ++i)
+      for (i = 0; i < countof (font_sort_order); ++i)
 	fprintf (stderr, "%d ", font_sort_order[i]);
       putc ('\n', stderr);
 

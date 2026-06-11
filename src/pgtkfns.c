@@ -1902,6 +1902,8 @@ parse_resource_key (const char *res_key, char *setting_key)
 
   /* check existence of setting_key */
   GSettingsSchemaSource *ssrc = g_settings_schema_source_get_default ();
+  if (ssrc == NULL)
+    return NULL;		/* No GSettings schemas installed.  */
   GSettingsSchema *scm = g_settings_schema_source_lookup (ssrc, SCHEMA_ID, TRUE);
   if (!scm)
     return NULL;	/* *.schema.xml is not installed. */
@@ -2432,7 +2434,7 @@ Internal use only, use `display-monitor-attributes-list' instead.  */)
   gdpy = dpyinfo->gdpy;
   n_monitors = gdk_display_get_n_monitors (gdpy);
   monitor_frames = make_nil_vector (n_monitors);
-  monitors = xzalloc (n_monitors * sizeof *monitors);
+  monitors = xcalloc (n_monitors, sizeof *monitors);
 
   FOR_EACH_FRAME (rest, frame)
     {

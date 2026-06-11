@@ -4943,12 +4943,10 @@ android_get_image (android_drawable handle,
 
   if (bitmap_info.format != ANDROID_BITMAP_FORMAT_A_8)
     {
-      if (ckd_mul (&byte_size,
-		   (size_t) bitmap_info.stride,
-		   (size_t) bitmap_info.height))
+      if (ckd_mul (&byte_size, bitmap_info.stride, bitmap_info.height))
 	{
 	  ANDROID_DELETE_LOCAL_REF (bitmap);
-	  memory_full (0);
+	  memory_full_up ();
 	}
     }
   else
@@ -6159,8 +6157,6 @@ android_build_jstring (const char *text)
    ensure the same of global_foo, and also that foo is released both
    if global_foo cannot be allocated, and after the global reference
    is created.  */
-
-#define likely(cond)	__builtin_expect (cond, 1)
 
 /* Check for JNI exceptions and call memory_full in that
    situation.  */

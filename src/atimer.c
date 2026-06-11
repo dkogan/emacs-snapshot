@@ -18,10 +18,6 @@ along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.  */
 
 #include <config.h>
 
-#ifdef WINDOWSNT
-#define raise(s) w32_raise(s)
-#endif
-
 #include "lisp.h"
 #include "keyboard.h"
 #include "syssignal.h"
@@ -130,12 +126,12 @@ start_atimer (enum atimer_type type, struct timespec timestamp,
     {
       t = free_atimers;
       free_atimers = t->next;
+      memset (t, 0, sizeof *t);
     }
   else
-    t = xmalloc (sizeof *t);
+    t = xzalloc (sizeof *t);
 
   /* Fill the atimer structure.  */
-  memset (t, 0, sizeof *t);
   t->type = type;
   t->fn = fn;
   t->client_data = client_data;
@@ -204,6 +200,9 @@ cancel_atimer (struct atimer *timer)
 	  break;
 	}
     }
+
+  /* We shouldn't be called with timers which aren't on either list.  */
+  eassert (i != 2);
 
   unblock_atimers (&oldset);
 }
@@ -474,8 +473,7 @@ turn_on_atimers (bool on)
   else
     {
 #ifdef HAVE_ITIMERSPEC
-      struct itimerspec ispec;
-      memset (&ispec, 0, sizeof ispec);
+      struct itimerspec ispec = {0};
       if (alarm_timer_ok)
 	timer_settime (alarm_timer, TIMER_ABSTIME, &ispec, 0);
 # ifdef HAVE_TIMERFD

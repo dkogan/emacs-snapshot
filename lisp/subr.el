@@ -5664,10 +5664,17 @@ the function `undo--wrap-and-run-primitive-undo'."
   (if (markerp beg) (setq beg (marker-position beg)))
   (if (markerp end) (setq end (marker-position end)))
   (let ((old-bul buffer-undo-list)
+        (beg-marker (copy-marker beg))
+        (unchanged-after (- (point-max) end))
 	(end-marker (copy-marker end t))
 	result)
     (if undo--combining-change-calls
-	(setq result (funcall body))
+        (progn
+	  (setq result (funcall body))
+          (unless (and (= beg-marker beg)
+                       (= unchanged-after (- (point-max) end-marker)))
+            (error "Modifications outside the announced region"))
+          (set-marker beg-marker nil))
       (let ((undo--combining-change-calls t))
 	(if (not inhibit-modification-hooks)
 	    (run-hook-with-args 'before-change-functions beg end))
@@ -5686,7 +5693,11 @@ the function `undo--wrap-and-run-primitive-undo'."
                             (if (memq #'syntax-ppss-flush-cache bcf)
                                 '(syntax-ppss-flush-cache)))
                 (setq-local after-change-functions nil)
-	        (setq result (funcall body)))
+	        (setq result (funcall body))
+                (unless (and (= beg-marker beg)
+                             (= unchanged-after (- (point-max) end-marker)))
+                  (error "Modifications outside the announced region"))
+                (set-marker beg-marker nil))
 	    (if local-bcf (setq before-change-functions bcf)
 	      (kill-local-variable 'before-change-functions))
 	    (if local-acf (setq after-change-functions acf)
@@ -7114,8 +7125,7 @@ REPORTER is the result of a call to `make-progress-reporter'.
 STATE can be one of:
 - A float representing the percentage complete in the range 0.0-1.0
 for a numeric reporter.
-- An integer representing the index which cycles through the range 0-3
-for a pulsing reporter.
+- A monotonically increasing integer for a pulsing reporter.
 - The symbol `done' to indicate that the progress reporter is complete.")
 
 (defsubst progress-reporter-update (reporter &optional value suffix)
@@ -7130,7 +7140,7 @@ MIN-VALUE and MAX-VALUE.
 Optional argument SUFFIX is a string to be displayed after REPORTER's
 main message and progress text.  If REPORTER is a non-numerical
 reporter, then VALUE should be nil, or a string to use instead of
-SUFFIX.  SUFFIX is considered obsolete and may be removed in the future.
+SUFFIX.
 
 See `progress-reporter-update-functions' for the list of functions
 called on each update.
@@ -7241,8 +7251,9 @@ area is busy with something else."
            (message "%s" text)))
         ((pred integerp)
          (let ((message-log-max nil)
-               (pulse-char (aref progress-reporter--pulse-characters
-                                 state)))
+               (pulse-char
+                (aref progress-reporter--pulse-characters
+                      (mod state (length progress-reporter--pulse-characters)))))
            (message "%s %s" text pulse-char)))
         ('done
          (message "%sdone" text))))))
@@ -7294,7 +7305,7 @@ area is busy with something else."
            (if suffix
                (aset parameters 6 suffix)
              (setq suffix (or (aref parameters 6) "")))
-           (let ((index (mod (1+ (car reporter)) 4)))
+           (let ((index (1+ (car reporter))))
 	     (setcar reporter index)
              (run-hook-with-args 'progress-reporter-update-functions
                                  reporter

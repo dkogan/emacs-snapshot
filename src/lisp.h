@@ -25,6 +25,7 @@ along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.  */
 #include <stdarg.h>
 #include <stdbit.h>
 #include <stdckdint.h>
+#include <stdcountof.h>
 #include <stddef.h>
 #include <string.h>
 #include <float.h>
@@ -69,9 +70,6 @@ INLINE_HEADER_BEGIN
 #undef max
 #define max(a, b) ((a) > (b) ? (a) : (b))
 #define min(a, b) ((a) < (b) ? (a) : (b))
-
-/* Number of elements in an array.  */
-#define ARRAYELTS(arr) (sizeof (arr) / sizeof (arr)[0])
 
 /* Number of bits in a Lisp_Object tag.  */
 DEFINE_GDB_SYMBOL_BEGIN (int, GCTYPEBITS)
@@ -409,7 +407,7 @@ typedef EMACS_INT Lisp_Word;
 #define lisp_h_XHASH(a) XUFIXNUM_RAW (a)
 #if USE_LSB_TAG
 # define lisp_h_make_fixnum_wrap(n) \
-    XIL ((EMACS_INT) (((EMACS_UINT) (n) << INTTYPEBITS) + Lisp_Int0))
+    XIL ((EMACS_INT) (((EMACS_UINT) {(n)} << INTTYPEBITS) + Lisp_Int0))
 # if defined HAVE_STATEMENT_EXPRESSIONS && defined HAVE_TYPEOF
 #  define lisp_h_make_fixnum(n) \
      ({ typeof (+(n)) lisp_h_make_fixnum_n = n; \
@@ -747,10 +745,11 @@ INLINE void
 
 /* Extract A's pointer value, assuming A's Lisp type is TYPE and the
    extracted pointer's type is CTYPE *.  When !USE_LSB_TAG this simply
-   extracts A's low-order bits, as (uintptr_t) LISP_WORD_TAG (type) is
+   extracts A's low-order bits, as LISP_WORD_TAG (type) & UINTPTR_MAX is
    always zero then.  */
 #define XUNTAG(a, type, ctype) \
-  ((ctype *) ((uintptr_t) XLP (a) - (uintptr_t) LISP_WORD_TAG (type)))
+  ((ctype *) ((uintptr_t) XLP (a) \
+	      - (uintptr_t) {LISP_WORD_TAG (type) & UINTPTR_MAX}))
 
 /* A forwarding pointer to a value.  It uses a generic pointer to
    avoid alignment bugs that could occur if it used a pointer to a
@@ -1317,7 +1316,7 @@ EQ (Lisp_Object x, Lisp_Object y)
 {
   if (BASE_EQ (x, y))
     return true;
-  else if (!__builtin_expect (symbols_with_pos_enabled, false))
+  else if (likely (symbols_with_pos_enabled == false))
     return false;
   else
     return slow_eq (x, y);
@@ -1841,10 +1840,10 @@ enum
 #define BOOL_VECTOR_LENGTH_MAX \
   min (MOST_POSITIVE_FIXNUM, \
        ((INT_MULTIPLY_OVERFLOW (min (PTRDIFF_MAX, SIZE_MAX) - bool_header_size,\
-				(EMACS_INT) BOOL_VECTOR_BITS_PER_CHAR) \
+				(EMACS_INT) {BOOL_VECTOR_BITS_PER_CHAR}) \
 	 ? EMACS_INT_MAX \
 	 : ((min (PTRDIFF_MAX, SIZE_MAX) - bool_header_size) \
-	    * (EMACS_INT) BOOL_VECTOR_BITS_PER_CHAR)) \
+	    * (EMACS_INT) {BOOL_VECTOR_BITS_PER_CHAR}))	     \
 	- (BITS_PER_BITS_WORD - 1)))
 
 /* The number of data words and bytes in a bool vector with SIZE bits.  */
@@ -2437,7 +2436,7 @@ make_lisp_obarray (struct Lisp_Obarray *o)
 INLINE ptrdiff_t
 obarray_size (const struct Lisp_Obarray *o)
 {
-  return (ptrdiff_t)1 << o->size_bits;
+  return (ptrdiff_t) {1} << o->size_bits;
 }
 
 Lisp_Object check_obarray_slow (Lisp_Object);
@@ -2557,7 +2556,8 @@ typedef enum hash_table_weakness_t {
 
 /* The type of a hash table index, both for table indices and index
    (hash) indices.  It's signed and a subtype of ptrdiff_t.  */
-typedef int32_t hash_idx_t;
+typedef int_least32_t hash_idx_t;
+#define PRIdHASH_IDX PRIdLEAST32
 
 struct Lisp_Hash_Table
 {
@@ -2715,7 +2715,7 @@ HASH_TABLE_SIZE (const struct Lisp_Hash_Table *h)
 INLINE ptrdiff_t
 hash_table_index_size (const struct Lisp_Hash_Table *h)
 {
-  return (ptrdiff_t)1 << h->index_bits;
+  return (ptrdiff_t) {1} << h->index_bits;
 }
 
 /* Hash value for KEY in hash table H.  */
@@ -3450,7 +3450,7 @@ enum maxargs
   };
 
 /* Call a function F that accepts many args, passing it ARRAY's elements.  */
-#define CALLMANY(f, array) (f) (ARRAYELTS (array), array)
+#define CALLMANY(f, array) (f) (countof (array), array)
 
 /* Call a function F that accepts many args, passing it the remaining args,
    E.g., 'return CALLN (Fformat, fmt, text);' is less error-prone than
@@ -4430,6 +4430,7 @@ extern void parse_str_as_multibyte (const unsigned char *, ptrdiff_t,
 extern intptr_t garbage_collection_inhibited;
 extern void malloc_warning (const char *);
 extern AVOID memory_full (size_t);
+extern AVOID memory_full_up (void);
 extern AVOID buffer_memory_full (ptrdiff_t);
 extern bool survives_gc_p (Lisp_Object);
 extern void mark_object (Lisp_Object);
@@ -4490,7 +4491,7 @@ extern Lisp_Object list5 (Lisp_Object, Lisp_Object, Lisp_Object, Lisp_Object,
 			  Lisp_Object);
 extern Lisp_Object listn (ptrdiff_t, Lisp_Object, ...);
 #define list(...) \
-  listn (ARRAYELTS (((Lisp_Object []) {__VA_ARGS__})), __VA_ARGS__)
+  listn (countof (((Lisp_Object []) {__VA_ARGS__})), __VA_ARGS__)
 
 enum gc_root_type
 {
@@ -5535,6 +5536,8 @@ extern void *xmalloc (size_t)
   ATTRIBUTE_MALLOC_SIZE ((1)) ATTRIBUTE_RETURNS_NONNULL;
 extern void *xzalloc (size_t)
   ATTRIBUTE_MALLOC_SIZE ((1)) ATTRIBUTE_RETURNS_NONNULL;
+extern void *xcalloc (size_t, size_t)
+  ATTRIBUTE_MALLOC_SIZE ((1,2)) ATTRIBUTE_RETURNS_NONNULL;
 extern void *xrealloc (void *, size_t)
   ATTRIBUTE_ALLOC_SIZE ((2)) ATTRIBUTE_RETURNS_NONNULL;
 extern void xfree (void *);
@@ -5704,7 +5707,7 @@ safe_free_unbind_to (specpdl_ref count, specpdl_ref sa_count, Lisp_Object val)
     ptrdiff_t alloca_nbytes;				       \
     if (ckd_mul (&alloca_nbytes, nelt, word_size)	       \
 	|| SIZE_MAX < alloca_nbytes)			       \
-      memory_full (SIZE_MAX);				       \
+      memory_full_up ();				       \
     else if (alloca_nbytes <= sa_avail)			       \
       (buf) = AVAIL_ALLOCA (alloca_nbytes);		       \
     else						       \
@@ -5830,7 +5833,8 @@ enum { SMALL_LIST_LEN_MAX = 127 };
    set TAIL to the current cons.  If the loop exits normally,
    set TAIL to the terminating non-cons, typically nil.  The loop body
    should not modify the list’s top level structure other than by
-   perhaps deleting the current cons.  */
+   perhaps deleting the current cons.  In practice, this macro rarely
+   quits.  */
 
 #define FOR_EACH_TAIL(tail) \
   FOR_EACH_TAIL_INTERNAL (tail, circular_list (tail), true)
@@ -5844,16 +5848,17 @@ enum { SMALL_LIST_LEN_MAX = 127 };
 /* Iterator intended for use only within FOR_EACH_TAIL_INTERNAL.  */
 struct for_each_tail_internal
 {
+  /* The object we're comparing to.  */
   Lisp_Object tortoise;
-  intptr_t max, n;
-  unsigned short int q;
+  /* How many iterations of the algorithm have happened.  */
+  ptrdiff_t l;
 };
 
 /* Like FOR_EACH_TAIL (LIST), except evaluate CYCLE if a cycle is
    found, and check for quit if CHECK_QUIT.  This is an internal macro
    intended for use only by the above macros.
 
-   Use Brent’s teleporting tortoise-hare algorithm.  See:
+   Modifies Brent’s teleporting tortoise-hare algorithm.  See:
    Brent RP. BIT. 1980;20(2):176-184. doi:10.1007/BF01933190
    https://maths-people.anu.edu.au/~brent/pd/rpb051i.pdf
 
@@ -5868,20 +5873,35 @@ struct for_each_tail_internal
 		     FOR_EACH_TAIL_STEP_CYCLEP (tail, check_quit)	\
 		     ? (cycle) : (void) 0)
 
-#define FOR_EACH_TAIL_BASIC(tail, stepper)			\
-  for (struct for_each_tail_internal li = { tail, 2, 0, 2 };	\
-       CONSP (tail); stepper)
+#define FOR_EACH_TAIL_BASIC(tail, stepper)				\
+  for (struct for_each_tail_internal li = { tail, 0 };			\
+       CONSP (tail) || (likely (NILP (tail)), false);			\
+       stepper)
 
-/* Step TAIL and return whether a cycle has been detected.
-   If CHECK_QUIT then check for quit occasionally.  */
-#define FOR_EACH_TAIL_STEP_CYCLEP(tail, check_quit)		\
-  ((tail) = XCDR (tail),					\
-   ((--li.q != 0						\
-     || ((check_quit) ? maybe_quit () : (void) 0, 0 < --li.n)	\
-     || (li.q = li.n = li.max <<= 1, li.n >>= USHRT_WIDTH,	\
-	 li.tortoise = (tail), false))				\
-    && BASE_EQ (tail, li.tortoise)))
+/* How many iterations until we start advancing the tortoise, which is
+   necessary to detect lists which end in a cycle but whose initial
+   elements aren't part of the cycle.  Also, number of iterations until
+   we check for quits.  Must be a power of two.  */
 
+#define FOR_EACH_TAIL_THRESHOLD 4096
+
+static_assert (POWER_OF_2 (FOR_EACH_TAIL_THRESHOLD));
+
+/* Step TAIL and return whether a cycle has been detected.  If
+   CHECK_QUIT then check for quit occasionally.  We only check for quits
+   once every 4096 iterations, and we don't advance the tortoise until
+   that happens for the first time.
+
+   The C comma operator is used here to avoid statement expressions: the
+   expression evaluates to the value of BASE_EQ (tail, li.tortoise), but
+   has additional side effects, possibly exiting nonlocally.  */
+
+#define FOR_EACH_TAIL_STEP_CYCLEP(tail, check_quit)			\
+  ((tail) = XCDR (tail),						\
+   (! likely (!BASE_EQ (tail, li.tortoise))				\
+    || (! likely (((++li.l) & (FOR_EACH_TAIL_THRESHOLD-1)) != 0)	\
+	&& (((check_quit) ? maybe_quit () : (void) 0, false)		\
+	    || (POWER_OF_2 (li.l) && (li.tortoise = (tail), false))))))
 
 /* Do a `for' loop over alist values.  */
 

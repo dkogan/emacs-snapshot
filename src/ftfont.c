@@ -150,7 +150,6 @@ get_adstyle_property (FcPattern *p)
 {
   FcChar8 *fcstr;
   char *str, *end, *tmp;
-  size_t i;
   Lisp_Object adstyle;
 
 #ifdef FC_FONTFORMAT
@@ -173,7 +172,7 @@ get_adstyle_property (FcPattern *p)
      and therefore must be replaced by substitutes.  (bug#70989) */
   USE_SAFE_ALLOCA;
   tmp = SAFE_ALLOCA (end - str);
-  for (i = 0; i < end - str; ++i)
+  for (ptrdiff_t i = 0; i < end - str; i++)
     tmp[i] = ((str[i] != '?'
 	       && str[i] != '*'
 	       && str[i] != '"'
@@ -1990,7 +1989,7 @@ adjust_anchor (FT_Face ft_face, OTF_Anchor *anchor,
       FT_Outline *outline;
       int ap = anchor->f.f1.AnchorPoint;
 
-      FT_Load_Glyph (ft_face, (FT_UInt) code, FT_LOAD_MONOCHROME);
+      FT_Load_Glyph (ft_face, code, FT_LOAD_MONOCHROME);
       outline = &ft_face->glyph->outline;
       if (ap < outline->n_points)
 	{
