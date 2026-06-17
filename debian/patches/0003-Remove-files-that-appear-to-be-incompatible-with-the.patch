@@ -21,17 +21,17 @@ Author: Rob Browning <rlb@defaultvalue.org>
 Added-by: Rob Browning <rlb@defaultvalue.org>
 Status: new
 ---
- Makefile.in          | 44 +++++++++++++++++---------------------------
+ Makefile.in          | 46 ++++++++++++++++++----------------------------
  configure.ac         | 14 ++------------
  doc/misc/Makefile.in |  6 ++++++
  lisp/help.el         |  8 ++++++++
- 4 files changed, 33 insertions(+), 39 deletions(-)
+ 4 files changed, 34 insertions(+), 40 deletions(-)
 
 diff --git a/Makefile.in b/Makefile.in
-index 698895b..a930b57 100644
+index 87a1a63..4b1d2b8 100644
 --- a/Makefile.in
 +++ b/Makefile.in
-@@ -174,7 +174,9 @@ man1dir=
+@@ -176,7 +176,9 @@ man1dir=
  # Where to install and expect the info files describing Emacs.
  infodir=@infodir@
  # Info files not in the doc/misc directory (we get those via make echo-info).
@@ -42,7 +42,7 @@ index 698895b..a930b57 100644
  
  # Directory for local state files for all programs.
  localstatedir=@localstatedir@
-@@ -1005,8 +1007,7 @@ $(1)_$(2):
+@@ -1007,8 +1009,7 @@ $(1)_$(2):
  ###      normally don't want to recompile.  For example, the 'mostlyclean'
  ###      target for GCC does not delete 'libgcc.a', because recompiling it
  ###      is rarely necessary and takes a lot of time.
@@ -52,7 +52,7 @@ index 698895b..a930b57 100644
  
  ### Add the libexec directory to mostlyclean_dirs if its Makefile has
  ### been created.
-@@ -1136,11 +1137,11 @@ test/%:
+@@ -1138,11 +1139,11 @@ test/%:
  dist:
  	cd ${srcdir}; ./make-dist
  
@@ -68,18 +68,20 @@ index 698895b..a930b57 100644
 +PSS   = misc-ps
  
  DOCS = $(DVIS) $(HTMLS) $(INFOS) $(PDFS) $(PSS)
- $(DOCS):
-@@ -1171,9 +1172,6 @@ info-dir:
- texi_misc = $(shell MAKEFLAGS= ${MAKE} --no-print-directory -s -C doc/misc echo-sources)
  
- srcdir_doc_info_dir_inputs = \
+@@ -1190,10 +1191,7 @@ define set_texi_misc
+ 
+ $(foreach lang,$(DOCLANGS),$(eval $(call set_texi_misc,$(lang))))
+ 
+-srcdir_doc_info_dir_inputs := \
 -  ${srcdir}/doc/emacs/emacs.texi \
 -  ${srcdir}/doc/lispintro/emacs-lisp-intro.texi \
--  ${srcdir}/doc/lispref/elisp.texi \
-   $(addprefix ${srcdir}/doc/misc/,${texi_misc})
- info_dir_inputs = \
-   ../build-aux/dir_top \
-@@ -1195,14 +1193,10 @@ ${srcdir}/info/dir:
+-  ${srcdir}/doc/lispref/elisp.texi
++srcdir_doc_info_dir_inputs :=
+ TRANSLATED_DIRS:=misc
+ # $(1) = dir
+ # $(2) = lang
+@@ -1223,14 +1221,10 @@ ${srcdir}/info/dir:
  	 AWK='${AWK}' ../build-aux/make-info-dir ${info_dir_inputs} \
  	) >$@.tmp && mv $@.tmp $@
  
@@ -98,7 +100,7 @@ index 698895b..a930b57 100644
  INSTALL_DOC = $(INSTALL_DVI) $(INSTALL_HTML) $(INSTALL_PDF) $(INSTALL_PS)
  
  ## Install non .info forms of the documentation.
-@@ -1220,14 +1214,10 @@ install-pdf:
+@@ -1248,14 +1242,10 @@ install-pdf:
  install-ps: $(INSTALL_PS)
  
  
@@ -118,10 +120,10 @@ index 698895b..a930b57 100644
  
  $(UNINSTALL_DOC):
 diff --git a/configure.ac b/configure.ac
-index 9832ef2..d71b147 100644
+index 1c1ef5f..e66edf9 100644
 --- a/configure.ac
 +++ b/configure.ac
-@@ -7786,11 +7786,10 @@ AC_DEFUN
+@@ -7759,11 +7759,10 @@ AC_DEFUN
  
  AC_CONFIG_FILES([lib/Makefile lib-src/Makefile oldXMenu/Makefile src/Makefile
                   lwlib/Makefile nextstep/Makefile nt/Makefile])
@@ -135,7 +137,7 @@ index 9832ef2..d71b147 100644
  
  dnl The test/ directory is missing if './make-dist --no-tests' was used.
  opt_makefile=test/Makefile
-@@ -7862,15 +7861,6 @@ AC_DEFUN
+@@ -7835,15 +7834,6 @@ AC_DEFUN
    fi
    ])
  
@@ -152,12 +154,12 @@ index 9832ef2..d71b147 100644
    dnl then a directory etc/refcards is created in the build directory,
    dnl which is probably harmless, but confusing (in out-of-tree builds).
 diff --git a/doc/misc/Makefile.in b/doc/misc/Makefile.in
-index 5eee502..a4dc9e0 100644
+index 11a2dc3..307b74a 100644
 --- a/doc/misc/Makefile.in
 +++ b/doc/misc/Makefile.in
-@@ -84,6 +84,12 @@ INFO_INSTALL =
+@@ -88,6 +88,12 @@ INFO_INSTALL =
  ## because the info files are pre-built in release tarfiles.
- INFO_TARGETS = $(INFO_COMMON) efaq-w32
+ INFO_TARGETS = $(INFO_COMMON) $(DOCMISC_W32_TARGET)
  
 +# Debian: moved DFSG incompatible files to emacs*-common-non-dfsg
 +# package (see /usr/share/doc/emacs*-common/copyright).
