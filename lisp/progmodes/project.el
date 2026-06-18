@@ -1610,15 +1610,12 @@ The current buffer's `default-directory' is available as part of
 ;;;###autoload
 (defun project-vc-dir ()
   "Run VC-Dir in the current project's root."
-  ;; This was made interactive-only because it now follows `vc-dir' in
-  ;; calling `file-truename' on the directory.  One disadvantage of this
-  ;; is that these VC-Dir buffers won't count as belonging to the
-  ;; project for the purpose of `project-switch-to-buffer'.  See
+  ;; This is unfortunately inconsistent with `vc-dir' which calls
+  ;; `file-truename' on the directory.  But following symlink results in
+  ;; "mismatched" project for that buffer and any visited from it.  See
   ;; <https://lists.gnu.org/archive/html/emacs-devel/2026-06/msg00196.html>.
-  (declare (interactive-only vc-dir))
   (interactive)
-  (vc-dir (abbreviate-file-name
-           (file-truename (project-root (project-current t))))))
+  (vc-dir (project-root (project-current t))))
 
 ;;;###autoload
 (defun project-customize-dirlocals ()

@@ -1898,7 +1898,7 @@ If LIMIT is a non-empty string, use it as a base revision."
                  (if shortlog vc-git-shortlog-switches vc-git-log-switches))
                 (when (numberp limit)
                   (list "-n" (format "%s" limit)))
-                (when (eq vc-log-view-type 'with-diff)
+                (when (memq 'with-diff vc-log-view-types)
                   (list "-p"))
                 (list (concat (and (stringp limit)
                                    (concat limit ".."))
@@ -1970,17 +1970,16 @@ log entries."
   (setq-local log-view-file-re regexp-unmatchable)
   (setq-local log-view-per-file-logs nil)
   (setq-local log-view-message-re
-              (if (not (memq vc-log-view-type '(long log-search with-diff)))
+              (if (memq 'short vc-log-view-types)
                   (cadr vc-git-root-log-format)
                 "^commit +\\([0-9a-z]+\\)"))
   ;; Allow expanding short log entries.
-  (when (memq vc-log-view-type
-              '(short log-outgoing log-incoming log-unintegrated mergebase))
+  (when (memq 'short vc-log-view-types)
     (setq truncate-lines t)
     (setq-local log-view-expanded-log-entry-function
                 'vc-git-expanded-log-entry))
   (setq-local log-view-font-lock-keywords
-       (if (not (memq vc-log-view-type '(long log-search with-diff)))
+       (if (memq 'short vc-log-view-types)
 	   (list (cons (nth 1 vc-git-root-log-format)
 		       (nth 2 vc-git-root-log-format)))
 	 (append
@@ -2071,12 +2070,8 @@ This requires git 1.8.4 or later, for the \"-L\" option of \"git log\"."
   (vc-git-command buffer 'async nil "log" "-p" ;"--follow" ;FIXME: not supported?
                   (format "-L%d,%d:%s" lfrom lto (file-relative-name file))))
 
-(require 'diff-mode)
-
 (defvar vc-git-region-history-mode-map
-  (let ((map (make-composed-keymap
-              nil (make-composed-keymap
-                   (list diff-mode-map vc-git-log-view-mode-map)))))
+  (let ((map (make-sparse-keymap)))
     map))
 
 (defvar vc-git--log-view-long-font-lock-keywords nil)
@@ -2084,6 +2079,7 @@ This requires git 1.8.4 or later, for the \"-L\" option of \"git log\"."
   '((vc-git-region-history-font-lock)))
 
 (defun vc-git-region-history-font-lock (limit)
+  (defvar diff-font-lock-keywords)
   (let ((in-diff (save-excursion
                    (beginning-of-line)
                    (or (looking-at "^\\(?:diff\\|commit\\)\\>")
@@ -2095,8 +2091,9 @@ This requires git 1.8.4 or later, for the \"-L\" option of \"git log\"."
                                             limit t)
                          (match-beginning 1)
                        limit))))
-          (let ((font-lock-keywords (if in-diff diff-font-lock-keywords
-                                      vc-git--log-view-long-font-lock-keywords)))
+          (let ((font-lock-keywords
+                 (if in-diff diff-font-lock-keywords
+                   vc-git--log-view-long-font-lock-keywords)))
             (font-lock-fontify-keywords-region (point) end))
           (goto-char end)
           (prog1 (< (point) limit)
@@ -2104,8 +2101,14 @@ This requires git 1.8.4 or later, for the \"-L\" option of \"git log\"."
     nil))
 
 (define-derived-mode vc-git-region-history-mode
-    vc-git-log-view-mode "Git-Region-History"
+  vc-git-log-view-mode "Git-Region-History"
   "Major mode to browse Git's \"log -p\" output."
+  (require 'diff-mode)
+  (defvar diff-mode-map)
+  (unless (keymap-parent vc-git-region-history-mode-map)
+    (set-keymap-parent vc-git-region-history-mode-map
+                       (make-composed-keymap
+                        (list diff-mode-map vc-git-log-view-mode-map))))
   (setq-local vc-git--log-view-long-font-lock-keywords
               log-view-font-lock-keywords)
   (setq-local font-lock-defaults

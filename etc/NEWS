@@ -68,9 +68,17 @@ values; the value 'discard' inhibits the warning and discards
 type-mismatched values; any other non-nil value prompts you whether to
 accept or ignore the value.
 
-*** Specifying a minor mode as a local variables enables that mode,
+---
+** Specifying a minor mode as a local variables enables that mode,
 unconditionally.  The previous behavior, toggling the mode, was
 neither reliable nor generally desirable.
+
++++
+** Emacs tries to display overlay arrow in the left margin.
+On a non-graphical display (or when the left fringe is not shown), if a
+left margin is present, Emacs will now display the overlay arrow into
+this margin.  Edebug is now using this feature by explicitly setting up
+a left margin for it.
 
 
 * Editing Changes in Emacs 32.1
@@ -93,16 +101,6 @@ check out the repository to prepare a patch for the package maintainer.
 ---
 *** Messages from Ansible are now recognized.
 
-** Project
-
----
-*** 'C-x p v' ('project-vc-dir') uses the truename of the project root.
-'C-x v d' already did this when used interactively.  So e.g. if 'link/'
-is a symbolic link to 'target/', then 'C-x v d link/ RET' is the same as
-'C-x v d target/ RET'.  Now the same is true for 'C-x p v', so that if
-the project root is a symbolic link, 'C-x p v' first finds the truename
-of the directory named by that link, and then opens VC-Dir there.
-
 ** VC
 
 +++
@@ -116,6 +114,22 @@ obsolete.
 *** New command 'outline-show-entry-and-parents'.
 It is bound to 'C-e' and reveals the current entry
 with its parent hierarchy.
+
+---
+*** New function 'outline-search-from-regexp'.
+A generic 'outline-search-function' implementation driven by
+'outline-regexp', suitable for modes or minor modes that customize
+'outline-regexp' but do not need a custom search strategy.
+Install it with:
+
+  (setq-local outline-search-function #'outline-search-from-regexp)
+
+---
+*** 'outline-search-function' is now a user option.
+Previously a plain variable, it is now a 'defcustom'
+with named choices for the predefined search functions
+('outline-search-from-regexp' and 'outline-search-level')
+as well as the default nil and arbitrary user functions.
 
 
 * New Modes and Packages in Emacs 32.1
@@ -136,6 +150,21 @@ To install the grammars, use 'M-x markdown-ts-mode-install-parsers'.
 
 
 * Lisp Changes in Emacs 32.1
+
++++
+** 'kill-all-local-variables' can kill locals silently and reset the buffer.
+This function's KILL-PERMANENT argument now accepts the value
+'permanent-local', which kills all locals ignoring any variable
+watchers.  That argument can also be 'reset', which does what
+'permanent-local' does, and also resets the buffer as if it were newly
+created.  Use these with caution to avoid unexpected behavior such as
+'default-directory' being reset to nil.
+
+---
+** 'with-work-buffer' kills all locals silently and resets its buffers.
+When this macro returns a buffer to its buffer pool, it now kills all
+buffer locals silently, ignoring any variable watchers, and resets the
+buffer as if it were newly created.
 
 +++
 ** The new function 'markers-in' returns the set of markers in a region.

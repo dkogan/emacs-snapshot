@@ -446,15 +446,15 @@ the log starting from that revision."
              ;; commits from all branches are included in the log.
              (cond ((not (stringp limit))
                     (format "-r%s:0" start))
-                   ((memq vc-log-view-type '(log-outgoing
-                                             log-unintegrated))
+                   ((cl-intersection vc-log-view-types
+                                     '(log-outgoing log-unintegrated))
                     (format "-rreverse(only(%s, %s))" start limit))
                    (t
                     (format "-r%s:%s & !%s" start limit limit)))
 	     (nconc
               (and (numberp limit)
                    (list "-l" (format "%s" limit)))
-              (and (eq vc-log-view-type 'with-diff)
+              (and (memq 'with-diff vc-log-view-types)
                    (list "-p"))
 	      (if shortlog
                   `(,@(and vc-hg-log-graph '("--graph"))
@@ -471,8 +471,7 @@ the log starting from that revision."
 
 (define-derived-mode vc-hg-log-view-mode log-view-mode "Hg-Log-View"
   (require 'add-log) ;; we need the add-log faces
-  (let ((shortp (memq vc-log-view-type
-                      '(short log-incoming log-outgoing log-unintegrated))))
+  (let ((shortp (memq 'short vc-log-view-types)))
    (setq-local log-view-file-re regexp-unmatchable)
    (setq-local log-view-per-file-logs nil)
    (setq-local log-view-message-re
@@ -2001,9 +2000,9 @@ The return value is always a string."
   "Return `topic' or nil for BRANCH or the currently active bookmark.
 If BRANCH names a bookmark, or BRANCH is nil but there is a currently
 active bookmark, return `topic'.  Otherwise return nil."
-  (if branch
-      (member branch (vc-hg--bookmarks))
-    (and (assq 'bookmark (vc-hg--working-branch)) 'topic)))
+  (and (if branch (member branch (vc-hg--bookmarks))
+         (assq 'bookmark (vc-hg--working-branch)))
+       'topic))
 
 (defun vc-hg-topic-outgoing-base ()
   "Return outgoing base for current commit considered as a topic branch.
@@ -2014,7 +2013,7 @@ This is based on the following assumptions:
 (i) if there is an active bookmark, it will eventually be merged into
     whatever the remote head is
 (ii) there is only one remote head for the current branch."
-  (assq 'branch (vc-hg--working-branch)))
+  (cdr (assq 'branch (vc-hg--working-branch))))
 
 (provide 'vc-hg)
 

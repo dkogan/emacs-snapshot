@@ -15321,16 +15321,24 @@ handle_tab_bar_click (struct frame *f, int x, int y, bool down_p,
 
   if (down_p)
     {
-      /* Show the clicked button in pressed state.  */
+      /* Show the clicked button in pressed state, but only when
+	 the click was on the close button.  Clicking elsewhere on
+	 the tab should not change the close button's appearance,
+	 so just keep the ordinary mouse-face highlight.  */
       if (!NILP (Vmouse_highlight))
-	show_mouse_face (hlinfo, DRAW_IMAGE_SUNKEN, true);
+	show_mouse_face (hlinfo, close_p ? DRAW_IMAGE_SUNKEN : DRAW_MOUSE_FACE,
+			 true);
       f->last_tab_bar_item = prop_idx; /* record the pressed tab */
     }
   else
     {
-      /* Show item in released state.  */
+      /* Show item in released state.  Only change the close button's
+	 appearance when the click was on it.  Elsewhere keep the
+	 ordinary mouse-face highlight to avoid the close button
+	 blinking on release.  */
       if (!NILP (Vmouse_highlight))
-	show_mouse_face (hlinfo, DRAW_IMAGE_RAISED, true);
+	show_mouse_face (hlinfo, close_p ? DRAW_IMAGE_RAISED : DRAW_MOUSE_FACE,
+			 true);
       f->last_tab_bar_item = -1;
     }
 
@@ -26745,8 +26753,23 @@ display_line (struct it *it, int cursor_vpos)
 	    = get_overlay_arrow_glyph_row (it->w, overlay_arrow_string);
 	  struct glyph *glyph = arrow_row->glyphs[TEXT_AREA];
 	  struct glyph *arrow_end = glyph + arrow_row->used[TEXT_AREA];
-	  struct glyph *p = row->glyphs[TEXT_AREA];
-	  struct glyph *p2, *end;
+	  struct glyph *p, *p2, *end, *where;
+	  short *p_used;
+
+	  /* When possible, put the arrow glyphs at the start of the
+	     left margin.  Otherwise put them at the start of the text
+	     area.  */
+	  if (WINDOW_LEFT_MARGIN_WIDTH (it->w) >= arrow_row->used[TEXT_AREA])
+	    {
+	      p = where = row->glyphs[LEFT_MARGIN_AREA];
+	      p_used = &(row->used[LEFT_MARGIN_AREA]);
+	      row->used[LEFT_MARGIN_AREA] += arrow_row->used[TEXT_AREA];
+	    }
+	  else
+	    {
+	      p = where = row->glyphs[TEXT_AREA];
+	      p_used = &(row->used[TEXT_AREA]);
+	    }
 
 	  /* Copy the arrow glyphs.  */
 	  while (glyph < arrow_end)
@@ -26754,14 +26777,14 @@ display_line (struct it *it, int cursor_vpos)
 
 	  /* Throw away padding glyphs.  */
 	  p2 = p;
-	  end = row->glyphs[TEXT_AREA] + row->used[TEXT_AREA];
+	  end = where + *p_used;
 	  while (p2 < end && CHAR_GLYPH_PADDING_P (*p2))
 	    ++p2;
 	  if (p2 > p)
 	    {
 	      while (p2 < end)
 		*p++ = *p2++;
-	      row->used[TEXT_AREA] = p2 - row->glyphs[TEXT_AREA];
+	      *p_used = p2 - where;
 	    }
 	}
       else
@@ -30344,7 +30367,10 @@ display may depend on `buffer-invisibility-spec', which see.  */)
    If ALIGN_TO is NULL, returns the result in *RES.  If ALIGN_TO is
    non-NULL, the value of *ALIGN_TO is a window-relative pixel
    coordinate, and *RES is the additional pixel width from that point
-   till the end of the stretch glyph.
+   till the end of the stretch glyph.  If *ALIGN_TO is negative, it
+   means no element contributed to alignment (yet).  The value starts at
+   -1, and is set to either -2 or a positive number once we've processed
+   the first element that contributes to the alignment.
 
    WIDTH_P non-zero means take the width dimension or X coordinate of
    the object specified by PROP, WIDTH_P zero means take the height
@@ -30429,7 +30455,7 @@ calc_pixel_width_or_height (double *res, struct it *it, Lisp_Object prop,
       /* ':align_to'.  First time we compute the value, window
 	 elements are interpreted as the position of the element's
 	 left edge.  */
-      if (align_to && *align_to < 0)
+      if (align_to && *align_to == -1)
 	{
 	  *res = 0;
 	  /* 'left': left edge of the text area.  */
@@ -30494,8 +30520,15 @@ calc_pixel_width_or_height (double *res, struct it *it, Lisp_Object prop,
       int base_unit = (width_p
 		       ? FRAME_COLUMN_WIDTH (it->f)
 		       : FRAME_LINE_HEIGHT (it->f));
-      if (width_p && align_to && *align_to < 0)
-	return OK_PIXELS (XFLOATINT (prop) * base_unit + lnum_pixel_width);
+      /* `align_to' starts at -1.  A numeric value without an explicit
+	 base is relative to the text area's left edge, so account for
+	 line numbers once and mark the default base as consumed, so we
+	 don't account for the line-number width more than once.  */
+      if (width_p && align_to && *align_to == -1)
+	{
+	  *align_to = -2;
+	  return OK_PIXELS (XFLOATINT (prop) * base_unit + lnum_pixel_width);
+	}
       return OK_PIXELS (XFLOATINT (prop) * base_unit);
     }
 
@@ -30556,8 +30589,15 @@ calc_pixel_width_or_height (double *res, struct it *it, Lisp_Object prop,
       if (NUMBERP (car))
 	{
 	  double fact;
-	  int offset =
-	    width_p && align_to && *align_to < 0 ? lnum_pixel_width : 0;
+	  int offset = 0;
+	  /* See the NUMBERP case above: the default text-area base
+	     should apply only once to the whole pixel expression, not
+	     once for each numeric subexpression.  */
+	  if (width_p && align_to && *align_to == -1)
+	    {
+	      offset = lnum_pixel_width;
+	      *align_to = -2;
+	    }
 	  pixels = XFLOATINT (car);
 	  if (NILP (cdr))
 	    return OK_PIXELS (pixels + offset);
