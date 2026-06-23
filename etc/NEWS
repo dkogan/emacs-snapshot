@@ -101,6 +101,13 @@ check out the repository to prepare a patch for the package maintainer.
 ---
 *** Messages from Ansible are now recognized.
 
+** Man
+
+---
+*** OSC 8 hyperlinks in man pages are now buttonized.
+When a man page contains OSC 8 hyperlink escape sequences, they
+are now buttonized, allowing using mouse or 'RET' to follow them.
+
 ** VC
 
 +++
@@ -108,6 +115,11 @@ check out the repository to prepare a patch for the package maintainer.
 This means it won't get in your way even if it's slow for your
 repository.  As such, the 'vc-dir-show-outgoing-count' option is now
 obsolete.
+
+---
+*** VC-Dir now shows key binding hints.
+To hide these, you can customize the new user option
+'vc-dir-show-key-binding-hints' to nil.
 
 ** Outline mode
 
@@ -131,6 +143,14 @@ with named choices for the predefined search functions
 ('outline-search-from-regexp' and 'outline-search-level')
 as well as the default nil and arbitrary user functions.
 
+** Newsticker
+
+---
+*** New command to copy the URL of the selected newsticker item.
+The new command 'newsticker-copy-url', bound to 'w', adds the URL of
+the currently selected item in the list view to the kill-ring.
+
+
 
 * New Modes and Packages in Emacs 32.1
 
@@ -150,6 +170,10 @@ To install the grammars, use 'M-x markdown-ts-mode-install-parsers'.
 
 
 * Lisp Changes in Emacs 32.1
+
++++
+** 'ignore' is now also a place, acting as a "blackhole" like /dev/null.
+E.g. (push (new-elem) (pcase (foo) (0 var1) (1 var2) (_ (ignore))))
 
 +++
 ** 'kill-all-local-variables' can kill locals silently and reset the buffer.
