@@ -21,11 +21,12 @@ Author: Rob Browning <rlb@defaultvalue.org>
 Added-by: Rob Browning <rlb@defaultvalue.org>
 Status: new
 ---
- Makefile.in          | 46 ++++++++++++++++++----------------------------
- configure.ac         | 14 ++------------
- doc/misc/Makefile.in |  6 ++++++
- lisp/help.el         |  8 ++++++++
- 4 files changed, 34 insertions(+), 40 deletions(-)
+ Makefile.in             | 46 ++++++++++++++++++----------------------------
+ build-aux/make-info-dir |  2 +-
+ configure.ac            | 14 ++------------
+ doc/misc/Makefile.in    |  6 ++++++
+ lisp/help.el            |  8 ++++++++
+ 5 files changed, 35 insertions(+), 41 deletions(-)
 
 diff --git a/Makefile.in b/Makefile.in
 index c0b9803..1caf3fa 100644
@@ -119,6 +120,19 @@ index c0b9803..1caf3fa 100644
  UNINSTALL_DOC = $(UNINSTALL_DVI) $(UNINSTALL_HTML) $(UNINSTALL_PDF) $(UNINSTALL_PS)
  
  $(UNINSTALL_DOC):
+diff --git a/build-aux/make-info-dir b/build-aux/make-info-dir
+index 243cb81..808e6af 100755
+--- a/build-aux/make-info-dir
++++ b/build-aux/make-info-dir
+@@ -33,7 +33,7 @@
+ 
+ ## Header contains non-printing characters, so this is more
+ ## reliable than using awk.
+-test $# -ge 2 || exit 1
++test $# -ge 1 || exit 1
+ cat <"$1"
+ shift
+ 
 diff --git a/configure.ac b/configure.ac
 index 8112f37..3d8c959 100644
 --- a/configure.ac
