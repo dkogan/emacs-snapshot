@@ -298,5 +298,229 @@ See bug#80803 and bug#80967."
                 (should (equal (vc-dir-fileinfo->state data)
                                'edited))))))))))
 
+(ert-deftest vc-test-vc-dir-next/previous () ; bug#81248
+  "Test navigating with `vc-dir-{next,previous}-{line,directory}'."
+  (skip-unless (executable-find vc-git-program))
+  (vc-test--with-author-identity 'Git
+    (let ((vc-handled-backends '(Git)))
+      (ert-with-temp-directory tempdir
+        (let ((default-directory tempdir)
+              (n 0)
+              vc-dir-buf)
+          (vc-test--create-repo-function 'Git)
+          (dolist (file '("file01" "dir1/file11"))
+            (make-empty-file file t))
+          (vc-dir default-directory 'Git)
+          (while (vc-dir-busy) (sit-for 0.05))
+          (setq vc-dir-buf (current-buffer))
+          (should (bobp))
+          (while (vc-dir--before-dotname-p)
+            (vc-dir-next-line 1)
+            (should (and (looking-at "\\./$") (looking-back "^ +" (pos-bol))))
+            (incf n 1)
+            (goto-char (point-min))
+            (forward-line n))
+          (vc-dir-next-line 1)
+          (should (looking-at "file01$"))
+          (vc-dir-next-line 1)
+          (should (looking-at "dir1/$"))
+          (vc-dir-next-line 1)
+          (should (looking-at "dir1/file11$"))
+          (vc-dir-next-line 1)
+          (should (looking-at "^$"))
+          (let ((end (point)))
+            (vc-dir-next-line 1)
+            (should (equal (point) end)))
+          (goto-char (point-min))
+          (vc-dir-next-directory)
+          (should (and (looking-at "\\./$") (looking-back "^ +" (pos-bol))))
+          (vc-dir-next-directory)
+          (should (and (looking-at "dir1/$") (looking-back "^ +" (pos-bol))))
+          (vc-dir-next-directory)
+          (should (and (looking-at "dir1/$") (looking-back "^ +" (pos-bol))))
+          (goto-char (point-max))
+          (vc-dir-previous-line 1)
+          (should (looking-at "dir1/file11$"))
+          (vc-dir-previous-line 1)
+          (should (and (looking-at "dir1/$") (looking-back "^ +" (pos-bol))))
+          (vc-dir-previous-line 1)
+          (should (looking-at "file01$"))
+          (vc-dir-previous-line 1)
+          (should (and (looking-at "\\./$") (looking-back "^ +" (pos-bol))))
+          (vc-dir-previous-line 1)
+          (should (and (looking-at "\\./$") (looking-back "^ +" (pos-bol))))
+          (goto-char (point-max))
+          (vc-dir-previous-directory)
+          (should (and (looking-at "dir1/$") (looking-back "^ +" (pos-bol))))
+          (vc-dir-previous-directory)
+          (should (and (looking-at "\\./$") (looking-back "^ +" (pos-bol))))
+          (vc-dir-previous-directory)
+          (should (and (looking-at "\\./$") (looking-back "^ +" (pos-bol))))
+          (kill-buffer vc-dir-buf))))))
+
+(ert-deftest vc-test-vc-dir-mark/unmark-all-dir-entry () ; bug#81249
+  "Test `vc-dir-{un}mark-all' called on directory entry."
+  (skip-unless (executable-find vc-git-program))
+  (vc-test--with-author-identity 'Git
+    (let ((vc-handled-backends '(Git)))
+      (ert-with-temp-directory tempdir
+        (let ((default-directory tempdir)
+              (files '("file01" "file02" "dir1/file11" "dir1/file12"
+                       "dir2/file21" "dir2/file22"))
+              vc-dir-buf
+              dir-children)
+          (vc-test--create-repo-function 'Git)
+          (dolist (file files)
+            (make-empty-file file t))
+          (vc-dir default-directory 'Git)
+          (while (vc-dir-busy) (sit-for 0.05))
+          (setq vc-dir-buf (current-buffer))
+          ;; Put point on line of "./" entry.
+          (goto-char (ewoc-location (ewoc-nth vc-ewoc 0)))
+          ;; Cumulatively mark file entries directory-wise.
+          (let ((next t))
+            (while next
+             (vc-dir-mark-all-files nil)
+             ;; Can't use this to set dir-children because it returns
+             ;; all files below directory entry, so loop over file
+             ;; entries until next directory entry.
+             ;; (vc-dir-find-child-files
+             ;;  (expand-file-name
+             ;;   (vc-dir-fileinfo->name
+             ;;    (ewoc-data (ewoc-locate vc-ewoc)))))
+             (catch 'done
+               (while t
+                 (vc-dir-next-line 1)
+                 (cond ((vc-dir-fileinfo->directory
+                          (ewoc-data (ewoc-locate vc-ewoc)))
+                        (throw 'done nil))
+                         ;; After last entry.
+                       ((looking-at "^$")
+                        (throw 'done (setq next nil)))
+                       (t
+                        (push (expand-file-name
+                               (vc-dir-fileinfo->name
+                                (ewoc-data (ewoc-locate vc-ewoc))))
+                              dir-children)))))
+             (should (seq-set-equal-p (vc-dir-marked-files) dir-children))))
+          (goto-char (ewoc-location (ewoc-nth vc-ewoc 0)))
+          ;; Cumulatively unmark file entries directory-wise.
+          (let ((next t))
+            (while next
+              (vc-dir-unmark-all-files nil)
+              (catch 'done
+                (while t
+                  (vc-dir-next-line 1)
+                  (cond ((vc-dir-fileinfo->directory
+                           (ewoc-data (ewoc-locate vc-ewoc)))
+                         (throw 'done nil))
+                          ;; After last entry.
+                        ((looking-at "^$")
+                         (throw 'done (setq next nil)))
+                        (t
+                         (setq dir-children
+                               (delete (expand-file-name
+                                        (vc-dir-fileinfo->name
+                                         (ewoc-data (ewoc-locate vc-ewoc))))
+                                       dir-children))))))
+              (should (seq-set-equal-p (vc-dir-marked-files) dir-children))))
+          (kill-buffer vc-dir-buf))))))
+
+(ert-deftest vc-test-vc-dir-mark-all-with-marked-directory () ; bug#81277
+  "Test `vc-dir-mark-all' called on a marked directory entry."
+  (skip-unless (executable-find vc-git-program))
+  (vc-test--with-author-identity 'Git
+    (let ((vc-handled-backends '(Git)))
+      (ert-with-temp-directory tempdir
+        (let ((default-directory tempdir)
+              (files '("dir1/file11" "dir1/file12"))
+              vc-dir-buf)
+          (vc-test--create-repo-function 'Git)
+          (dolist (file files)
+            (make-empty-file file t))
+          (vc-dir default-directory 'Git)
+          (while (vc-dir-busy) (sit-for 0.05))
+          (setq vc-dir-buf (current-buffer))
+          ;; Move point to "dir1/" entry line.
+          (goto-char (ewoc-location (ewoc-nth vc-ewoc 1)))
+          ;; Mark "dir1/".
+          (vc-dir-mark-file)
+          ;; Move back to "dir1/" entry.
+          (vc-dir-previous-line 1)
+          ;; Test that it's marked.
+          (should (vc-dir-fileinfo->marked (ewoc-data (ewoc-locate vc-ewoc))))
+          (vc-dir-mark-all-files nil)
+          ;; Now it should have been unmarked.
+          (should-not
+           (vc-dir-fileinfo->marked (ewoc-data (ewoc-locate vc-ewoc))))
+          ;; All its children should be marked.
+          (let ((dir-children (vc-dir-find-child-files
+                               (expand-file-name
+                                (vc-dir-fileinfo->name
+                                 (ewoc-data (ewoc-nth vc-ewoc 1)))))))
+            (should (seq-set-equal-p (vc-dir-marked-files) dir-children)))
+          (kill-buffer vc-dir-buf))))))
+
+(defun vc-test--vc-dir-unmark-file ()
+  "Execute `vc-dir-unmark-file' assuming \"y\" at `y-or-n-p' prompt."
+  (cl-letf (((symbol-function 'y-or-n-p)
+             (lambda (_prompt) t)))
+    (vc-dir-unmark-file)))
+
+(ert-deftest vc-test-vc-dir-unmark-file-with-marked-directory () ; bug#81277
+  "Test `vc-dir-unmark-file' with a marked ancestor directory."
+  (skip-unless (executable-find vc-git-program))
+  (vc-test--with-author-identity 'Git
+    (let ((vc-handled-backends '(Git)))
+      (ert-with-temp-directory tempdir
+        (let ((default-directory tempdir)
+              (files '("dir1/file11" "dir1/file12"
+                       "dir1/dir2/file21" "dir1/dir2/file22"
+                       "dir1/dir3/file31" "dir1/dir3/file32"))
+              vc-dir-buf unmarked directories)
+          (vc-test--create-repo-function 'Git)
+          (dolist (file files)
+            (make-empty-file file t))
+          (vc-dir default-directory 'Git)
+          (while (vc-dir-busy) (sit-for 0.05))
+          (setq vc-dir-buf (current-buffer))
+          ;; Move point to "dir1/" entry line.
+          (goto-char (ewoc-location (ewoc-nth vc-ewoc 1)))
+          ;; Mark "dir1/".
+          (vc-dir-mark-file)
+          ;; On next entry simulate invoking `vc-dir-unmark-file' and
+          ;; answering "y" to `y-or-n-p' prompt.
+          (vc-test--vc-dir-unmark-file)
+          ;; Move back to that entry and test that it's unmarked.
+          (vc-dir-previous-line 1)
+          (should-not
+           (vc-dir-fileinfo->marked (ewoc-data (ewoc-locate vc-ewoc))))
+          (push (expand-file-name
+                 (vc-dir-fileinfo->name
+                  (ewoc-data (ewoc-locate vc-ewoc))))
+                unmarked)
+          ;; All other non-directory descendents of "dir1/" should be
+          ;; marked.
+          (let* ((dir-children (vc-dir-find-child-files
+                                (expand-file-name
+                                 (vc-dir-fileinfo->name
+                                  (ewoc-data (ewoc-nth vc-ewoc 1))))))
+                 (rest-children (seq-difference dir-children unmarked)))
+            (should (seq-set-equal-p (vc-dir-marked-files) rest-children)))
+          ;; All directory entries should be unmarked.
+          (goto-char (point-max))
+          (while (not (bobp))
+            (vc-dir-previous-directory)
+            (push (expand-file-name
+                   (vc-dir-fileinfo->name
+                    (ewoc-data (ewoc-locate vc-ewoc))))
+                  directories)
+            (when (equal
+                   (vc-dir-fileinfo->name (ewoc-data (ewoc-locate vc-ewoc)))
+                   (vc-dir-fileinfo->name (ewoc-data (ewoc-nth vc-ewoc 1))))
+              (goto-char (point-min))))
+          (should-not (seq-intersection directories (vc-dir-marked-files)))
+          (kill-buffer vc-dir-buf))))))
+
 (provide 'vc-test-misc)
 ;;; vc-test-misc.el ends here

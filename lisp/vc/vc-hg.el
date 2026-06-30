@@ -1528,6 +1528,8 @@ REV is the revision to check out into WORKFILE."
 ;; Follows vc-exec-after.
 (declare-function vc-set-async-update "vc-dispatcher" (process-buffer))
 
+(declare-function vc-dir-maybe-narrow-and-show-more-button "vc-dir")
+
 (defvar vc-hg--program-version nil)
 
 (defun vc-hg--program-version ()
@@ -1542,18 +1544,22 @@ REV is the revision to check out into WORKFILE."
                  (string-trim-right (match-string 1) "\\.")))))))
 
 (defun vc-hg-dir-status-files (dir files update-function)
+  (require 'vc-dir)
   ;; XXX: We can't pass DIR directly to 'hg status' because that
   ;; returns all ignored files if FILES is non-nil (bug#22481).
-  (let ((default-directory dir))
+  (let ((default-directory dir)
+        (limit vc-dir-process-output-limit))
     (set-process-query-on-exit-flag
      (apply #'vc-hg-command '(t nil) 'async files
             "status" (concat "-mardu" (if files "i")) "-C"
             (if (version<= "4.2" (vc-hg--program-version))
                 '("--config" "commands.status.relative=1")
               '("re:" "-I" ".")))
-     nil))
-  (vc-run-delayed-success 0
-    (vc-hg-after-dir-status update-function)))
+     nil)
+    (vc-run-delayed-success 0
+      (let ((vc-dir-process-output-limit limit))
+        (vc-dir-maybe-narrow-and-show-more-button)
+        (vc-hg-after-dir-status update-function)))))
 
 (defun vc-hg-dir-extra-headers (dir)
   "Generate extra status headers for a repository in DIR.
@@ -1626,7 +1632,7 @@ revisions, fetch only those revisions."
 		      (mapcar (lambda (arg) (list "-r" arg)) marked-list)))
       (let* ((root (vc-hg-root default-directory))
 	     (buffer (format "*vc-hg : %s*" (expand-file-name root)))
-	      ;; Disable pager.
+	     ;; Disable pager.
              (process-environment (cons "HGPLAIN=1" process-environment))
 	     (hg-program vc-hg-program)
 	     args)
@@ -1642,31 +1648,32 @@ revisions, fetch only those revisions."
 	  (setq hg-program (car  args)
 		command    (cadr args)
 		args       (cddr args)))
-	(set-process-query-on-exit-flag
-         (apply #'vc-do-async-command buffer root hg-program command args)
-         t)
-        (with-current-buffer buffer
-          (vc-run-delayed
-            (dolist (cmd post-processing)
-              (apply #'vc-do-command buffer nil hg-program nil cmd))
-            (vc-compilation-mode 'hg)
-            (setq-local compile-command
-                        (concat hg-program " " command " "
-                                (mapconcat #'identity args " ")
-                                (mapconcat (lambda (args)
-                                             (concat " && " hg-program " "
-                                                     (mapconcat #'identity
-                                                                args " ")))
-                                           post-processing "")))
-            (setq-local compilation-directory root)
-            ;; Either set `compilation-buffer-name-function' locally to nil
-            ;; or use `compilation-arguments' to set `name-function'.
-            ;; See `compilation-buffer-name'.
-            (setq-local compilation-arguments
-                        (list compile-command nil
-                              (lambda (_name-of-mode) buffer)
-                              nil))))
-	(vc-set-async-update buffer)))))
+        (let ((proc (apply #'vc-do-async-command buffer root hg-program
+                           command args)))
+          (set-process-query-on-exit-flag proc t)
+          (with-current-buffer buffer
+            (vc-run-delayed
+              (dolist (cmd post-processing)
+                (apply #'vc-do-command buffer nil hg-program nil cmd))
+              (vc-compilation-mode 'hg)
+              (setq-local compile-command
+                          (concat hg-program " " command " "
+                                  (mapconcat #'identity args " ")
+                                  (mapconcat (lambda (args)
+                                               (concat " && " hg-program " "
+                                                       (mapconcat #'identity
+                                                                  args " ")))
+                                             post-processing "")))
+              (setq-local compilation-directory root)
+              ;; Either set `compilation-buffer-name-function' locally to nil
+              ;; or use `compilation-arguments' to set `name-function'.
+              ;; See `compilation-buffer-name'.
+              (setq-local compilation-arguments
+                          (list compile-command nil
+                                (lambda (_name-of-mode) buffer)
+                                nil))))
+	  (vc-set-async-update buffer)
+          proc)))))
 
 (defun vc-hg-pull (prompt)
   "Issue a Mercurial pull command.
