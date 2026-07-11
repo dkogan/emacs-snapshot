@@ -5960,7 +5960,11 @@ handle_display_prop (struct it *it)
 	  pos = IT_STRING_CHARPOS (*it);
 	  start = 0;
 	}
-      if (pos > start)
+      if (pos > start
+	  /* If we are iterating over a string and display-stack level
+	     is zero, this is a mode line or similar.  The case of
+	     it->sp > 0 is handled in set_iterator_to_next.  */
+	  || (STRINGP (object) && it->sp == 0))
 	display_min_width (it, pos, objwin, Qnil);
     }
 
@@ -28973,14 +28977,24 @@ store_mode_line_string (const char *string, Lisp_Object lisp_string,
       if (!NILP (mode_line_string_face))
 	{
 	  Lisp_Object face;
-	  if (NILP (props))
-	    props = Ftext_properties_at (make_fixnum (0), lisp_string);
-	  face = plist_get (props, Qface);
+	  Lisp_Object string_face =
+	    plist_get (Ftext_properties_at (make_fixnum (0), lisp_string),
+		       Qface);
+	  /* Use the face in PROPS, if any, falling back to the face of
+	     LISP_STRING.  */
+	  face = string_face;
+	  if (!NILP (props))
+	    {
+	      Lisp_Object propface = plist_get (props, Qface);
+	      if (!NILP (propface))
+		face = propface;
+	    }
 	  if (NILP (face))
 	    face = mode_line_string_face;
 	  else
 	    face = list2 (face, mode_line_string_face);
-	  props = list2 (Qface, face);
+	  props = Fcopy_sequence (props);
+	  props = plist_put (props, Qface, face);
 	  if (copy_string)
 	    lisp_string = Fcopy_sequence (lisp_string);
 	}

@@ -190,7 +190,7 @@
 ;;
 ;;   To provide more backend specific functionality for `vc-dir'
 ;;   the following functions might be needed: `dir-extra-headers',
-;;   `dir-printer', and `extra-dir-menu'.
+;;   `dir-extra-hints', `dir-mode', `dir-printer', and `extra-dir-menu'.
 ;;
 ;;   NOTE: project.el includes a similar method `project-list-files'
 ;;   that has a slightly different return value and performance
@@ -202,6 +202,11 @@
 ;; - dir-extra-headers (dir)
 ;;
 ;;   Return a string that will be added to the *vc-dir* buffer header.
+;;
+;; - dir-extra-hints ()
+;;
+;;   Return a string of additional key bindings hints for the *vc-dir*
+;;   buffer header, or nil.
 ;;
 ;; - dir-printer (fileinfo)
 ;;
@@ -3866,17 +3871,15 @@ Unlike `vc-find-revision-save', doesn't save the buffer to the file."
                 (after-insert-file-set-coding (- (point-max) (point-min)))
                 (goto-char (point-min))
                 (if buffer
-                    ;; For non-interactive, skip any questions
-                    (let ((enable-local-variables
-                           (if (memq enable-local-variables '(:safe :all nil))
-                               enable-local-variables
-                             ;; Ignore other values that query,
-                             ;; use `:safe' to find `mode:'.
-                             :safe))
-                          (buffer-file-name file))
-                      ;; Don't run hooks that might assume buffer-file-name
-                      ;; really associates buffer with a file (bug#39190).
-                      (ignore-errors (delay-mode-hooks (set-auto-mode))))
+                    ;; For non-interactive, skip any questions.
+                    ;; Use `:safe' to find `mode:'.
+                    (without-local-variable-queries
+                      (let ((buffer-file-name file))
+                        ;; Don't run hooks that might assume
+                        ;; buffer-file-name really associates buffer
+                        ;; with a file (bug#39190).
+                        (ignore-errors
+                          (delay-mode-hooks (set-auto-mode)))))
                   ;; Use non-nil 'find-file' arg of 'normal-mode'
                   ;; to not ignore 'enable-local-variables' when nil.
                   (normal-mode (not enable-local-variables)))
@@ -5631,6 +5634,8 @@ to provide the `find-revision' operation instead."
 (defun vc-default-dir-status-files (_backend _dir files update-function)
   (funcall update-function
            (mapcar (lambda (file) (list file 'up-to-date)) files)))
+
+(defalias 'vc-default-dir-extra-hints #'ignore)
 
 (defun vc-check-headers ()
   "Check if the current file has any headers in it."

@@ -58,7 +58,7 @@
 (require 'cl-lib)
 (require 'font-lock)
 (require 'seq)
-(require 'prog-mode) ; For `prog--text-at-point-p'.
+(require 'prog-mode) ; For `prog--text-at-point-or-region-p'.
 
 ;;; Function declarations
 
@@ -1598,7 +1598,7 @@ variable `treesit-font-lock-feature-list'.
 
 Setting this variable directly with `setq' or `let' doesn't work;
 use `setopt' or \\[customize-option] instead."
-  :type 'integer
+  :type '(choice integer (alist :key-type symbol :value-type integer))
   :set #'treesit--font-lock-level-setter
   :version "29.1")
 
@@ -4165,7 +4165,7 @@ This is a tree-sitter implementation of `prog-fill-reindent-defun'.
 JUSTIFY is the same as in `fill-paragraph'."
   (interactive "P")
   (save-excursion
-    (if (prog--text-at-point-p)
+    (if (prog--text-at-point-or-region-p)
         (fill-paragraph justify (region-active-p))
       (let* ((treesit-defun-tactic 'parent-first)
              (node (treesit-defun-at-point)))

@@ -617,6 +617,13 @@ The command 'mode-line-invisible-mode' toggles the visibility of the
 current-buffer's mode line.  The default is to show the mode line of
 every buffer.
 
+---
+*** Standard mode line no longer specifies minimum widths.
+The default values for the 'mode-line-position' variable and
+'mode-line-format' user option no longer specify any minimum widths.  If
+you use a proportional font for your mode line, you may need to
+customize the values of these variables to include minimum widths again.
+
 ** Tab Bars and Tab Lines
 
 ---
@@ -1633,15 +1640,6 @@ at run-time for the use of the associated deprecated features.
 '(setq eieio-backward-compatibility t)' can be used to recover
 the previous silence.
 
-** Emacs Lisp mode
-
-+++
-*** Semantic highlighting support for Emacs Lisp.
-'emacs-lisp-mode' can now use code analysis to highlight more symbols
-more accurately.  Customize the new user option
-'elisp-fontify-semantically' to non-nil to enable this feature, and see
-the Info node "(emacs) Semantic Font Lock" for more information.
-
 ** Text mode
 
 ---
@@ -2330,6 +2328,13 @@ To get the old behavior back, add an element '(enum-open
 "(ccmode) Config Basics" node of the CC mode manual.
 
 ** Emacs Lisp mode
+
++++
+*** Semantic highlighting support for Emacs Lisp.
+'emacs-lisp-mode' can now use code analysis to highlight more symbols
+more accurately.  Customize the new user option
+'elisp-fontify-semantically' to non-nil to enable this feature, and see
+the Info node "(emacs) Semantic Font Lock" for more information.
 
 ---
 *** Checkdoc no longer warns about missing footer lines in some cases.
