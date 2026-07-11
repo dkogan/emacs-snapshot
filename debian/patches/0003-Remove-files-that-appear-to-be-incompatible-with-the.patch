@@ -29,7 +29,7 @@ Status: new
  5 files changed, 35 insertions(+), 41 deletions(-)
 
 diff --git a/Makefile.in b/Makefile.in
-index c0b9803..1caf3fa 100644
+index 24d5584..ba55e09 100644
 --- a/Makefile.in
 +++ b/Makefile.in
 @@ -176,7 +176,9 @@ man1dir=
@@ -82,7 +82,7 @@ index c0b9803..1caf3fa 100644
  TRANSLATED_DIRS:=misc
  # $(1) = dir
  # $(2) = lang
-@@ -1223,14 +1221,10 @@ ${srcdir}/info/dir:
+@@ -1224,14 +1222,10 @@ ${srcdir}/info/dir:
  	 AWK='${AWK}' ../build-aux/make-info-dir ${info_dir_inputs} \
  	) >$@.tmp && mv $@.tmp $@
  
@@ -101,7 +101,7 @@ index c0b9803..1caf3fa 100644
  INSTALL_DOC = $(INSTALL_DVI) $(INSTALL_HTML) $(INSTALL_PDF) $(INSTALL_PS)
  
  ## Install non .info forms of the documentation.
-@@ -1248,14 +1242,10 @@ install-pdf:
+@@ -1249,14 +1243,10 @@ install-pdf:
  install-ps: $(INSTALL_PS)
  
  
@@ -134,7 +134,7 @@ index 243cb81..808e6af 100755
  shift
  
 diff --git a/configure.ac b/configure.ac
-index 8112f37..3d8c959 100644
+index f19ba66..b88de4e 100644
 --- a/configure.ac
 +++ b/configure.ac
 @@ -7758,11 +7758,10 @@ AC_DEFUN
@@ -168,7 +168,7 @@ index 8112f37..3d8c959 100644
    dnl then a directory etc/refcards is created in the build directory,
    dnl which is probably harmless, but confusing (in out-of-tree builds).
 diff --git a/doc/misc/Makefile.in b/doc/misc/Makefile.in
-index 11a2dc3..307b74a 100644
+index dda6a9d..67ce0be 100644
 --- a/doc/misc/Makefile.in
 +++ b/doc/misc/Makefile.in
 @@ -88,6 +88,12 @@ INFO_INSTALL =
