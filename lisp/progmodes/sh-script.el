@@ -1037,7 +1037,7 @@ subshells can nest."
               ;; Skip through one pattern
               (while
                   (or (/= 0 (skip-syntax-backward "w_"))
-                      (/= 0 (skip-chars-backward "-$=?[]*@/\\\\"))
+                      (/= 0 (skip-chars-backward "-$=?[]*@/\\\\!%:.^~,"))
                       (and (sh-is-quoted-p (1- (point)))
                            (goto-char (- (point) 2)))
                       (when (memq (char-before) '(?\" ?\' ?\}))
@@ -1475,6 +1475,7 @@ implementations.  Currently there are two: `sh-mode' and
   (setq-local paragraph-separate (concat paragraph-start "\\|#!/"))
   (setq-local comment-start "# ")
   (setq-local comment-start-skip "#+[\t ]*")
+  (setq-local comment-start-line-regexp comment-start-skip)
   (setq-local local-abbrev-table sh-mode-abbrev-table)
   (setq-local comint-dynamic-complete-functions
 	      sh-dynamic-complete-functions)
@@ -1492,12 +1493,19 @@ implementations.  Currently there are two: `sh-mode' and
   (setq-local skeleton-filter-function #'sh-feature)
   (setq-local skeleton-newline-indent-rigidly t)
   (setq-local defun-prompt-regexp
-              (concat
-               "^\\("
-               "\\(function[ \t]\\)?[ \t]*[[:alnum:]_]+[ \t]*([ \t]*)"
-               "\\|"
-               "function[ \t]+[[:alnum:]_]+[ \t]*\\(([ \t]*)\\)?"
-               "\\)[ \t]*"))
+              (let* ((fname-char "^ \t\n\r\v\f\\\"'`$|&;()<>")
+                     (fname-char0 (concat fname-char "#"))
+                     (fname-re
+                      (concat "[" fname-char0 "]"
+                              "[" fname-char "]*")))
+                (concat
+                 "^\\([ \t]*"
+                 "\\("
+                 "\\(function[ \t]+\\)?" fname-re "[ \t]*([ \t]*)"
+                 "\\|"
+                 "function[ \t]+" fname-re "[ \t]*\\(([ \t]*)\\)?"
+                 "\\)"
+                 "\\)[ \t]*")))
   (setq-local add-log-current-defun-function #'sh-current-defun-name)
   (add-hook 'completion-at-point-functions
             #'sh-completion-at-point-function nil t)

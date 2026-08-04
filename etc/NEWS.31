@@ -29,6 +29,9 @@ applies, and please also update docstrings as needed.
 The traditional unexec dumper, deprecated since Emacs 27, has been
 removed.
 
++++
+*** The portable dumper now works on m68k a.out targets.
+
 ---
 ** Emacs's old 'ctags' program is no longer built or installed.
 You are encouraged to use Universal Ctags <https://ctags.io/> instead.
@@ -215,14 +218,14 @@ large or inefficient completion tables this can slow down typing.
 
 +++
 *** New optional value of 'minibuffer-visible-completions'.
-If the value of this option is 'up-down', only the '<up>' and '<down>'
+If the value of this option is 'up-down', only the '<UP>' and '<DOWN>'
 arrow keys move point between candidates shown in the "*Completions*"
-buffer display, while '<right>' and '<left>' arrows move point in the
+buffer display, while '<RIGHT>' and '<LEFT>' arrows move point in the
 minibuffer window.
 
 ---
-*** 'RET' chooses the completion selected with 'M-<up>/M-<down>'.
-If a completion candidate is selected with 'M-<up>' or 'M-<down>',
+*** 'RET' chooses the completion selected with 'M-<UP>/M-<DOWN>'.
+If a completion candidate is selected with 'M-<UP>' or 'M-<DOWN>',
 hitting 'RET' will exit completion with that as the result.  This works
 both in minibuffer completion and in-buffer completion.  This supersedes
 'minibuffer-completion-auto-choose', which previously provided similar
@@ -251,18 +254,18 @@ and 'completion-category-defaults'.
 +++
 *** Navigating "*Completions*" now accommodates 'completions-format'.
 When 'completions-format' is set to 'vertical', typing 'n', 'TAB' or
-'M-<down>' in the "*Completions*" buffer (the latter also in the
+'M-<DOWN>' in the "*Completions*" buffer (the latter also in the
 minibuffer) now moves point to the completion candidate in the next line
 in the current column, and wraps to the next column when typed on the
 last completion candidate of the current column.  Likewise, typing 'p',
-'S-TAB' or 'M-<up>' moves point to the completion candidate in the
+'S-TAB' or 'M-<UP>' moves point to the completion candidate in the
 previous line or wraps to the previous column.  Previously, these keys
 ignored the vertical format, i.e., moved point only to the item in the
 same line of the next or previous column, in accordance with the default
-horizontal format.  In vertical format, typing '<left>' and '<right>' in
+horizontal format.  In vertical format, typing '<LEFT>' and '<RIGHT>' in
 the "*Completions*" buffer (and when 'minibuffer-visible-completions' is
 non-nil, also in the minibuffer) moves point only within the current
-line, analogously to how, in horizontal format, '<down>' and '<up>' move
+line, analogously to how, in horizontal format, '<DOWN>' and '<UP>' move
 point only within the current column.
 
 ---
@@ -357,14 +360,24 @@ increments as with Emacs 24 through Emacs 30 you now have to set
 ** Windows
 
 +++
-*** New commands to modify window layouts.
+*** New commands to modify window layouts of frames.
+'window-layout-rotate-clockwise' ('C-x w r <RIGHT>') and its counterpart
+'window-layout-rotate-anticlockwise' ('C-x w r <LEFT>') rotate an entire
+window layout.
+'window-layout-flip-topdown' ('C-x w f <DOWN>', 'C-x w f <UP>') and
+'window-layout-flip-leftright' ('C-x w f <LEFT>', 'C-x w f <RIGHT>')
+flip the window layout vertically and horizontally.
+'window-layout-transpose' ('C-x w t') reorganizes windows such that
+every horizontal split becomes a vertical split and vice versa.
+'rotate-windows' ('C-x w o <RIGHT>') and its counterpart
+'rotate-windows-back' ('C-x w o <LEFT>') rotate windows in cyclic
+ordering.
 
-- 'C-x w t' and 'C-x w r <left>/<right>' rotate the window layout.
-- 'C-x w o <left>/<right>' rotate the windows within the current layout.
-- 'C-x w f <left>/<right>/<up>/<down>' flip window layouts.
-
-By default, these commands operate on the selected frame's root window.
-With a prefix argument, they operate on the selected window's parent.
+*** New user option 'rotate-windows-change-selected'.
+This controls whether 'rotate-windows' and 'rotate-windows-back' change
+the selected window.  If nil, the selected window does not change.
+The default is t, which means the new selected window will be the one
+that winds up at the location of the previously-selected window.
 
 +++
 *** Windmove commands now move to skipped windows if invoked twice in a row.
@@ -679,13 +692,13 @@ wrapping and resizing the tab bar to more than one line.
 ---
 *** New user option 'tab-line-define-keys'.
 When t, the default, it redefines window buffer switching keys
-such as 'C-x <left>' and 'C-x <right>' to tab-line specific variants
+such as 'C-x <LEFT>' and 'C-x <RIGHT>' to tab-line specific variants
 for switching tabs.
 
 ---
-*** New command 'tab-line-move-tab-forward' ('C-x M-<right>').
+*** New command 'tab-line-move-tab-forward' ('C-x M-<RIGHT>').
 Together with the new command 'tab-line-move-tab-backward'
-('C-x M-<left>'), it can be used to move the current tab
+('C-x M-<LEFT>'), it can be used to move the current tab
 on the tab line to a different position.
 
 ---
@@ -2082,7 +2095,7 @@ its current directory, and creates a remote connection, if necessary.
 You can customize 'shell-bookmark-name-function'.
 
 *** New command to complete the shell history.
-'comint-complete-input-ring' ('C-x <up>') is like 'minibuffer-complete-history'
+'comint-complete-input-ring' ('C-x <UP>') is like 'minibuffer-complete-history'
 but completes on comint inputs.
 
 ---
@@ -2552,6 +2565,14 @@ started inside Emacs.
 ---
 *** 'diff-mode' now refrains from automatically refining big hunks.
 What is big is defined by the new 'diff-refine-threshold' user option.
+
++++
+*** Refining a hunk shows a "shadow cursor" at the beginning/end of region.
+By default, the shadow cursor looks like an empty rectangle the size of
+a character cell.  It is displayed at the beginning or the end of the
+refined region, to better show where the refined region starts or ends.
+This can be controlled by the new user option
+'smerge-refine-shadow-cursor', which also affects SMerge mode, see below.
 
 ---
 *** New command 'diff-kill-ring-save'.

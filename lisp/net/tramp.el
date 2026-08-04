@@ -2235,15 +2235,17 @@ without a visible progress reporter."
   `(if (or noninteractive inhibit-message)
        (progn ,@body)
      (tramp-message ,vec ,level "%s..." ,message)
-     (let ((cookie "failed")
-           (tm
-            ;; We start a pulsing progress reporter after 3 seconds.
-            ;; Start only when there is no other progress reporter
-            ;; running, and when there is a minimum level.
-	    (when-let* ((pr (and (null tramp-inhibit-progress-reporter)
-				 (<= ,level (min tramp-verbose 3))
-				 (make-progress-reporter ,message))))
-	      (run-at-time 3 0.1 #'tramp-progress-reporter-update pr))))
+     (let* ((cookie "failed")
+            ;; We create a pulsing progress reporter when there is no
+            ;; other progress reporter running, and when there is a
+            ;; minimum level.
+            (pr (and (null tramp-inhibit-progress-reporter)
+		     (<= ,level (min tramp-verbose 3))
+		     (make-progress-reporter ,message)))
+            ;; We start it after 3 seconds.
+            (tm
+	     (when pr
+	       (run-at-time 3 0.1 #'tramp-progress-reporter-update pr))))
        (unwind-protect
            ;; Execute the body.
            (prog1
@@ -2253,7 +2255,10 @@ without a visible progress reporter."
 		 ,@body)
 	     (setq cookie "done"))
          ;; Stop progress reporter.
-         (if tm (cancel-timer tm))
+	 (when (and tm pr)
+	   (cancel-timer tm)
+	   (let (message-log-max)
+	     (progress-reporter-done pr)))
          (tramp-message ,vec ,level "%s...%s" ,message cookie)))))
 
 (defmacro with-tramp-timeout (list &rest body)
@@ -7228,6 +7233,7 @@ might have improper values."
 	  (mapcar #'car tramp-connection-local-default-system-variables))))
     `(let* ((default-directory tramp-compat-temporary-file-directory)
 	    (temporary-file-directory tramp-compat-temporary-file-directory)
+	    (process-environment (copy-sequence process-environment))
             ,@bindings)
        (setenv "TERM" tramp-terminal-type)
        (setenv "PROMPT_COMMAND")

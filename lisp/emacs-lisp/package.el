@@ -1850,16 +1850,27 @@ Used to populate `package-selected-packages'."
              unless (memq name dep-list)
              collect name)))
 
+(defun package--save-selected-packages-1 ()
+  "Save the current value of `package-selected-packages'."
+  (customize-save-variable
+   'package-selected-packages
+   (sort package-selected-packages #'string<)))
+
 (defun package--save-selected-packages (&optional value)
-  "Set and save `package-selected-packages' to VALUE."
+  "Set `package-selected-packages' to VALUE.
+During initialization, we record VALUE but to not persist it using
+Customize, to avoid overwriting configurations that haven't yet been
+loaded.  After initisation we update the user option directly."
   (when (or value after-init-time)
     ;; It is valid to set it to nil, for example when the last package
-    ;; is uninstalled.  But it shouldn't be done at init time, to
-    ;; avoid overwriting configurations that haven't yet been loaded.
-    (setq package-selected-packages (sort value #'string<)))
+    ;; is uninstalled.  But it shouldn't be done at init time, to avoid
+    ;; overwriting configurations that haven't yet been loaded.  We fall
+    ;; back to the default value of `package-selected-packages' when
+    ;; this function is invoked by `after-init-hook'.
+    (setq package-selected-packages value))
   (if after-init-time
-      (customize-save-variable 'package-selected-packages package-selected-packages)
-    (add-hook 'after-init-hook #'package--save-selected-packages)))
+      (package--save-selected-packages-1)
+    (add-hook 'after-init-hook #'package--save-selected-packages-1)))
 
 (defun package--user-selected-p (pkg)
   "Return non-nil if PKG is a package was installed by the user.
@@ -2202,7 +2213,8 @@ from ELPA by either using `\\[package-upgrade]' or
 `\\<package-menu-mode-map>\\[package-menu-mark-install]' after `\\[list-packages]'."
   (interactive (list (not noninteractive)))
   (package-refresh-contents)
-  (let ((upgradeable (package--upgradeable-packages package-install-upgrade-built-in)))
+  (let ((upgradeable (package--upgradeable-packages package-install-upgrade-built-in))
+        (upgraded '()))
     (if (not upgradeable)
         (message "No packages to upgrade")
       (when (and query
@@ -2214,7 +2226,15 @@ from ELPA by either using `\\[package-upgrade]' or
         (user-error "Upgrade aborted"))
       (dolist (pkg upgradeable)
         (with-demoted-errors "Error while upgrading: %S"
-          (package-upgrade pkg))))))
+          (package-upgrade pkg)
+          (push pkg upgraded)))
+      (let ((rejected (cl-set-difference upgradeable upgraded)))
+        (message
+         "Upgraded: %s%s"
+         (mapconcat #'symbol-name upgraded ", ")
+         (if rejected
+             (concat "; Rejected: " (mapconcat #'symbol-name rejected ", "))
+           ""))))))
 
 (defun package--dependencies (pkg)
   "Return a list of all transitive dependencies of PKG.
@@ -3978,9 +3998,10 @@ Implementation of `package-menu-mark-upgrades'."
                   ((equal pkg-desc upgrade)
                    (package-menu-mark-install))
                   (t
-                   (unless (package-matches-selector-p
-                            package-retention-policy
-                            pkg-desc)
+                   (if (package-matches-selector-p
+                        package-retention-policy
+                        pkg-desc)
+                       (forward-line)
                      (package-menu-mark-delete)))))))
       (message "Packages marked for upgrading: %d"
                (length upgrades)))))

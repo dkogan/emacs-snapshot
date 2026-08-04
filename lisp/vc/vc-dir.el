@@ -1475,6 +1475,11 @@ commands act on the child files of that directory that are displayed in
 the *vc-dir* buffer.
 
 \\{vc-dir-mode-map}"
+  ;; Delay the initial refresh until after mode hooks so that any minor
+  ;; modes are activated before the calls to `substitute-command-keys'
+  ;; in `vc-dir-headers'.  Then any bindings shadowed by minor modes
+  ;; won't be included in the key binding hints.
+  :after-hook (vc-dir-refresh)
   (setq-local vc-dir-backend use-vc-backend)
   (setq-local desktop-save-buffer 'vc-dir-desktop-buffer-misc-data)
   (setq-local bookmark-make-record-function #'vc-dir-bookmark-make-record)
@@ -1482,7 +1487,7 @@ the *vc-dir* buffer.
   (setq buffer-read-only t)
   (when (boundp 'tool-bar-map)
     (setq-local tool-bar-map vc-dir-tool-bar-map))
-  (let ((buffer-read-only nil))
+  (let ((inhibit-read-only t))
     (erase-buffer)
     (setq-local vc-dir-process-buffer nil)
     (setq-local vc-ewoc (ewoc-create #'vc-dir-printer))
@@ -1492,8 +1497,7 @@ the *vc-dir* buffer.
     ;; Make sure that if the directory buffer is killed, the update
     ;; process running in the background is also killed.
     (add-hook 'kill-buffer-query-functions #'vc-dir-kill-query nil t)
-    (hack-dir-local-variables-non-file-buffer)
-    (vc-dir-refresh)))
+    (hack-dir-local-variables-non-file-buffer)))
 
 (defvar-keymap vc-dir-outgoing-revisions-map
   :doc "Local keymap for viewing outgoing revisions."
@@ -1516,58 +1520,67 @@ longer needed."
   "Populate OVERLAY with count of outgoing revisions for backend BACKEND.
 See `vc-dir-async-header-values' for an explanation of how this function
 uses OVERLAY."
-  (overlay-put overlay 'after-string
-               (propertize "[counting ...]" 'face 'vc-dir-header-value))
-  ;; `vc-incoming-outgoing-internal' invokes external processes
-  ;; synchronously before we can get to the `vc-run-delayed', so
-  ;; postpone running it a little.
-  (overlay-put
-   overlay 'timer
-   (run-with-idle-timer
-    0.2 nil
-    (lambda ()
-      (let* ((default-directory
-	      (buffer-local-value 'default-directory
-				  (overlay-buffer overlay)))
-	     (display-buffer-overriding-action
-              '(display-buffer-no-window (allow-no-window . t)))
-             (unknown (propertize "<<unknown>>" 'face 'vc-dir-header-value))
-             (buf (generate-new-buffer " *temp*" t))
-             proc)
-        (without-local-variable-queries
-          (with-current-buffer buf
-            (condition-case _
-                (progn
-                  (vc-incoming-outgoing-internal backend nil
-                                                 (current-buffer)
-                                                 '(log-outgoing short))
-                  (setq proc (get-buffer-process (current-buffer)))
-                  (overlay-put overlay 'proc proc)
-                  (vc-run-delayed
-                    (unwind-protect
-                        (overlay-put
-                         overlay 'after-string
-                         (if (or (not (eq (process-status proc) 'exit))
-                                 (plusp (process-exit-status proc)))
-                             unknown
-                           (goto-char (point-min))
-                           (let ((count (how-many log-view-message-re)))
-                             (if (zerop count)
-                                 (propertize "No unpushed revisions"
-                                             'face 'vc-dir-header-value)
-                               (propertize
-                                (format (ngettext "%d unpushed revision"
-                                                  "%d unpushed revisions"
-                                                  count)
-                                        count)
-                                'face 'vc-dir-header-urgent-value
-                                'mouse-face 'highlight
-                                'keymap vc-dir-outgoing-revisions-map
-                                'help-echo "\\<vc-dir-outgoing-revisions-map>\
+  (cl-flet ((set-overlay-text (text)
+              (with-current-buffer (overlay-buffer overlay)
+                (save-excursion
+                  (let ((inhibit-read-only t)
+                        (start (overlay-start overlay)))
+                    (delete-region start (overlay-end overlay))
+                    (goto-char start)
+                    (insert text)
+                    (move-overlay overlay start (point)))))))
+    (set-overlay-text (propertize "[counting ...]"
+                                  'face 'vc-dir-header-value))
+    ;; `vc-incoming-outgoing-internal' invokes external processes
+    ;; synchronously before we can get to the `vc-run-delayed', so
+    ;; postpone running it a little.
+    (overlay-put
+     overlay 'timer
+     (run-with-idle-timer
+      0.2 nil
+      (lambda ()
+        (let* ((default-directory
+	        (buffer-local-value 'default-directory
+				    (overlay-buffer overlay)))
+	       (display-buffer-overriding-action
+                '(display-buffer-no-window (allow-no-window . t)))
+               (unknown (propertize "<<unknown>>" 'face 'vc-dir-header-value))
+               (buf (generate-new-buffer " *temp*" t))
+               proc)
+          (without-local-variable-queries
+            (with-current-buffer buf
+              (condition-case _
+                  (progn
+                    (vc-incoming-outgoing-internal backend nil
+                                                   (current-buffer)
+                                                   '(log-outgoing short))
+                    (setq proc (get-buffer-process (current-buffer)))
+                    (set-process-query-on-exit-flag proc nil)
+                    (overlay-put overlay 'proc proc)
+                    (vc-run-delayed
+                      (unwind-protect
+                          (set-overlay-text
+                           (if (or (not (eq (process-status proc) 'exit))
+                                   (plusp (process-exit-status proc)))
+                               unknown
+                             (goto-char (point-min))
+                             (let ((count (how-many log-view-message-re)))
+                               (if (zerop count)
+                                   (propertize "No unpushed revisions"
+                                               'face 'vc-dir-header-value)
+                                 (propertize
+                                  (format (ngettext "%d unpushed revision"
+                                                    "%d unpushed revisions"
+                                                    count)
+                                          count)
+                                  'face 'vc-dir-header-urgent-value
+                                  'mouse-face 'highlight
+                                  'keymap vc-dir-outgoing-revisions-map
+                                  'help-echo "\\<vc-dir-outgoing-revisions-map>\
 \\[vc-root-log-outgoing]: List outgoing revisions")))))
-                      (kill-buffer))))
-              (error (overlay-put overlay 'after-string unknown)
-                     (kill-buffer buf))))))))))
+                        (kill-buffer))))
+                (error (kill-buffer buf)
+                       (set-overlay-text unknown)))))))))))
 
 (defvar-local vc-dir-async-header-values
   '(("Outgoing" . vc-dir--count-outgoing))
@@ -1578,14 +1591,14 @@ Each element is a pair (HEADER . FUN) where
   asynchronous computation of the header's value.  BACKEND is the VC
   backend.  OVERLAY is an overlay in the target VC-Dir buffer.
   FUN should set
-  - the `after-string' property of the overlay to a temporary value
-    indicating that an async computation is in progress, conventionally
-    of the form \"[%s ...]\";
+  - the text and bounds of the overlay to a temporary value indicating
+    that an async computation is in progress, conventionally of the form
+    \"[%s ...]\";
   - the `timer' property of the overlay to any idle timer it schedules
   - the `proc' property of the overlay to the asynchronous process it starts;
-  - the `after-string' property of the overlay to the computed header
-    value after the asychronous computation completes, \"<<unknown>>\"
-    if the information was not obtainable.
+  - the text and bounds of the overlay to the computed header value
+    after the asychronous computation completes, \"<<unknown>>\" if the
+    information was not obtainable.
   See `vc-dir--count-outgoing' for an example.
 
 VC backend `dir-extra-headers' implementations may push additional
@@ -1636,7 +1649,8 @@ backend-specific headers."
      "(\\[vc-revert]) Revert, "
      "(\\[vc-dir-delete-file]) Delete, "
      "(\\[vc-dir-ignore]) Ignore, "
-     "(\\[vc-next-action]/\\[vc-dir-root-next-action]) Commit/commit all, "
+     ;; "this/these/all" is too long.
+     "(\\[vc-next-action]/\\[vc-dir-root-next-action]) DWIM next this/all, "
      "(\\[vc-push]) Push"
      "\n"
      (propertize "Marks" 'font-lock-face 'vc-dir-key-binding-hint-label)
@@ -1989,14 +2003,21 @@ These are the commands available for use in the file status buffer:
 
   (interactive
    (list
-    ;; When you hit C-x v d in a visited VC file,
-    ;; the *vc-dir* buffer visits the directory under its truename;
-    ;; therefore it makes sense to always do that.
-    ;; Otherwise if you do C-x v d -> C-x C-f -> C-x v d
-    ;; you may get a new *vc-dir* buffer, different from the original
-    (file-truename (read-directory-name "VC status for directory: "
-					(vc-root-dir) nil t
-					nil))
+    (let ((dir (read-directory-name "VC status for directory: "
+                                    (vc-root-dir) nil t
+                                    nil))
+          truename)
+      ;; Try to match the result of `vc-refresh-state' in a file buffer.
+      ;; Otherwise if you do C-x v d -> C-x C-f -> C-x v d you may get a
+      ;; new *vc-dir* buffer, different from the original.
+      ;; If DIR has no VC backend but its truename does, use that
+      ;; instead of DIR.
+      (if (and vc-follow-symlinks
+               (not (vc-responsible-backend dir t))
+               (not (equal dir (setq truename (file-truename dir))))
+               (vc-responsible-backend truename t))
+          truename
+        dir))
     (if current-prefix-arg
 	(intern
 	 (completing-read

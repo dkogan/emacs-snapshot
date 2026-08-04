@@ -3634,9 +3634,11 @@ we don't actually set it to the same mode the buffer already has."
 		   (push (intern (concat (downcase (buffer-substring beg (point))) "-mode"))
 			 modes)))
 	     ;; Simple -*-MODE-*- case.
-	     (push (intern (concat (downcase (buffer-substring (point) end))
-				   "-mode"))
-		   modes))))
+             (and (< (point) end)
+	          (push (intern (concat (downcase
+                                         (buffer-substring (point) end))
+				        "-mode"))
+		        modes)))))
     (or
      ;; If we found modes to use, invoke them now, outside the save-excursion.
      ;; Presume `modes' holds a major mode followed by minor modes.
@@ -3827,6 +3829,7 @@ have no effect."
        (forward-char -3)
        (skip-chars-backward " \t")
        (setq end (point))
+       (setq beg (min beg end))
        (goto-char beg)
        end))))
 
@@ -8502,9 +8505,12 @@ normally equivalent short `-D' option is just passed on to
         ;; error.
         (when (> (file-attribute-size (file-attributes errfile)) 0)
           (defvar dired--ls-error-buffer) ; Pacify byte-compiler.
-          (let ((errbuf (get-buffer-create "*ls error*")))
+          (let ((errbuf (or (get-buffer "*ls error*")
+                            (let ((buf (generate-new-buffer "*ls error*")))
+                              (with-current-buffer buf
+                                (setq buffer-read-only t))
+                              buf))))
             (with-current-buffer errbuf
-              (setq buffer-read-only t)
               (let ((inhibit-read-only t))
                 (erase-buffer)
                 (insert-file-contents errfile)))

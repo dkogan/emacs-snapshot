@@ -1491,6 +1491,11 @@ PRESERVE-BUFFERS as in `eglot-shutdown', which see."
          (lambda (x) (eq server
                          (get-text-property 0 'eglot--server (car x))))
          flymake-list-only-diagnostics))
+  ;; Cleanup progress reporters
+  (maphash (lambda (_ r)
+             (unless (eq (car r) 'eglot--mode-line-reporter )
+               (progress-reporter-done r)))
+           (eglot--progress-reporters server))
   (cond ((eglot--shutdown-requested server)
          t)
         ((not (eglot--inhibit-autoreconnect server))
@@ -2872,7 +2877,8 @@ return it back to the server.  :null is returned if the list was empty."
                 (if (eq eglot-report-progress 'messages)
                     (make-progress-reporter
                      (format "[eglot] %s %s: %s"
-                             (eglot-project-nickname server) token title))
+                             (eglot-project-nickname server) token title)
+                     0 100)
                   (list 'eglot--mode-line-reporter token title)))
               (upd (pcnt msg &optional
                          (pr (gethash token (eglot--progress-reporters server))))
@@ -2880,14 +2886,17 @@ return it back to the server.  :null is returned if the list was empty."
                   ((eq (car pr) 'eglot--mode-line-reporter)
                    (setcdr (cddr pr) (list msg pcnt))
                    (force-mode-line-update t))
-                  (pr (eglot--reporter-update pr pcnt msg)))))
+                  (pr
+                   (if (eql pcnt 100)
+                       (progress-reporter-done pr)
+                     (eglot--reporter-update pr pcnt msg))))))
       (eglot--dbind ((WorkDoneProgress) kind title percentage message) value
         (pcase kind
           ("begin"
-           (upd percentage (fmt title message)
+           (upd (or percentage 0) (fmt title message)
                 (puthash token (mkpr title)
                          (eglot--progress-reporters server))))
-          ("report" (upd percentage message))
+          ("report" (upd (or percentage 0) message))
           ("end" (upd (or percentage 100) message)
            (run-at-time 2 nil
                         (lambda ()

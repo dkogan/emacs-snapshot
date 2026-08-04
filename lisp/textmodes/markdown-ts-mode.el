@@ -2987,7 +2987,7 @@ content as a standalone markdown document, which is what we want."
                    'markdown-ts-inhibit-code-block-mode-warnings
                    (delay-mode-hooks (funcall mode)))
                  (narrow-to-region beg end)
-                 (font-lock-ensure)
+                 (let ((font-lock-dont-widen t)) (font-lock-ensure))
                  (let ((pos (point-min)))
                    (while (< pos (point-max))
                      (let ((next (next-single-property-change
@@ -3098,8 +3098,6 @@ See `markdown-ts--run-command-in-code-block'.")
 
 (defun markdown-ts--enable-code-block-in-context-mode ()
   "Enable `markdown-ts-code-block-in-context-mode' if in a fenced code block."
-  ;; Let treesit catch up with buffer edits.
-  (sit-for 0)
   (markdown-ts-code-block-in-context-mode
    (if (markdown-ts-at-code-block-p) 1 -1)))
 
@@ -5315,6 +5313,7 @@ NOTE: Call this function only when the treesit `markdown' and
 
                                 :embed 'html
                                 :host 'markdown-inline
+                                :local t
                                 '((html_tag) @html)))))
 
          (when (treesit-ready-p 'yaml t)

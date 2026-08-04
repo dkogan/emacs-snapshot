@@ -1581,6 +1581,9 @@ Calls `completion-boundaries' with STRING, COLLECTION, PRED, SUFFIX."
          (end (+ (length string) (cdr boundaries))))
     (>= start pos end)))
 
+(defun completion--icomplete-in-buffer-p ()
+  (eq (bound-and-true-p icomplete--in-region-buffer) (current-buffer)))
+
 (defun completion--do-completion (beg end &optional
                                       try-completion-function expect-exact)
   "Do the completion and return a summary of what happened.
@@ -1671,7 +1674,7 @@ when the buffer's text is already an exact match."
                   (when (and threshold
                              (not completed)
                              (not only-changed-boundaries))
-                   (completion-all-sorted-completions beg end))))
+                    (completion-all-sorted-completions beg end))))
             (completion--flush-all-sorted-completions)
             (cond
              ((and (consp (cdr comps)) ;; There's something to cycle.
@@ -1686,6 +1689,7 @@ when the buffer's text is already an exact match."
               (minibuffer-force-complete beg end))
              ((or completed only-changed-boundaries)
               (cond
+               ((completion--icomplete-in-buffer-p)) ; Bug#81537.
                ((pcase completion-auto-help
                   ('visible (minibuffer--completions-visible))
                   ('always t))
@@ -1699,14 +1703,16 @@ when the buffer's text is already an exact match."
                                           'exact 'unknown))))))
              ;; Show the completion table, if requested.
              ((not exact)
-	      (if (pcase completion-auto-help
-                    ('lazy (eq this-command last-command))
-                    (_ completion-auto-help))
+	      (if (if (or (eq completion-auto-help 'lazy)
+                          (completion--icomplete-in-buffer-p)) ; Bug#81537.
+                      (eq this-command last-command)
+                    completion-auto-help)
                   (minibuffer-completion-help beg end)
                 (completion--message "Next char not unique")))
              ;; If the last exact completion and this one were the same, it
              ;; means we've already given a "Complete, but not unique" message
-             ;; and the user's hit TAB again, so now we give him help.
+             ;; and the user's hit TAB again, so now we give him help
+             ;; (even if `completion--icomplete-in-buffer-p' is non-nil).
              (t
               (when (and (eq this-command last-command) completion-auto-help)
                 (minibuffer-completion-help beg end))
@@ -1774,12 +1780,18 @@ scroll the window of possible completions."
    (t (prog1 (pcase (completion--do-completion beg end)
                (#b000 nil)
                (_     t))
-        (if (window-live-p minibuffer-scroll-window)
-            (and (eq completion-auto-select t)
-                 (eq t (frame-visible-p (window-frame minibuffer-scroll-window)))
-                 ;; When the completion list window was displayed, select it.
-                 (switch-to-completions))
-          (completion-in-region-mode -1))))))
+        ;; FIXME: This part of the fix for bug#81537 reintroduces
+        ;; bug#67001 for `icomplete-in-buffer' users.  It's not as bad
+        ;; for them because Icomplete users probably expect to have to
+        ;; C-g out of completion before using other bindings, but maybe
+        ;; we can still fix it.  --spwhitton
+        (unless (completion--icomplete-in-buffer-p)
+          (if (window-live-p minibuffer-scroll-window)
+              (and (eq completion-auto-select t)
+                   (eq t (frame-visible-p (window-frame minibuffer-scroll-window)))
+                   ;; When the completion list window was displayed, select it.
+                   (switch-to-completions))
+            (completion-in-region-mode -1)))))))
 
 (defun completion--cache-all-sorted-completions (beg end comps)
   (add-hook 'after-change-functions
@@ -2769,22 +2781,24 @@ is always true."
 
 (defvar completions--background-update-timer nil)
 
-(defun completions--background-update (force-eager-update)
+(defun completions--background-update (force-eager-update buffer)
   "Try to update *Completions* without blocking input.
 
 This function uses `while-no-input' and sets `non-essential' to t
 so that the update is less likely to interfere with user typing."
   (setq completions--background-update-timer nil)
-  (when (while-no-input
-          (let ((non-essential t))
-            (redisplay)
-            (cond
-             (completion-in-region-mode (completion-help-at-point t))
-             ((completions--should-show-p
-               (completion--field-metadata (minibuffer-prompt-end))
-               force-eager-update)
-              (minibuffer-completion-help))))
-          nil)
+  (when (and
+         (eq buffer (current-buffer))
+         (while-no-input
+           (let ((non-essential t))
+             (redisplay)
+             (cond
+              (completion-in-region-mode (completion-help-at-point t))
+              ((completions--should-show-p
+                (completion--field-metadata (minibuffer-prompt-end))
+                force-eager-update)
+               (minibuffer-completion-help))))
+           nil))
     ;; If we got interrupted, try again the next time the user is idle.
     (completions--start-background-update force-eager-update)))
 
@@ -2802,7 +2816,8 @@ If FORCE-EAGER-UPDATE is non-nil, we only check eager-display."
   (unless completions--background-update-timer
     (setq completions--background-update-timer
           (run-with-idle-timer
-           0 nil #'completions--background-update force-eager-update))))
+           0 nil #'completions--background-update
+           force-eager-update (current-buffer)))))
 
 (defun completions--start-eager-display ()
   "Maybe display the *Completions* buffer when the user is next idle.
@@ -3127,8 +3142,6 @@ Also respects the obsolete wrapper hook `completion-in-region-functions'.
       completion-in-region-functions (start end collection predicate)
     (let ((minibuffer-completion-table collection)
           (minibuffer-completion-predicate predicate))
-      ;; HACK: if the text we are completing is already in a field, we
-      ;; want the completion field to take priority (e.g. Bug#6830).
       (when completion-in-region-mode-predicate
         (setq completion-in-region--data
 	      `(,(if (markerp start) start (copy-marker start))
@@ -5124,24 +5137,12 @@ usual. Returns (ALL PAT PREFIX SUFFIX)."
 
 (defun completion-shorthand-try-completion (string table pred point)
   "Try completion with `read-symbol-shorthands' of original buffer."
-  (cl-loop with expanded
-           for (short . long) in
-           (with-current-buffer minibuffer--original-buffer
-             read-symbol-shorthands)
-           for probe =
-           (and (> point (length short))
-                (string-prefix-p short string)
-                (try-completion (setq expanded
-                                      (concat long
-                                              (substring
-                                               string
-                                               (length short))))
-                                table pred))
-           when probe
-           do (message "Shorthand expansion")
-           and return (cons expanded (max (length long)
-                                          (+ (- point (length short))
-                                             (length long))))))
+  (let ((expanded (with-current-buffer minibuffer--original-buffer
+                    (shorthands-to-longhand string))))
+    (when (and (not (equal expanded string))
+               (try-completion expanded table pred))
+      (cons expanded (+ (- point (length string))
+                        (length expanded))))))
 
 (defun completion-shorthand-all-completions (_string _table _pred _point)
   ;; no-op: For now, we don't want shorthands to list all the possible

@@ -107,7 +107,10 @@ The value `font-lock' means to refine during font-lock.
 The value `navigation' means to refine each hunk as you visit it
 with `diff-hunk-next' or `diff-hunk-prev'.
 
-You can always manually refine a hunk with `diff-refine-hunk'."
+You can always manually refine a hunk with `diff-refine-hunk'.
+
+By default, refining a hunk in any way displays the \"shadow cursor\"
+at one end of the refined region.  See `smerge-refine-shadow-cursor'."
   :version "27.1"
   :type '(choice (const :tag "Don't refine hunks" nil)
                  (const :tag "Refine hunks during font-lock" font-lock)
@@ -1293,7 +1296,7 @@ else cover the whole buffer."
       (goto-char start)
       (while (and (re-search-forward
                    (concat "^\\(\\(---\\) .+\n\\(\\+\\+\\+\\) .+\\|"
-                           diff-hunk-header-re-unified ".*\\)$")
+                           diff-hunk-header-re-unified "\\( .*\\)?\\)$")
                    nil t)
 		  (< (point) end))
 	(combine-after-change-calls
@@ -1308,13 +1311,14 @@ else cover the whole buffer."
 		  (lines1 (or (match-string 5) "1"))
 		  (line2 (match-string 6))
 		  (lines2 (or (match-string 7) "1"))
+                  (comment (match-string 8))
 		  ;; Variables to use the special undo function.
 		  (old-undo buffer-undo-list)
 		  (old-end (marker-position end))
 		  (start (match-beginning 0))
 		  (reversible t))
 	      (replace-match
-	       (concat "***************\n*** " line1 ","
+	       (concat "***************" comment "\n*** " line1 ","
 		       (number-to-string (+ (string-to-number line1)
 					    (string-to-number lines1)
 					    -1))
@@ -1417,7 +1421,7 @@ With a prefix argument, convert unified format to context format."
           (inhibit-read-only t))
       (save-excursion
         (goto-char start)
-        (while (and (re-search-forward "^\\(\\(\\*\\*\\*\\) .+\n\\(---\\) .+\\|\\*\\{15\\}.*\n\\*\\*\\* \\([0-9]+\\),\\(-?[0-9]+\\) \\*\\*\\*\\*\\)\\(?: \\(.*\\)\\|$\\)" nil t)
+        (while (and (re-search-forward "^\\(\\(\\*\\*\\*\\) .+\n\\(---\\) .+\\|\\*\\{15\\}\\( .*\\)?\n\\*\\*\\* \\([0-9]+\\),\\(-?[0-9]+\\) \\*\\*\\*\\*\\)$" nil t)
                     (< (point) end))
           (combine-after-change-calls
             (if (match-beginning 2)
@@ -1427,15 +1431,14 @@ With a prefix argument, convert unified format to context format."
                   (replace-match "+++" t t nil 3)
                   (replace-match "---" t t nil 2))
               ;; we matched a hunk header
-              (let ((line1s (match-string 4))
-                    (line1e (match-string 5))
+              (let ((comment (match-string 4))
+                    (line1s (match-string 5))
+                    (line1e (match-string 6))
                     (pt1 (match-beginning 0))
                     ;; Variables to use the special undo function.
                     (old-undo buffer-undo-list)
                     (old-end (marker-position end))
-                    ;; We currently throw away the comment that can follow
-                    ;; the hunk header.  FIXME: Preserve it instead!
-                    (reversible (not (match-end 6))))
+                    (reversible t))
                 (replace-match "")
                 (unless (re-search-forward
                          diff-context-mid-hunk-header-re nil t)
@@ -1490,7 +1493,8 @@ With a prefix argument, convert unified format to context format."
                             " +" line2s ","
                             (number-to-string (- (string-to-number line2e)
                                                  (string-to-number line2s)
-                                                 -1)) " @@"))
+                                                 -1))
+                            " @@" (or comment "")))
                   (set-marker pt2 nil)
                   ;; The whole procedure succeeded, let's replace the myriad
                   ;; of undo elements with just a single special one.
@@ -2069,6 +2073,7 @@ char-offset in TEXT."
   "Return the buffer position (BEG . END) of the nearest occurrence of TEXT.
 If TEXT isn't found, nil is returned."
   (let* ((orig (point))
+         (case-fold-search nil)
 	 (forw (and (search-forward text nil t)
 		    (cons (match-beginning 0) (match-end 0))))
 	 (back (and (goto-char (+ orig (length text)))
