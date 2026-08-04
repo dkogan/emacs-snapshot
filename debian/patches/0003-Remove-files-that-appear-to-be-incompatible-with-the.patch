@@ -21,15 +21,15 @@ Author: Rob Browning <rlb@defaultvalue.org>
 Added-by: Rob Browning <rlb@defaultvalue.org>
 Status: new
 ---
- Makefile.in             | 46 ++++++++++++++++++----------------------------
+ Makefile.in             | 44 +++++++++++++++++---------------------------
  build-aux/make-info-dir |  2 +-
  configure.ac            | 14 ++------------
  doc/misc/Makefile.in    |  6 ++++++
  lisp/help.el            |  8 ++++++++
- 5 files changed, 35 insertions(+), 41 deletions(-)
+ 5 files changed, 34 insertions(+), 40 deletions(-)
 
 diff --git a/Makefile.in b/Makefile.in
-index 24d5584..ba55e09 100644
+index 534d8dc..e790be9 100644
 --- a/Makefile.in
 +++ b/Makefile.in
 @@ -176,7 +176,9 @@ man1dir=
@@ -70,19 +70,17 @@ index 24d5584..ba55e09 100644
  
  DOCS = $(DVIS) $(HTMLS) $(INFOS) $(PDFS) $(PSS)
  
-@@ -1190,10 +1191,7 @@ define set_texi_misc
- 
- $(foreach lang,$(DOCLANGS),$(eval $(call set_texi_misc,$(lang))))
- 
--srcdir_doc_info_dir_inputs := \
+@@ -1209,9 +1210,6 @@ define set_texi_misc
+ ## is no rule to build them at this level.  make-info-dir extracts dir
+ ## entries from both formats.
+ srcdir_doc_info_dir_inputs := \
 -  ${srcdir}/doc/emacs/emacs.texi \
 -  ${srcdir}/doc/lispintro/emacs-lisp-intro.texi \
--  ${srcdir}/doc/lispref/elisp.texi
-+srcdir_doc_info_dir_inputs :=
+-  ${srcdir}/doc/lispref/elisp.texi \
+   $(addprefix ${srcdir}/doc/misc/,${texi_misc_default})
  TRANSLATED_DIRS:=misc
  # $(1) = dir
- # $(2) = lang
-@@ -1224,14 +1222,10 @@ ${srcdir}/info/dir:
+@@ -1243,14 +1241,10 @@ ${srcdir}/info/dir:
  	 AWK='${AWK}' ../build-aux/make-info-dir ${info_dir_inputs} \
  	) >$@.tmp && mv $@.tmp $@
  
@@ -101,7 +99,7 @@ index 24d5584..ba55e09 100644
  INSTALL_DOC = $(INSTALL_DVI) $(INSTALL_HTML) $(INSTALL_PDF) $(INSTALL_PS)
  
  ## Install non .info forms of the documentation.
-@@ -1249,14 +1243,10 @@ install-pdf:
+@@ -1268,14 +1262,10 @@ install-pdf:
  install-ps: $(INSTALL_PS)
  
  
@@ -134,7 +132,7 @@ index 243cb81..808e6af 100755
  shift
  
 diff --git a/configure.ac b/configure.ac
-index f19ba66..b88de4e 100644
+index 897cc78..d3a8b1c 100644
 --- a/configure.ac
 +++ b/configure.ac
 @@ -7758,11 +7758,10 @@ AC_DEFUN
