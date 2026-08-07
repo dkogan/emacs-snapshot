@@ -132,10 +132,10 @@ index 243cb81..808e6af 100755
  shift
  
 diff --git a/configure.ac b/configure.ac
-index 897cc78..d3a8b1c 100644
+index 5db3c1c..dd3af7f 100644
 --- a/configure.ac
 +++ b/configure.ac
-@@ -7758,11 +7758,10 @@ AC_DEFUN
+@@ -7760,11 +7760,10 @@ AC_DEFUN
  
  AC_CONFIG_FILES([lib/Makefile lib-src/Makefile oldXMenu/Makefile src/Makefile
                   lwlib/Makefile nextstep/Makefile nt/Makefile])
@@ -149,7 +149,7 @@ index 897cc78..d3a8b1c 100644
  
  dnl The test/ directory is missing if './make-dist --no-tests' was used.
  opt_makefile=test/Makefile
-@@ -7834,15 +7833,6 @@ AC_DEFUN
+@@ -7836,15 +7835,6 @@ AC_DEFUN
    fi
    ])
  
