@@ -110,6 +110,14 @@ to your initialization file no longer apply, and you may remove it.
 
 * Editing Changes in Emacs 32.1
 
++++
+** New user option 'query-replace-show-preview'.
+When set to t, the replacement commands preview the replacement while
+you type it: the matches visible in the window are shown as they would
+look after the replacement, using the new face 'query-replace-preview'.
+This tells you what back-references like '\1' expand to before you
+commit to the edit.  The preview is off by default.
+
 
 * Changes in Specialized Modes and Packages in Emacs 32.1
 
@@ -127,6 +135,20 @@ check out the repository to prepare a patch for the package maintainer.
 
 ---
 *** Messages from Ansible are now recognized.
+
+** Flymake
+
++++
+*** Overhauled inline diagnostics.
+A new variable 'flymake-inline-diagnostics' replaces
+'flymake-show-diagnostics-at-end-of-line' and controls how Flymake
+annotates diagnostic text directly in the buffer.  Besides the previous
+styles ('eol', 'short', and 'fancy'), it can be used to only display
+certain styles in certain situations, such as using a 'fancy' inline
+displays on nearby diagnostic only.  The old variable is now an obsolete
+alias.  In parallel, the variable 'flymake-diagnostic-format-alist'
+contains new options to configure exactly which parts of a diagnostic to
+show for each inline layout possibility.
 
 ** Man
 
@@ -207,11 +229,17 @@ with named choices for the predefined search functions
 as well as the default nil and arbitrary user functions.
 
 ---
-*** New command 'outline-occur'.
-It allows users to navigate the current buffer's outline using Occur.
-The 'outline-regexp' variable is used to find the beginning of the
-outline headings.  The 'outline-occur-regexp' buffer-local variable
-allows overriding this regexp.  It is bound to 'M-o'.
+*** New command 'outline-xref'.
+It allows users to navigate the current buffer's outline using Xref.
+It is bound to 'M-o'.
+
+** CPerl mode
+
+*** Perl 5.44 support: Signatures with named parameters
+
+Perl 5.44 allows to declare a signature like "sub subname (:$par)", see
+https://perldoc.perl.org/5.44.0/perldelta#Named-Parameters-in-Signatures
+CPerl mode now recognizes this as a variable declaration
 
 ** Newsticker
 

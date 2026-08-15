@@ -373,11 +373,18 @@ every horizontal split becomes a vertical split and vice versa.
 'rotate-windows-back' ('C-x w o <LEFT>') rotate windows in cyclic
 ordering.
 
++++
 *** New user option 'rotate-windows-change-selected'.
 This controls whether 'rotate-windows' and 'rotate-windows-back' change
 the selected window.  If nil, the selected window does not change.
 The default is t, which means the new selected window will be the one
 that winds up at the location of the previously-selected window.
+
++++
+*** New user option 'transpose-dedicated-windows'.
+This controls how functions transposing or rotating windows handle
+dedicated windows.  The default is nil, which causes these function to
+signal an error if they encounter a dedicated window.
 
 +++
 *** Windmove commands now move to skipped windows if invoked twice in a row.
@@ -3378,7 +3385,7 @@ contents of the current buffer.
 When enabled, this displays indications about the availability of add-on
 ELPA packages for the current buffer and suggestions for installing
 those packages.  The default is to show a button on the mode line that
-can be used to install such packages, but you can customise the
+can be used to install such packages, but you can customize the
 presentation style of these suggestions using
 'package-autosuggest-style'.
 

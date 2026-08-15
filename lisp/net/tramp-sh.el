@@ -3893,8 +3893,14 @@ Fall back to normal file name handler if no Tramp handler exists."
 			"delete,delete_self"))
 	       ((memq 'attribute-change flags) "attrib"))
               events (concat events ",ignored,unmount")
-	      ;; "-P" has been added to version 3.21, so we cannot assume it yet.
-	      sequence `(,command "-mq" "-e" ,events ,localname)
+	      ;; "-P" has been added to version 3.21.
+	      ;; "%c" is not documented as format specifier, but it
+	      ;; has been added to version 3.20 (likely), see
+	      ;; <https://github.com/inotify-tools/inotify-tools/issues/72>
+	      sequence
+	      `(,command
+		,(if (tramp-remote-inotifywait-with-P v) "-mqP"  "-mq")
+		"-e" ,events "--format=%c %e %f" ,localname)
 	      ;; Make events a list of symbols.
 	      events
 	      (mapcar
@@ -4038,7 +4044,7 @@ Fall back to normal file name handler if no Tramp handler exists."
     (dolist (line (split-string string (rx (+ (any "\r\n"))) 'omit))
       ;; Check, whether there is a problem.
       (unless (string-match
-	       (rx bol (+ (not blank)) (+ blank) (group (+ (not blank)))
+	       (rx bol (group (+ (not blank))) (+ blank) (group (+ (not blank)))
 		   (? (+ blank) (group (+ (not (any "\r\n"))))))
 	       line)
 	(tramp-error proc 'file-notify-error line))
@@ -4048,10 +4054,13 @@ Fall back to normal file name handler if no Tramp handler exists."
 	      proc
 	      (mapcar
 	       (lambda (x) (intern-soft (string-replace "_" "-" (downcase x))))
-	       (split-string (match-string 1 line) "," 'omit))
-	      (or (match-string 2 line)
+	       (split-string (match-string 2 line) "," 'omit))
+	      (or (match-string 3 line)
 		  (file-name-nondirectory
-		   (process-get proc 'tramp-watch-name))))))
+		   (process-get proc 'tramp-watch-name)))
+	      ;; Older inotifywait versions print "%c" here.  This is
+	      ;; converted to "0".
+	      (string-to-number (match-string 1 line) 16))))
         ;; Add an Emacs event now.
 	;; `insert-special-event' exists since Emacs 31.
 	(when (member (caadr object) events)
@@ -6130,6 +6139,18 @@ Nonexistent directories are removed from spec."
   (with-tramp-connection-property vec "inotifywait"
     (tramp-message vec 5 "Finding a suitable `inotifywait' command")
     (tramp-find-executable vec "inotifywait" (tramp-get-remote-path vec) t t)))
+
+(defun tramp-remote-inotifywait-with-P (vec)
+  "Check, whether remote `inotifywait' option \"-P\" is applicable."
+  (with-tramp-connection-property vec "inotifywait-P"
+    (tramp-message vec 5 "Checking, whether `inotifywait -P' works")
+    (let ((result
+	   (tramp-send-command-and-read
+	    vec
+	    (format
+	     "echo \\\"`%s -P 2>&1`\\\"" (tramp-get-remote-inotifywait vec))
+	    'noerror)))
+      (string-match-p "No files specified to watch!" result))))
 
 (defun tramp-get-remote-id (vec)
   "Determine remote `id' command."

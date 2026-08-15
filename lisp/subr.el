@@ -6070,7 +6070,7 @@ Modifies the match data; use `save-match-data' if necessary."
                  (< start len)))))
     ;; field after last separator, if any
     (let ((item (if (= start 0)
-                    string    ; optimisation when there is no separator
+                    string    ; optimization when there is no separator
                   (substring string start))))
       (when trim
         (let* ((item-beg (if (string-match trim-left-re item 0)
@@ -7238,7 +7238,7 @@ area is busy with something else."
     (unless (and (eq (progress-reporter-context reporter) 'async)
                  (current-message)
                  (not (string-prefix-p text (current-message))))
-      (setq update-text (concat (if update-text " " "") update-text))
+      (setq update-text (if update-text (format " %s" update-text) ""))
       (pcase state
         ((pred floatp)
          (if (plusp state)

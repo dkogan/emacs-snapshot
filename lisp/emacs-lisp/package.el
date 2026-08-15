@@ -1860,7 +1860,7 @@ Used to populate `package-selected-packages'."
   "Set `package-selected-packages' to VALUE.
 During initialization, we record VALUE but to not persist it using
 Customize, to avoid overwriting configurations that haven't yet been
-loaded.  After initisation we update the user option directly."
+loaded.  After initialization we update the user option directly."
   (when (or value after-init-time)
     ;; It is valid to set it to nil, for example when the last package
     ;; is uninstalled.  But it shouldn't be done at init time, to avoid
@@ -2623,9 +2623,23 @@ If TEMP-INIT is non-nil, or when invoked with a prefix argument, the
 Emacs user directory is set to a temporary directory.  This command is
 intended for testing Emacs and/or the packages in a clean environment."
   (interactive
-   (cl-loop for p in (append
-                      (cl-loop for p in (package--alist) append (cdr p))
-                      (cl-loop for p in (package--archive-contents) append (cdr p)))
+   (cl-loop for p in
+	    (cl-loop with installed = (cl-loop for p in (package--alist)
+                                               append (cdr p))
+		     for p in (package--archive-contents)
+		     append (cl-loop
+                             for desc in (cdr p)
+			     unless (cl-loop
+                                     for idesc in installed thereis
+                                     (and (string= (package-desc-name idesc)
+						   (package-desc-name desc))
+					  (equal (package-desc-version idesc)
+						 (package-desc-version desc))
+                                          (eq (package-desc-kind idesc)
+					      (package-desc-kind desc))))
+			     collect desc)
+		     into descs
+		     finally return (nconc installed descs))
 	    unless (package-built-in-p p)
 	    collect (cons (package-desc-full-name p) p) into table
 	    finally return
@@ -4089,6 +4103,7 @@ objects removed."
 (defun package-menu--perform-transaction (install-list delete-list)
   "Install packages in INSTALL-LIST and delete DELETE-LIST.
 Return nil if there were no errors; non-nil otherwise."
+  (remove-overlays (point-min) (point-max) 'pkg-menu-ov t)
   (let ((errors nil))
     (if install-list
         (let ((status-format (format ":Installing %%d/%d"

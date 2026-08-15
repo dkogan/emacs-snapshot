@@ -91,20 +91,6 @@ The value is either the symbol's current value
  (as obtained using the `:get' function), if any,
 or the value in the symbol's `saved-value' property if any,
 or (last of all) the value of EXP."
-  ;; If this value has been set with `setopt' (for instance in
-  ;; ~/.emacs), we didn't necessarily know the type of the user option
-  ;; then.  So check now, and issue a warning if it's wrong.
-  (let ((value (get symbol 'custom-check-value)))
-    (when value
-      (let ((type (get symbol 'custom-type)))
-        (when (and type
-                   (boundp symbol)
-                   (eq (car value) (symbol-value symbol))
-                   ;; Check that the type is correct.
-                   (not (widget-apply (widget-convert type)
-                                      :match (car value))))
-          (warn "Value `%S' for `%s' does not match type %s"
-                value symbol type)))))
   (funcall (or (get symbol 'custom-set) #'set-default-toplevel-value)
            symbol
            (condition-case nil
@@ -245,6 +231,18 @@ set to nil, as the value is no longer rogue."
     ;; as set the special-variable-p flag.
     (internal--define-uninitialized-variable symbol doc)
     (put symbol 'custom-requests requests)
+    ;; If this value has been set with `setopt' (for instance in
+    ;; ~/.emacs), we didn't necessarily know the type of the user option
+    ;; then.  So check now, and issue a warning if it's wrong.
+    (dolist (value (prog1 (nreverse (get symbol 'custom-check-values))
+                     (put symbol 'custom-check-values nil)))
+      (let ((type (get symbol 'custom-type)))
+        (when (and type
+                   ;; Check that the type is correct.
+                   (not (widget-apply (widget-convert type)
+                                      :match value)))
+          (warn "Value previously set by setopt did not match %S's type %S:\n%S"
+                symbol type value))))
     ;; Do the actual initialization.
     (unless custom-dont-initialize
       (funcall initialize symbol default)
@@ -1132,17 +1130,17 @@ arguments to `custom-theme-set-variables'.  Return the sorted
 list, in which A occurs before B if B was defined with a
 `:set-after' keyword specifying A (see `defcustom')."
   (let ((custom--sort-vars-table (make-hash-table))
-	(dependants (make-hash-table))
+	(dependents (make-hash-table))
 	(custom--sort-vars-result nil)
 	last)
     ;; Construct a pair of tables keyed with the symbols of VARS.
     (dolist (var vars)
       (puthash (car var) (cons t var) custom--sort-vars-table)
-      (puthash (car var) var dependants))
+      (puthash (car var) var dependents))
     ;; From the second table, remove symbols that are depended-on.
     (dolist (var vars)
       (dolist (dep (get (car var) 'custom-dependencies))
-	(remhash dep dependants)))
+	(remhash dep dependents)))
     ;; If a variable is "stand-alone", put it last if it's a minor
     ;; mode or has a :require flag.  This is not really necessary, but
     ;; putting minor modes last helps ensure that the mode function
@@ -1152,25 +1150,25 @@ list, in which A occurs before B if B was defined with a
 			  (or (nth 3 var)
 			      (eq (get sym 'custom-set)
 				  'custom-set-minor-mode)))
-		 (remhash sym dependants)
+		 (remhash sym dependents)
 		 (push var last)))
-	     dependants)
+	     dependents)
     ;; The remaining symbols depend on others but are not
     ;; depended-upon.  Do a depth-first topological sort.
-    (maphash #'custom--sort-vars-1 dependants)
+    (maphash #'custom--sort-vars-1 dependents)
     (nreverse (append last custom--sort-vars-result))))
 
 (defun custom--sort-vars-1 (sym &optional _ignored)
   (let ((elt (gethash sym custom--sort-vars-table)))
     ;; The car of the hash table value is nil if the variable has
-    ;; already been processed, `dependant' if it is a dependant in the
+    ;; already been processed, `dependent' if it is a dependent in the
     ;; current graph descent, and t otherwise.
     (when elt
       (cond
-       ((eq (car elt) 'dependant)
+       ((eq (car elt) 'dependent)
 	(error "Circular custom dependency on `%s'" sym))
        ((car elt)
-	(setcar elt 'dependant)
+	(setcar elt 'dependent)
 	(dolist (dep (get sym 'custom-dependencies))
 	  (custom--sort-vars-1 dep))
 	(setcar elt nil)
