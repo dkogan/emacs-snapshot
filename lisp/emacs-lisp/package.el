@@ -2652,8 +2652,22 @@ intended for testing Emacs and/or the packages in a clean environment."
              current-prefix-arg)))
   (let* ((name (concat "package-isolate-"
                        (mapconcat #'package-desc-full-name packages ",")))
-         (dependencies (apply #'append (mapcar #'package-desc-reqs packages)))
-         (all-packages (package-compute-transaction packages dependencies))
+         (all-packages
+          (delete-dups
+           (nconc
+            (mapcan
+             (pcase-lambda (`(,name ,vers))
+               (and (not (eq name 'emacs))
+                    (not (cl-find name packages :key #'package-desc-name))
+                    (if-let* ((desc (package-get-descriptor
+                                     name t
+                                     (lambda (desc)
+                                       (version-list-<= vers (package-desc-version desc))))))
+                        (list desc)
+                      (error "Failed to find package: (%s %S)" name vers))))
+             (package--dependencies packages))
+            packages)))
+         (all-packages (seq-remove #'package-built-in-p all-packages))
          (package-alist (copy-tree package-alist t))
          (temp-install-dir nil) initial-scratch-message load-list)
     (when-let* ((missing (seq-remove #'package-installed-p all-packages))
@@ -2694,7 +2708,7 @@ intended for testing Emacs and/or the packages in a clean environment."
                                (append (list package-user-dir)
                                        temp-install-dir
                                        package-directory-list))
-                            (setq package-load-list ',package-load-list)
+                            (setq package-load-list ',load-list)
                             (package--activate-all)))))))
 
 
@@ -2801,7 +2815,10 @@ If no such file exists, the function returns nil."
   "Insert the package description for PKG.
 Helper function for `describe-package'."
   (require 'lisp-mnt)
-  (let* ((desc (package-get-descriptor pkg t))
+  (let* ((desc (if (eq pkg 'emacs)
+                   (package--from-builtin
+                    (assq 'emacs package--builtins))
+                 (package-get-descriptor pkg t)))
          (name (if desc (package-desc-name desc) pkg))
          (pkg-dir (if desc (package-desc-dir desc)))
          (reqs (if desc (package--dependencies desc)))
@@ -3024,7 +3041,7 @@ Helper function for `describe-package'."
 
       ;; Insert news if available.
       (when news
-        (insert "\n" (make-separator-line) "\n"
+        (insert (make-separator-line)
                 (propertize "* News" 'face 'package-help-section-name)
                 "\n\n")
         (insert-file-contents news))

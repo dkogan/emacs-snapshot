@@ -4,7 +4,7 @@
 
 ;; Author: Pavel Kobyakov <pk_at_work@yahoo.com>
 ;; Maintainer: Spencer Baugh <sbaugh@janestreet.com>
-;; Version: 1.4.5
+;; Version: 1.4.7
 ;; Keywords: c languages tools
 ;; Package-Requires: ((emacs "26.1") (eldoc "1.14.0") (project "0.11.1"))
 
@@ -131,7 +131,8 @@
 (add-to-list 'customize-package-emacs-version-alist
              '(Flymake ("1.3.4" . "30.1")
                        ("1.3.5" . "30.1")
-                       ("1.3.6" . "30.1")))
+                       ("1.3.6" . "30.1")
+                       ("1.4.6" . "31.1")))
 
 (defcustom flymake-error-bitmap '(flymake-double-exclamation-mark
                                   flymake-error-fringe)
@@ -1324,8 +1325,16 @@ with a report function."
             (flymake--state-disabled state) nil
             (flymake--state-reported-p state) nil))
     (condition-case-unless-debug err
-        (apply backend (flymake-make-report-fn backend run-token)
-               args)
+        (if (or (trusted-content-p) (function-get backend 'flymake-always-safe))
+            (apply backend (flymake-make-report-fn backend run-token)
+                   args)
+          ;; FIXME: Use `bwrap' for untrusted content.
+          ;; FIXME: We emit a message *and* signal an error, because by default
+          ;; Flymake doesn't display the warning it puts into "*flymake log*".
+          (message "Disabling %S in %s (untrusted content)"
+                   backend (buffer-name))
+          (user-error "Disabling %S in %s (untrusted content)"
+                      backend (buffer-name)))
       (error
        (flymake--disable-backend backend err)))))
 
@@ -1595,7 +1604,7 @@ Do it only if `flymake-no-changes-timeout' is non-nil."
 ;;;###autoload
 (defun flymake-mode-off ()
   "Turn Flymake mode off."
-  (flymake-mode 0))
+  (flymake-mode -1))
 
 (make-obsolete 'flymake-mode-on 'flymake-mode "26.1")
 (make-obsolete 'flymake-mode-off 'flymake-mode "26.1")
@@ -1683,7 +1692,7 @@ default) no filter is applied."
                         (cl-sort retval (if (cl-plusp n) #'< #'>)
                                  :key #'overlay-start))))
          (tail ;; For compatibility with older Emacs.
-               (with-suppressed-warnings ((obsolete cl-member-if))
+               (with-no-warnings
                  (cl-member-if (lambda (ov)
                                  (if (cl-plusp n)
                                      (> (overlay-start ov)
@@ -1936,8 +1945,9 @@ TYPE is usually keyword `:error', `:warning' or `:note'."
     (define-key map (kbd "C-o") #'flymake-show-diagnostic)
     (define-key map (kbd "C-m") #'flymake-goto-diagnostic)
     (when (fboundp 'next-error-this-buffer-no-select)
-      (define-key map (kbd "n") #'next-error-this-buffer-no-select)
-      (define-key map (kbd "p") #'previous-error-this-buffer-no-select))
+      (define-key map (kbd "n") #'next-error-this-buffer-no-select))
+    (when (fboundp 'previous-error-this-buffer-no-select)
+     (define-key map (kbd "p") #'previous-error-this-buffer-no-select))
     map))
 
 (defun flymake-show-diagnostic (pos &optional other-window)
@@ -2159,24 +2169,26 @@ diagnostics at point.
 
 This function doesn't move point"
   (interactive
-   (if (mouse-event-p last-command-event)
-       (with-selected-window (posn-window (event-end last-command-event))
-         (with-current-buffer (window-buffer)
-           (let* ((event-point (posn-point (event-end last-command-event)))
-                  (diags
-                   (or
-                    (flymake-diagnostics event-point)
-                    (let (event-lbp event-lep)
-                      (save-excursion
-                        (goto-char event-point)
-                        (setq event-lbp (line-beginning-position)
-                              event-lep (line-end-position)))
-                      (flymake-diagnostics event-lbp event-lep))))
-                  (diag (car diags)))
-             (unless diag
-               (error "No diagnostics here"))
-             (list diag))))
-     (flymake-diagnostics (point))))
+   (let* ((diags
+           (if (mouse-event-p last-command-event)
+               (with-selected-window
+                   (posn-window (event-end last-command-event))
+                 (with-current-buffer (window-buffer)
+                   (let ((event-point (posn-point
+                                       (event-end last-command-event))))
+                     (or (flymake-diagnostics event-point)
+                         (let (event-lbp event-lep)
+                           (save-excursion
+                             (goto-char event-point)
+                             (setq event-lbp (line-beginning-position)
+                                   event-lep (line-end-position)))
+                           (flymake-diagnostics event-lbp
+                                                event-lep))))))
+             (flymake-diagnostics (point))))
+          (diag (car diags)))
+     (unless diag
+       (error "No diagnostics here"))
+     (list diag)))
   (unless flymake-mode
     (user-error "Flymake mode is not enabled in the current buffer"))
   (let* ((name (flymake--diagnostics-buffer-name))

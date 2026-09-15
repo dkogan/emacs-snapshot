@@ -4637,6 +4637,7 @@ no ARGth marked file is found before this line."
       (while (and (< (point) end) (dired-between-files))
 	(forward-line 1))
       (if (and (not (looking-at-p dired-re-dot))
+               (not (dired--hidden-p))
 	       (dired-get-filename nil t))
 	  (progn
 	    (delete-char 1)
@@ -4681,6 +4682,7 @@ this subdir."
        (prefix-numeric-value arg)
        (lambda ()
          (when (or (not (looking-at-p dired-re-dot))
+                   (not (dired--hidden-p))
                    ;; Don't skip symlinks to ".", "..", etc.
                    (save-excursion
                      (re-search-forward
@@ -5521,7 +5523,6 @@ when it decides whether to split the window horizontally or vertically."
 (defvar-keymap dired-jump-map
   :doc "Keymap to repeat `dired-jump'.  Used in `repeat-mode'."
   :repeat t
-  "j"   #'dired-jump
   "C-j" #'dired-jump)
 
 

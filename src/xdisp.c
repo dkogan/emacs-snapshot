@@ -11316,10 +11316,18 @@ move_it_vertically_backward (struct it *it, int dy)
      y-distance.  */
   SAVE_IT (it2, *it, it2data);
   it2.max_ascent = it2.max_descent = 0;
+  ptrdiff_t to_pos = start_pos;
   do
     {
-      move_it_to (&it2, start_pos, -1, -1, it2.vpos + 1,
-		  MOVE_TO_POS | MOVE_TO_VPOS);
+      move_it_to (&it2, to_pos, -1, -1, it2.vpos + 1,
+		  (to_pos > 0
+		    ? (MOVE_TO_POS | MOVE_TO_VPOS)
+		   : MOVE_TO_VPOS));
+      /* Avoid inflooping of there's a large display string with several
+         embedded newlines, which makes move_it_to stop after START_POS
+         but still inside a display or overlay string.  */
+      if (IT_CHARPOS (it2) >= start_pos)
+	to_pos = -1;
     }
   while (!(IT_POS_VALID_AFTER_MOVE_P (&it2)
 	   /* If we are in a display string which starts at START_POS,
@@ -11928,7 +11936,11 @@ window_text_pixel_size (Lisp_Object window, Lisp_Object from, Lisp_Object to,
   /* If FROM is on a newline, pretend that we start at the beginning
      of the next line, because the newline takes no place on display.  */
   if (FETCH_BYTE (start_bpos) == '\n')
-    it.current_x = 0, it.wrap_prefix_width = 0;
+    {
+      it.current_x = 0;
+      start_x = 0;	/* in case TO == FROM */
+      it.wrap_prefix_width = 0;
+    }
   if (!NILP (x_limit))
     {
       it.last_visible_x = max_x;
@@ -32840,6 +32852,82 @@ append_stretch_glyph (struct it *it, Lisp_Object object,
     }
   else
     IT_EXPAND_MATRIX_WIDTH (it, area);
+}
+
+static void
+redraw_image_glyphs_window (struct window *w, Lisp_Object spec)
+{
+  if (w->current_matrix == NULL)
+    return;
+
+  struct frame* f = WINDOW_XFRAME (w);
+
+  if (w->must_be_updated_p)
+    {
+      SET_FRAME_GARBAGED (f);
+      return;
+    }
+
+  for (int area = LEFT_MARGIN_AREA; area < LAST_AREA; ++area)
+    {
+      for (int y = 0; y < w->current_matrix->nrows; ++y)
+	{
+	  struct glyph_row *row = w->current_matrix->rows + y;
+	  if (row->enabled_p)
+	    {
+	      int pos_x = area == TEXT_AREA ? row->x : 0;
+	      for (int x = 0; x < row->used[area]; ++x)
+		{
+		  struct glyph *glyph = row->glyphs[area] + x;
+		  if (glyph->type == IMAGE_GLYPH)
+		    {
+		      struct image* img =
+			IMAGE_OPT_FROM_ID (f, glyph->u.img_id);
+		      if (img && EQ (img->spec, spec))
+			{
+			  prepare_image_for_display (f, img);
+			  draw_glyphs (w, pos_x, row, area, x, x + 1,
+				       DRAW_NORMAL_TEXT, 0);
+			}
+		    }
+		  pos_x += glyph->pixel_width;
+		}
+	    }
+	}
+    }
+}
+
+static void
+redraw_image_glyphs_window_tree (struct window *w, Lisp_Object spec)
+{
+  while (w)
+    {
+      if (WINDOWP (w->contents))
+	redraw_image_glyphs_window_tree (XWINDOW (w->contents), spec);
+      else
+	redraw_image_glyphs_window (w, spec);
+      w = NILP (w->next) ? NULL : XWINDOW (w->next);
+    }
+}
+
+/* redraw_image_glyphs: Redraw only the image glyphs.  Image redrawing is similar to the
+   handling of Expose or GraphicsExpose events in xterm.c.
+   GraphicsExpose event
+      -> expose_frame -> expose_window_tree -> expose_window
+      -> expose_line -> expose_area -> draw_glyphs */
+
+void
+redraw_image_glyphs (Lisp_Object spec)
+{
+  Lisp_Object tail, frame;
+  FOR_EACH_FRAME (tail, frame)
+    {
+      /* When the frame is garbaged, wait for full redisplay.  Only use
+         the fast path when the frame is in a consistent state.  */
+      struct frame* f = XFRAME (frame);
+      if (!FRAME_GARBAGED_P (f))
+        redraw_image_glyphs_window_tree (XWINDOW (f->root_window), spec);
+    }
 }
 
 #endif	/* HAVE_WINDOW_SYSTEM */
