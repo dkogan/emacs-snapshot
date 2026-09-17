@@ -21,21 +21,22 @@ Author: Rob Browning <rlb@defaultvalue.org>
 Added-by: Rob Browning <rlb@defaultvalue.org>
 Status: new
 ---
- Makefile.in             | 44 +++++++++++++++++---------------------------
+ Makefile.in             | 45 +++++++++++++++++----------------------------
  build-aux/make-info-dir |  2 +-
  configure.ac            | 14 ++------------
  doc/misc/Makefile.in    |  6 ++++++
  lisp/help.el            |  8 ++++++++
- 5 files changed, 34 insertions(+), 40 deletions(-)
+ 5 files changed, 34 insertions(+), 41 deletions(-)
 
 diff --git a/Makefile.in b/Makefile.in
-index 534d8dc..e790be9 100644
+index e58d2aa..5876b39 100644
 --- a/Makefile.in
 +++ b/Makefile.in
-@@ -176,7 +176,9 @@ man1dir=
+@@ -176,8 +176,9 @@ man1dir=
  # Where to install and expect the info files describing Emacs.
  infodir=@infodir@
  # Info files not in the doc/misc directory (we get those via make echo-info).
+-# These are not gated by DOCLANGS: see MANDATORY_DOC_DIRS below.
 -INFO_NONMISC=emacs.info eintr.info elisp.info
 +# Debian: moved DFSG incompatible files to emacs*-common-non-dfsg
 +# package (see /usr/share/doc/emacs*-common/copyright).
@@ -43,7 +44,7 @@ index 534d8dc..e790be9 100644
  
  # Directory for local state files for all programs.
  localstatedir=@localstatedir@
-@@ -1007,8 +1009,7 @@ $(1)_$(2):
+@@ -1008,8 +1009,7 @@ $(1)_$(2):
  ###      normally don't want to recompile.  For example, the 'mostlyclean'
  ###      target for GCC does not delete 'libgcc.a', because recompiling it
  ###      is rarely necessary and takes a lot of time.
@@ -53,7 +54,7 @@ index 534d8dc..e790be9 100644
  
  ### Add the libexec directory to mostlyclean_dirs if its Makefile has
  ### been created.
-@@ -1138,11 +1139,11 @@ test/%:
+@@ -1139,11 +1139,11 @@ test/%:
  dist:
  	cd ${srcdir}; ./make-dist
  
@@ -70,9 +71,9 @@ index 534d8dc..e790be9 100644
  
  DOCS = $(DVIS) $(HTMLS) $(INFOS) $(PDFS) $(PSS)
  
-@@ -1209,9 +1210,6 @@ define set_texi_misc
- ## is no rule to build them at this level.  make-info-dir extracts dir
- ## entries from both formats.
+@@ -1217,9 +1217,6 @@ define set_texi_misc
+ ## entries from both formats.  The first three are not gated by
+ ## DOCLANGS, because MANDATORY_DOC_DIRS always builds them.
  srcdir_doc_info_dir_inputs := \
 -  ${srcdir}/doc/emacs/emacs.texi \
 -  ${srcdir}/doc/lispintro/emacs-lisp-intro.texi \
@@ -80,7 +81,7 @@ index 534d8dc..e790be9 100644
    $(addprefix ${srcdir}/doc/misc/,${texi_misc_default})
  TRANSLATED_DIRS:=misc
  # $(1) = dir
-@@ -1243,14 +1241,10 @@ ${srcdir}/info/dir:
+@@ -1251,14 +1248,10 @@ ${srcdir}/info/dir:
  	 AWK='${AWK}' ../build-aux/make-info-dir ${info_dir_inputs} \
  	) >$@.tmp && mv $@.tmp $@
  
@@ -99,7 +100,7 @@ index 534d8dc..e790be9 100644
  INSTALL_DOC = $(INSTALL_DVI) $(INSTALL_HTML) $(INSTALL_PDF) $(INSTALL_PS)
  
  ## Install non .info forms of the documentation.
-@@ -1268,14 +1262,10 @@ install-pdf:
+@@ -1276,14 +1269,10 @@ install-pdf:
  install-ps: $(INSTALL_PS)
  
  
@@ -183,7 +184,7 @@ index dda6a9d..67ce0be 100644
  ## This is discouraged because the .texi files it generates
  ## are not as well formatted as handwritten ones.
 diff --git a/lisp/help.el b/lisp/help.el
-index be6e56a..384cc49 100644
+index 3d7e4be..242c4bf 100644
 --- a/lisp/help.el
 +++ b/lisp/help.el
 @@ -587,6 +587,14 @@ view-help-file
