@@ -34,6 +34,8 @@ systems.
 
 * Changes in Emacs 32.1
 
+** Emacs now supports Unicode Standard version 18.0.
+
 ---
 ** Emacs no longer kills child processes after EPIPE.
 Previously, Emacs would immediately kill a child process and set its
@@ -251,11 +253,16 @@ The default definition of 'log-edit-headers-separator' now inherits its
 attributes from the face 'separator-line'.  That changes the default
 color and makes it work better in the terminal.
 
+** Diff
+
+---
+*** 'diff-switches' now includes '-r' by default.
+
 ** Outline mode
 
 *** New command 'outline-show-entry-and-parents'.
-It is bound to 'C-e' and reveals the current entry
-with its parent hierarchy.
+It is bound to 'C-e' in the Outline keymaps and reveals the current
+entry with its parent hierarchy.
 
 ---
 *** New function 'outline-search-from-regexp'.
@@ -289,7 +296,7 @@ Otherwise, a pattern is built from 'comment-start' and the new option
 *** New command 'outline-find-headings'.
 It finds all outline headings in the current buffer and displays them in
 an Xref buffer.  Users can use that Xref buffer to navigate and edit the
-outline.  It is bound to 'C-c @ M-o'.
+outline.  It is bound to 'M-o' in the Outline keymaps.
 
 ** Xref
 
@@ -366,6 +373,15 @@ with their literal equivalents i.e. '^I'.
 *** New ex command: 'z'.
 Ex can now print lines using the 'z' command which allows scrolling the
 output of the lines.
+
+** Tramp
+
++++
+*** Tramp is more strict now in expanding the tilde "~USER".
+If this isn't possible, an error is raised.  This happens often in test
+functions, which use example file names like "/ssh:host:~user/file.txt".
+In order to suppress such errors, let-bind 'tramp-tolerate-tilde' to a
+non-nil value.
 
 
 * New Modes and Packages in Emacs 32.1
@@ -467,7 +483,6 @@ Emacs 30.  It allows Lisp programs that present completion candidates
 ("completion frontends") to provide additional information which can be
 used to adjust or optimize completion candidates computation.
 
-+++
 ** D-Bus
 
 +++
@@ -509,12 +524,10 @@ the actual and expected output.
 Strings should use numeric abbreviations like "-0600" instead of
 alphabetic abbreviations like "CST", which are too often ambiguous.
 
-** Function 'declare' forms
-
 +++
-*** New 'font-lock-keyword' function declaration
+** New 'font-lock-keyword' function declaration.
 The declaration '(font-lock-keyword t)' specifies that a normal
-functions is to be highlighted by font-lock a macros.
+function is to be highlighted by font-lock like a macro.
 
 
 * Changes in Emacs 32.1 on Non-Free Operating Systems
@@ -530,6 +543,12 @@ order to establish network connections to hosts on local networks.
 ---
 *** Emacs on MS-Windows now supports IME compositions on text-only frames.
 This support is only available on Windows versions of the NT family.
+
+---
+*** 'process-attributes' now returns 'pcpu' and 'pmem' on macOS.
+As a result, 'M-x proced' shows populated %CPU and %Mem columns there.
+In addition, the 'utime', 'stime' and 'time' attributes, which were off
+by the Mach timebase factor on Apple Silicon, are now correct.
 
 
 ----------------------------------------------------------------------
