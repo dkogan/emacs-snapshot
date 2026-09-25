@@ -137,8 +137,9 @@ You can use \\[copy-theme-options] to do this."
  '(view-read-only t)
  '(column-number-mode t)
  '(kill-do-not-save-duplicates t)
+ '(scroll-error-top-bottom t)
 
-;;;; Directory managment-related options
+;;;; Directory management-related options
  '(dired-auto-revert-buffer t)
  '(dired-mouse-drag-files t)
  '(shell-command-prompt-show-cwd t)
@@ -151,6 +152,7 @@ You can use \\[copy-theme-options] to do this."
  '(vc-find-revision-no-save t)
  '(vc-follow-symlinks t)
  '(vc-use-incoming-outgoing-prefixes t)
+ '(vc-dir-simple-unmark-all-files t)
 
 ;;;; Completion-related options
  '(minibuffer-visible-completions t)

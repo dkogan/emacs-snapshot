@@ -886,6 +886,13 @@ OVERRIDE, START, and END are passed through to
 
 (defvar url-mail-command) ; url/url-vars.el
 
+(defun markdown-ts--unbracket-destination (url)
+  "Return URL without CommonMark's optional `<...>' wrapper."
+  ;; Only when both delimiters are there, so `[a](foo>)' is left alone.
+  (if (and (string-prefix-p "<" url) (string-suffix-p ">" url))
+      (substring url 1 -1)
+    url))
+
 (defun markdown-ts--make-link-button (beg end url)
   "Make the region from BEG to END a clickable button for URL.
 For mailto: URIs, use `url-mail-command'.  For other schemes
@@ -900,7 +907,8 @@ list with a single `markdown-ts-link', clobbering an enclosing
 heading face."
   ;; NOTE: URI scheme and host name are case-insensitive per RFC 3986
   ;; and RFC 7230.
-  (let ((case-fold-search nil))
+  (let ((url (markdown-ts--unbracket-destination url))
+        (case-fold-search nil))
     (make-text-button beg end
                       'action (lambda (_button)
                                 (cond
@@ -1715,7 +1723,8 @@ Remote images are controlled by
                ;; with the folded display.
                (not (markdown-ts--outline-invisible-p node-start)))
       (let* ((dest (treesit-search-subtree node "\\`link_destination\\'"))
-             (url (and dest (treesit-node-text dest t)))
+             (url (and dest (markdown-ts--unbracket-destination
+                             (treesit-node-text dest t))))
              (remotep (and url (string-match-p "\\`https?://" url)))
              (displayable
               (when url
@@ -5142,10 +5151,10 @@ commands in a code-block context."
 These override keys in `markdown-ts-mode-map' to support executing their
 commands in a table context."
   :menu nil
-  "<return>"    #'markdown-ts-table-next-row
+  "RET"         #'markdown-ts-table-next-row
   "S-<return>"  #'markdown-ts-table-previous-row
   "M-RET"       #'markdown-ts-table-insert-row-below
-  "<tab>"       #'markdown-ts-table-next-cell
+  "TAB"         #'markdown-ts-table-next-cell
   "<backtab>"   #'markdown-ts-table-previous-cell
   "M-<up>"      #'markdown-ts-table-move-row-up
   "M-<down>"    #'markdown-ts-table-move-row-down

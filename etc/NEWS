@@ -131,6 +131,14 @@ of the terminal emulator:
   first code point in the sequence.  In this case, it might help to set
   'tty-display-emoji-force-wide' to nil.
 
+---
+** Support for overline face attributes on text-only terminals.
+Emacs now displays overlines on text-only terminals.  Terminal support
+for overline is determined based on the 'Smol' capability in the
+terminfo database.  For terminals where the terminfo database does not
+correctly declare the 'Smol' capability, the new function
+'tty-enable-overline' allows manually enabling or disabling support.
+
 
 * Editing Changes in Emacs 32.1
 
@@ -161,6 +169,15 @@ for nearby fields.
 
 
 * Changes in Specialized Modes and Packages in Emacs 32.1
+
+** Use-Package
+---
+*** ':ensure t' installs the package only at run-time.
+In previous versions, it tried to install it more eagerly during
+compilation, but such side-effects are not welcome during compilation.
+In a pinch, to recover the previous behavior you can
+set 'use-package-ensure-install-during-compile' to a non-nil value,
+but it is a temporary backward compatibility hack that will disappear.
 
 ** Package
 
@@ -239,6 +256,12 @@ have a backend, and 'vc-follow-symlinks' is non-nil, the truename is
 used instead.  Previously, the truename was used unconditionally.
 
 +++
+*** New option 'vc-dir-simple-unmark-all-files'.
+This inverts the meaning of a prefix argument to the existing 'U'
+('vc-dir-unmark-all-files') command, which some users may find more
+intuitive.
+
++++
 *** Improved creation of commit log entry from ChangeLog.
 When VC detects that all log entries for the current changeset come from
 the same ChangeLog file or buffer, it now inserts the entire body of the
@@ -253,10 +276,27 @@ The default definition of 'log-edit-headers-separator' now inherits its
 attributes from the face 'separator-line'.  That changes the default
 color and makes it work better in the terminal.
 
+---
+*** New user option 'vc-quick-select-current-working-tree'.
+If you customize this to non-nil, commands that may operate on any
+working tree no longer prompt when the current working tree is the only
+choice.
+
 ** Diff
 
 ---
 *** 'diff-switches' now includes '-r' by default.
+
+** Diff mode
+
++++
+*** New command 'f' jumps to the corresponding line of the old source.
+This is primarily intended for use in "*vc-diff*" buffers, where it
+mirrors the existing 'f' binding in Log View mode buffers.
+In such buffers, 'f' when point is on an old changed line (i.e. a
+removed line) jumps to the file at the diff's old revision, and 'f' when
+point is on a new changed line (i.e. an added line) or an unchanged line
+jumps to the file at the diff's new revision.
 
 ** Outline mode
 
@@ -382,6 +422,10 @@ If this isn't possible, an error is raised.  This happens often in test
 functions, which use example file names like "/ssh:host:~user/file.txt".
 In order to suppress such errors, let-bind 'tramp-tolerate-tilde' to a
 non-nil value.
+
++++
+*** 'tramp-recompile-elpa' is marked obsolete.
+Use 'package-recompile' instead.
 
 
 * New Modes and Packages in Emacs 32.1
@@ -543,6 +587,9 @@ order to establish network connections to hosts on local networks.
 ---
 *** Emacs on MS-Windows now supports IME compositions on text-only frames.
 This support is only available on Windows versions of the NT family.
+
+---
+*** Emacs running on Windows Terminal now supports underline styles and colors.
 
 ---
 *** 'process-attributes' now returns 'pcpu' and 'pmem' on macOS.

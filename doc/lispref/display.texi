@@ -2443,7 +2443,7 @@ though when this function is run from an idle timer with a delay of zero
 seconds.
 @end defun
 
-@defun buffer-text-pixel-size &optional buffer-or-name window x-limit y-limit
+@defun buffer-text-pixel-size &optional buffer-or-name window x-limit y-limit from to
 This is much like @code{window-text-pixel-size}, but can be used when
 the buffer isn't shown in a window.  (@code{window-text-pixel-size} is
 faster when it is, so this function shouldn't be used in that case.)
@@ -2456,12 +2456,8 @@ compute the text dimensions as if @var{buffer} is displayed in
 of any text line and the pixel-height of all the text lines of the
 accessible portion of the buffer specified by @var{buffer-or-name}.
 
-The optional arguments @var{x-limit} and @var{y-limit} have the same
-meaning as with @code{window-text-pixel-size}.
-
-If you want to measure dimensions of some part of the buffer text,
-narrow the buffer to that part before calling this function
-(@pxref{Narrowing}).
+The optional arguments @var{x-limit}, @var{y-limit}, @var{from} and
+@var{to} have the same meaning as with @code{window-text-pixel-size}.
 @end defun
 
 @defun string-pixel-width string &optional buffer
@@ -2837,7 +2833,10 @@ Don't underline.
 Underline with the foreground color of the face.
 
 @item @var{color}
-Underline in color @var{color}, a string specifying a color.
+Underline in color @var{color}, a string specifying a color.  This works
+also on text terminals, if the terminal is capable of setting the color
+of the underline (the @code{Smulx} and @code{Su} terminfo capabilities
+must be available).
 
 @item @code{(:color @var{color} :style @var{style} :position @var{position})}
 @var{color} is either a string, or the symbol @code{foreground-color},
@@ -2858,15 +2857,19 @@ display the underline.
 
 @cindex overlined text
 @item :overline
-Whether or not characters should be overlined, and in what color.
-If the value is @code{t}, overlining uses the foreground color of the
-face.  If the value is a string, overlining uses that color.  The
+Whether or not characters should be overlined, and in what color.  If
+the value is @code{t}, overlining uses the foreground color of the face.
+On text terminals, support for this depends on the availability of the
+@code{Smol} terminfo capability.  If the value is a string, overlining
+uses that color (this currently doesn't work on text terminals).  The
 value @code{nil} means do not overline.
 
 @cindex strike-through text
 @item :strike-through
 Whether or not characters should be strike-through, and in what
-color.  The value is used like that of @code{:overline}.
+color.  The value is used like that of @code{:overline}.  Whether this
+is supported on text terminals depends on the availability of the
+@code{smxx} terminfo capability.
 
 @cindex 2D box
 @cindex 3D box
