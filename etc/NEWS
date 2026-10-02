@@ -266,9 +266,9 @@ intuitive.
 When VC detects that all log entries for the current changeset come from
 the same ChangeLog file or buffer, it now inserts the entire body of the
 ChangeLog entry into the "*vc-log*" buffer.  If the ChangeLog entry
-contains a summary line, VC inserts it into the "*vc-log*" Summary header.
-If VC detects that the set of changed files listed in the ChangeLog
-entry differs from the current VC fileset, it displays a warning.
+contains a summary line, VC inserts it into the "*vc-log*" Summary
+header.  If one or more files listed in the ChangeLog entry are not in
+the current VC fileset, VC displays a warning.
 
 ---
 *** The face 'log-edit-headers-separator' inherits from separator-line.
@@ -392,6 +392,13 @@ details.
 *** New user option 'eshell-lexical-binding'.
 When enabled, this causes Eshell to evaluate commands in Lisp syntax
 using lexical binding.
+
+** SHR
+
+---
+*** HTML list items are now indented as with other blocks.
+Previously, HTML list items (<li>) were indented with a narrower width
+than <blockquote> elements.  Now, they all have the same indent width.
 
 ** Dired
 
@@ -572,6 +579,16 @@ alphabetic abbreviations like "CST", which are too often ambiguous.
 ** New 'font-lock-keyword' function declaration.
 The declaration '(font-lock-keyword t)' specifies that a normal
 function is to be highlighted by font-lock like a macro.
+
++++
+** New optional LESSP parameter for 'directory-files-recursively'.
+It allows control over the relative order of file names per directory
+in the resulting list.  The default remains sorting each directory
+according to 'string-lessp'.  A value of t returns files in their
+arbitrary directory order without sorting, which may be faster.
+The argument can also be a function of two parameters suitable as the
+':lessp' argument of 'sort'.  For example, 'string-collate-lessp' would
+result in the locale-specific collation order one might see in Dired.
 
 
 * Changes in Emacs 32.1 on Non-Free Operating Systems

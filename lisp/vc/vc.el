@@ -3399,8 +3399,9 @@ function."
        (vc-call-backend backend 'topic-outgoing-base)))
 
 (defun vc--outgoing-base-mergebase
-    (backend &optional upstream-location refresh force-topic)
+    (backend upstream-location &optional and-incoming-revision)
   "Return, under VC backend BACKEND, the merge base with UPSTREAM-LOCATION.
+
 Normally UPSTREAM-LOCATION, if non-nil, is a string.
 If UPSTREAM-LOCATION is nil, it means to call `vc--outgoing-base' and
 use its return value as UPSTREAM-LOCATION.  If `vc--outgoing-base'
@@ -3409,17 +3410,37 @@ If UPSTREAM-LOCATION is the special value t, it means to use the place
 to which `vc-push' would push as UPSTREAM-LOCATION, unconditionally.
 (This is passed when the user invokes an outgoing base command with a
  \\`C-u C-u' prefix argument; see `vc--maybe-read-outgoing-base'.)
-REFRESH is passed on to `vc--incoming-revision'.
-FORCE-TOPIC is passed on to `vc--outgoing-base'."
-  (vc-call-backend backend 'mergebase
-                   (vc--incoming-revision backend
-                                          (pcase upstream-location
-                                            ('t nil)
-                                            ('nil
-                                             (vc--outgoing-base backend
-                                                                force-topic))
-                                            (_ upstream-location))
-                                          refresh)))
+
+If optional argument AND-INCOMING-REVISION is non-nil,
+- return a list of the merge base between UPSTREAM-LOCATION and the
+  incoming revision for the place to which `vc-push' would push, and
+  that incoming revision;
+- pass REFRESH non-nil to `vc--incoming-revision';
+- pass FORCE-TOPIC non-nil to `vc--outgoing-base'."
+  (cond*
+   ((bind* (upstream-location
+            (pcase upstream-location
+              ('t nil)
+              ('nil (vc--outgoing-base backend and-incoming-revision))
+              (_ upstream-location)))))
+   ((and (null upstream-location) and-incoming-revision)
+    ;; This implies finding the merge base between the place to which
+    ;; `vc-push' would push and the incoming revision for that same
+    ;; place, which are the same revision, meaning an empty diff/log.
+    (user-error (substitute-command-keys "\
+No meaningful outgoing base -- supply one with \\[universal-argument]")))
+   (and-incoming-revision
+    (let ((incoming (vc--incoming-revision backend nil 'refresh)))
+      (list
+       (vc-call-backend backend 'mergebase
+                        (vc--incoming-revision backend upstream-location
+                                               'refresh)
+                        incoming)
+       incoming)))
+   (t
+    (vc-call-backend backend 'mergebase
+                     (vc--incoming-revision backend
+                                            upstream-location)))))
 
 ;;;###autoload
 (defun vc-root-diff-unintegrated (&optional upstream-location)
@@ -3622,14 +3643,13 @@ When called from Lisp, optional argument FILESET overrides the fileset."
                  (list (vc--maybe-read-outgoing-base (car fileset)
                                                      'no-double)
                        fileset)))
-  (let* ((fileset (or fileset (vc-deduce-fileset t)))
-         (backend (car fileset)))
+  (pcase-let* ((fileset (or fileset (vc-deduce-fileset t)))
+               (backend (car fileset))
+               (`(,merge-base ,incoming-revision)
+                (vc--outgoing-base-mergebase backend upstream-location
+                                             'and-incoming-revision)))
     (vc-diff-internal vc-allow-async-diff fileset
-                      (vc--outgoing-base-mergebase backend
-                                                   upstream-location
-                                                   'refresh 'force-topic)
-                      ;; REFRESH nil here because we just refreshed.
-                      (vc--incoming-revision backend)
+                      merge-base incoming-revision
                       (called-interactively-p 'interactive))))
 
 ;;;###autoload
@@ -3652,17 +3672,17 @@ UPSTREAM-LOCATION, which should be a remote branch name.
 
 When called from Lisp, optional argument FILESET overrides the fileset."
   (interactive (let ((fileset (vc-deduce-fileset t)))
-                 (list (vc--maybe-read-outgoing-base (car fileset))
+                 (list (vc--maybe-read-outgoing-base (car fileset)
+                                                     'no-double)
                        fileset)))
-  (let* ((fileset (or fileset (vc-deduce-fileset t)))
-         (backend (car fileset)))
+  (pcase-let* ((fileset (or fileset (vc-deduce-fileset t)))
+               (backend (car fileset))
+               (`(,merge-base ,incoming-revision)
+                (vc--outgoing-base-mergebase backend upstream-location
+                                             'and-incoming-revision)))
     (vc-print-log-internal backend (cadr fileset)
-                           (vc--incoming-revision backend nil 'refresh)
-                           'is-start-revision
-                           ;; REFRESH nil here because we just refreshed.
-                           (vc--outgoing-base-mergebase backend
-                                                        upstream-location
-                                                        nil 'force-topic)
+                           incoming-revision
+                           'is-start-revision merge-base
                            '(log-unintegrated))))
 
 ;;;###autoload
@@ -4666,23 +4686,58 @@ BACKEND is the VC backend."
   ;; Do store `nil', before signaling an error, if there is no incoming
   ;; revision, because that's also something that can be slow to
   ;; determine and so should be remembered.
-  (or (if-let* ((_ (not refresh))
-                (record (assoc upstream-location
-                               (vc--repo-getprop backend
-                                                 'vc-incoming-revision))))
-          (cdr record)
-        (let ((res (vc-call-backend backend 'incoming-revision
-                                    upstream-location refresh)))
-          (if-let* ((alist (vc--repo-getprop backend
-                                             'vc-incoming-revision)))
-              (setf (alist-get upstream-location alist
-                               nil nil #'equal)
-                    res)
-            (vc--repo-setprop backend
-                              'vc-incoming-revision
-                              `((,upstream-location . ,res))))
-          res))
-      (user-error "No incoming revision -- local-only branch?")))
+  ;; Similarly cache failures because of how every refresh of VC-Dir
+  ;; calls us, via `vc-dir--set-header' and `vc-dir--count-outgoing':
+  ;; finding the incoming revision is always synchronous and so if the
+  ;; fetch times out or the user decides to C-g it, we want to avoid
+  ;; trying again, synchronously and probably fruitlessly, when VC-Dir
+  ;; is refreshed.  Ignore cached failures when `non-essential' is nil
+  ;; so that interactive callers always retry the failure.
+  ;;
+  ;; Try to use the current branch name instead of `nil' as a key into
+  ;; the cache, because otherwise we would need to clear the cache when
+  ;; the user switches branches, but we don't have a good way of knowing
+  ;; when that happens.  Use a cons cell for a separate namespace.
+  (cond*
+   ((bind*
+     (key (if-let* ((_ (null upstream-location))
+                    (branch (vc-call-backend backend 'working-branch)))
+              (cons 'branch branch)
+            upstream-location))
+     (rec (and (not refresh)
+               (assoc key
+                      (vc--repo-getprop backend
+                                        'vc-incoming-revision))))))
+   ((and rec (null (cdr rec)))
+    (user-error "No incoming revision -- local-only branch?"))
+   ((and rec (atom (cdr rec)))
+    (cdr rec))
+   ((and rec non-essential)
+    (error "Previous attempt to find incoming revision failed, \
+not trying again: %s" (error-message-string (cdr rec))))
+   ((bind*
+     (msg (substitute-command-keys "\
+Finding incoming revision ... (\\[keyboard-quit] to skip)"))
+     (res (condition-case-unless-debug err
+              ;; `vc-dir--count-outgoing' calls us from an idle timer
+              ;; which binds `inhibit-quit' to non-nil.
+              (let ((inhibit-quit nil))
+                (with-delayed-message (2 msg)
+                  (vc-call-backend backend 'incoming-revision
+                                   upstream-location refresh)))
+            ((error quit) err)))
+     (alist (vc--repo-getprop backend 'vc-incoming-revision))
+     (rec (assoc key alist))))
+   ;; Don't overwrite a useful cached value with an error.
+   ((not (and rec (atom (cdr rec)) (consp res)))
+    (setf (alist-get key alist nil nil #'equal) res)
+    (vc--repo-setprop backend 'vc-incoming-revision alist)
+    :non-exit)
+   ((consp res)
+    (error "Attempt to find incoming revision failed: %s"
+           (error-message-string res)))
+   (res)
+   (t (user-error "No incoming revision -- local-only branch?"))))
 
 ;;;###autoload
 (defun vc-root-log-incoming (&optional upstream-location)
@@ -6154,14 +6209,17 @@ MOVE non-nil means to move instead of copy."
              ;; An empty files list makes `vc-diff-internal' diff the
              ;; whole of `default-directory'.
              ((cadr diff-fileset)
-              (cl-letf ((display-buffer-overriding-action
-                         '(display-buffer-no-window (allow-no-window . t)))
-                        ;; Try to disable, e.g., Git's rename detection.
-                        ((symbol-value (vc-make-backend-sym backend
-                                                            'diff-switches))
-                         t))
-                (vc-diff-internal nil diff-fileset nil nil nil
-                                  (current-buffer))))
+              (let ((display-buffer-overriding-action
+                     '(display-buffer-no-window (allow-no-window . t)))
+                    (backend-sym (vc-make-backend-sym backend
+                                                      'diff-switches)))
+                ;; Try to disable, e.g., Git's rename detection.
+                (if (boundp backend-sym)
+                    (cl-letf (((symbol-value backend-sym) t))
+                      (vc-diff-internal nil diff-fileset nil nil nil
+                                        (current-buffer)))
+                  (vc-diff-internal nil diff-fileset nil nil nil
+                                    (current-buffer)))))
              (t (require 'diff-mode)))
       ;; We'll handle any `added', `removed', `missing' and
       ;; `unregistered' files in FILESET by copying or moving whole
