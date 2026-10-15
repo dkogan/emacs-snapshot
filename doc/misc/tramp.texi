@@ -1028,6 +1028,21 @@ If the @command{podman} program isn't found in your @env{PATH}
 environment variable, you can tell @value{tramp} its absolute path via
 the user option @code{tramp-podman-program}.
 
+@cindex method @option{wslc}
+@cindex @option{wslc} method
+@item @option{wslc}
+
+@c Command "wslc" exists since WSL 2.9.3.
+WSL container is the implementation on MS Windows.  @value{tramp} uses
+the method @option{wslc}.
+
+@vindex tramp-wslc-program
+If the @command{wslc} program isn't found in your @env{PATH}
+environment variable, you can tell @value{tramp} its absolute path via
+the user option @code{tramp-wslc-program}.
+
+This is an optional method, @pxref{Optional methods}.
+
 @cindex method @option{kubernetes}
 @cindex @option{kubernetes} method
 @item @option{kubernetes}
@@ -1997,6 +2012,14 @@ They can be installed with Emacs's Package Manager.  This includes
 
 @c @item ibuffer-tramp.el
 @c Contact Svend Sorensen <svend@@ciffer.net>
+
+@c @cindex method @option{container}
+@c @cindex @option{container} method
+@c @item apple-container-tramp
+@c Implementation of containers on macOS.  A container is accessed
+@c via @file{@trampfn{container,user@@container,/path/to/file}},
+@c @samp{user} and @samp{container} have the same meaning as with the
+@c @option{docker} method.
 
 @cindex method @option{incus}
 @cindex @option{incus} method
@@ -5623,8 +5646,15 @@ operations.  For example, the GNU ELPA package @file{tramp-hlo}
 implements specialized versions of @code{dir-locals--all-files},
 @code{locate-dominating-file} and @code{dir-locals-find-file} for
 @value{tramp}'s @code{tramp-sh} backend (@pxref{New operations}).
-@c The NonGNU ELPA package @file{tramp-rpc} implements an own
-@c @value{tramp} backend (@pxref{New operations}).
+
+@c The package @file{tramp-rpc} implements an own @value{tramp}
+@c backend (@pxref{New operations}).
+
+@c The package @file{scrutinize-agent} uses a similar approach like
+@c @file{tramp-rpc}:  It uses a server process on the remote side it
+@c speaks with.  Different to @file{tramp-rpc}, it doesn't offer an
+@c own method.  It  works with the @option{ssh} method, while
+@c implementing specialized versions of many magic operations.
 @end itemize
 
 
@@ -7106,9 +7136,9 @@ An example implementing this mechanism is the GNU ELPA package
 @code{dir-locals-find-file} for @value{tramp}'s @code{tramp-sh}
 backend.
 
-@c Another example is the NonGNU ELPA package @file{tramp-rpc}.  It
-@c provides an own @value{tramp} backend, using a server process on the
-@c remote host.
+@c Another example is the package @file{tramp-rpc}.  It provides an
+@c own @value{tramp} backend, using a server process on the remote
+@c host.
 
 
 @node Traces and Profiles

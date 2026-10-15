@@ -95,6 +95,10 @@ commands invoked from the menu will operate on the right buffer.
 You can restore the previous behavior by removing
 'mode-line-window-select' from 'x-pre-popup-menu-hook'.
 
+---
+*** %e in the mode line now expands to a warning when memory is low.
+Previously this behavior had been inadvertently limited to MS-DOS.
+
 ** Minibuffer
 
 ---
@@ -131,8 +135,21 @@ of the terminal emulator:
   first code point in the sequence.  In this case, it might help to set
   'tty-display-emoji-force-wide' to nil.
 
+** Faces
+
+*** New face 'header-line-emphasis'.
+This corresponds to the face 'header-line-highlight' as
+'mode-line-emphasis' corresponds to 'mode-line-highlight'.
+
+*** Underline, overline, and strike-through can now be scaled with text.
+The thickness of the line of these face attributes can now optionally
+be scaled when the text is scaled.  This is by default off; you can use
+the new variables 'underline-line-scaling-flag',
+'overline-line-scaling-flag' and 'strike-through-line-scaling-flag' to
+control the scaling for each attribute.
+
 ---
-** Support for overline face attributes on text-only terminals.
+*** Support for overline face attributes on text-only terminals.
 Emacs now displays overlines on text-only terminals.  Terminal support
 for overline is determined based on the 'Smol' capability in the
 terminfo database.  For terminals where the terminfo database does not
@@ -171,6 +188,7 @@ for nearby fields.
 * Changes in Specialized Modes and Packages in Emacs 32.1
 
 ** Use-Package
+
 ---
 *** ':ensure t' installs the package only at run-time.
 In previous versions, it tried to install it more eagerly during
@@ -256,7 +274,7 @@ have a backend, and 'vc-follow-symlinks' is non-nil, the truename is
 used instead.  Previously, the truename was used unconditionally.
 
 +++
-*** New option 'vc-dir-simple-unmark-all-files'.
+*** New user option 'vc-dir-simple-unmark-all-files'.
 This inverts the meaning of a prefix argument to the existing 'U'
 ('vc-dir-unmark-all-files') command, which some users may find more
 intuitive.
@@ -354,6 +372,15 @@ Perl 5.44 allows to declare a signature like "sub subname (:$par)", see
 <https://perldoc.perl.org/5.44.0/perldelta#Named-Parameters-in-Signatures>.
 CPerl mode now recognizes this as a variable declaration.
 
+** Lisp mode
+
+---
+*** Improved accuracy of Common Lisp code parsing.
+Lisp mode will now correctly parse multiple escapes as part of symbols
+and will parse dispatch reader macros as expression prefixes.  It uses a
+new function 'lisp-mode-syntax-propertize' as the value of
+'syntax-propertize-function' in Lisp mode.
+
 ** Newsticker
 
 ---
@@ -424,6 +451,10 @@ output of the lines.
 ** Tramp
 
 +++
+*** New optional connection method "wslc".
+This connection method accesses WSL containers on MS-Windows.
+
++++
 *** Tramp is more strict now in expanding the tilde "~USER".
 If this isn't possible, an error is raised.  This happens often in test
 functions, which use example file names like "/ssh:host:~user/file.txt".
@@ -433,6 +464,28 @@ non-nil value.
 +++
 *** 'tramp-recompile-elpa' is marked obsolete.
 Use 'package-recompile' instead.
+
+** Browse URL
+
+---
+*** 'browse-url-chromium' and 'browse-url-chrome' can open new windows.
+These functions no longer ignore the browse-url-new-window-flag user
+option and the NEW-WINDOW optional argument.
+
+---
+*** Prefix arguments to several 'browse-url-browser-function' values fixed.
+Now, like with 'browse-url', a prefix argument to these commands inverts
+the meaning of 'browse-url-new-window-flag' instead of always meaning to
+use a new window.  (This was always how it was intended to work, there
+was a bug.)
+
+** Rcirc
+
+---
+*** Prefix argument to 'rcirc-browse-url' enhanced.
+Now, like with 'browse-url', a prefix argument to this command inverts
+the meaning of 'browse-url-new-window-flag' instead of always meaning to
+use a new window.
 
 
 * New Modes and Packages in Emacs 32.1

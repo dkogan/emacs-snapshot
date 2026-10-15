@@ -129,11 +129,6 @@ Also see `shr-max-width'."
   :type '(choice (integer :tag "Fixed width in characters")
 		 (const   :tag "Use the width of the window" nil)))
 
-(defcustom shr-block-indentation-width 4
-  "Width in characters to indent blocks."
-  :version "32.1"
-  :type 'integer)
-
 (defcustom shr-max-width 120
   "Maximum text width to use for HTML rendering.
 May either be an integer specifying a fixed width in characters,
@@ -147,6 +142,11 @@ If `shr-width' is non-nil, it overrides this variable."
   :version "28.1"
   :type '(choice (integer :tag "Fixed width in characters")
 		 (const :tag "No width limit" nil)))
+
+(defcustom shr-block-indentation-width 4
+  "Width in characters to indent blocks."
+  :version "32.1"
+  :type 'integer)
 
 (defcustom shr-bullet "* "
   "Bullet used for unordered lists.
@@ -181,13 +181,13 @@ size permits.  If this variable is t, ask the user whether to increase
 the specpdl size.  If nil, just give up."
   :version "28.1"
   :type 'boolean)
+(make-obsolete-variable 'shr-offer-extend-specpdl nil "29.1")
 
 (defcustom shr-fill-text t
   "Non-nil means to fill the text according to the width of the window.
 If nil, text is not filled, and `visual-line-mode' can be used to reflow text."
   :version "30.1"
   :type 'boolean)
-
 
 (defcustom shr-sup-raise-factor 0.2
   "The value of raise property for superscripts.
@@ -2209,18 +2209,17 @@ BASE is the URL of the HTML being rendered."
 		      (max (shr-string-pixel-width bullet)
                            shr-block-indentation-pixel-width)
 		    (cdr shr-internal-bullet))))
-      (if shr-use-fonts
-          (let ((start (point)))
-            (insert bullet)
-            (put-text-property
-             start (point) 'display
-             `(min-width (,(shr--width-spec width)))))
-        (insert (string-pad bullet shr-block-indentation-width)))
+      (if (not shr-use-fonts)
+          (insert (string-pad bullet shr-block-indentation-width))
+        (insert bullet)
+        (put-text-property start (point) 'display
+                           `(min-width (,(shr--width-spec width)))))
       (shr-mark-fill start)
       (let ((shr-indentation (+ shr-indentation width)))
 	(put-text-property start (1+ start)
 			   'shr-continuation-indentation shr-indentation)
-	(put-text-property start (1+ start) 'shr-prefix-length (length bullet))
+	(put-text-property start (1+ start) 'shr-prefix-length
+                           (- (point) start))
 	(shr-generic dom))))
   (unless (bolp)
     (insert "\n")))

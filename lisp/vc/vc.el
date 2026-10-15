@@ -3784,17 +3784,20 @@ saving the buffer."
                           (called-interactively-p 'interactive))))))
 
 ;;;###autoload
-(defun vc-root-dir (&optional backend)
-  "Return the root directory for the current VC tree.
+(defun vc-root-dir (&optional backend directory)
+  "Return the root directory for the VC tree containing DIRECTORY.
 Return nil if the root directory cannot be identified.
-BACKEND is the VC backend."
-  (and-let* ((backend (or backend (vc-deduce-backend))))
-    (condition-case err
-        (vc-call-backend backend 'root default-directory)
-      (vc-not-supported
-       (unless (eq (error-slot-value err 1) 'root)
-         (signal err))
-       nil))))
+BACKEND is the VC backend.
+DIRECTORY defaults to `default-directory'."
+  (let ((default-directory (if directory (expand-file-name directory)
+                             default-directory)))
+    (and-let* ((backend (or backend (vc-deduce-backend))))
+      (condition-case err
+          (vc-call-backend backend 'root default-directory)
+        (vc-not-supported
+         (unless (eq (error-slot-value err 1) 'root)
+           (signal err))
+         nil)))))
 
 ;;;###autoload
 (defun vc-revision-other-window (rev)
@@ -5618,8 +5621,9 @@ to provide the `find-revision' operation instead."
 (defun vc-default-log-view-mode (_backend) (log-view-mode))
 
 (defun vc-default-show-log-entry (_backend rev)
-  (with-no-warnings
-   (log-view-goto-rev rev)))
+  (with-no-warnings (log-view-goto-rev rev))
+  (when (memq 'long vc-log-view-types)
+    (recenter-top-bottom 0)))
 
 (defun vc-default-comment-history (backend file)
   "Return a string with all log entries stored in BACKEND for FILE."
