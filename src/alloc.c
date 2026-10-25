@@ -124,14 +124,6 @@ along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.  */
 # define GC_CHECK_MARKED_OBJECTS 0
 #endif
 
-/* GC_MALLOC_CHECK defined means perform validity checks of malloc'd
-   memory.  Can do this only if using gmalloc.c and if not checking
-   marked objects.  */
-
-#if defined SYSTEM_MALLOC || GC_CHECK_MARKED_OBJECTS
-#undef GC_MALLOC_CHECK
-#endif
-
 #include <unistd.h>
 #include <fcntl.h>
 
@@ -277,11 +269,13 @@ static struct gcstat
    objects, both dead and alive.  This number is always kept up-to-date.  */
 static ptrdiff_t hash_table_allocated_bytes = 0;
 
+#ifdef GMALLOC_REL_ALLOC
 /* Points to memory space allocated as "spare", to be freed if we run
    out of memory.  We keep one large block, four cons-blocks, and
    two string blocks.  */
 
 static char *spare_memory[7];
+#endif
 
 /* Amount of spare memory to keep in large reserve block, or to see
    whether this much is available when malloc fails on a larger request.  */
@@ -340,9 +334,6 @@ static void mark_terminals (void);
 static void gc_sweep (void);
 static void mark_buffer (struct buffer *);
 
-#if !defined REL_ALLOC || defined SYSTEM_MALLOC
-static void refill_memory_reserve (void);
-#endif
 static void compact_small_strings (void);
 static void free_large_strings (void);
 extern Lisp_Object which_symbols (Lisp_Object, EMACS_INT) EXTERNALLY_VISIBLE;
@@ -379,12 +370,6 @@ deadp (Lisp_Object x)
 {
   return BASE_EQ (x, dead_object ());
 }
-
-#ifdef GC_MALLOC_CHECK
-
-enum mem_type allocated_mem_type;
-
-#endif /* GC_MALLOC_CHECK */
 
 /* A node in the red-black tree describing allocated memory containing
    Lisp data.  Each such block is recorded with its start and end
@@ -497,7 +482,7 @@ struct Lisp_Finalizer doomed_finalizers;
 				Malloc
  ************************************************************************/
 
-#if defined SIGDANGER || (!defined SYSTEM_MALLOC)
+#if defined SIGDANGER || defined GMALLOC_REL_ALLOC
 
 /* Function malloc calls this if it finds we are near exhausting storage.  */
 
@@ -533,7 +518,7 @@ buffer_memory_full (ptrdiff_t nbytes)
      relocating allocator, treat this like any other failing
      malloc.  */
 
-#ifndef REL_ALLOC
+#ifndef GMALLOC_REL_ALLOC
   memory_full (nbytes);
 #else
   /* This used to call error, but if we've run out of memory, we could
@@ -838,10 +823,6 @@ lisp_malloc (ptrdiff_t nbytes, bool clearit, enum mem_type type)
 {
   register void *val;
 
-#ifdef GC_MALLOC_CHECK
-  allocated_mem_type = type;
-#endif
-
   val = clearit ? calloc (1, nbytes) : malloc (nbytes);
 
 #if ! USE_LSB_TAG
@@ -861,11 +842,8 @@ lisp_malloc (ptrdiff_t nbytes, bool clearit, enum mem_type type)
     }
 #endif
 
-#ifndef GC_MALLOC_CHECK
   if (val && type != MEM_TYPE_NON_LISP)
     mem_insert (val, (char *) val + nbytes, type);
-#endif
-
   if (!val)
     memory_full (nbytes);
   MALLOC_PROBE (nbytes);
@@ -881,13 +859,9 @@ lisp_free (void *block)
   if (pdumper_object_p (block))
     return;
 
-#ifndef GC_MALLOC_CHECK
   struct mem_node *m = mem_find (block);
-#endif
   free (block);
-#ifndef GC_MALLOC_CHECK
   mem_delete (m);
-#endif
 }
 
 /*****  Allocation of aligned blocks of memory to store Lisp data.  *****/
@@ -901,7 +875,7 @@ static_assert (POWER_OF_2 (BLOCK_ALIGN));
 
 /* Use aligned_alloc if it or a simple substitute is available. */
 
-#if defined HAVE_ALIGNED_ALLOC || !defined SYSTEM_MALLOC
+#if defined HAVE_ALIGNED_ALLOC || defined GMALLOC_REL_ALLOC
 # define USE_ALIGNED_ALLOC 1
 #elif defined HAVE_POSIX_MEMALIGN
 # define USE_ALIGNED_ALLOC 1
@@ -1024,10 +998,6 @@ lisp_align_malloc (ptrdiff_t nbytes, enum mem_type type)
 
   eassert (nbytes <= BLOCK_BYTES);
 
-#ifdef GC_MALLOC_CHECK
-  allocated_mem_type = type;
-#endif
-
   if (!free_ablock)
     {
       int i;
@@ -1091,12 +1061,8 @@ lisp_align_malloc (ptrdiff_t nbytes, enum mem_type type)
     = (struct ablocks *) (2 + (intptr_t) ABLOCKS_BUSY (abase));
   val = free_ablock;
   free_ablock = free_ablock->x.next_free;
-
-#ifndef GC_MALLOC_CHECK
   if (type != MEM_TYPE_NON_LISP)
     mem_insert (val, (char *) val + nbytes, type);
-#endif
-
   MALLOC_PROBE (nbytes);
 
   eassert (0 == ((uintptr_t) val) % BLOCK_ALIGN);
@@ -1109,9 +1075,7 @@ lisp_align_free (void *block)
   struct ablock *ablock = block;
   struct ablocks *abase = ABLOCK_ABASE (ablock);
 
-#ifndef GC_MALLOC_CHECK
   mem_delete (mem_find (block));
-#endif
   /* Put on free list.  */
   ablock->x.next_free = free_ablock;
   ASAN_POISON_ABLOCK (ablock);
@@ -2853,12 +2817,8 @@ static struct vector_block *
 allocate_vector_block (void)
 {
   struct vector_block *block = xmalloc (sizeof *block);
-
-#ifndef GC_MALLOC_CHECK
   mem_insert (block->data, block->data + VECTOR_BLOCK_BYTES,
 	      MEM_TYPE_VECTOR_BLOCK);
-#endif
-
   block->next = vector_blocks;
   vector_blocks = block;
   return block;
@@ -3242,9 +3202,7 @@ sweep_vectors (void)
       if (free_this_block)
 	{
 	  *bprev = block->next;
-#ifndef GC_MALLOC_CHECK
 	  mem_delete (mem_find (block->data));
-#endif
 	  xfree (block);
 	}
       else
@@ -4053,6 +4011,7 @@ memory_full (size_t nbytes)
       Vmemory_full = Qt;
       consing_until_gc = min (consing_until_gc, memory_full_cons_threshold);
 
+#ifdef GMALLOC_REL_ALLOC
       /* The first time we get here, free the spare memory.  */
       for (int i = 0; i < countof (spare_memory); i++)
 	if (spare_memory[i])
@@ -4065,6 +4024,7 @@ memory_full (size_t nbytes)
 	      lisp_free (spare_memory[i]);
 	    spare_memory[i] = 0;
 	  }
+#endif
     }
 
   /* This used to call error, but if we've run out of memory, we could
@@ -4082,6 +4042,8 @@ memory_full_up (void)
   memory_full (SIZE_MAX);
 }
 
+#ifdef GMALLOC_REL_ALLOC
+
 /* If we released our reserve (due to running out of memory),
    and we have a fair amount free once again,
    try to set aside another reserve in case we run out once more.
@@ -4092,7 +4054,6 @@ memory_full_up (void)
 void
 refill_memory_reserve (void)
 {
-#if !defined SYSTEM_MALLOC
   if (spare_memory[0] == 0)
     spare_memory[0] = malloc (SPARE_MEMORY);
   if (spare_memory[1] == 0)
@@ -4115,8 +4076,8 @@ refill_memory_reserve (void)
 				   false, MEM_TYPE_SPARE);
   if (spare_memory[0] && spare_memory[1] && spare_memory[5])
     Vmemory_full = Qnil;
-#endif
 }
+#endif
 
 /************************************************************************
 			   C Stack Marking
@@ -4195,13 +4156,7 @@ mem_insert (void *start, void *end, enum mem_type type)
     }
 
   /* Create a new node.  */
-#ifdef GC_MALLOC_CHECK
-  x = malloc (sizeof *x);
-  if (x == NULL)
-    emacs_abort ();
-#else
   x = xmalloc (sizeof *x);
-#endif
   x->start = start;
   x->end = end;
   x->type = type;
@@ -4418,12 +4373,7 @@ mem_delete (struct mem_node *z)
 
   if (y->color == MEM_BLACK)
     mem_delete_fixup (x);
-
-#ifdef GC_MALLOC_CHECK
-  free (y);
-#else
   xfree (y);
-#endif
 }
 
 
@@ -7306,7 +7256,9 @@ init_alloc_once_for_pdumper (void)
   mem_init ();
   init_finalizer_list (&finalizers);
   init_finalizer_list (&doomed_finalizers);
+#ifdef GMALLOC_REL_ALLOC
   refill_memory_reserve ();
+#endif
 }
 
 void

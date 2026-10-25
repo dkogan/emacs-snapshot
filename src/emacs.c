@@ -1622,15 +1622,14 @@ android_emacs_init (int argc, char **argv, char *dump_file)
 
   emacs_backtrace (-1);
 
-#if !defined SYSTEM_MALLOC
+#ifdef GMALLOC_REL_ALLOC
   /* Arrange to get warning messages as memory fills up.  */
   memory_warnings (0, malloc_warning);
 
   /* Call malloc at least once, to run malloc_initialize_hook.
      Also call realloc and free for consistency.  */
   free (realloc (malloc (4), 4));
-
-#endif	/* not SYSTEM_MALLOC */
+#endif
 
 #ifdef MSDOS
   set_binary_mode (STDIN_FILENO, O_BINARY);
@@ -1935,14 +1934,6 @@ Using an Emacs configured with --with-x-toolkit=lucid does not have this problem
       if (dname_arg)
 	daemon_name = xstrdup (dname_arg);
     }
-
-#if defined HAVE_PTHREAD && !defined SYSTEM_MALLOC
-  /* Do not make gmalloc thread-safe when creating bootstrap-emacs, as
-     that causes an infinite recursive loop with FreeBSD.  See
-     Bug#14569.  */
-  if (!noninteractive || !will_dump_p ())
-    malloc_enable_thread ();
-#endif
 
   init_signals ();
 

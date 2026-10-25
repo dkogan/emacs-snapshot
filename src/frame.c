@@ -4266,9 +4266,9 @@ frame_get_param_value (struct frame *f, Lisp_Object parameter)
       switch (XFIXNAT (param_index))
 	{
 	  /* Convert common frame parameters.  */
-	case (NAME):
+	case NAME:
 	  return f->name;
-	case (WIDTH):
+	case WIDTH:
 	  /* It's questionable whether here we should report the value
 	     of f->new_width (and f->new_height below) but we've done
 	     that in the past, so let's keep it.  Note that a value of
@@ -4282,22 +4282,22 @@ frame_get_param_value (struct frame *f, Lisp_Object parameter)
 			 : FRAME_COLS(f));
 	    return make_fixnum (width);
 	  }
-	case (HEIGHT):
+	case HEIGHT:
 	  {
 	    int height = ((f->new_size_p && f->new_height >= 0)
 			  ? f->new_height / FRAME_LINE_HEIGHT (f)
 			  : FRAME_LINES (f));
 	    return make_fixnum (height);
 	  }
-	case (MODELINE):
+	case MODELINE:
 	  return (FRAME_WANTS_MODELINE_P (f) ? Qt : Qnil);
-	case (UNSPLITTABLE):
+	case UNSPLITTABLE:
 	  return (FRAME_NO_SPLIT_P (f) ? Qt : Qnil);
-	case (BUFFER_LIST):
+	case BUFFER_LIST:
 	  return f->buffer_list;
-	case (BURIED_BUFFER_LIST):
+	case BURIED_BUFFER_LIST:
 	  return f->buried_buffer_list;
-	case (VISIBILITY):
+	case VISIBILITY:
 	  if (FRAME_WINDOW_P (f))
 	    return (FRAME_VISIBLE_P (f)
 		    ? Qt
@@ -4307,7 +4307,7 @@ frame_get_param_value (struct frame *f, Lisp_Object parameter)
 
 	  /* Convert graphic frame parameters.  */
 #ifdef HAVE_WINDOW_SYSTEM
-	case (LINE_SPACING):
+	case LINE_SPACING:
 	  if (f->extra_line_spacing == 0)
 	    /* If this is non-zero, we can't determine whether the
 	       user specified an integer or float value without
@@ -4317,7 +4317,7 @@ frame_get_param_value (struct frame *f, Lisp_Object parameter)
 
 	  /* >>> From gui_report_frame_params  */
 	  /* I think this should be done with a hook.  */
-	case (LEFT):
+	case LEFT:
 	  if (FRAME_WINDOW_P (f))
 	    {
 	      Lisp_Object tem;
@@ -4325,7 +4325,7 @@ frame_get_param_value (struct frame *f, Lisp_Object parameter)
 	      return ((f->left_pos >= 0) ? tem : list2 (Qplus, tem));
 	    }
 	  break;
-	case (TOP):
+	case TOP:
 	  if (FRAME_WINDOW_P (f))
 	    {
 	      Lisp_Object tem;
@@ -4333,37 +4333,37 @@ frame_get_param_value (struct frame *f, Lisp_Object parameter)
 	      return ((f->top_pos >= 0) ? tem : list2 (Qplus, tem));
 	    }
 	  break;
-	case (BORDER_WIDTH):
+	case BORDER_WIDTH:
 	  if (FRAME_WINDOW_P (f))
 	    return make_fixnum (f->border_width);
 	  break;
-	case (CHILD_FRAME_BORDER_WIDTH):
+	case CHILD_FRAME_BORDER_WIDTH:
 	  if (FRAME_WINDOW_P (f))
 	    return (FRAME_CHILD_FRAME_BORDER_WIDTH (f) >= 0
 		    ? make_fixnum (FRAME_CHILD_FRAME_BORDER_WIDTH (f))
 		    : Qnil);
 	  break;
-	case (INTERNAL_BORDER_WIDTH):
+	case INTERNAL_BORDER_WIDTH:
 	  if (FRAME_WINDOW_P (f))
 	    return make_fixnum (FRAME_INTERNAL_BORDER_WIDTH (f));
 	  break;
-	case (RIGHT_DIVIDER_WIDTH):
+	case RIGHT_DIVIDER_WIDTH:
 	  if (FRAME_WINDOW_P (f))
 	    return make_fixnum (FRAME_RIGHT_DIVIDER_WIDTH (f));
 	  break;
-	case (BOTTOM_DIVIDER_WIDTH):
+	case BOTTOM_DIVIDER_WIDTH:
 	  if (FRAME_WINDOW_P (f))
 	    return make_fixnum (FRAME_BOTTOM_DIVIDER_WIDTH (f));
 	  break;
-	case (LEFT_FRINGE):
+	case LEFT_FRINGE:
 	  if (FRAME_WINDOW_P (f))
 	    return make_fixnum (FRAME_LEFT_FRINGE_WIDTH (f));
 	  break;
-	case (RIGHT_FRINGE):
+	case RIGHT_FRINGE:
 	  if (FRAME_WINDOW_P (f))
 	      return make_fixnum (FRAME_RIGHT_FRINGE_WIDTH (f));
 	  break;
-	case (SCROLL_BAR_WIDTH):
+	case SCROLL_BAR_WIDTH:
 	  if (FRAME_WINDOW_P (f))
 	    /* nil means "use default width" for non-toolkit scroll
 	       bar.  ruler-mode.el depends on this.  */
@@ -4371,7 +4371,7 @@ frame_get_param_value (struct frame *f, Lisp_Object parameter)
 		    ? make_fixnum (FRAME_CONFIG_SCROLL_BAR_WIDTH (f))
 		    : Qnil);
 	  break;
-	case (SCROLL_BAR_HEIGHT):
+	case SCROLL_BAR_HEIGHT:
 	  if (FRAME_WINDOW_P (f))
 	    /* nil means "use default height" for non-toolkit scroll
 	       bar.  */
@@ -4379,52 +4379,49 @@ frame_get_param_value (struct frame *f, Lisp_Object parameter)
 		    ? make_fixnum (FRAME_CONFIG_SCROLL_BAR_HEIGHT (f))
 		    : Qnil);
 	  break;
-	case (WINDOW_ID):
+	case WINDOW_ID:
 	  if (FRAME_WINDOW_P (f))
 	    {
-	      /* FRAME_NATIVE_WINDOW is not guaranteed to return an
-		 integer.  E.g., on MS-Windows it returns a value whose
-		 type is HANDLE, which is actually a pointer.  Explicit
-		 casting avoids compiler warnings.  */
-	      uintmax_t w = WINDOW_HANDLE_UINTPTR (FRAME_NATIVE_WINDOW (f));
-	      return make_formatted_string ("%"PRIuMAX, w);
+	      /* FRAME_NATIVE_WINDOW might return an integer or a pointer.
+		 WINDOW_HANDLE_UINTPTR avoids compiler warnings.  */
+	      return make_formatted_string
+		("%"PRIuPTR, WINDOW_HANDLE_UINTPTR (FRAME_NATIVE_WINDOW (f)));
 	    }
 	  break;
 #ifdef HAVE_X_WINDOWS
-	case (OUTER_WINDOW_ID):
+	case OUTER_WINDOW_ID:
 	  if (FRAME_WINDOW_P (f))
 	    {
-	     uintmax_t w;
 #ifdef USE_X_TOOLKIT
 	     /* Tooltip frame may not have this widget.  */
 	     if (FRAME_X_OUTPUT (f)->widget)
 #endif /* USE_X_TOOLKIT */
-	     w = WINDOW_HANDLE_UINTPTR (FRAME_OUTER_WINDOW (f));
-	     return make_formatted_string ("%"PRIuMAX, w);
+	     return make_formatted_string
+	       ("%"PRIuPTR, WINDOW_HANDLE_UINTPTR (FRAME_OUTER_WINDOW (f)));
 	    }
 	  break;
 #endif /* HAVE_X_WINDOWS */
-	case (ICON_NAME):
+	case ICON_NAME:
 	  if (FRAME_WINDOW_P (f))
-	    return Qicon_name, f->icon_name;
+	    return f->icon_name;
 	  break;
-	case (DISPLAY):
+	case DISPLAY:
 	  if (FRAME_WINDOW_P (f))
 	    return XCAR (FRAME_DISPLAY_INFO (f)->name_list_element);
 	  break;
-	case (PARENT_ID):
+	case PARENT_ID:
 	  if (FRAME_WINDOW_P (f))
 	    return ((FRAME_OUTPUT_DATA (f)->parent_desc
 		     == FRAME_DISPLAY_INFO (f)->root_window)
 		    ? Qnil
-		    : make_fixed_natnum (WINDOW_HANDLE_UINTPTR
-					 (FRAME_OUTPUT_DATA (f)->parent_desc)));
+		    : make_uint (WINDOW_HANDLE_UINTPTR
+				 (FRAME_OUTPUT_DATA (f)->parent_desc)));
 	  break;
-	case (EXPLICIT_NAME):
+	case EXPLICIT_NAME:
 	  if (FRAME_WINDOW_P (f))
 	    return (f->explicit_name ? Qt : Qnil);
 	  break;
-	case (TOOL_BAR_POSITION):
+	case TOOL_BAR_POSITION:
 	  if (FRAME_WINDOW_P (f))
 	    return FRAME_TOOL_BAR_POSITION (f);
 	  break;
@@ -4432,7 +4429,7 @@ frame_get_param_value (struct frame *f, Lisp_Object parameter)
 #endif /* HAVE_WINDOW_SYSTEM */
 
 	  /* Convert non-graphic frame parameters.  */
-	case (BACKGROUND_COLOR):
+	case BACKGROUND_COLOR:
 	  if (!FRAME_WINDOW_P (f))
 	    {
 	      /* If the frame's parameter alist says the colors are
@@ -4444,7 +4441,7 @@ frame_get_param_value (struct frame *f, Lisp_Object parameter)
 		      : tty_color_name (f, FRAME_BACKGROUND_PIXEL (f)));
 	    }
 	  break;
-	case (FOREGROUND_COLOR):
+	case FOREGROUND_COLOR:
 	  if (!FRAME_WINDOW_P (f))
 	    {
 	      /* If the frame's parameter alist says the colors are
@@ -4456,22 +4453,22 @@ frame_get_param_value (struct frame *f, Lisp_Object parameter)
 		      : tty_color_name (f, FRAME_FOREGROUND_PIXEL (f)));
 	    }
 	  break;
-	case (FONT):
+	case FONT:
 	  if (!FRAME_WINDOW_P (f))
 	    return build_string (FRAME_MSDOS_P (f)
 				 ? "ms-dos"
 				 : FRAME_W32_P (f) ? "w32term"
 				 : "tty");
 	  break;
-	case (MENU_BAR_LINES):
+	case MENU_BAR_LINES:
 	  if (!FRAME_WINDOW_P (f))
 	    return make_fixnum (FRAME_MENU_BAR_LINES (f));
 	  break;
-	case (TAB_BAR_LINES):
+	case TAB_BAR_LINES:
 	  if (!FRAME_WINDOW_P (f))
 	    return make_fixnum (FRAME_TAB_BAR_LINES (f));
 	  break;
-	case (NO_ACCEPT_FOCUS):
+	case NO_ACCEPT_FOCUS:
 	  if (!FRAME_WINDOW_P (f))
 	    return (FRAME_NO_ACCEPT_FOCUS (f) ? Qt : Qnil);
 	  break;
@@ -5803,7 +5800,6 @@ void
 gui_report_frame_params (struct frame *f, Lisp_Object *alistptr)
 {
   Lisp_Object tem;
-  uintmax_t w;
 
   /* Represent negative positions (off the top or left screen edge)
      in a way that Fmodify_frame_parameters will understand correctly.  */
@@ -5852,9 +5848,9 @@ gui_report_frame_params (struct frame *f, Lisp_Object *alistptr)
      E.g., on MS-Windows it returns a value whose type is HANDLE,
      which is actually a pointer.  Explicit casting avoids compiler
      warnings.  */
-  w = WINDOW_HANDLE_UINTPTR (FRAME_NATIVE_WINDOW (f));
+  uintptr_t w = WINDOW_HANDLE_UINTPTR (FRAME_NATIVE_WINDOW (f));
   store_in_alist (alistptr, Qwindow_id,
-		  make_formatted_string ("%"PRIuMAX, w));
+		  make_formatted_string ("%"PRIuPTR, w));
 #ifdef HAVE_X_WINDOWS
 #ifdef USE_X_TOOLKIT
   /* Tooltip frame may not have this widget.  */
@@ -5862,7 +5858,7 @@ gui_report_frame_params (struct frame *f, Lisp_Object *alistptr)
 #endif
     w = WINDOW_HANDLE_UINTPTR (FRAME_OUTER_WINDOW (f));
   store_in_alist (alistptr, Qouter_window_id,
-		  make_formatted_string ("%"PRIuMAX, w));
+		  make_formatted_string ("%"PRIuPTR, w));
 #endif
   store_in_alist (alistptr, Qicon_name, f->icon_name);
   store_in_alist (alistptr, Qvisibility,
@@ -5874,8 +5870,8 @@ gui_report_frame_params (struct frame *f, Lisp_Object *alistptr)
   if (FRAME_OUTPUT_DATA (f)->parent_desc == FRAME_DISPLAY_INFO (f)->root_window)
     tem = Qnil;
   else
-    tem = make_fixed_natnum (WINDOW_HANDLE_UINTPTR
-			     (FRAME_OUTPUT_DATA (f)->parent_desc));
+    tem = make_uint (WINDOW_HANDLE_UINTPTR
+		     (FRAME_OUTPUT_DATA (f)->parent_desc));
   store_in_alist (alistptr, Qexplicit_name, (f->explicit_name ? Qt : Qnil));
   store_in_alist (alistptr, Qparent_id, tem);
   store_in_alist (alistptr, Qtool_bar_position, FRAME_TOOL_BAR_POSITION (f));
