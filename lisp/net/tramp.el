@@ -282,8 +282,7 @@ pair of the form (KEY VALUE).  The following KEYs are defined:
     - \"%t\" is replaced by the temporary file name produced with
       `tramp-make-tramp-temp-file'.
     - \"%k\" indicates the keep-date parameter of a program, if exists.
-    - \"%c\" adds additional `tramp-ssh-controlmaster-options'
-      options for the first hop.
+    - \"%c\" calls `tramp-ssh-or-plink-options' for the first hop.
     - \"%n\" expands to \"2>/dev/null\".
     - \"%w\" is replaced by the `tramp-ssh-setenv-term'
       argument if it is supported.
@@ -5657,7 +5656,7 @@ processes."
 		(tramp-compat-make-temp-name))))
 	   (options
 	    (when sh-file-name-handler-p
-	      (tramp-compat-funcall 'tramp-ssh-controlmaster-options v)))
+	      (tramp-compat-funcall 'tramp-ssh-or-plink-options v)))
 	   (device
 	    (when adb-file-name-handler-p
 	      (tramp-compat-funcall 'tramp-adb-get-device v)))
@@ -6990,13 +6989,14 @@ to cache the result.  Return the modified ATTR."
 	       ;; Convert directory indication bit.
 	       (when (string-prefix-p "d" (nth 8 attr))
 		 (setcar attr t))
-	       ;; Convert symlink from `tramp-do-file-attributes-with-stat'.
+	       ;; Convert symlink from `tramp-do-file-attributes-with-stat'
+	       ;; and `tramp-sudoedit-handle-file-attributes'.
 	       ;; Decode also multibyte string.
 	       (when (consp (car attr))
 		 (setcar attr
 			 (and (stringp (caar attr))
 			      (string-match
-			       (rx (+ nonl) " -> " nonl (group (+ nonl)) nonl)
+			       (rx bos (+ nonl) " -> " (group (+ nonl)) eos)
 			       (caar attr))
 			      (decode-coding-string
 			       (match-string 1 (caar attr)) 'utf-8))))
