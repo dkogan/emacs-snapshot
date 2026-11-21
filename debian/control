@@ -25,8 +25,8 @@ Depends: emacs-snapshot-bin-common (= ${binary:Version}), ${shlibs:Depends}, ${m
 Provides: emacs-snapshot, emacsen, editor, info-browser, mail-reader, news-reader
 Suggests: emacs-snapshot-common-non-dfsg
 Conflicts: emacs-snapshot-no-native-comp-lucid,
-  emacs-snapshot, emacs-snapshot-nox, emacs-snapshot-common (<< 2:20150222+emacs-pretest-24.0.05-15849-g3f006e1-1)
-Replaces: emacs-snapshot, emacs-snapshot-nox
+  emacs-snapshot, emacs-snapshot-pgtk, emacs-snapshot-nox, emacs-snapshot-common (<< 2:20150222+emacs-pretest-24.0.05-15849-g3f006e1-1)
+Replaces: emacs-snapshot, emacs-snapshot-pgtk, emacs-snapshot-nox
 Description: GNU Emacs editor (with Lucid GUI support)
  GNU Emacs is the extensible self-documenting text editor.  This
  package contains a version of Emacs with support for a graphical user
@@ -38,14 +38,29 @@ Description: GNU Emacs editor (with Lucid GUI support)
  https://bugzilla.gnome.org/show_bug.cgi?id=85715 for more
  information.
 
+Package: emacs-snapshot-pgtk
+Architecture: any
+Depends: emacs-snapshot-bin-common (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
+Provides: emacs-snapshot, emacsen, editor, info-browser, mail-reader, news-reader
+Suggests: emacs-snapshot-common-non-dfsg
+Conflicts: emacs-snapshot-no-native-comp-pgtk,
+  emacs-snapshot, emacs-snapshot-lucid, emacs-snapshot-nox, emacs-snapshot-common (<< 2:20150222+emacs-pretest-24.0.05-15849-g3f006e1-1)
+Replaces: emacs-snapshot, emacs-snapshot-lucid, emacs-snapshot-nox
+Description: GNU Emacs editor (with pure GTK GUI support)
+ GNU Emacs is the extensible self-documenting text editor.  This
+ package contains a version of Emacs with support for a graphical user
+ interface based on pure GTK.  We recommend that you use this only if
+ you are running a window system other than X that's supported by GDK,
+ such as Wayland and Broadway.
+
 Package: emacs-snapshot-nox
 Architecture: any
 Depends: emacs-snapshot-bin-common (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
 Provides: emacs-snapshot, editor, emacsen, info-browser, mail-reader, news-reader
 Suggests: emacs-snapshot-common-non-dfsg
 Conflicts: emacs-snapshot-no-native-comp-nox,
-  emacs-snapshot, emacs-snapshot-lucid, emacs-snapshot-common (<< 2:20150222+emacs-pretest-24.0.05-15849-g3f006e1-1)
-Replaces: emacs-snapshot, emacs-snapshot-lucid
+  emacs-snapshot, emacs-snapshot-lucid, emacs-snapshot-pgtk, emacs-snapshot-common (<< 2:20150222+emacs-pretest-24.0.05-15849-g3f006e1-1)
+Replaces: emacs-snapshot, emacs-snapshot-lucid, emacs-snapshot-pgtk
 Description: GNU Emacs editor (without GUI support)
  GNU Emacs is the extensible self-documenting text editor.  This
  package contains a version of Emacs compiled without support for X,
@@ -57,8 +72,8 @@ Depends: emacs-snapshot-bin-common (= ${binary:Version}), ${shlibs:Depends}, ${m
 Provides: editor, emacsen, info-browser, mail-reader, news-reader
 Suggests: emacs-snapshot-common-non-dfsg
 Conflicts: emacs-snapshot-no-native-comp,
-  emacs-snapshot-lucid, emacs-snapshot-nox, emacs-snapshot-common (<< 2:20150222+emacs-pretest-24.0.05-15849-g3f006e1-1)
-Replaces: emacs-snapshot-lucid, emacs-snapshot-nox
+  emacs-snapshot-lucid, emacs-snapshot-pgtk, emacs-snapshot-nox, emacs-snapshot-common (<< 2:20150222+emacs-pretest-24.0.05-15849-g3f006e1-1)
+Replaces: emacs-snapshot-lucid, emacs-snapshot-pgtk, emacs-snapshot-nox
 Description: GNU Emacs editor (with GTK+ GUI support)
  GNU Emacs is the extensible self-documenting text editor.  This
  package contains a version of Emacs with a graphical user interface
@@ -72,7 +87,7 @@ Depends: emacs-snapshot-common (= ${source:Version}), ${shlibs:Depends}, ${misc:
 Description: GNU Emacs editor's shared, architecture dependent files
  GNU Emacs is the extensible self-documenting text editor.
  This package contains the architecture dependent infrastructure
- that's shared by emacs-snapshot, emacs-snapshot-lucid, and emacs-snapshot-nox.
+ that's shared by emacs-snapshot, emacs-snapshot-lucid, emacs-snapshot-pgtk, and emacs-snapshot-nox.
 
 # This depends on the emacs-el package. It is needed only for the native-comp
 # packages so tha they have something to compile. I leave the Depends even for
@@ -87,7 +102,7 @@ Conflicts: emacs-snapshot-no-native-comp-common,
 Description: GNU Emacs editor's shared, architecture independent infrastructure
  GNU Emacs is the extensible self-documenting text editor.
  This package contains the architecture independent infrastructure
- that's shared by emacs-snapshot, emacs-snapshot-lucid, and emacs-snapshot-nox.
+ that's shared by emacs-snapshot, emacs-snapshot-lucid, emacs-snapshot-pgtk, and emacs-snapshot-nox.
 
 Package: emacs-snapshot-el
 Conflicts: emacs-snapshot-no-native-comp-el
